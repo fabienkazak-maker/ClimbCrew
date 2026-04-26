@@ -22,12 +22,12 @@ const PASSPORT_STYLES = {
   orange: { backgroundColor: "#fb923c", color: "#111827" },
   vert: { backgroundColor: "#22c55e", color: "#052e16" },
 
-  // Passeport découverte : fond noir + cadre rouge.
-  // Alias ajoutés pour couvrir les variantes possibles en base/import.
-  decouverte: { backgroundColor: "#000000", color: "#ffffff", border: "2px solid #ef4444" },
-  "découverte": { backgroundColor: "#000000", color: "#ffffff", border: "2px solid #ef4444" },
-  decouvertes: { backgroundColor: "#000000", color: "#ffffff", border: "2px solid #ef4444" },
-  "découvertes": { backgroundColor: "#000000", color: "#ffffff", border: "2px solid #ef4444" },
+  // Passeport découverte : fond gris.
+  // Le cadre dépend ensuite du statut cotisation.
+  decouverte: { backgroundColor: "#64748b", color: "#ffffff" },
+  "découverte": { backgroundColor: "#64748b", color: "#ffffff" },
+  decouvertes: { backgroundColor: "#64748b", color: "#ffffff" },
+  "découvertes": { backgroundColor: "#64748b", color: "#ffffff" },
 };
 
 const GRADES = ["4a","4b","4c","5a","5b","5c","6a","6a+","6b","6b+","6c","6c+","7a","7a+","7b"];
@@ -77,8 +77,33 @@ function todayIso() {
   return toLocalIso(date);
 }
 
+function normalizePassport(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function isDiscoveryPassport(passport) {
+  const normalized = normalizePassport(passport);
+  return normalized === "decouverte" || normalized === "decouvertes";
+}
+
 function getPassportStyle(participant) {
-  return PASSPORT_STYLES[participant?.passport] || PASSPORT_STYLES.sans;
+  const baseStyle = isDiscoveryPassport(participant?.passport)
+    ? PASSPORT_STYLES.decouverte
+    : PASSPORT_STYLES[participant?.passport] || PASSPORT_STYLES.sans;
+
+  const isCotisant = Boolean(participant?.cotisation);
+
+  return {
+    ...baseStyle,
+    border: isCotisant ? "2px solid #22c55e" : "2px solid #ef4444",
+    boxShadow: isCotisant
+      ? "0 0 0 1px rgba(34,197,94,.25)"
+      : "0 0 0 1px rgba(239,68,68,.25)",
+  };
 }
 function gradeToIndex(grade) {
   return GRADES.indexOf(grade);
