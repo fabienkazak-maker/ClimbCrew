@@ -761,7 +761,7 @@ function App() {
     const availableParticipants = state.participants.filter((p) => !session.participantIds.includes(p.id));
 
     return (
-      <div className="card" key={session.id}>
+      <div className="card session-card" key={session.id}>
         <div className="card-header">
           <h3>Séance {session.slot}</h3>
           <span className="badge">{occupied}/{MAX_PARTICIPANTS}</span>
@@ -828,7 +828,7 @@ function App() {
           </div>
         </div>
 
-        <div className="stack">
+        <div className="stack session-participant-list">
           {inscrits.length === 0 ? (
             <div className="muted-box">Aucun inscrit.</div>
           ) : (
@@ -924,6 +924,112 @@ function App() {
           .session-form-row { grid-template-columns: 1fr; }
           .inline-field { grid-template-columns: 1fr; }
         }
+
+        .mobile-bottom-nav { display: none; }
+        .bottom-tab { flex: 0 0 auto; min-width: 96px; min-height: 48px; padding: 8px 10px; border-radius: 14px; background: rgba(15,23,42,.96); color: #cbd5e1; border: 1px solid rgba(148,163,184,.24); box-shadow: 0 10px 30px rgba(0,0,0,.28); }
+        .bottom-tab.active { background: #22d3ee; color: #082f49; }
+
+        @media (max-width: 700px) {
+          body { overflow-x: hidden; }
+          .app { padding: 8px 8px 86px; }
+          .shell { width: 100%; max-width: 100%; }
+
+          /* Header compact : plus de hauteur utile en salle et sur smartphone. */
+          .hero { position: sticky; top: 0; z-index: 30; padding: 10px 12px; border-radius: 16px; backdrop-filter: blur(10px); }
+          .topbar { gap: 10px; align-items: center; }
+          .brand { gap: 10px; }
+          .app-logo { width: 40px; height: 40px; border-radius: 10px; padding: 4px; }
+          .hero h1 { font-size: 22px; line-height: 1; }
+          .hero .small { font-size: 11px; margin-top: 4px; }
+          .menu-button { min-width: 42px; min-height: 42px; padding: 8px; border-radius: 12px; }
+
+          /* Navigation mobile au pouce. Le menu latéral reste disponible via le bouton à gauche. */
+          .mobile-bottom-nav {
+            position: fixed;
+            left: 8px;
+            right: 8px;
+            bottom: 8px;
+            z-index: 70;
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 8px;
+            border-radius: 18px;
+            background: rgba(2,6,23,.92);
+            border: 1px solid rgba(148,163,184,.25);
+            box-shadow: 0 18px 50px rgba(0,0,0,.45);
+            -webkit-overflow-scrolling: touch;
+          }
+          .mobile-bottom-nav::-webkit-scrollbar { display: none; }
+          .bottom-tab { min-width: 92px; min-height: 44px; padding: 8px; font-size: 12px; white-space: nowrap; }
+
+          /* Cartes compactes. */
+          .toolbar, .card { margin-top: 10px; padding: 12px; border-radius: 16px; }
+          .toolbar-row { gap: 8px; }
+          .card-header { gap: 8px; margin-bottom: 10px; flex-wrap: wrap; align-items: flex-start; }
+          .card-header h2 { font-size: 18px; }
+          .card-header h3 { font-size: 17px; }
+          .badge { min-width: 50px; padding: 5px 8px; font-size: 12px; }
+
+          /* Date et actions principales faciles à toucher. */
+          .date-nav { width: 100%; flex: 1 1 100%; gap: 8px; justify-content: space-between; }
+          .date-input { flex: 1 1 auto; max-width: none; min-width: 0; min-height: 42px; padding: 8px 10px; font-size: 15px; }
+          .nav-symbol { min-width: 42px; min-height: 42px; padding: 8px 10px; font-size: 18px; }
+          button, input, select { min-height: 44px; }
+          .group button { padding: 8px 10px; }
+
+          /* Séances : champs et inscrits en version compacte. */
+          .session-card { padding: 12px; }
+          .session-form-row { grid-template-columns: 1fr; gap: 8px; margin-bottom: 10px; }
+          .inline-field { grid-template-columns: 92px minmax(0, 1fr); gap: 8px; }
+          .inline-field label { font-size: 11px; }
+          .session-participant-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+          }
+          .session-participant-list .muted-box { width: 100%; }
+          .session-participant-list .participant-row {
+            width: auto;
+            flex: 0 1 auto;
+            min-height: 36px;
+            padding: 5px 6px 5px 10px;
+            border-radius: 999px;
+            gap: 8px;
+          }
+          .participant-name { font-size: 13px; white-space: nowrap; }
+          .remove-button {
+            min-width: 32px;
+            width: 32px;
+            min-height: 32px;
+            height: 32px;
+            padding: 0;
+            border-radius: 999px;
+            font-size: 20px;
+            line-height: 1;
+          }
+
+          /* Statistiques : cartes lisibles au lieu d'une grille trop large. */
+          .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+          .stat { padding: 12px; border-radius: 14px; }
+          .stat .value { font-size: 24px; margin-top: 6px; }
+          .participant-row { padding: 8px 10px; font-size: 14px; }
+
+          /* Le drawer devient plein écran sur mobile. */
+          .sidebar { width: 100vw; max-width: none; padding: 18px 14px; }
+          .side-tab { min-height: 48px; }
+
+          .grid.five, .grid.four, .grid.three, .grid.two { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 420px) {
+          .stats-grid { grid-template-columns: 1fr; }
+          .bottom-tab { min-width: 84px; font-size: 11px; }
+          .hero h1 { font-size: 20px; }
+          .app-logo { width: 36px; height: 36px; }
+          .inline-field { grid-template-columns: 1fr; }
+        }
+
       `}</style>
 
       {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
@@ -949,6 +1055,19 @@ function App() {
           </button>
         ))}
       </aside>
+
+      <nav className="mobile-bottom-nav" aria-label="Navigation mobile ClimbCrew">
+        {TABS.map((item) => (
+          <button
+            key={item.key}
+            className={`bottom-tab ${tab === item.key ? "active" : ""}`}
+            onClick={() => setTab(item.key)}
+            title={item.label}
+          >
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </nav>
 
       <div className="shell">
         <div className="hero">
