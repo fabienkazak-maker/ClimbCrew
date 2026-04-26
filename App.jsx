@@ -10,7 +10,6 @@ const USE_API = Boolean(API_BASE);
 const TABS = [
   { key: "inscriptions", label: "Inscriptions" },
   { key: "voies", label: "Voies" },
-  { key: "realisations", label: "Réalisations" },
   { key: "progression", label: "Progression" },
   { key: "administration", label: "Administration" },
   { key: "statistiques", label: "Statistiques" },
@@ -70,18 +69,21 @@ function indexToGrade(index) {
 function getRouteBackgroundColor(color) {
   const normalized = String(color || "").trim().toLowerCase();
   const map = {
-    bleu: "#dbeafe", blue: "#dbeafe", rouge: "#fee2e2", red: "#fee2e2",
-    vert: "#dcfce7", green: "#dcfce7", jaune: "#fef9c3", yellow: "#fef9c3",
-    orange: "#ffedd5", violet: "#ede9fe", purple: "#ede9fe", rose: "#fce7f3",
-    pink: "#fce7f3", noir: "#e5e7eb", black: "#e5e7eb", blanc: "#f8fafc",
-    white: "#f8fafc", gris: "#f1f5f9", gray: "#f1f5f9", grey: "#f1f5f9",
+    bleu: "#60a5fa", blue: "#60a5fa", rouge: "#f87171", red: "#f87171",
+    vert: "#4ade80", green: "#4ade80", jaune: "#facc15", yellow: "#facc15",
+    orange: "#fb923c", violet: "#a78bfa", purple: "#a78bfa", rose: "#f472b6",
+    pink: "#f472b6", noir: "#94a3b8", black: "#94a3b8", blanc: "#f8fafc",
+    white: "#f8fafc", gris: "#cbd5e1", gray: "#cbd5e1", grey: "#cbd5e1",
   };
   return map[normalized] || "#f8fafc";
 }
 function formatDateFr(dateStr) {
-  return new Date(`${dateStr}T12:00:00`).toLocaleDateString("fr-FR", {
-    weekday: "long", day: "2-digit", month: "2-digit", year: "numeric",
+  const formatted = new Date(`${dateStr}T12:00:00`).toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
   });
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
 function isWeekend(dateStr) {
   const d = new Date(`${dateStr}T12:00:00`);
@@ -147,14 +149,16 @@ function App() {
   const [tab, setTab] = useState("inscriptions");
   const [viewMode, setViewMode] = useState("jour");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [statsSortField, setStatsSortField] = useState("name");
+  const [statsSortDirection, setStatsSortDirection] = useState("asc");
   const [recentlyAddedParticipantIds, setRecentlyAddedParticipantIds] = useState([]);
   const [state, setState] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       const base = saved ? JSON.parse(saved) : IMPORTED_DATA;
-      return { ...base, selectedDate: todayIso() };
+      return { ...base, selectedDate: todayIso(), selectedParticipantProgress: "" };
     } catch {
-      return { ...IMPORTED_DATA, selectedDate: todayIso() };
+      return { ...IMPORTED_DATA, selectedDate: todayIso(), selectedParticipantProgress: "" };
     }
   });
   const [adminInput, setAdminInput] = useState("");
@@ -335,6 +339,50 @@ function App() {
       sortedParticipants: [...state.participants].sort((a, b) => fullName(a).localeCompare(fullName(b), "fr")),
     };
   }, [state]);
+
+  const alphabeticalParticipants = useMemo(() => {
+    return [...state.participants].sort((a, b) => fullName(a).localeCompare(fullName(b), "fr"));
+  }, [state.participants]);
+
+  const sortedStatsParticipants = useMemo(() => {
+    const direction = statsSortDirection === "asc" ? 1 : -1;
+    return [...state.participants].sort((a, b) => {
+      let left;
+      let right;
+
+      if (statsSortField === "name") {
+        left = fullName(a);
+        right = fullName(b);
+        return left.localeCompare(right, "fr") * direction;
+      }
+
+      if (statsSortField === "passport") {
+        left = a.passport || "";
+        right = b.passport || "";
+        return left.localeCompare(right, "fr") * direction;
+      }
+
+      if (statsSortField === "cotisation") {
+        left = a.cotisation ? 1 : 0;
+        right = b.cotisation ? 1 : 0;
+        return (left - right) * direction;
+      }
+
+      if (statsSortField === "ffme") {
+        left = a.ffme ? 1 : 0;
+        right = b.ffme ? 1 : 0;
+        return (left - right) * direction;
+      }
+
+      if (statsSortField === "participations") {
+        left = sessionStats.participationCount[a.id] || 0;
+        right = sessionStats.participationCount[b.id] || 0;
+        return (left - right) * direction;
+      }
+
+      return fullName(a).localeCompare(fullName(b), "fr") * direction;
+    });
+  }, [state.participants, sessionStats.participationCount, statsSortField, statsSortDirection]);
 
   const adminParticipants = useMemo(() => {
     const recentSet = new Set(recentlyAddedParticipantIds.map(String));
@@ -713,8 +761,8 @@ function App() {
           <span className="badge">{occupied}/{MAX_PARTICIPANTS}</span>
         </div>
 
-        <div className="grid two">
-          <div>
+        <div className="session-form-row">
+          <div className="inline-field">
             <label>Statut</label>
             <select
               value={session.status}
@@ -734,14 +782,14 @@ function App() {
           </div>
 
           {session.status === "encadree" && (
-            <div>
+            <div className="inline-field">
               <label>Encadrant</label>
               <select
                 value={session.encadrantId || ""}
                 onChange={(e) => updateSession(session.id, { encadrantId: e.target.value || null })}
               >
                 <option value="">Aucun</option>
-                {state.participants.filter((p) => p.canEncadrer).map((p) => (
+                {alphabeticalParticipants.filter((p) => p.canEncadrer).map((p) => (
                   <option key={p.id} value={p.id}>{fullName(p)}</option>
                 ))}
               </select>
@@ -749,29 +797,29 @@ function App() {
           )}
 
           {session.status === "libre" && (
-            <div>
-              <label>Référent</label>
+            <div className="inline-field">
+              <label>RÉFÉRENT</label>
               <select
                 value={session.referentId || ""}
                 onChange={(e) => updateSession(session.id, { referentId: e.target.value || null })}
               >
                 <option value="">Aucun</option>
-                {state.participants.filter((p) => p.canReferer).map((p) => (
+                {alphabeticalParticipants.filter((p) => p.canReferer).map((p) => (
                   <option key={p.id} value={p.id}>{fullName(p)}</option>
                 ))}
               </select>
             </div>
           )}
-        </div>
 
-        <div className="subcard">
-          <label>Ajouter un inscrit</label>
-          <select onChange={(e) => addParticipantToSession(session.id, e.target.value)} defaultValue="">
-            <option value="" disabled>Choisir un participant</option>
-            {availableParticipants.map((p) => (
-              <option key={p.id} value={p.id}>{fullName(p)}</option>
-            ))}
-          </select>
+          <div className="inline-field add-participant-field">
+            <label>Ajouter un inscrit</label>
+            <select onChange={(e) => addParticipantToSession(session.id, e.target.value)} defaultValue="">
+              <option value="" disabled>Choisir un participant</option>
+              {availableParticipants.sort((a, b) => fullName(a).localeCompare(fullName(b), "fr")).map((p) => (
+                <option key={p.id} value={p.id}>{fullName(p)}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="stack">
@@ -781,7 +829,7 @@ function App() {
             inscrits.map((p) => (
               <div className="participant-row passport-row" key={p.id} style={getPassportStyle(p)}>
                 <span className="participant-name">{fullName(p)}</span>
-                <button className="remove-button" onClick={() => removeParticipantFromSession(session.id, p.id)}>Retirer</button>
+                <button className="remove-button" onClick={() => removeParticipantFromSession(session.id, p.id)} aria-label="Retirer">×</button>
               </div>
             ))
           )}
@@ -797,10 +845,10 @@ function App() {
         body { margin: 0; font-family: Inter, Arial, sans-serif; background: #0f172a; color: #e2e8f0; }
         .app { min-height: 100vh; padding: 20px; background: linear-gradient(135deg,#020617,#0f172a,#1e293b); }
         .shell { max-width: 1400px; margin: 0 auto; }
-        .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+        .topbar { display: flex; align-items: center; justify-content: flex-start; gap: 16px; }
         .brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
         .app-logo { width: 72px; height: 72px; object-fit: contain; border-radius: 18px; background: #fff; padding: 6px; box-shadow: 0 10px 30px rgba(0,0,0,.22); }
-        .menu-button { background: #020617; color: #e2e8f0; border: 1px solid rgba(148,163,184,.45); min-width: 112px; }
+        .menu-button { background: #020617; color: #e2e8f0; border: 1px solid rgba(148,163,184,.45); min-width: 48px; padding: 10px 12px; }
         .sidebar-backdrop { position: fixed; inset: 0; background: rgba(2,6,23,.62); z-index: 40; }
         .sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: min(310px, 86vw); z-index: 50; transform: translateX(-110%); transition: transform .22s ease; background: rgba(15,23,42,.98); border-right: 1px solid rgba(148,163,184,.25); padding: 18px; box-shadow: 20px 0 60px rgba(0,0,0,.4); display: flex; flex-direction: column; gap: 14px; }
         .sidebar.open { transform: translateX(0); }
@@ -811,8 +859,13 @@ function App() {
         .side-tab { text-align: left; width: 100%; background: #1e293b; color: #cbd5e1; border: 1px solid rgba(148,163,184,.18); }
         .side-tab.active { background: #22d3ee; color: #082f49; }
         .date-nav { flex: 1 1 440px; justify-content: center; }
-        .date-input { max-width: 220px; }
+        .date-input { max-width: 220px; text-align: center; font-weight: 800; text-transform: capitalize; }
+        .date-display { cursor: default; }
         .nav-symbol { min-width: 48px; padding: 10px 12px; font-size: 20px; line-height: 1; }
+        .session-form-row { display: grid; grid-template-columns: minmax(180px,.7fr) minmax(220px,1fr) minmax(280px,1.4fr); gap: 12px; align-items: end; margin-bottom: 14px; }
+        .inline-field { display: grid; grid-template-columns: auto minmax(160px, 1fr); gap: 10px; align-items: center; }
+        .inline-field label { margin-bottom: 0; white-space: nowrap; }
+        .add-participant-field { grid-column: span 1; }
         .passport-row { color: #111827; border: 1px solid rgba(255,255,255,.28); }
         .participant-name { font-weight: 800; }
         .remove-button { background: #000; color: #fff; border: 1px solid rgba(255,255,255,.3); }
@@ -862,6 +915,8 @@ function App() {
           .app-logo { width: 58px; height: 58px; }
           .date-nav { width: 100%; }
           .date-input { flex: 1 1 auto; max-width: none; }
+          .session-form-row { grid-template-columns: 1fr; }
+          .inline-field { grid-template-columns: 1fr; }
         }
       `}</style>
 
@@ -892,17 +947,16 @@ function App() {
       <div className="shell">
         <div className="hero">
           <div className="topbar">
+            <button className="menu-button" onClick={() => setSidebarOpen(true)} aria-label="Afficher le menu">
+              ☰
+            </button>
             <div className="brand">
               <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="app-logo" />
               <div>
                 <h1>ClimbCrew</h1>
-                <p>Gestion des séances, des voies, des grimpeurs et de la progression.</p>
                 <p className="small">{syncMessage}{isSyncing ? " · sync..." : ""}</p>
               </div>
             </div>
-            <button className="menu-button" onClick={() => setSidebarOpen(true)} aria-label="Afficher le menu">
-              ☰ Menu
-            </button>
           </div>
         </div>
 
@@ -918,11 +972,13 @@ function App() {
                     &lt;
                   </button>
 
-                  <input className="date-input" type="date" value={selectedDate} onChange={(e) => {
-                    const v = e.target.value;
-                    if (!v || isWeekend(v)) return;
-                    setSelectedDate(v); ensureSessionsForDate(v);
-                  }} />
+                  <input
+                    className="date-input date-display"
+                    type="text"
+                    value={formatDateFr(selectedDate)}
+                    readOnly
+                    aria-label="Date sélectionnée"
+                  />
 
                   <button className="secondary nav-symbol" title={viewMode === "jour" ? "Jour suivant" : "Semaine suivante"} onClick={() => {
                     const d = viewMode === "jour" ? nextBusinessDay(selectedDate, 1) : nextBusinessDay(nextBusinessDay(nextBusinessDay(nextBusinessDay(nextBusinessDay(selectedDate,1),1),1),1),1);
@@ -1052,12 +1108,12 @@ function App() {
           </>
         )}
 
-        {tab === "realisations" && (
+        {tab === "progression" && (
           <>
             <div className="card">
               <div className="card-header"><h2>Enregistrer une voie réalisée</h2></div>
               <div className="grid three">
-                <div><label>Participant</label><select value={newRealisation.participantId} onChange={(e) => setNewRealisation((p) => ({ ...p, participantId: e.target.value }))}>{state.participants.map((p) => <option key={p.id} value={p.id}>{fullName(p)}</option>)}</select></div>
+                <div><label>Participant</label><select value={newRealisation.participantId} onChange={(e) => setNewRealisation((p) => ({ ...p, participantId: e.target.value }))}>{alphabeticalParticipants.map((p) => <option key={p.id} value={p.id}>{fullName(p)}</option>)}</select></div>
                 <div><label>Séance</label><select value={newRealisation.sessionId} onChange={(e) => setNewRealisation((p) => ({ ...p, sessionId: e.target.value }))}>{state.sessions.map((s) => <option key={s.id} value={s.id}>{s.date} · {s.slot}</option>)}</select></div>
                 <div><label>Voie</label><select value={newRealisation.voieId} onChange={(e) => setNewRealisation((p) => ({ ...p, voieId: e.target.value }))}>{state.routes.filter((r) => r.active).map((r) => <option key={r.id} value={r.id}>{r.nomVoie || `#${r.numeroVoieUnique}`} · corde {r.numeroCorde}</option>)}</select></div>
                 <div><label>Style</label><select value={newRealisation.styleRealisation} onChange={(e) => setNewRealisation((p) => ({ ...p, styleRealisation: e.target.value }))}>{Object.entries(STYLE_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></div>
@@ -1093,10 +1149,11 @@ function App() {
         {tab === "progression" && (
           <div className="card">
             <div className="card-header"><h2>Suivi individuel</h2></div>
-            <div style={{ maxWidth: 320 }}>
-              <label>Choisir un grimpeur</label>
+            <div style={{ maxWidth: 360 }}>
+              <label>Grimpeur</label>
               <select value={state.selectedParticipantProgress || ""} onChange={(e) => setState((prev) => ({ ...prev, selectedParticipantProgress: e.target.value }))}>
-                {state.participants.map((p) => <option key={p.id} value={p.id}>{fullName(p)}</option>)}
+                <option value="">Choisir un grimpeur</option>
+                {alphabeticalParticipants.map((p) => <option key={p.id} value={p.id}>{fullName(p)}</option>)}
               </select>
             </div>
 
@@ -1208,9 +1265,30 @@ function App() {
             </div>
 
             <div className="card">
-              <div className="card-header"><h2>Liste des inscrits</h2></div>
+              <div className="card-header">
+                <h2>Liste des inscrits</h2>
+                <div className="group">
+                  <div style={{ minWidth: 210 }}>
+                    <label>Trier par</label>
+                    <select value={statsSortField} onChange={(e) => setStatsSortField(e.target.value)}>
+                      <option value="name">Nom</option>
+                      <option value="passport">Passeport</option>
+                      <option value="cotisation">Cotisation</option>
+                      <option value="ffme">Licence FFME</option>
+                      <option value="participations">Participations</option>
+                    </select>
+                  </div>
+                  <button
+                    className="secondary"
+                    onClick={() => setStatsSortDirection((value) => (value === "asc" ? "desc" : "asc"))}
+                    title="Inverser le tri"
+                  >
+                    {statsSortDirection === "asc" ? "↑" : "↓"}
+                  </button>
+                </div>
+              </div>
               <div className="stack">
-                {sessionStats.sortedParticipants.map((participant) => (
+                {sortedStatsParticipants.map((participant) => (
                   <div className="participant-row passport-row" key={participant.id} style={getPassportStyle(participant)}>
                     <span className="participant-name">{fullName(participant)}</span>
                     <span className="small" style={{ color: "inherit" }}>Cotisation : {participant.cotisation ? "Oui" : "Non"} · FFME : {participant.ffme ? "Oui" : "Non"} · Participations : {sessionStats.participationCount[participant.id] || 0} · Passeport : {participant.passport}</span>
