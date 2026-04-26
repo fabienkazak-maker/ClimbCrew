@@ -7,6 +7,24 @@ const MAX_PARTICIPANTS = 18;
 const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 const USE_API = Boolean(API_BASE);
 
+const TABS = [
+  { key: "inscriptions", label: "Inscriptions" },
+  { key: "voies", label: "Voies" },
+  { key: "realisations", label: "Réalisations" },
+  { key: "progression", label: "Progression" },
+  { key: "administration", label: "Administration" },
+  { key: "statistiques", label: "Statistiques" },
+  { key: "faq", label: "FAQ" },
+];
+
+const PASSPORT_STYLES = {
+  sans: { backgroundColor: "#334155", color: "#f8fafc" },
+  jaune: { backgroundColor: "#fde047", color: "#111827" },
+  orange: { backgroundColor: "#fb923c", color: "#111827" },
+  vert: { backgroundColor: "#22c55e", color: "#052e16" },
+  decouverte: { backgroundColor: "#38bdf8", color: "#082f49" },
+};
+
 const GRADES = ["4a","4b","4c","5a","5b","5c","6a","6a+","6b","6b+","6c","6c+","7a","7a+","7b"];
 const STYLE_LABELS = {
   a_vue: "À vue",
@@ -33,6 +51,14 @@ const STYLE_WEIGHTS = {
 
 function fullName(p) {
   return p ? `${p.nom} ${p.prenom}`.trim() : "";
+}
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getPassportStyle(participant) {
+  return PASSPORT_STYLES[participant?.passport] || PASSPORT_STYLES.sans;
 }
 function gradeToIndex(grade) {
   return GRADES.indexOf(grade);
@@ -120,12 +146,15 @@ async function apiFetch(path, options = {}) {
 function App() {
   const [tab, setTab] = useState("inscriptions");
   const [viewMode, setViewMode] = useState("jour");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [recentlyAddedParticipantIds, setRecentlyAddedParticipantIds] = useState([]);
   const [state, setState] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : IMPORTED_DATA;
+      const base = saved ? JSON.parse(saved) : IMPORTED_DATA;
+      return { ...base, selectedDate: todayIso() };
     } catch {
-      return IMPORTED_DATA;
+      return { ...IMPORTED_DATA, selectedDate: todayIso() };
     }
   });
   const [adminInput, setAdminInput] = useState("");
@@ -210,7 +239,7 @@ function App() {
     [state.sessions]
   );
 
-  const selectedDate = state.selectedDate || IMPORTED_DATA.selectedDate || new Date().toISOString().slice(0, 10);
+  const selectedDate = state.selectedDate || todayIso();
 
   const daySessions = useMemo(() => {
     return ["midi", "soir"].map((slot) => {
@@ -306,6 +335,19 @@ function App() {
       sortedParticipants: [...state.participants].sort((a, b) => fullName(a).localeCompare(fullName(b), "fr")),
     };
   }, [state]);
+
+  const adminParticipants = useMemo(() => {
+    const recentSet = new Set(recentlyAddedParticipantIds.map(String));
+    const recentParticipants = recentlyAddedParticipantIds
+      .map((id) => state.participants.find((p) => String(p.id) === String(id)))
+      .filter(Boolean);
+
+    const alphabeticalParticipants = state.participants
+      .filter((p) => !recentSet.has(String(p.id)))
+      .sort((a, b) => fullName(a).localeCompare(fullName(b), "fr"));
+
+    return [...recentParticipants, ...alphabeticalParticipants];
+  }, [state.participants, recentlyAddedParticipantIds]);
 
   const routeAggregatesById = useMemo(() => {
     return Object.fromEntries(
@@ -495,13 +537,22 @@ function App() {
           method: "POST",
           body: JSON.stringify(participant),
         });
-        setState((prev) => ({ ...prev, participants: [...prev.participants, created] }));
+        setState((prev) => ({ ...prev, participants: [created, ...prev.participants] }));
+        setRecentlyAddedParticipantIds((prev) => [
+          String(created.id),
+          ...prev.filter((id) => String(id) !== String(created.id)),
+        ]);
         setSyncMessage("Participant ajouté via l’API");
       } else {
+        const created = { ...participant, id: `p-${Date.now()}` };
         setState((prev) => ({
           ...prev,
-          participants: [...prev.participants, { ...participant, id: `p-${Date.now()}` }],
+          participants: [created, ...prev.participants],
         }));
+        setRecentlyAddedParticipantIds((prev) => [
+          String(created.id),
+          ...prev.filter((id) => String(id) !== String(created.id)),
+        ]);
       }
       setNewParticipant({
         nom: "", prenom: "", passport: "sans", cotisation: false, ffme: false, canEncadrer: false, canReferer: false,
@@ -550,6 +601,7 @@ function App() {
       })),
       realisations: prev.realisations.filter((r) => r.participantId !== id),
     }));
+    setRecentlyAddedParticipantIds((prev) => prev.filter((pid) => String(pid) !== String(id)));
 
     if (!USE_API) return;
     try {
@@ -727,9 +779,9 @@ function App() {
             <div className="muted-box">Aucun inscrit.</div>
           ) : (
             inscrits.map((p) => (
-              <div className="participant-row" key={p.id}>
-                <span>{fullName(p)}</span>
-                <button className="danger ghost" onClick={() => removeParticipantFromSession(session.id, p.id)}>Retirer</button>
+              <div className="participant-row passport-row" key={p.id} style={getPassportStyle(p)}>
+                <span className="participant-name">{fullName(p)}</span>
+                <button className="remove-button" onClick={() => removeParticipantFromSession(session.id, p.id)}>Retirer</button>
               </div>
             ))
           )}
@@ -745,6 +797,26 @@ function App() {
         body { margin: 0; font-family: Inter, Arial, sans-serif; background: #0f172a; color: #e2e8f0; }
         .app { min-height: 100vh; padding: 20px; background: linear-gradient(135deg,#020617,#0f172a,#1e293b); }
         .shell { max-width: 1400px; margin: 0 auto; }
+        .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+        .brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+        .app-logo { width: 72px; height: 72px; object-fit: contain; border-radius: 18px; background: #fff; padding: 6px; box-shadow: 0 10px 30px rgba(0,0,0,.22); }
+        .menu-button { background: #020617; color: #e2e8f0; border: 1px solid rgba(148,163,184,.45); min-width: 112px; }
+        .sidebar-backdrop { position: fixed; inset: 0; background: rgba(2,6,23,.62); z-index: 40; }
+        .sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: min(310px, 86vw); z-index: 50; transform: translateX(-110%); transition: transform .22s ease; background: rgba(15,23,42,.98); border-right: 1px solid rgba(148,163,184,.25); padding: 18px; box-shadow: 20px 0 60px rgba(0,0,0,.4); display: flex; flex-direction: column; gap: 14px; }
+        .sidebar.open { transform: translateX(0); }
+        .sidebar-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+        .sidebar-brand { display: flex; align-items: center; gap: 10px; font-weight: 900; color: #e2e8f0; }
+        .sidebar-logo { width: 44px; height: 44px; object-fit: contain; background: #fff; border-radius: 12px; padding: 4px; }
+        .sidebar-close { background: #020617; color: #e2e8f0; border: 1px solid rgba(148,163,184,.4); }
+        .side-tab { text-align: left; width: 100%; background: #1e293b; color: #cbd5e1; border: 1px solid rgba(148,163,184,.18); }
+        .side-tab.active { background: #22d3ee; color: #082f49; }
+        .date-nav { flex: 1 1 440px; justify-content: center; }
+        .date-input { max-width: 220px; }
+        .nav-symbol { min-width: 48px; padding: 10px 12px; font-size: 20px; line-height: 1; }
+        .passport-row { color: #111827; border: 1px solid rgba(255,255,255,.28); }
+        .participant-name { font-weight: 800; }
+        .remove-button { background: #000; color: #fff; border: 1px solid rgba(255,255,255,.3); }
+        .remove-button:hover { background: #111827; }
         .hero { background: rgba(15,23,42,.88); border: 1px solid rgba(148,163,184,.25); border-radius: 24px; padding: 22px; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
         .hero h1 { margin: 0; font-size: 32px; }
         .hero p { margin: 8px 0 0; color: #94a3b8; }
@@ -786,29 +858,51 @@ function App() {
         @media (max-width: 1100px) {
           .tabs { grid-template-columns: repeat(3,minmax(0,1fr)); }
           .stats-grid, .grid.five, .grid.four, .grid.three, .grid.two { grid-template-columns: 1fr; }
+          .topbar { align-items: flex-start; }
+          .app-logo { width: 58px; height: 58px; }
+          .date-nav { width: 100%; }
+          .date-input { flex: 1 1 auto; max-width: none; }
         }
       `}</style>
 
+      {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
+
+      <aside className={`sidebar ${sidebarOpen ? "open" : ""}`} aria-label="Navigation ClimbCrew">
+        <div className="sidebar-header">
+          <div className="sidebar-brand">
+            <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="sidebar-logo" />
+            <span>ClimbCrew</span>
+          </div>
+          <button className="sidebar-close" onClick={() => setSidebarOpen(false)} aria-label="Fermer le menu">×</button>
+        </div>
+        {TABS.map((item) => (
+          <button
+            key={item.key}
+            className={`side-tab ${tab === item.key ? "active" : ""}`}
+            onClick={() => {
+              setTab(item.key);
+              setSidebarOpen(false);
+            }}
+          >
+            {item.label}
+          </button>
+        ))}
+      </aside>
+
       <div className="shell">
         <div className="hero">
-          <h1>ClimbCrew</h1>
-          <p>Gestion des séances, des voies, des grimpeurs et de la progression.</p>
-          <p className="small">{syncMessage}{isSyncing ? " · sync..." : ""}</p>
-
-          <div className="tabs">
-            {["inscriptions","voies","realisations","progression","administration","statistiques","faq"].map((name) => (
-              <button key={name} className={`tab ${tab === name ? "active" : ""}`} onClick={() => setTab(name)}>
-                {{
-                  inscriptions: "Inscriptions",
-                  voies: "Voies",
-                  realisations: "Réalisations",
-                  progression: "Progression",
-                  administration: "Administration",
-                  statistiques: "Statistiques",
-                  faq: "FAQ",
-                }[name]}
-              </button>
-            ))}
+          <div className="topbar">
+            <div className="brand">
+              <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="app-logo" />
+              <div>
+                <h1>ClimbCrew</h1>
+                <p>Gestion des séances, des voies, des grimpeurs et de la progression.</p>
+                <p className="small">{syncMessage}{isSyncing ? " · sync..." : ""}</p>
+              </div>
+            </div>
+            <button className="menu-button" onClick={() => setSidebarOpen(true)} aria-label="Afficher le menu">
+              ☰ Menu
+            </button>
           </div>
         </div>
 
@@ -816,25 +910,25 @@ function App() {
           <>
             <div className="toolbar">
               <div className="toolbar-row">
-                <div className="group">
-                  <button className="secondary" onClick={() => {
+                <div className="group date-nav">
+                  <button className="secondary nav-symbol" title={viewMode === "jour" ? "Jour précédent" : "Semaine précédente"} onClick={() => {
                     const d = viewMode === "jour" ? nextBusinessDay(selectedDate, -1) : nextBusinessDay(nextBusinessDay(nextBusinessDay(nextBusinessDay(nextBusinessDay(selectedDate,-1),-1),-1),-1),-1);
                     setSelectedDate(d); ensureSessionsForDate(d);
                   }}>
-                    {viewMode === "jour" ? "Jour précédent" : "Semaine précédente"}
+                    &lt;
                   </button>
 
-                  <input type="date" value={selectedDate} onChange={(e) => {
+                  <input className="date-input" type="date" value={selectedDate} onChange={(e) => {
                     const v = e.target.value;
                     if (!v || isWeekend(v)) return;
                     setSelectedDate(v); ensureSessionsForDate(v);
                   }} />
 
-                  <button className="secondary" onClick={() => {
+                  <button className="secondary nav-symbol" title={viewMode === "jour" ? "Jour suivant" : "Semaine suivante"} onClick={() => {
                     const d = viewMode === "jour" ? nextBusinessDay(selectedDate, 1) : nextBusinessDay(nextBusinessDay(nextBusinessDay(nextBusinessDay(nextBusinessDay(selectedDate,1),1),1),1),1);
                     setSelectedDate(d); ensureSessionsForDate(d);
                   }}>
-                    {viewMode === "jour" ? "Jour suivant" : "Semaine suivante"}
+                    &gt;
                   </button>
                 </div>
 
@@ -866,7 +960,7 @@ function App() {
                             {session.encadrantId && <div className="small">Encadrant : {fullName(participantsById[session.encadrantId])}</div>}
                             {session.referentId && <div className="small">Référent : {fullName(participantsById[session.referentId])}</div>}
                             <div className="stack" style={{ marginTop: 8 }}>
-                              {inscrits.length === 0 ? <div className="small">Aucun inscrit</div> : inscrits.map((p) => <div className="participant-row" key={p.id}>{fullName(p)}</div>)}
+                              {inscrits.length === 0 ? <div className="small">Aucun inscrit</div> : inscrits.map((p) => <div className="participant-row passport-row" key={p.id} style={getPassportStyle(p)}><span className="participant-name">{fullName(p)}</span></div>)}
                             </div>
                           </div>
                         );
@@ -1068,7 +1162,7 @@ function App() {
                 <div className="card">
                   <div className="card-header"><h2>Gestion des participants</h2></div>
                   <div className="stack">
-                    {state.participants.map((p) => (
+                    {adminParticipants.map((p) => (
                       <div className="subcard" key={p.id}>
                         <div className="grid four">
                           <div><label>Nom</label><input value={p.nom} onChange={(e) => updateParticipant(p.id, { nom: e.target.value })} /></div>
@@ -1117,9 +1211,9 @@ function App() {
               <div className="card-header"><h2>Liste des inscrits</h2></div>
               <div className="stack">
                 {sessionStats.sortedParticipants.map((participant) => (
-                  <div className="participant-row" key={participant.id}>
-                    <span>{fullName(participant)}</span>
-                    <span className="small">Cotisation : {participant.cotisation ? "Oui" : "Non"} · FFME : {participant.ffme ? "Oui" : "Non"} · Participations : {sessionStats.participationCount[participant.id] || 0} · Passeport : {participant.passport}</span>
+                  <div className="participant-row passport-row" key={participant.id} style={getPassportStyle(participant)}>
+                    <span className="participant-name">{fullName(participant)}</span>
+                    <span className="small" style={{ color: "inherit" }}>Cotisation : {participant.cotisation ? "Oui" : "Non"} · FFME : {participant.ffme ? "Oui" : "Non"} · Participations : {sessionStats.participationCount[participant.id] || 0} · Passeport : {participant.passport}</span>
                   </div>
                 ))}
               </div>
