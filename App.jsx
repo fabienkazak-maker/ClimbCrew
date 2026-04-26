@@ -21,7 +21,13 @@ const PASSPORT_STYLES = {
   jaune: { backgroundColor: "#fde047", color: "#111827" },
   orange: { backgroundColor: "#fb923c", color: "#111827" },
   vert: { backgroundColor: "#22c55e", color: "#052e16" },
-  decouverte: { backgroundColor: "#38bdf8", color: "#082f49" },
+
+  // Passeport découverte : fond noir + cadre rouge.
+  // Alias ajoutés pour couvrir les variantes possibles en base/import.
+  decouverte: { backgroundColor: "#000000", color: "#ffffff", border: "2px solid #ef4444" },
+  "découverte": { backgroundColor: "#000000", color: "#ffffff", border: "2px solid #ef4444" },
+  decouvertes: { backgroundColor: "#000000", color: "#ffffff", border: "2px solid #ef4444" },
+  "découvertes": { backgroundColor: "#000000", color: "#ffffff", border: "2px solid #ef4444" },
 };
 
 const GRADES = ["4a","4b","4c","5a","5b","5c","6a","6a+","6b","6b+","6c","6c+","7a","7a+","7b"];
