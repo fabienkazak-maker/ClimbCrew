@@ -58,8 +58,23 @@ function fullName(p) {
   return p ? `${p.nom} ${p.prenom}`.trim() : "";
 }
 
+function toLocalIso(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+  const date = new Date();
+  const day = date.getDay();
+
+  // Si l'application est ouverte le week-end, on positionne directement
+  // la vue sur le prochain lundi, car les séances sont en semaine.
+  if (day === 6) date.setDate(date.getDate() + 2);
+  if (day === 0) date.setDate(date.getDate() + 1);
+
+  return toLocalIso(date);
 }
 
 function getPassportStyle(participant) {
@@ -818,7 +833,7 @@ function App() {
           )}
 
           <div className="inline-field add-participant-field">
-            <label>Ajouter un inscrit</label>
+            <label>Inscrit</label>
             <select onChange={(e) => addParticipantToSession(session.id, e.target.value)} defaultValue="">
               <option value="" disabled>Choisir un participant</option>
               {availableParticipants.sort((a, b) => fullName(a).localeCompare(fullName(b), "fr")).map((p) => (
@@ -1030,6 +1045,100 @@ function App() {
           .inline-field { grid-template-columns: 1fr; }
         }
 
+
+        /* Priorité A mobile : date en une ligne, champs plus compacts, segment Jour/Semaine. */
+        .view-toggle { flex: 0 0 auto; }
+
+        @media (max-width: 700px) {
+          .toolbar-row {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+          }
+
+          .date-nav {
+            display: grid;
+            grid-template-columns: 44px minmax(0, 1fr) 44px;
+            width: 100%;
+            flex: 1 1 100%;
+            gap: 8px;
+            align-items: center;
+            justify-content: stretch;
+            flex-wrap: nowrap;
+          }
+
+          .date-input {
+            max-width: none;
+            width: 100%;
+            min-width: 0;
+            height: 42px;
+            min-height: 42px;
+            padding: 7px 8px;
+            font-size: 15px;
+            text-transform: none;
+          }
+
+          .nav-symbol {
+            width: 44px;
+            min-width: 44px;
+            height: 42px;
+            min-height: 42px;
+            padding: 0;
+            font-size: 18px;
+          }
+
+          .view-toggle {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            width: 100%;
+            gap: 6px;
+            padding: 4px;
+            border-radius: 14px;
+            background: rgba(2, 6, 23, .35);
+            border: 1px solid rgba(148, 163, 184, .18);
+          }
+
+          .view-toggle button {
+            min-height: 38px;
+            padding: 6px 8px;
+            border-radius: 11px;
+            font-size: 14px;
+          }
+
+          .session-form-row {
+            grid-template-columns: 1fr;
+            gap: 6px;
+            margin-bottom: 8px;
+          }
+
+          .inline-field {
+            grid-template-columns: 74px minmax(0, 1fr);
+            gap: 7px;
+          }
+
+          .inline-field label {
+            font-size: 10px;
+            letter-spacing: .03em;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .inline-field select,
+          .inline-field input {
+            min-height: 40px;
+            padding: 7px 10px;
+            border-radius: 12px;
+          }
+
+          button, input, select {
+            min-height: 40px;
+          }
+
+          .session-card {
+            padding: 10px 12px;
+          }
+        }
+
       `}</style>
 
       {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
@@ -1113,9 +1222,9 @@ function App() {
                   </button>
                 </div>
 
-                <div className="group">
+                <div className="group view-toggle">
                   <button className={viewMode === "jour" ? "" : "secondary"} onClick={() => setViewMode("jour")}>Jour</button>
-                  <button className={viewMode === "semaine" ? "" : "secondary"} onClick={() => setViewMode("semaine")}>Semaine complète</button>
+                  <button className={viewMode === "semaine" ? "" : "secondary"} onClick={() => setViewMode("semaine")}>Semaine</button>
                 </div>
               </div>
             </div>
