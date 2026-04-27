@@ -247,6 +247,9 @@ function App() {
   // depuis l'onglet Voies.
   const [realisationModalRouteId, setRealisationModalRouteId] = useState(null);
 
+  // Réalisation dont les détails sont ouverts dans la Timeline CPR simplifiée.
+  const [openTimelineRealisationId, setOpenTimelineRealisationId] = useState(null);
+
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
@@ -386,6 +389,11 @@ function App() {
       cpr: calculateSimpleCpr(selectedParticipantRealisations, routesById),
     };
   }, [selectedParticipantRealisations, routesById]);
+
+  const cprTimelineRealisations = useMemo(() => {
+    return [...selectedParticipantRealisations]
+      .sort((a, b) => b.dateRealisation.localeCompare(a.dateRealisation));
+  }, [selectedParticipantRealisations]);
 
   const sessionStats = useMemo(() => {
     const unique = new Set(state.sessions.flatMap((s) => s.participantIds));
@@ -1336,6 +1344,40 @@ function App() {
           }
         }
 
+
+        .timeline-realisation-card {
+          border: 1px solid rgba(148, 163, 184, .25);
+          background: rgba(2, 6, 23, .35);
+        }
+
+        .timeline-realisation-summary {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        .timeline-details-panel {
+          margin-top: 12px;
+          padding-top: 12px;
+          border-top: 1px solid rgba(148, 163, 184, .24);
+        }
+
+        @media (max-width: 700px) {
+          .timeline-realisation-summary {
+            align-items: flex-start;
+            flex-direction: column;
+          }
+
+          .timeline-realisation-summary button {
+            width: 100%;
+          }
+
+          .timeline-details-panel .grid.three {
+            grid-template-columns: 1fr;
+          }
+        }
+
       `}</style>
 
       {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
@@ -1652,15 +1694,131 @@ function App() {
             </div>
 
             <div className="card" style={{ marginTop: 16, background: "rgba(14,165,233,.10)" }}>
-              <div className="card-header"><h3>Timeline CPR simplifiée</h3></div>
+              <div className="card-header">
+                <h3>Timeline CPR simplifiée</h3>
+                <span className="badge">{cprTimelineRealisations.length} réalisation(s)</span>
+              </div>
               <div className="stack">
-                {participantProgressStats.cpr.timeline.length === 0 ? <div className="muted-box">Pas assez de données pour afficher une timeline CPR.</div> :
-                  participantProgressStats.cpr.timeline.map((item, index) => (
-                    <div className="subcard" key={`${item.date}-${index}`}>
-                      <strong>{formatDateFr(item.date.slice(0, 10))}</strong>
-                      <div className="small">Cotation : {item.grade} · Indice pondéré : {item.weightedIndex.toFixed(2)}</div>
-                    </div>
-                  ))}
+                {!state.selectedParticipantProgress ? (
+                  <div className="muted-box">Choisis un grimpeur pour afficher sa timeline CPR.</div>
+                ) : cprTimelineRealisations.length === 0 ? (
+                  <div className="muted-box">Aucune réalisation enregistrée pour ce grimpeur.</div>
+                ) : (
+                  cprTimelineRealisations.map((realisation) => {
+                    const route = routesById[realisation.voieId];
+                    const session = sessionsById[realisation.sessionId];
+                    const availableSessionsForRealisation = getParticipantSessions(realisation.participantId);
+                    const isOpen = openTimelineRealisationId === realisation.id;
+
+                    return (
+                      <div className="subcard timeline-realisation-card" key={realisation.id}>
+                        <div className="timeline-realisation-summary">
+                          <div>
+                            <strong>{formatDateFr(realisation.dateRealisation.slice(0, 10))}</strong>
+                            <div className="small">
+                              {route?.nomVoie || `#${route?.numeroVoieUnique}` || "Voie inconnue"}
+                              {" · "}
+                              {route?.cotationAjustee || realisation.cotationProposee || "-"}
+                              {" · "}
+                              {STYLE_LABELS[realisation.styleRealisation] || realisation.styleRealisation}
+                            </div>
+                          </div>
+                          <button
+                            className="secondary"
+                            onClick={() => setOpenTimelineRealisationId(isOpen ? null : realisation.id)}
+                          >
+                            {isOpen ? "Masquer" : "Détails"}
+                          </button>
+                        </div>
+
+                        {isOpen && (
+                          <div className="timeline-details-panel">
+                            <div className="small" style={{ marginBottom: 10 }}>
+                              Participant : {fullName(participantsById[realisation.participantId])}
+                            </div>
+
+                            <div className="grid three">
+                              <div>
+                                <label>Séance</label>
+                                <select
+                                  value={realisation.sessionId}
+                                  onChange={(e) => updateRealisation(realisation.id, { sessionId: e.target.value })}
+                                >
+                                  {availableSessionsForRealisation.length === 0 ? (
+                                    <option value="">Aucune séance inscrite</option>
+                                  ) : (
+                                    availableSessionsForRealisation.map((s) => <option key={s.id} value={s.id}>{s.date} · {s.slot}</option>)
+                                  )}
+                                </select>
+                              </div>
+
+                              <div>
+                                <label>Voie</label>
+                                <select
+                                  value={realisation.voieId}
+                                  onChange={(e) => updateRealisation(realisation.id, { voieId: e.target.value })}
+                                >
+                                  {state.routes.map((r) => (
+                                    <option key={r.id} value={r.id}>
+                                      {r.nomVoie || `#${r.numeroVoieUnique}`} · corde {r.numeroCorde} · {r.cotationAjustee}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div>
+                                <label>Style</label>
+                                <select
+                                  value={realisation.styleRealisation}
+                                  onChange={(e) => updateRealisation(realisation.id, { styleRealisation: e.target.value })}
+                                >
+                                  {Object.entries(STYLE_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                                </select>
+                              </div>
+
+                              <div>
+                                <label>Cotation proposée</label>
+                                <select
+                                  value={realisation.cotationProposee || ""}
+                                  onChange={(e) => updateRealisation(realisation.id, { cotationProposee: e.target.value })}
+                                >
+                                  <option value="">Aucune</option>
+                                  {GRADES.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
+                                </select>
+                              </div>
+
+                              <div>
+                                <label>Essais</label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={realisation.nbEssais || ""}
+                                  onChange={(e) => updateRealisation(realisation.id, { nbEssais: e.target.value })}
+                                />
+                              </div>
+
+                              <div>
+                                <label>Statut CPR</label>
+                                <input
+                                  value={`${STYLE_LABELS[realisation.styleRealisation] || realisation.styleRealisation} · ${route?.cotationAjustee || "-"}`}
+                                  readOnly
+                                />
+                              </div>
+                            </div>
+
+                            <div style={{ marginTop: 12 }}>
+                              <label>Commentaire</label>
+                              <input
+                                value={realisation.commentaire || ""}
+                                onChange={(e) => updateRealisation(realisation.id, { commentaire: e.target.value })}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
 
@@ -1905,14 +2063,101 @@ function App() {
 
         {tab === "faq" && (
           <div className="card">
-            <div className="card-header"><h2>FAQ – fonctionnement du site</h2></div>
-            <div className="faq-item"><strong>À quoi sert ClimbCrew ?</strong><div className="small">À gérer les séances, les participants, les voies et la progression des grimpeurs.</div></div>
-            <div className="faq-item"><strong>Comment fonctionnent les inscriptions ?</strong><div className="small">Les grimpeurs s’ajoutent sur une séance midi ou soir. La capacité maximale est de 18 personnes encadrement compris.</div></div>
-            <div className="faq-item"><strong>Qui peut modifier les voies ?</strong><div className="small">Uniquement un administrateur connecté avec le code à 8 chiffres.</div></div>
-            <div className="faq-item"><strong>Comment suivre la progression ?</strong><div className="small">L’onglet Progression calcule un CPR simplifié basé sur les réalisations récentes et leur style.</div></div>
-            <div className="faq-item"><strong>Comment sauvegarder les données ?</strong><div className="small">L’application sauvegarde automatiquement dans le navigateur. Avec le backend, les participants sont partagés via l’API.</div></div>
+            <div className="card-header"><h2>FAQ – fonctionnement de ClimbCrew</h2></div>
+
+            <div className="faq-item">
+              <strong>À quoi sert ClimbCrew ?</strong>
+              <div className="small">
+                ClimbCrew permet de gérer les séances d’une SAE, les participants, les voies, les inscriptions et la progression des grimpeurs.
+              </div>
+            </div>
+
+            <div className="faq-item">
+              <strong>Quelles sont les données partagées entre utilisateurs ?</strong>
+              <div className="small">
+                Les participants, les séances et les inscriptions sont stockés en base PostgreSQL via le backend. Ils sont donc visibles depuis plusieurs navigateurs.
+              </div>
+            </div>
+
+            <div className="faq-item">
+              <strong>Pourquoi certaines données peuvent-elles rester locales ?</strong>
+              <div className="small">
+                Les réalisations, cordes et voies sont encore partiellement gérées côté application tant que leurs tables backend dédiées ne sont pas ajoutées. Elles peuvent donc dépendre du navigateur.
+              </div>
+            </div>
+
+            <div className="faq-item">
+              <strong>Comment fonctionnent les inscriptions ?</strong>
+              <div className="small">
+                Chaque jour propose une séance midi et une séance soir. Un participant peut être ajouté à une séance dans la limite de 18 personnes, encadrement compris.
+              </div>
+            </div>
+
+            <div className="faq-item">
+              <strong>Pourquoi la date bascule-t-elle au lundi si j’ouvre l’application le week-end ?</strong>
+              <div className="small">
+                L’application privilégie les jours ouvrés, car les séances sont prévues du lundi au vendredi.
+              </div>
+            </div>
+
+            <div className="faq-item">
+              <strong>Que signifient les couleurs des participants ?</strong>
+              <div className="small">
+                Le fond correspond au passeport du participant. Les découvertes apparaissent sur fond gris. Le cadre vert indique une cotisation à jour ; le cadre rouge indique une cotisation non renseignée ou non à jour.
+              </div>
+            </div>
+
+            <div className="faq-item">
+              <strong>Qui peut modifier les voies ?</strong>
+              <div className="small">
+                L’onglet Voies est modifiable uniquement après déverrouillage administrateur. Les autres utilisateurs peuvent consulter les voies et enregistrer une réalisation depuis une voie active.
+              </div>
+            </div>
+
+            <div className="faq-item">
+              <strong>Comment enregistrer une voie réalisée ?</strong>
+              <div className="small">
+                Depuis l’onglet Voies, clique sur le bouton Réalisation d’une voie. Le popup propose uniquement les séances où le participant sélectionné est inscrit.
+              </div>
+            </div>
+
+            <div className="faq-item">
+              <strong>Comment corriger une réalisation ?</strong>
+              <div className="small">
+                Dans l’onglet Progression, choisis un grimpeur. La Timeline CPR simplifiée affiche ses réalisations les plus récentes. Le bouton Détails permet de modifier la séance, la voie, le style, la cotation proposée, les essais et le commentaire. Le nom du participant n’est pas modifiable depuis cette zone.
+              </div>
+            </div>
+
+            <div className="faq-item">
+              <strong>Qu’est-ce que le CPR simplifié ?</strong>
+              <div className="small">
+                C’est un indicateur de progression basé sur les réalisations récentes. Il combine la cotation des voies et le style de réalisation pour donner une tendance de niveau.
+              </div>
+            </div>
+
+            <div className="faq-item">
+              <strong>Pourquoi l’historique peut-il différer entre deux appareils ?</strong>
+              <div className="small">
+                Tant que les réalisations ne sont pas persistées en base, elles peuvent rester liées au navigateur. L’étape suivante consiste à ajouter la table backend des réalisations.
+              </div>
+            </div>
+
+            <div className="faq-item">
+              <strong>Comment sauvegarder ou transférer les données ?</strong>
+              <div className="small">
+                L’onglet Administration permet l’import/export JSON. Pour les données partagées, le backend PostgreSQL reste la source principale.
+              </div>
+            </div>
+
+            <div className="faq-item">
+              <strong>Que faire si l’application n’affiche pas les dernières données ?</strong>
+              <div className="small">
+                Recharge la page, vérifie que le bandeau indique API connectée, puis teste les endpoints backend /participants et /sessions.
+              </div>
+            </div>
           </div>
         )}
+
       </div>
     </div>
   );
