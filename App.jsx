@@ -295,6 +295,20 @@ function App() {
 
   const realisationModalRoute = realisationModalRouteId ? routesById[realisationModalRouteId] : null;
 
+  // Dans le popup de réalisation, on ne propose que les séances
+  // où le participant sélectionné est effectivement inscrit.
+  const modalAvailableSessions = useMemo(() => {
+    if (!newRealisation.participantId) return [];
+
+    return state.sessions
+      .filter((session) => session.participantIds?.includes(newRealisation.participantId))
+      .sort((a, b) => {
+        const dateCompare = b.date.localeCompare(a.date);
+        if (dateCompare !== 0) return dateCompare;
+        return a.slot.localeCompare(b.slot);
+      });
+  }, [state.sessions, newRealisation.participantId]);
+
   const selectedDate = state.selectedDate || todayIso();
 
   const daySessions = useMemo(() => {
@@ -756,6 +770,39 @@ function App() {
     setState((prev) => ({
       ...prev,
       routes: prev.routes.map((r) => (r.id === routeId ? { ...r, cotationAjustee: aggregate.weightedMedianGrade } : r)),
+    }));
+  }
+
+  function getParticipantSessions(participantId) {
+    if (!participantId) return [];
+
+    return state.sessions
+      .filter((session) => session.participantIds?.includes(participantId))
+      .sort((a, b) => {
+        const dateCompare = b.date.localeCompare(a.date);
+        if (dateCompare !== 0) return dateCompare;
+        return a.slot.localeCompare(b.slot);
+      });
+  }
+
+  function updateRealisation(realisationId, patch) {
+    setState((prev) => ({
+      ...prev,
+      realisations: prev.realisations.map((realisation) => {
+        if (realisation.id !== realisationId) return realisation;
+
+        const next = { ...realisation, ...patch };
+
+        // Si on change la séance, la date de réalisation suit la date de la séance.
+        if (patch.sessionId) {
+          const session = sessionsById[patch.sessionId];
+          if (session) {
+            next.dateRealisation = `${session.date}T12:00:00`;
+          }
+        }
+
+        return next;
+      }),
     }));
   }
 
@@ -1277,6 +1324,18 @@ function App() {
           }
         }
 
+
+        .editable-realisation-card {
+          border: 1px solid rgba(148, 163, 184, .25);
+          background: rgba(2, 6, 23, .35);
+        }
+
+        @media (max-width: 700px) {
+          .editable-realisation-card .grid.three {
+            grid-template-columns: 1fr;
+          }
+        }
+
       `}</style>
 
       {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
@@ -1319,7 +1378,19 @@ function App() {
             <div className="grid three">
               <div>
                 <label>Participant</label>
-                <select value={newRealisation.participantId} onChange={(e) => setNewRealisation((p) => ({ ...p, participantId: e.target.value }))}>
+                <select
+                  value={newRealisation.participantId}
+                  onChange={(e) => {
+                    const participantId = e.target.value;
+                    const firstSession = getParticipantSessions(participantId)[0];
+
+                    setNewRealisation((p) => ({
+                      ...p,
+                      participantId,
+                      sessionId: firstSession?.id || "",
+                    }));
+                  }}
+                >
                   {alphabeticalParticipants.map((p) => <option key={p.id} value={p.id}>{fullName(p)}</option>)}
                 </select>
               </div>
@@ -1327,8 +1398,17 @@ function App() {
               <div>
                 <label>Séance</label>
                 <select value={newRealisation.sessionId} onChange={(e) => setNewRealisation((p) => ({ ...p, sessionId: e.target.value }))}>
-                  {state.sessions.map((s) => <option key={s.id} value={s.id}>{s.date} · {s.slot}</option>)}
+                  {modalAvailableSessions.length === 0 ? (
+                    <option value="">Aucune séance inscrite</option>
+                  ) : (
+                    modalAvailableSessions.map((s) => <option key={s.id} value={s.id}>{s.date} · {s.slot}</option>)
+                  )}
                 </select>
+                {modalAvailableSessions.length === 0 && (
+                  <div className="small error" style={{ marginTop: 6 }}>
+                    Ce participant n’est inscrit à aucune séance.
+                  </div>
+                )}
               </div>
 
               <div>
@@ -1364,7 +1444,7 @@ function App() {
 
             <div className="modal-actions">
               <button className="secondary" onClick={closeRealisationModal}>Annuler</button>
-              <button onClick={addRealisation}>Enregistrer</button>
+              <button onClick={addRealisation} disabled={modalAvailableSessions.length === 0}>Enregistrer</button>
             </div>
           </div>
         </div>
@@ -1599,12 +1679,102 @@ function App() {
                       const route = routesById[realisation.voieId];
                       const session = sessionsById[realisation.sessionId];
 
+                      const availableSessionsForRealisation = getParticipantSessions(realisation.participantId);
+
                       return (
-                        <div className="subcard" key={realisation.id}>
-                          <strong>{fullName(participant)} — {route?.nomVoie || `#${route?.numeroVoieUnique}`}</strong>
-                          <div className="small">{session?.date} · {session?.slot} · {STYLE_LABELS[realisation.styleRealisation]}</div>
-                          <div className="small">Cotation proposée : {realisation.cotationProposee || "-"} · Essais : {realisation.nbEssais || "-"}</div>
-                          {realisation.commentaire && <div className="small">Commentaire : {realisation.commentaire}</div>}
+                        <div className="subcard editable-realisation-card" key={realisation.id}>
+                          <div className="card-header">
+                            <strong>{fullName(participant)} — {route?.nomVoie || `#${route?.numeroVoieUnique}`}</strong>
+                            <span className="badge">{session?.date || "-"} · {session?.slot || "-"}</span>
+                          </div>
+
+                          <div className="grid three">
+                            <div>
+                              <label>Participant</label>
+                              <select
+                                value={realisation.participantId}
+                                onChange={(e) => {
+                                  const participantId = e.target.value;
+                                  const firstSession = getParticipantSessions(participantId)[0];
+
+                                  updateRealisation(realisation.id, {
+                                    participantId,
+                                    sessionId: firstSession?.id || "",
+                                    dateRealisation: firstSession ? `${firstSession.date}T12:00:00` : realisation.dateRealisation,
+                                  });
+                                }}
+                              >
+                                {alphabeticalParticipants.map((p) => <option key={p.id} value={p.id}>{fullName(p)}</option>)}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label>Séance</label>
+                              <select
+                                value={realisation.sessionId}
+                                onChange={(e) => updateRealisation(realisation.id, { sessionId: e.target.value })}
+                              >
+                                {availableSessionsForRealisation.length === 0 ? (
+                                  <option value="">Aucune séance inscrite</option>
+                                ) : (
+                                  availableSessionsForRealisation.map((s) => <option key={s.id} value={s.id}>{s.date} · {s.slot}</option>)
+                                )}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label>Voie</label>
+                              <select
+                                value={realisation.voieId}
+                                onChange={(e) => updateRealisation(realisation.id, { voieId: e.target.value })}
+                              >
+                                {state.routes.map((r) => (
+                                  <option key={r.id} value={r.id}>
+                                    {r.nomVoie || `#${r.numeroVoieUnique}`} · corde {r.numeroCorde} · {r.cotationAjustee}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label>Style</label>
+                              <select
+                                value={realisation.styleRealisation}
+                                onChange={(e) => updateRealisation(realisation.id, { styleRealisation: e.target.value })}
+                              >
+                                {Object.entries(STYLE_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label>Cotation proposée</label>
+                              <select
+                                value={realisation.cotationProposee || ""}
+                                onChange={(e) => updateRealisation(realisation.id, { cotationProposee: e.target.value })}
+                              >
+                                <option value="">Aucune</option>
+                                {GRADES.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label>Essais</label>
+                              <input
+                                type="number"
+                                min="1"
+                                value={realisation.nbEssais || ""}
+                                onChange={(e) => updateRealisation(realisation.id, { nbEssais: e.target.value })}
+                              />
+                            </div>
+                          </div>
+
+                          <div style={{ marginTop: 12 }}>
+                            <label>Commentaire</label>
+                            <input
+                              value={realisation.commentaire || ""}
+                              onChange={(e) => updateRealisation(realisation.id, { commentaire: e.target.value })}
+                            />
+                          </div>
                         </div>
                       );
                     })
