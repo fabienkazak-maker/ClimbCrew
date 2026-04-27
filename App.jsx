@@ -243,6 +243,10 @@ function App() {
     nbEssais: "",
   });
 
+  // Route sélectionnée pour le popup "Enregistrer une réalisation"
+  // depuis l'onglet Voies.
+  const [realisationModalRouteId, setRealisationModalRouteId] = useState(null);
+
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
@@ -288,6 +292,8 @@ function App() {
     () => Object.fromEntries(state.sessions.map((s) => [s.id, s])),
     [state.sessions]
   );
+
+  const realisationModalRoute = realisationModalRouteId ? routesById[realisationModalRouteId] : null;
 
   const selectedDate = state.selectedDate || todayIso();
 
@@ -753,9 +759,55 @@ function App() {
     }));
   }
 
+  function openRealisationModal(routeId) {
+    const route = routesById[routeId];
+
+    const existingParticipantIsValid = state.participants.some((p) => p.id === newRealisation.participantId);
+    const participantId = existingParticipantIsValid
+      ? newRealisation.participantId
+      : state.participants[0]?.id || "";
+
+    const preferredSession =
+      state.sessions.find((s) => s.participantIds?.includes(participantId)) ||
+      state.sessions.find((s) => s.date === selectedDate) ||
+      state.sessions[0];
+
+    setNewRealisation((prev) => ({
+      ...prev,
+      participantId,
+      sessionId: preferredSession?.id || "",
+      voieId: routeId,
+      styleRealisation: route?.moulinetteOnly ? "moulinette" : (prev.styleRealisation || "a_vue"),
+      cotationProposee: route?.cotationAjustee || route?.cotationReference || "",
+      commentaire: "",
+      nbEssais: "",
+    }));
+
+    setRealisationModalRouteId(routeId);
+  }
+
+  function closeRealisationModal() {
+    setRealisationModalRouteId(null);
+  }
+
   function addRealisation() {
     const session = sessionsById[newRealisation.sessionId];
-    if (!session || !session.participantIds.includes(newRealisation.participantId)) return;
+
+    if (!newRealisation.participantId || !newRealisation.sessionId || !newRealisation.voieId) {
+      alert("Sélectionne au minimum un participant, une séance et une voie.");
+      return;
+    }
+
+    if (!session) {
+      alert("La séance sélectionnée est introuvable.");
+      return;
+    }
+
+    if (!session.participantIds.includes(newRealisation.participantId)) {
+      alert("Le participant doit être inscrit à la séance sélectionnée pour enregistrer une réalisation.");
+      return;
+    }
+
     const realisation = {
       id: `realisation-${Date.now()}`,
       participantId: newRealisation.participantId,
@@ -767,8 +819,10 @@ function App() {
       cotationProposee: newRealisation.cotationProposee,
       nbEssais: newRealisation.nbEssais,
     };
+
     setState((prev) => ({ ...prev, realisations: [...prev.realisations, realisation] }));
     setNewRealisation((prev) => ({ ...prev, commentaire: "", cotationProposee: "", nbEssais: "" }));
+    setRealisationModalRouteId(null);
   }
 
   function unlockAdmin() {
@@ -1164,6 +1218,65 @@ function App() {
           }
         }
 
+
+        .modal-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 100;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 18px;
+          background: rgba(2, 6, 23, .72);
+          backdrop-filter: blur(8px);
+        }
+
+        .modal-panel {
+          width: min(920px, 100%);
+          max-height: calc(100vh - 36px);
+          overflow: auto;
+          padding: 18px;
+          border-radius: 22px;
+          background: #0f172a;
+          border: 1px solid rgba(148, 163, 184, .28);
+          box-shadow: 0 28px 80px rgba(0,0,0,.55);
+        }
+
+        .modal-title {
+          margin: 0;
+        }
+
+        .modal-close {
+          min-width: 42px;
+          height: 42px;
+          border-radius: 999px;
+        }
+
+        .modal-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 10px;
+          margin-top: 16px;
+        }
+
+        @media (max-width: 700px) {
+          .modal-overlay {
+            align-items: flex-end;
+            padding: 8px;
+          }
+
+          .modal-panel {
+            max-height: calc(100vh - 16px);
+            border-radius: 20px;
+            padding: 14px;
+          }
+
+          .modal-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+          }
+        }
+
       `}</style>
 
       {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
@@ -1189,6 +1302,73 @@ function App() {
           </button>
         ))}
       </aside>
+
+      {realisationModalRoute && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="Enregistrer une voie réalisée">
+          <div className="modal-panel">
+            <div className="card-header">
+              <div>
+                <h2 className="modal-title">Enregistrer une voie réalisée</h2>
+                <div className="small">
+                  {realisationModalRoute.nomVoie || "Voie sans nom"} · Corde {realisationModalRoute.numeroCorde} · {realisationModalRoute.cotationAjustee}
+                </div>
+              </div>
+              <button className="danger ghost modal-close" onClick={closeRealisationModal} aria-label="Fermer">×</button>
+            </div>
+
+            <div className="grid three">
+              <div>
+                <label>Participant</label>
+                <select value={newRealisation.participantId} onChange={(e) => setNewRealisation((p) => ({ ...p, participantId: e.target.value }))}>
+                  {alphabeticalParticipants.map((p) => <option key={p.id} value={p.id}>{fullName(p)}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label>Séance</label>
+                <select value={newRealisation.sessionId} onChange={(e) => setNewRealisation((p) => ({ ...p, sessionId: e.target.value }))}>
+                  {state.sessions.map((s) => <option key={s.id} value={s.id}>{s.date} · {s.slot}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label>Voie</label>
+                <input value={`${realisationModalRoute.nomVoie || "Sans nom"} · Corde ${realisationModalRoute.numeroCorde} · ${realisationModalRoute.cotationAjustee}`} readOnly />
+              </div>
+
+              <div>
+                <label>Style</label>
+                <select value={newRealisation.styleRealisation} onChange={(e) => setNewRealisation((p) => ({ ...p, styleRealisation: e.target.value }))}>
+                  {Object.entries(STYLE_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label>Cotation proposée</label>
+                <select value={newRealisation.cotationProposee} onChange={(e) => setNewRealisation((p) => ({ ...p, cotationProposee: e.target.value }))}>
+                  <option value="">Aucune</option>
+                  {GRADES.map((g) => <option key={g} value={g}>{g}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label>Essais</label>
+                <input type="number" min="1" value={newRealisation.nbEssais} onChange={(e) => setNewRealisation((p) => ({ ...p, nbEssais: e.target.value }))} />
+              </div>
+            </div>
+
+            <div style={{ marginTop: 12 }}>
+              <label>Commentaire</label>
+              <input value={newRealisation.commentaire} onChange={(e) => setNewRealisation((p) => ({ ...p, commentaire: e.target.value }))} />
+            </div>
+
+            <div className="modal-actions">
+              <button className="secondary" onClick={closeRealisationModal}>Annuler</button>
+              <button onClick={addRealisation}>Enregistrer</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <nav className="mobile-bottom-nav" aria-label="Navigation mobile ClimbCrew">
         {TABS.map((item) => (
@@ -1345,6 +1525,7 @@ function App() {
                                   <div className="group">
                                     {route.moulinetteOnly && <span className="pill">Moulinette uniquement</span>}
                                     <span className="pill">{route.active ? "Active" : "Archivée"}</span>
+                                    {route.active && <button className="secondary" onClick={() => openRealisationModal(route.id)}>Réalisation</button>}
                                     {adminUnlocked && <>
                                       <button className="secondary" onClick={() => toggleRouteActive(route.id)}>{route.active ? "Archiver" : "Réactiver"}</button>
                                       <button className="secondary" disabled={!agg?.weightedMedianGrade} onClick={() => applyAdjustedGrade(route.id)}>Appliquer cotation ajustée</button>
@@ -1368,49 +1549,15 @@ function App() {
         )}
 
         {tab === "progression" && (
-          <>
-            <div className="card">
-              <div className="card-header"><h2>Enregistrer une voie réalisée</h2></div>
-              <div className="grid three">
-                <div><label>Participant</label><select value={newRealisation.participantId} onChange={(e) => setNewRealisation((p) => ({ ...p, participantId: e.target.value }))}>{alphabeticalParticipants.map((p) => <option key={p.id} value={p.id}>{fullName(p)}</option>)}</select></div>
-                <div><label>Séance</label><select value={newRealisation.sessionId} onChange={(e) => setNewRealisation((p) => ({ ...p, sessionId: e.target.value }))}>{state.sessions.map((s) => <option key={s.id} value={s.id}>{s.date} · {s.slot}</option>)}</select></div>
-                <div><label>Voie</label><select value={newRealisation.voieId} onChange={(e) => setNewRealisation((p) => ({ ...p, voieId: e.target.value }))}>{state.routes.filter((r) => r.active).map((r) => <option key={r.id} value={r.id}>{r.nomVoie || `#${r.numeroVoieUnique}`} · corde {r.numeroCorde}</option>)}</select></div>
-                <div><label>Style</label><select value={newRealisation.styleRealisation} onChange={(e) => setNewRealisation((p) => ({ ...p, styleRealisation: e.target.value }))}>{Object.entries(STYLE_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></div>
-                <div><label>Cotation proposée</label><select value={newRealisation.cotationProposee} onChange={(e) => setNewRealisation((p) => ({ ...p, cotationProposee: e.target.value }))}><option value="">Aucune</option>{GRADES.map((g) => <option key={g} value={g}>{g}</option>)}</select></div>
-                <div><label>Essais</label><input type="number" min="1" value={newRealisation.nbEssais} onChange={(e) => setNewRealisation((p) => ({ ...p, nbEssais: e.target.value }))} /></div>
-              </div>
-              <div style={{ marginTop: 12 }}><label>Commentaire</label><input value={newRealisation.commentaire} onChange={(e) => setNewRealisation((p) => ({ ...p, commentaire: e.target.value }))} /></div>
-              <div style={{ marginTop: 12 }}><button onClick={addRealisation}>Enregistrer la réalisation</button></div>
-            </div>
-
-            <div className="card">
-              <div className="card-header"><h2>Historique des réalisations</h2></div>
-              <div className="stack">
-                {state.realisations.length === 0 ? <div className="muted-box">Aucune réalisation enregistrée.</div> : [...state.realisations]
-                  .sort((a, b) => b.dateRealisation.localeCompare(a.dateRealisation))
-                  .map((realisation) => {
-                    const participant = participantsById[realisation.participantId];
-                    const route = routesById[realisation.voieId];
-                    const session = sessionsById[realisation.sessionId];
-                    return (
-                      <div className="subcard" key={realisation.id}>
-                        <strong>{fullName(participant)} — {route?.nomVoie || `#${route?.numeroVoieUnique}`}</strong>
-                        <div className="small">{session?.date} · {session?.slot} · {STYLE_LABELS[realisation.styleRealisation]}</div>
-                        <div className="small">Cotation proposée : {realisation.cotationProposee || "-"} · Essais : {realisation.nbEssais || "-"}</div>
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
-          </>
-        )}
-
-        {tab === "progression" && (
           <div className="card">
             <div className="card-header"><h2>Suivi individuel</h2></div>
+
             <div style={{ maxWidth: 360 }}>
               <label>Grimpeur</label>
-              <select value={state.selectedParticipantProgress || ""} onChange={(e) => setState((prev) => ({ ...prev, selectedParticipantProgress: e.target.value }))}>
+              <select
+                value={state.selectedParticipantProgress || ""}
+                onChange={(e) => setState((prev) => ({ ...prev, selectedParticipantProgress: e.target.value }))}
+              >
                 <option value="">Choisir un grimpeur</option>
                 {alphabeticalParticipants.map((p) => <option key={p.id} value={p.id}>{fullName(p)}</option>)}
               </select>
@@ -1434,6 +1581,34 @@ function App() {
                       <div className="small">Cotation : {item.grade} · Indice pondéré : {item.weightedIndex.toFixed(2)}</div>
                     </div>
                   ))}
+              </div>
+            </div>
+
+            <div className="card" style={{ marginTop: 16 }}>
+              <div className="card-header"><h3>Historique des réalisations</h3></div>
+              <div className="stack">
+                {!state.selectedParticipantProgress ? (
+                  <div className="muted-box">Choisis un grimpeur pour afficher son historique.</div>
+                ) : selectedParticipantRealisations.length === 0 ? (
+                  <div className="muted-box">Aucune réalisation enregistrée pour ce grimpeur.</div>
+                ) : (
+                  [...selectedParticipantRealisations]
+                    .sort((a, b) => b.dateRealisation.localeCompare(a.dateRealisation))
+                    .map((realisation) => {
+                      const participant = participantsById[realisation.participantId];
+                      const route = routesById[realisation.voieId];
+                      const session = sessionsById[realisation.sessionId];
+
+                      return (
+                        <div className="subcard" key={realisation.id}>
+                          <strong>{fullName(participant)} — {route?.nomVoie || `#${route?.numeroVoieUnique}`}</strong>
+                          <div className="small">{session?.date} · {session?.slot} · {STYLE_LABELS[realisation.styleRealisation]}</div>
+                          <div className="small">Cotation proposée : {realisation.cotationProposee || "-"} · Essais : {realisation.nbEssais || "-"}</div>
+                          {realisation.commentaire && <div className="small">Commentaire : {realisation.commentaire}</div>}
+                        </div>
+                      );
+                    })
+                )}
               </div>
             </div>
           </div>
