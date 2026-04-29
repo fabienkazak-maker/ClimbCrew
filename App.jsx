@@ -7,6 +7,21 @@ const MAX_PARTICIPANTS = 18;
 const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 const USE_API = Boolean(API_BASE);
 
+const AUTH_TOKEN_KEY = "climbcrew_auth_token";
+const DEFAULT_LOGIN_EMAIL = "climbcrew@gmail.com";
+const DEFAULT_LOGIN_PASSWORD = "climbcrew*2026";
+const PASSWORD_RULE_TEXT = "Minimum 12 caractères avec majuscule, minuscule, chiffre et caractère spécial.";
+
+function isStrongPassword(value) {
+  return typeof value === "string"
+    && value.length >= 12
+    && /[a-z]/.test(value)
+    && /[A-Z]/.test(value)
+    && /\d/.test(value)
+    && /[^A-Za-z0-9]/.test(value);
+}
+
+
 const TABS = [
   { key: "inscriptions", label: "Inscriptions" },
   { key: "voies", label: "Voies" },
@@ -191,6 +206,16 @@ async function apiFetch(path, options = {}) {
   return response.json();
 }
 
+async function authApiFetch(path, token, options = {}) {
+  return apiFetch(path, {
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+}
+
 function App() {
   const [tab, setTab] = useState("inscriptions");
   const [viewMode, setViewMode] = useState("jour");
@@ -214,6 +239,37 @@ function App() {
   const [importMessage, setImportMessage] = useState("");
   const [syncMessage, setSyncMessage] = useState(USE_API ? "API activée" : "Mode local");
   const [isSyncing, setIsSyncing] = useState(false);
+
+  const [authToken, setAuthToken] = useState(() => localStorage.getItem(AUTH_TOKEN_KEY) || "");
+  const [authUser, setAuthUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(USE_API);
+  const [authView, setAuthView] = useState("login");
+  const [authError, setAuthError] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
+  const [loginForm, setLoginForm] = useState({
+    email: DEFAULT_LOGIN_EMAIL,
+    password: DEFAULT_LOGIN_PASSWORD,
+  });
+  const [requestAccessForm, setRequestAccessForm] = useState({
+    prenom: "",
+    nom: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    acceptTerms: false,
+  });
+  const [forgotPasswordForm, setForgotPasswordForm] = useState({
+    email: "",
+  });
+  const [resetPasswordForm, setResetPasswordForm] = useState({
+    email: "",
+    token: "",
+    password: "",
+    confirmPassword: "",
+  });
+  const [adminAuthUsers, setAdminAuthUsers] = useState([]);
+  const [adminAccessLogs, setAdminAccessLogs] = useState([]);
+  const [generatedResetToken, setGeneratedResetToken] = useState("");
 
   const [newParticipant, setNewParticipant] = useState({
     nom: "",
@@ -282,6 +338,53 @@ function App() {
     })();
     return () => { isMounted = false; };
   }, []);
+
+  useEffect(() => {
+    if (authToken) localStorage.setItem(AUTH_TOKEN_KEY, authToken);
+    else localStorage.removeItem(AUTH_TOKEN_KEY);
+  }, [authToken]);
+
+  useEffect(() => {
+    if (!USE_API) {
+      setAuthLoading(false);
+      return;
+    }
+
+    if (!authToken) {
+      setAuthUser(null);
+      setAuthLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+    (async () => {
+      try {
+        setAuthLoading(true);
+        const data = await authApiFetch("/auth/me", authToken);
+        if (!isMounted) return;
+        setAuthUser(data.user);
+        if (data.user?.role === "admin") {
+          setAdminUnlocked(true);
+        }
+      } catch (error) {
+        if (!isMounted) return;
+        setAuthUser(null);
+        setAuthToken("");
+      } finally {
+        if (isMounted) setAuthLoading(false);
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [authToken]);
+
+  useEffect(() => {
+    if (USE_API && authUser?.role === "admin" && tab === "administration") {
+      loadAdminAccessData();
+    }
+  }, [tab, authUser, authToken]);
 
   const participantsById = useMemo(
     () => Object.fromEntries(state.participants.map((p) => [p.id, p])),
@@ -880,6 +983,201 @@ function App() {
     setRealisationModalRouteId(null);
   }
 
+
+  async function loadAdminAccessData() {
+    if (!authToken || authUser?.role !== "admin") return;
+
+    try {
+      const [usersResponse, logsResponse] = await Promise.all([
+        authApiFetch("/admin/auth/users", authToken),
+        authApiFetch("/admin/auth/logs", authToken),
+      ]);
+
+      setAdminAuthUsers(usersResponse.users || []);
+      setAdminAccessLogs(logsResponse.logs || []);
+    } catch (error) {
+      console.error(error);
+      setAuthError("Impossible de charger les accès et les logs.");
+    }
+  }
+
+  async function handleLogin() {
+    try {
+      setAuthError("");
+      setAuthMessage("");
+
+      const data = await apiFetch("/auth/login", {
+        method: "POST",
+        body: JSON.stringify(loginForm),
+      });
+
+      setAuthToken(data.token);
+      setAuthUser(data.user);
+      if (data.user?.role === "admin") {
+        setAdminUnlocked(true);
+      }
+      setAuthView("login");
+      setGeneratedResetToken("");
+      setAuthMessage("Connexion réussie.");
+    } catch (error) {
+      setAuthError(String(error.message || error));
+    }
+  }
+
+  async function handleLogout() {
+    try {
+      if (authToken) {
+        await authApiFetch("/auth/logout", authToken, { method: "POST" });
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setAuthToken("");
+      setAuthUser(null);
+      setAdminUnlocked(false);
+      setGeneratedResetToken("");
+      setAdminAuthUsers([]);
+      setAdminAccessLogs([]);
+    }
+  }
+
+  async function handleRequestAccess() {
+    if (!requestAccessForm.prenom || !requestAccessForm.nom || !requestAccessForm.email) {
+      return setAuthError("Renseigne prénom, nom et email.");
+    }
+    if (requestAccessForm.password !== requestAccessForm.confirmPassword) {
+      return setAuthError("Les mots de passe ne correspondent pas.");
+    }
+    if (!isStrongPassword(requestAccessForm.password)) {
+      return setAuthError(PASSWORD_RULE_TEXT);
+    }
+    if (!requestAccessForm.acceptTerms) {
+      return setAuthError("Tu dois accepter les conditions d'utilisation.");
+    }
+
+    try {
+      setAuthError("");
+      const response = await apiFetch("/auth/request-access", {
+        method: "POST",
+        body: JSON.stringify({
+          prenom: requestAccessForm.prenom,
+          nom: requestAccessForm.nom,
+          email: requestAccessForm.email,
+          password: requestAccessForm.password,
+          acceptTerms: requestAccessForm.acceptTerms,
+        }),
+      });
+
+      setAuthMessage(response.message || "Demande d'accès transmise.");
+      setRequestAccessForm({
+        prenom: "",
+        nom: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+        acceptTerms: false,
+      });
+      setAuthView("login");
+    } catch (error) {
+      setAuthError(String(error.message || error));
+    }
+  }
+
+  async function handleForgotPassword() {
+    if (!forgotPasswordForm.email) {
+      return setAuthError("Renseigne ton email.");
+    }
+
+    try {
+      setAuthError("");
+      const response = await apiFetch("/auth/forgot-password", {
+        method: "POST",
+        body: JSON.stringify({ email: forgotPasswordForm.email }),
+      });
+
+      setAuthMessage(response.message || "La demande de réinitialisation a été enregistrée.");
+      setAuthView("reset");
+      setResetPasswordForm((prev) => ({ ...prev, email: forgotPasswordForm.email }));
+    } catch (error) {
+      setAuthError(String(error.message || error));
+    }
+  }
+
+  async function handleResetPassword() {
+    if (!resetPasswordForm.email || !resetPasswordForm.token) {
+      return setAuthError("Renseigne email et code de réinitialisation.");
+    }
+    if (resetPasswordForm.password !== resetPasswordForm.confirmPassword) {
+      return setAuthError("Les mots de passe ne correspondent pas.");
+    }
+    if (!isStrongPassword(resetPasswordForm.password)) {
+      return setAuthError(PASSWORD_RULE_TEXT);
+    }
+
+    try {
+      setAuthError("");
+      const response = await apiFetch("/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({
+          email: resetPasswordForm.email,
+          token: resetPasswordForm.token,
+          password: resetPasswordForm.password,
+        }),
+      });
+
+      setAuthMessage(response.message || "Mot de passe réinitialisé.");
+      setResetPasswordForm({
+        email: "",
+        token: "",
+        password: "",
+        confirmPassword: "",
+      });
+      setAuthView("login");
+    } catch (error) {
+      setAuthError(String(error.message || error));
+    }
+  }
+
+  async function approveAccessRequest(userId) {
+    try {
+      await authApiFetch(`/admin/auth/users/${userId}/approve`, authToken, { method: "POST" });
+      await loadAdminAccessData();
+    } catch (error) {
+      setAuthError(String(error.message || error));
+    }
+  }
+
+  async function revokeUserAccess(userId) {
+    try {
+      await authApiFetch(`/admin/auth/users/${userId}/revoke`, authToken, {
+        method: "POST",
+        body: JSON.stringify({ reason: "Révocation / répudiation par administrateur" }),
+      });
+      await loadAdminAccessData();
+    } catch (error) {
+      setAuthError(String(error.message || error));
+    }
+  }
+
+  async function reactivateUserAccess(userId) {
+    try {
+      await authApiFetch(`/admin/auth/users/${userId}/reactivate`, authToken, { method: "POST" });
+      await loadAdminAccessData();
+    } catch (error) {
+      setAuthError(String(error.message || error));
+    }
+  }
+
+  async function generatePasswordResetToken(userId) {
+    try {
+      const response = await authApiFetch(`/admin/auth/users/${userId}/reset-token`, authToken, { method: "POST" });
+      setGeneratedResetToken(`Code de réinitialisation temporaire : ${response.resetToken} (valable jusqu’à ${response.expiresAt})`);
+      await loadAdminAccessData();
+    } catch (error) {
+      setAuthError(String(error.message || error));
+    }
+  }
+
   function unlockAdmin() {
     if (!/^\d{8}$/.test(adminInput)) return setAdminError("Le code doit contenir 8 chiffres.");
     if (adminInput !== ADMIN_CODE) return setAdminError("Code invalide.");
@@ -992,6 +1290,150 @@ function App() {
       </div>
     );
   }
+
+
+  if (USE_API && authLoading) {
+    return (
+      <div className="auth-page">
+        <div className="auth-card">
+          <div className="brand auth-brand">
+            <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="app-logo" />
+            <div>
+              <h1>ClimbCrew</h1>
+              <p className="small">Chargement de la session…</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (USE_API && !authUser) {
+    return (
+      <div className="auth-page">
+        <div className="auth-card">
+          <div className="brand auth-brand">
+            <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="app-logo" />
+            <div>
+              <h1>ClimbCrew</h1>
+              <p className="small">Connexion requise pour accéder à l’application.</p>
+            </div>
+          </div>
+
+          <div className="subcard" style={{ marginTop: 12, background: "rgba(14,165,233,.10)" }}>
+            <strong>Compte par défaut</strong>
+            <div className="small" style={{ marginTop: 6 }}>Email : {DEFAULT_LOGIN_EMAIL}</div>
+            <div className="small">Mot de passe : {DEFAULT_LOGIN_PASSWORD}</div>
+            <div className="small" style={{ marginTop: 6, color: "#f59e0b" }}>
+              À modifier ou supprimer après la première mise en service.
+            </div>
+          </div>
+
+          <div className="group auth-switcher" style={{ marginTop: 14 }}>
+            <button className={authView === "login" ? "" : "secondary"} onClick={() => { setAuthView("login"); setAuthError(""); setAuthMessage(""); }}>Connexion</button>
+            <button className={authView === "request" ? "" : "secondary"} onClick={() => { setAuthView("request"); setAuthError(""); setAuthMessage(""); }}>Demander un accès</button>
+            <button className={authView === "forgot" ? "" : "secondary"} onClick={() => { setAuthView("forgot"); setAuthError(""); setAuthMessage(""); }}>Mot de passe perdu</button>
+            <button className={authView === "reset" ? "" : "secondary"} onClick={() => { setAuthView("reset"); setAuthError(""); setAuthMessage(""); }}>Réinitialiser</button>
+          </div>
+
+          {authMessage && <div className="success" style={{ marginTop: 12 }}>{authMessage}</div>}
+          {authError && <div className="error" style={{ marginTop: 12 }}>{authError}</div>}
+
+          {authView === "login" && (
+            <div className="grid two" style={{ marginTop: 14 }}>
+              <div>
+                <label>Email</label>
+                <input value={loginForm.email} onChange={(e) => setLoginForm((p) => ({ ...p, email: e.target.value }))} />
+              </div>
+              <div>
+                <label>Mot de passe</label>
+                <input type="password" value={loginForm.password} onChange={(e) => setLoginForm((p) => ({ ...p, password: e.target.value }))} />
+              </div>
+              <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end" }}>
+                <button onClick={handleLogin}>Se connecter</button>
+              </div>
+            </div>
+          )}
+
+          {authView === "request" && (
+            <div className="grid two" style={{ marginTop: 14 }}>
+              <div>
+                <label>Prénom</label>
+                <input value={requestAccessForm.prenom} onChange={(e) => setRequestAccessForm((p) => ({ ...p, prenom: e.target.value }))} />
+              </div>
+              <div>
+                <label>Nom</label>
+                <input value={requestAccessForm.nom} onChange={(e) => setRequestAccessForm((p) => ({ ...p, nom: e.target.value }))} />
+              </div>
+              <div>
+                <label>Email</label>
+                <input value={requestAccessForm.email} onChange={(e) => setRequestAccessForm((p) => ({ ...p, email: e.target.value }))} />
+              </div>
+              <div>
+                <label>Mot de passe fort</label>
+                <input type="password" value={requestAccessForm.password} onChange={(e) => setRequestAccessForm((p) => ({ ...p, password: e.target.value }))} />
+              </div>
+              <div>
+                <label>Confirmation</label>
+                <input type="password" value={requestAccessForm.confirmPassword} onChange={(e) => setRequestAccessForm((p) => ({ ...p, confirmPassword: e.target.value }))} />
+              </div>
+              <div>
+                <label>Politique mot de passe</label>
+                <input value={PASSWORD_RULE_TEXT} readOnly />
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label><input type="checkbox" checked={requestAccessForm.acceptTerms} onChange={(e) => setRequestAccessForm((p) => ({ ...p, acceptTerms: e.target.checked }))} /> J’accepte les conditions d’utilisation et la journalisation des accès.</label>
+              </div>
+              <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end" }}>
+                <button onClick={handleRequestAccess}>Envoyer la demande</button>
+              </div>
+            </div>
+          )}
+
+          {authView === "forgot" && (
+            <div className="grid two" style={{ marginTop: 14 }}>
+              <div>
+                <label>Email</label>
+                <input value={forgotPasswordForm.email} onChange={(e) => setForgotPasswordForm({ email: e.target.value })} />
+              </div>
+              <div className="small" style={{ display: "flex", alignItems: "end" }}>
+                La demande sera journalisée. Un administrateur pourra générer un code de réinitialisation.
+              </div>
+              <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end" }}>
+                <button onClick={handleForgotPassword}>Signaler la perte du mot de passe</button>
+              </div>
+            </div>
+          )}
+
+          {authView === "reset" && (
+            <div className="grid two" style={{ marginTop: 14 }}>
+              <div>
+                <label>Email</label>
+                <input value={resetPasswordForm.email} onChange={(e) => setResetPasswordForm((p) => ({ ...p, email: e.target.value }))} />
+              </div>
+              <div>
+                <label>Code de réinitialisation</label>
+                <input value={resetPasswordForm.token} onChange={(e) => setResetPasswordForm((p) => ({ ...p, token: e.target.value }))} />
+              </div>
+              <div>
+                <label>Nouveau mot de passe fort</label>
+                <input type="password" value={resetPasswordForm.password} onChange={(e) => setResetPasswordForm((p) => ({ ...p, password: e.target.value }))} />
+              </div>
+              <div>
+                <label>Confirmation</label>
+                <input type="password" value={resetPasswordForm.confirmPassword} onChange={(e) => setResetPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))} />
+              </div>
+              <div style={{ gridColumn: "1 / -1" }} className="small">{PASSWORD_RULE_TEXT}</div>
+              <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end" }}>
+                <button onClick={handleResetPassword}>Réinitialiser le mot de passe</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
 
   return (
     <div className="app">
@@ -1378,6 +1820,68 @@ function App() {
           }
         }
 
+
+        .auth-page {
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+          background: linear-gradient(180deg, #020617 0%, #0f172a 100%);
+        }
+
+        .auth-card {
+          width: min(880px, 100%);
+          padding: 22px;
+          border-radius: 24px;
+          background: rgba(15, 23, 42, .96);
+          border: 1px solid rgba(148, 163, 184, .2);
+          box-shadow: 0 24px 80px rgba(0,0,0,.45);
+        }
+
+        .auth-brand {
+          align-items: center;
+          justify-content: flex-start;
+        }
+
+        .auth-switcher {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .topbar-user {
+          margin-left: auto;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .badge.danger {
+          background: rgba(239,68,68,.18);
+          color: #fecaca;
+          border-color: rgba(239,68,68,.35);
+        }
+
+        @media (max-width: 700px) {
+          .auth-card {
+            padding: 16px;
+            border-radius: 18px;
+          }
+
+          .topbar-user {
+            width: 100%;
+            justify-content: space-between;
+            margin-left: 0;
+            margin-top: 8px;
+          }
+
+          .auth-switcher {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+          }
+        }
+
       `}</style>
 
       {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
@@ -1518,6 +2022,12 @@ function App() {
                 <p className="small">{syncMessage}{isSyncing ? " · sync..." : ""}</p>
               </div>
             </div>
+            {authUser && (
+              <div className="topbar-user">
+                <div className="small">{authUser.email}</div>
+                <button className="secondary" onClick={handleLogout}>Déconnexion</button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -2010,7 +2520,88 @@ function App() {
                     </label>
                   </div>
                   {importMessage && <div className="success" style={{ marginTop: 10 }}>{importMessage}</div>}
+
                 </div>
+
+                {authUser?.role === "admin" ? (
+                  <>
+                    <div className="card">
+                      <div className="card-header">
+                        <h2>Accès et comptes</h2>
+                        <button className="secondary" onClick={loadAdminAccessData}>Actualiser</button>
+                      </div>
+
+                      <div className="small" style={{ marginBottom: 10 }}>
+                        L’administrateur peut approuver une demande, répudier un compte, réactiver un accès, générer un code de réinitialisation et consulter les logs de connexion.
+                      </div>
+
+                      {generatedResetToken && <div className="success" style={{ marginBottom: 12 }}>{generatedResetToken}</div>}
+
+                      <div className="stack">
+                        {adminAuthUsers.length === 0 ? (
+                          <div className="muted-box">Aucun compte utilisateur chargé.</div>
+                        ) : (
+                          adminAuthUsers.map((user) => (
+                            <div className="subcard" key={user.id}>
+                              <div className="card-header">
+                                <div>
+                                  <strong>{user.prenom} {user.nom}</strong>
+                                  <div className="small">{user.email} · rôle {user.role} · statut {user.status}</div>
+                                </div>
+                                <div className="group">
+                                  {user.status === "pending" && <button onClick={() => approveAccessRequest(user.id)}>Approuver</button>}
+                                  {user.status !== "revoked" ? (
+                                    <button className="danger" onClick={() => revokeUserAccess(user.id)}>Répudier</button>
+                                  ) : (
+                                    <button onClick={() => reactivateUserAccess(user.id)}>Réactiver</button>
+                                  )}
+                                  <button className="secondary" onClick={() => generatePasswordResetToken(user.id)}>Code reset</button>
+                                </div>
+                              </div>
+                              <div className="small">
+                                Créé le {user.created_at ? formatDateFr(user.created_at.slice(0, 10)) : "-"}
+                                {user.last_login_at ? ` · dernière connexion le ${formatDateFr(user.last_login_at.slice(0, 10))}` : " · aucune connexion"}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="card">
+                      <div className="card-header">
+                        <h2>Logs de connexion</h2>
+                        <span className="badge">{adminAccessLogs.length}</span>
+                      </div>
+                      <div className="stack">
+                        {adminAccessLogs.length === 0 ? (
+                          <div className="muted-box">Aucun log disponible.</div>
+                        ) : (
+                          adminAccessLogs.map((log) => (
+                            <div className="subcard" key={log.id}>
+                              <div className="card-header">
+                                <strong>{log.event_type}</strong>
+                                <span className={`badge ${log.success ? "" : "danger"}`}>{log.success ? "OK" : "Échec"}</span>
+                              </div>
+                              <div className="small">
+                                {log.email || "utilisateur inconnu"} · {log.created_at ? log.created_at.replace("T", " ").slice(0, 19) : "-"}
+                              </div>
+                              <div className="small">
+                                {log.ip_address || "IP inconnue"} · {log.user_agent || "navigateur inconnu"}
+                              </div>
+                              {log.details_text && <div className="small">Détails : {log.details_text}</div>}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </>
+                ) : USE_API ? (
+                  <div className="card">
+                    <div className="card-header"><h2>Accès et comptes</h2></div>
+                    <div className="muted-box">Cette section est réservée à un compte administrateur authentifié.</div>
+                  </div>
+                ) : null}
               </>
             )}
           </>
