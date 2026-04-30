@@ -12,6 +12,124 @@ const DEFAULT_LOGIN_EMAIL = "climbcrew@gmail.com";
 const DEFAULT_LOGIN_PASSWORD = "climbcrew*2026";
 const PASSWORD_RULE_TEXT = "Minimum 12 caractères avec majuscule, minuscule, chiffre et caractère spécial.";
 
+const AUTH_LOGIN_INLINE_STYLE = `
+  .auth-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 14px;
+    background: linear-gradient(180deg, #f6f8fc 0%, #eef2f7 100%);
+  }
+
+  .auth-card {
+    width: min(460px, 100%);
+    padding: 18px;
+    border-radius: 20px;
+    background: rgba(255,255,255,.96);
+    border: 1px solid rgba(148,163,184,.18);
+    box-shadow: 0 18px 50px rgba(15,23,42,.10);
+    color: #0f172a;
+  }
+
+  .auth-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 10px;
+  }
+
+  .auth-page .app-logo {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+    border-radius: 18px;
+    background: #ffffff;
+    padding: 6px;
+    box-shadow: 0 10px 30px rgba(15,23,42,.10);
+  }
+
+  .auth-brand h1,
+  .auth-brand p {
+    margin: 0;
+    text-align: center;
+  }
+
+  .auth-switcher {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .auth-switcher button {
+    min-height: 40px;
+    padding: 8px 10px;
+    border-radius: 12px;
+  }
+
+  .auth-card .grid.two {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .auth-card label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .auth-card input,
+  .auth-card select {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(148,163,184,.25);
+    background: #ffffff;
+    color: #0f172a;
+    box-sizing: border-box;
+  }
+
+  .auth-submit-row {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: flex-start;
+  }
+
+  .auth-submit-row button {
+    min-width: 160px;
+  }
+
+  @media (max-width: 480px) {
+    .auth-card {
+      width: min(100%, 380px);
+      padding: 14px;
+    }
+
+    .auth-page .app-logo {
+      width: 64px;
+      height: 64px;
+    }
+
+    .auth-switcher {
+      grid-template-columns: 1fr;
+    }
+
+    .auth-submit-row button {
+      width: 100%;
+      min-width: 0;
+    }
+  }
+`;
+
+
 const THEME_PREFERENCE_KEY = "climbcrew-theme-preference";
 const THEME_OPTIONS = [
   { value: "auto", label: "Automatique" },
@@ -403,22 +521,7 @@ function App() {
     if (USE_API && authUser?.role === "admin" && tab === "administration") {
       loadAdminAccessData();
     }
-}, [tab, authUser, authToken]);
-
-const isAdminAccount = USE_API ? authUser?.role === "admin" : adminUnlocked;
-const canManageRouteActions = isAdminAccount;
-const canAccessAdministration = isAdminAccount;
-
-const visibleTabs = useMemo(
-  () => TABS.filter((item) => item.key !== "administration" || canAccessAdministration),
-  [canAccessAdministration]
-);
-
-useEffect(() => {
-  if (!canAccessAdministration && tab === "administration") {
-    setTab("inscriptions");
-  }
-}, [canAccessAdministration, tab]);
+  }, [tab, authUser, authToken]);
 
   const participantsById = useMemo(
     () => Object.fromEntries(state.participants.map((p) => [p.id, p])),
@@ -1354,11 +1457,12 @@ async function handleThemePreferenceChange(nextTheme) {
   if (USE_API && authLoading) {
     return (
       <div className="auth-page">
+        <style>{AUTH_LOGIN_INLINE_STYLE}</style>
         <div className="auth-card">
           <div className="brand auth-brand">
             <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="app-logo" />
             <div>
-              
+              <h1>ClimbCrew</h1>
               <p className="small">Chargement de la session…</p>
             </div>
           </div>
@@ -1370,11 +1474,12 @@ async function handleThemePreferenceChange(nextTheme) {
   if (USE_API && !authUser) {
     return (
       <div className="auth-page">
+        <style>{AUTH_LOGIN_INLINE_STYLE}</style>
         <div className="auth-card">
           <div className="brand auth-brand">
             <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="app-logo" />
             <div>
-              
+              <h1>ClimbCrew</h1>
               <p className="small">Connexion requise pour accéder à l’application.</p>
             </div>
           </div>
@@ -1408,7 +1513,7 @@ async function handleThemePreferenceChange(nextTheme) {
                 <label>Mot de passe</label>
                 <input type="password" value={loginForm.password} onChange={(e) => setLoginForm((p) => ({ ...p, password: e.target.value }))} />
               </div>
-              <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end" }}>
+              <div className="auth-submit-row">
                 <button onClick={handleLogin}>Se connecter</button>
               </div>
             </div>
@@ -1443,7 +1548,7 @@ async function handleThemePreferenceChange(nextTheme) {
               <div style={{ gridColumn: "1 / -1" }}>
                 <label><input type="checkbox" checked={requestAccessForm.acceptTerms} onChange={(e) => setRequestAccessForm((p) => ({ ...p, acceptTerms: e.target.checked }))} /> J’accepte les conditions d’utilisation et la journalisation des accès.</label>
               </div>
-              <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end" }}>
+              <div className="auth-submit-row">
                 <button onClick={handleRequestAccess}>Envoyer la demande</button>
               </div>
             </div>
@@ -1458,7 +1563,7 @@ async function handleThemePreferenceChange(nextTheme) {
               <div className="small" style={{ display: "flex", alignItems: "end" }}>
                 La demande sera journalisée. Un administrateur pourra générer un code de réinitialisation.
               </div>
-              <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end" }}>
+              <div className="auth-submit-row">
                 <button onClick={handleForgotPassword}>Signaler la perte du mot de passe</button>
               </div>
             </div>
@@ -1483,7 +1588,7 @@ async function handleThemePreferenceChange(nextTheme) {
                 <input type="password" value={resetPasswordForm.confirmPassword} onChange={(e) => setResetPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))} />
               </div>
               <div style={{ gridColumn: "1 / -1" }} className="small">{PASSWORD_RULE_TEXT}</div>
-              <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end" }}>
+              <div className="auth-submit-row">
                 <button onClick={handleResetPassword}>Réinitialiser le mot de passe</button>
               </div>
             </div>
@@ -1510,7 +1615,7 @@ async function handleThemePreferenceChange(nextTheme) {
         .sidebar.open { transform: translateX(0); }
         .sidebar-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
         .sidebar-brand { display: flex; align-items: center; gap: 10px; font-weight: 900; color: #e2e8f0; }
-        .sidebar-logo { width: 44px; height: 44px; object-fit: contain; background: #fff; border-radius: 12px; padding: 0; }
+        .sidebar-logo { width: 44px; height: 44px; object-fit: contain; background: #fff; border-radius: 12px; padding: 4px; }
         .sidebar-close { background: #020617; color: #e2e8f0; border: 1px solid rgba(148,163,184,.4); }
         .side-tab { text-align: left; width: 100%; background: #1e293b; color: #cbd5e1; border: 1px solid rgba(148,163,184,.18); }
         .side-tab.active { background: #22d3ee; color: #082f49; }
@@ -1588,7 +1693,7 @@ async function handleThemePreferenceChange(nextTheme) {
           .hero { position: sticky; top: 0; z-index: 30; padding: 10px 12px; border-radius: 16px; backdrop-filter: blur(10px); }
           .topbar { gap: 10px; align-items: center; }
           .brand { gap: 10px; }
-          .app-logo { width: 40px; height: 40px; border-radius: 10px; padding: 0; }
+          .app-logo { width: 40px; height: 40px; border-radius: 10px; padding: 4px; }
           .hero h1 { font-size: 22px; line-height: 1; }
           .hero .small { font-size: 11px; margin-top: 4px; }
           .menu-button { min-width: 42px; min-height: 42px; padding: 8px; border-radius: 12px; }
@@ -1727,7 +1832,7 @@ async function handleThemePreferenceChange(nextTheme) {
             grid-template-columns: 1fr 1fr;
             width: 100%;
             gap: 6px;
-            padding: 0;
+            padding: 4px;
             border-radius: 14px;
             background: rgba(2, 6, 23, .35);
             border: 1px solid rgba(148, 163, 184, .18);
@@ -2063,61 +2168,6 @@ h1, h2, h3, strong, label {
   }
 }
 
-
-        /* Fond login avec logo */
-        .auth-page,
-        .auth-page--premium {
-          position: relative;
-          overflow: hidden;
-        }
-
-        .auth-page::before,
-        .auth-page--premium::before {
-          content: "";
-          position: absolute;
-          inset: 0;
-          background-image: url('/logo-climbcrew.png');
-          background-repeat: no-repeat;
-          background-position: center;
-          background-size: min(55vw, 520px);
-          opacity: 0.08;
-          pointer-events: none;
-          z-index: 0;
-        }
-
-        .auth-card,
-        .auth-shell,
-        .auth-shell-premium {
-          position: relative;
-          z-index: 1;
-          backdrop-filter: blur(3px);
-        }
-
-        @media (max-width: 700px) {
-          .auth-page::before,
-          .auth-page--premium::before {
-            background-size: min(82vw, 360px);
-            opacity: 0.07;
-          }
-        }
-
-        .auth-title-block,
-        .auth-brand-copy,
-        .brand.auth-brand > div {
-          display: none !important;
-        }
-
-        .auth-brand,
-        .auth-header-premium,
-        .auth-brand-row,
-        .auth-brand-row--centered {
-          gap: 0 !important;
-        }
-
-        .auth-login-logo {
-          box-shadow: none;
-          background: transparent;
-        }
       `}</style>
 
       {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
@@ -2130,7 +2180,7 @@ h1, h2, h3, strong, label {
           </div>
           <button className="sidebar-close" onClick={() => setSidebarOpen(false)} aria-label="Fermer le menu">×</button>
         </div>
-        {visibleTabs.map((item) => (
+        {TABS.map((item) => (
           <button
             key={item.key}
             className={`side-tab ${tab === item.key ? "active" : ""}`}
@@ -2233,7 +2283,7 @@ h1, h2, h3, strong, label {
       )}
 
       <nav className="mobile-bottom-nav" aria-label="Navigation mobile ClimbCrew">
-        {visibleTabs.map((item) => (
+        {TABS.map((item) => (
           <button
             key={item.key}
             className={`bottom-tab ${tab === item.key ? "active" : ""}`}
@@ -2254,7 +2304,7 @@ h1, h2, h3, strong, label {
             <div className="brand">
               <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="app-logo" />
               <div>
-                
+                <h1>ClimbCrew</h1>
                 <p className="small">{syncMessage}{isSyncing ? " · sync..." : ""}</p>
               </div>
             </div>
@@ -2337,86 +2387,84 @@ h1, h2, h3, strong, label {
         )}
 
         {tab === "voies" && (
-  <>
-    {!USE_API && !adminUnlocked ? (
-      <div className="card">
-        <div className="card-header"><h2>Accès administration requis</h2></div>
-        <div className="grid two">
-          <div>
-            <label>Code administrateur</label>
-            <input type="password" maxLength={8} value={adminInput} onChange={(e) => setAdminInput(e.target.value.replace(/\D/g, "").slice(0, 8))} />
-          </div>
-          <div style={{ display: "flex", alignItems: "end" }}>
-            <button onClick={unlockAdmin}>Déverrouiller</button>
-          </div>
-        </div>
-        {adminError && <div className="error" style={{ marginTop: 10 }}>{adminError}</div>}
-      </div>
-    ) : null}
-
-    {canManageRouteActions && (
-      <div className="card">
-        <div className="card-header"><h2>Ajouter une voie</h2></div>
-        <div className="grid four">
-          <div><label>Numéro unique</label><input value={newRoute.numeroVoieUnique} onChange={(e) => setNewRoute((p) => ({ ...p, numeroVoieUnique: e.target.value }))} /></div>
-          <div><label>Corde</label><select value={newRoute.numeroCorde} onChange={(e) => setNewRoute((p) => ({ ...p, numeroCorde: e.target.value }))}>{state.ropes.map((rope) => <option key={rope.numeroCorde} value={String(rope.numeroCorde)}>Corde {rope.numeroCorde} · {rope.couleurCorde}</option>)}</select></div>
-          <div><label>Couleur voie</label><input value={newRoute.couleurPrises} onChange={(e) => setNewRoute((p) => ({ ...p, couleurPrises: e.target.value }))} /></div>
-          <div><label>Cotation</label><select value={newRoute.cotationReference} onChange={(e) => setNewRoute((p) => ({ ...p, cotationReference: e.target.value }))}>{GRADES.map((g) => <option key={g} value={g}>{g}</option>)}</select></div>
-          <div><label>Nom de la voie</label><input value={newRoute.nomVoie} onChange={(e) => setNewRoute((p) => ({ ...p, nomVoie: e.target.value }))} /></div>
-          <div><label>Ouvreur</label><input value={newRoute.nomOuvreur} onChange={(e) => setNewRoute((p) => ({ ...p, nomOuvreur: e.target.value }))} /></div>
-          <div><label>Moulinette uniquement</label><select value={newRoute.moulinetteOnly ? "oui" : "non"} onChange={(e) => setNewRoute((p) => ({ ...p, moulinetteOnly: e.target.value === "oui" }))}><option value="non">Non</option><option value="oui">Oui</option></select></div>
-          <div style={{ display: "flex", alignItems: "end" }}><button onClick={addRoute}>Ajouter</button></div>
-        </div>
-        {routeError && <div className="error" style={{ marginTop: 10 }}>{routeError}</div>}
-      </div>
-    )}
-
-    <div className="card">
-      <div className="card-header"><h2>Tableau des voies</h2></div>
-      <div className="stack">
-        {state.ropes.map((rope) => {
-          const ropeRoutes = state.routes.filter((route) => route.numeroCorde === rope.numeroCorde);
-          return (
-            <div className="subcard" key={rope.numeroCorde}>
-              <div className="card-header">
-                <strong>Corde {rope.numeroCorde} · {rope.couleurCorde}</strong>
-                <span className="badge">{ropeRoutes.length} voie(s)</span>
-              </div>
-              {ropeRoutes.length === 0 ? (
-                <div className="small">Aucune voie sur cette corde.</div>
-              ) : (
-                <div className="stack">
-                  {ropeRoutes.map((route) => {
-                    const agg = routeAggregatesById[route.id];
-                    return (
-                      <div className="route-card" key={route.id} style={{ backgroundColor: getRouteBackgroundColor(route.couleurPrises) }}>
-                        <div className="card-header">
-                          <strong>{route.cotationAjustee} · {route.nomVoie || "Sans nom"} · {route.nomOuvreur}</strong>
-                          <div className="group">
-                            {route.moulinetteOnly && <span className="pill">Moulinette uniquement</span>}
-                            <span className="pill">{route.active ? "Active" : "Archivée"}</span>
-                            {route.active && <button className="secondary" onClick={() => openRealisationModal(route.id)}>Réalisation</button>}
-                            {canManageRouteActions && <>
-                              <button className="secondary" onClick={() => toggleRouteActive(route.id)}>{route.active ? "Archiver" : "Réactiver"}</button>
-                              <button className="secondary" disabled={!agg?.weightedMedianGrade} onClick={() => applyAdjustedGrade(route.id)}>Appliquer cotation ajustée</button>
-                            </>}
-                          </div>
-                        </div>
-                        <div className="small" style={{ color: "#111827" }}>
-                          Réf. {route.cotationReference} · Couleur voie : {route.couleurPrises} · Propositions : {agg?.count || 0} · Médiane : {agg?.medianGrade || "-"} · Médiane pondérée : {agg?.weightedMedianGrade || "-"}
-                        </div>
-                      </div>
-                    );
-                  })}
+          <>
+            {!adminUnlocked ? (
+              <div className="card">
+                <div className="card-header"><h2>Accès administration requis</h2></div>
+                <div className="grid two">
+                  <div>
+                    <label>Code administrateur</label>
+                    <input type="password" maxLength={8} value={adminInput} onChange={(e) => setAdminInput(e.target.value.replace(/\D/g, "").slice(0, 8))} />
+                  </div>
+                  <div style={{ display: "flex", alignItems: "end" }}>
+                    <button onClick={unlockAdmin}>Déverrouiller</button>
+                  </div>
                 </div>
-              )}
+                {adminError && <div className="error" style={{ marginTop: 10 }}>{adminError}</div>}
+              </div>
+            ) : (
+              <div className="card">
+                <div className="card-header"><h2>Ajouter une voie</h2></div>
+                <div className="grid four">
+                  <div><label>Numéro unique</label><input value={newRoute.numeroVoieUnique} onChange={(e) => setNewRoute((p) => ({ ...p, numeroVoieUnique: e.target.value }))} /></div>
+                  <div><label>Corde</label><select value={newRoute.numeroCorde} onChange={(e) => setNewRoute((p) => ({ ...p, numeroCorde: e.target.value }))}>{state.ropes.map((rope) => <option key={rope.numeroCorde} value={String(rope.numeroCorde)}>Corde {rope.numeroCorde} · {rope.couleurCorde}</option>)}</select></div>
+                  <div><label>Couleur voie</label><input value={newRoute.couleurPrises} onChange={(e) => setNewRoute((p) => ({ ...p, couleurPrises: e.target.value }))} /></div>
+                  <div><label>Cotation</label><select value={newRoute.cotationReference} onChange={(e) => setNewRoute((p) => ({ ...p, cotationReference: e.target.value }))}>{GRADES.map((g) => <option key={g} value={g}>{g}</option>)}</select></div>
+                  <div><label>Nom de la voie</label><input value={newRoute.nomVoie} onChange={(e) => setNewRoute((p) => ({ ...p, nomVoie: e.target.value }))} /></div>
+                  <div><label>Ouvreur</label><input value={newRoute.nomOuvreur} onChange={(e) => setNewRoute((p) => ({ ...p, nomOuvreur: e.target.value }))} /></div>
+                  <div><label>Moulinette uniquement</label><select value={newRoute.moulinetteOnly ? "oui" : "non"} onChange={(e) => setNewRoute((p) => ({ ...p, moulinetteOnly: e.target.value === "oui" }))}><option value="non">Non</option><option value="oui">Oui</option></select></div>
+                  <div style={{ display: "flex", alignItems: "end" }}><button onClick={addRoute}>Ajouter</button></div>
+                </div>
+                {routeError && <div className="error" style={{ marginTop: 10 }}>{routeError}</div>}
+              </div>
+            )}
+
+            <div className="card">
+              <div className="card-header"><h2>Tableau des voies</h2></div>
+              <div className="stack">
+                {state.ropes.map((rope) => {
+                  const ropeRoutes = state.routes.filter((route) => route.numeroCorde === rope.numeroCorde);
+                  return (
+                    <div className="subcard" key={rope.numeroCorde}>
+                      <div className="card-header">
+                        <strong>Corde {rope.numeroCorde} · {rope.couleurCorde}</strong>
+                        <span className="badge">{ropeRoutes.length} voie(s)</span>
+                      </div>
+                      {ropeRoutes.length === 0 ? (
+                        <div className="small">Aucune voie sur cette corde.</div>
+                      ) : (
+                        <div className="stack">
+                          {ropeRoutes.map((route) => {
+                            const agg = routeAggregatesById[route.id];
+                            return (
+                              <div className="route-card" key={route.id} style={{ backgroundColor: getRouteBackgroundColor(route.couleurPrises) }}>
+                                <div className="card-header">
+                                  <strong>{route.cotationAjustee} · {route.nomVoie || "Sans nom"} · {route.nomOuvreur}</strong>
+                                  <div className="group">
+                                    {route.moulinetteOnly && <span className="pill">Moulinette uniquement</span>}
+                                    <span className="pill">{route.active ? "Active" : "Archivée"}</span>
+                                    {route.active && <button className="secondary" onClick={() => openRealisationModal(route.id)}>Réalisation</button>}
+                                    {adminUnlocked && <>
+                                      <button className="secondary" onClick={() => toggleRouteActive(route.id)}>{route.active ? "Archiver" : "Réactiver"}</button>
+                                      <button className="secondary" disabled={!agg?.weightedMedianGrade} onClick={() => applyAdjustedGrade(route.id)}>Appliquer cotation ajustée</button>
+                                    </>}
+                                  </div>
+                                </div>
+                                <div className="small" style={{ color: "#111827" }}>
+                                  Réf. {route.cotationReference} · Couleur voie : {route.couleurPrises} · Propositions : {agg?.count || 0} · Médiane : {agg?.medianGrade || "-"} · Médiane pondérée : {agg?.weightedMedianGrade || "-"}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          );
-        })}
-      </div>
-    </div>
-  </>
-)}
+          </>
+        )}
 
         {tab === "progression" && (
           <div className="card">
@@ -2690,7 +2738,7 @@ h1, h2, h3, strong, label {
           </div>
         )}
 
-        {tab === "administration" && canAccessAdministration && (
+        {tab === "administration" && (
           <>
             {!adminUnlocked ? (
               <div className="card">
@@ -2904,98 +2952,91 @@ h1, h2, h3, strong, label {
           </>
         )}
 
-{tab === "faq" && (
+        {tab === "faq" && (
   <div className="card">
     <div className="card-header"><h2>FAQ – fonctionnement de ClimbCrew</h2></div>
 
     <div className="faq-item">
       <strong>À quoi sert ClimbCrew ?</strong>
       <div className="small">
-        ClimbCrew sert à gérer les séances d’une SAE, les participants, les voies, les inscriptions et le suivi de progression des grimpeurs.
+        ClimbCrew est une application dédiée au site SAE de Cristal. Elle sert à gérer les séances, les inscriptions, les participants, les voies et le suivi de progression des grimpeurs.
       </div>
     </div>
 
     <div className="faq-item">
-      <strong>Quelles sont les dernières évolutions introduites ?</strong>
+      <strong>À qui s’adresse l’application ?</strong>
       <div className="small">
-        L’application intègre désormais une page de connexion, des demandes d’accès, un mot de passe oublié, des journaux d’accès, un thème Auto / Clair / Sombre par utilisateur, l’enregistrement de réalisations depuis l’onglet Voies, une timeline CPR détaillée et un historique modifiable des réalisations.
+        L’application est destinée aux utilisateurs du site SAE de Cristal : grimpeurs, encadrants, référents et administrateurs.
       </div>
     </div>
 
     <div className="faq-item">
-      <strong>Qui peut accéder à l’onglet Administration ?</strong>
+      <strong>À quoi sert le bouton “Connexion” ?</strong>
       <div className="small">
-        L’onglet Administration est réservé aux comptes administrateurs. Les comptes standard ne voient pas cet onglet.
+        Il permet à un utilisateur disposant déjà d’un compte de se connecter à l’application avec son email et son mot de passe.
       </div>
     </div>
 
     <div className="faq-item">
-      <strong>Qui peut ajouter une voie, archiver une voie ou appliquer une cotation ajustée ?</strong>
+      <strong>À quoi sert le bouton “Demander un accès” ?</strong>
       <div className="small">
-        Ces actions sont réservées aux comptes administrateurs. Les autres utilisateurs peuvent consulter les voies et enregistrer une réalisation, mais ne peuvent pas modifier la structure du mur.
+        Il permet à une personne qui n’a pas encore de compte de faire une demande d’accès. Cette demande pourra ensuite être examinée par un administrateur.
       </div>
     </div>
 
     <div className="faq-item">
-      <strong>Comment fonctionne le thème Auto / Clair / Sombre ?</strong>
+      <strong>À quoi sert le bouton “Mot de passe perdu” ?</strong>
       <div className="small">
-        En mode <strong>Automatique</strong>, ClimbCrew suit le thème clair ou sombre du système de l’utilisateur. Les modes <strong>Clair</strong> et <strong>Sombre</strong> forcent l’apparence correspondante. La préférence est mémorisée localement et enregistrée côté serveur pour le compte utilisateur.
+        Il permet de signaler qu’un utilisateur a perdu son mot de passe et souhaite lancer la procédure de récupération.
+      </div>
+    </div>
+
+    <div className="faq-item">
+      <strong>À quoi sert le bouton “Réinitialiser” ?</strong>
+      <div className="small">
+        Il permet de définir un nouveau mot de passe à l’aide d’un code de réinitialisation.
       </div>
     </div>
 
     <div className="faq-item">
       <strong>Que signifient les couleurs des participants ?</strong>
       <div className="small">
-        Le fond correspond au passeport. Les découvertes sont affichés sur fond gris. Le cadre vert indique un cotisant à jour ; le cadre rouge indique un non-cotisant ou une cotisation non renseignée.
+        Le fond correspond au passeport du participant. Les découvertes apparaissent sur fond gris. Le cadre vert indique un cotisant à jour ; le cadre rouge indique un non-cotisant ou une cotisation non renseignée.
       </div>
     </div>
 
     <div className="faq-item">
       <strong>Comment enregistrer une réalisation ?</strong>
       <div className="small">
-        Depuis l’onglet Voies, le bouton <strong>Réalisation</strong> ouvre une fenêtre d’enregistrement. Les séances proposées pour un participant sont limitées à celles où il est réellement inscrit.
+        Depuis l’onglet Voies, le bouton “Réalisation” permet d’enregistrer une voie réalisée pour un participant. Dans Progression, l’historique permet ensuite de revoir et corriger les informations saisies.
       </div>
     </div>
 
     <div className="faq-item">
       <strong>Que signifie CPR ?</strong>
       <div className="small">
-        <strong>CPR</strong> signifie ici <strong>Climbing Progress Rating</strong>. C’est un indicateur simplifié de progression destiné à représenter le niveau récent du grimpeur.
+        CPR signifie ici “Climbing Progress Rating”. C’est un indicateur simplifié de progression destiné à représenter le niveau récent d’un grimpeur.
       </div>
     </div>
 
     <div className="faq-item">
       <strong>Comment est calculé le CPR simplifié ?</strong>
       <div className="small">
-        Chaque réalisation est rattachée à une cotation de voie convertie en indice numérique. Cet indice est ensuite pondéré par le style de réalisation : une voie réalisée à vue ou en tête est valorisée plus favorablement qu’une voie faite avec repos ou uniquement en moulinette. La timeline CPR affiche les réalisations les plus récentes en haut avec la date, le nom de la voie, la cotation et le style pour rendre le calcul plus lisible.
+        Le CPR simplifié prend en compte les réalisations récentes d’un grimpeur, la difficulté des voies et le style de réalisation. Une voie réalisée dans de bonnes conditions valorise davantage la progression qu’une voie réalisée avec plus d’aide ou de repos.
       </div>
     </div>
 
     <div className="faq-item">
-      <strong>Que peut-on modifier dans la timeline CPR et dans l’historique des réalisations ?</strong>
+      <strong>Qui peut accéder à l’onglet Administration ?</strong>
       <div className="small">
-        Il est possible de corriger la séance, la voie, le style, la cotation proposée, le nombre d’essais et le commentaire. Le participant reste affiché mais n’est pas modifiable depuis la zone de détails de la timeline CPR.
+        L’onglet Administration est réservé aux comptes administrateurs.
       </div>
     </div>
 
     <div className="faq-item">
-      <strong>Les données sont-elles partagées entre appareils ?</strong>
+      <strong>Qui peut ajouter une voie, archiver une voie ou appliquer une cotation ajustée ?</strong>
       <div className="small">
-        Les participants, les séances, les inscriptions, les comptes et les préférences de thème sont partagés via PostgreSQL. Certaines données de progression peuvent encore dépendre du navigateur tant que toute la persistance backend des réalisations n’est pas finalisée.
-      </div>
-    </div>
-
-    <div className="faq-item">
-      <strong>Comment sauvegarder ou restaurer les données ?</strong>
-      <div className="small">
-        L’onglet Administration permet l’import et l’export JSON. Le backend PostgreSQL reste la source principale des données partagées.
-      </div>
-    </div>
-
-    <div className="faq-item">
-      <strong>Que faire si l’affichage semble incorrect après une mise à jour ?</strong>
-      <div className="small">
-        Il faut recharger la page avec le cache vidé et vérifier que le frontend a bien été redéployé. En cas de doute, un test en navigation privée permet souvent d’écarter un problème de cache navigateur.
+        Ces actions sont réservées aux comptes administrateurs.
       </div>
     </div>
   </div>
