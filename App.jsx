@@ -12,306 +12,6 @@ const DEFAULT_LOGIN_EMAIL = "climbcrew@gmail.com";
 const DEFAULT_LOGIN_PASSWORD = "climbcrew*2026";
 const PASSWORD_RULE_TEXT = "Minimum 12 caractères avec majuscule, minuscule, chiffre et caractère spécial.";
 
-const AUTH_PREMIUM_STYLE = `
-  .auth-page--premium {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 32px 16px;
-    background:
-      radial-gradient(circle at 12% 18%, rgba(59,130,246,.10), transparent 15%),
-      radial-gradient(circle at 88% 22%, rgba(14,165,233,.08), transparent 14%),
-      radial-gradient(circle at 82% 78%, rgba(59,130,246,.07), transparent 18%),
-      linear-gradient(180deg, #f6f8fc 0%, #edf2f8 100%);
-  }
-
-  .auth-shell-premium {
-    width: min(720px, 100%);
-    padding: 28px 28px 24px;
-    border-radius: 30px;
-    background: rgba(255,255,255,.96);
-    border: 1px solid rgba(191,219,254,.34);
-    box-shadow: 0 28px 80px rgba(15,23,42,.12);
-    color: #0f172a;
-  }
-
-  .auth-shell-premium--loading {
-    width: min(460px, 100%);
-  }
-
-  .auth-header-premium {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .auth-header-premium--center {
-    justify-content: center;
-  }
-
-  .auth-logo-premium {
-    width: 56px;
-    height: 56px;
-    border-radius: 9px;
-    object-fit: contain;
-    flex: 0 0 auto;
-    filter: drop-shadow(0 4px 10px rgba(15,23,42,.10));
-  }
-
-  .auth-title-block h1 {
-    margin: 0;
-    font-size: clamp(32px, 4vw, 42px);
-    line-height: 1;
-    color: #0f2b66;
-  }
-
-  .auth-subtitle-premium {
-    margin: 6px 0 0;
-    color: #475569;
-    font-size: 16px;
-  }
-
-  .auth-loading-badge {
-    margin: 18px auto 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 40px;
-    padding: 0 16px;
-    border-radius: 999px;
-    background: rgba(59,130,246,.10);
-    color: #1d4ed8;
-    font-weight: 700;
-  }
-
-  .auth-default-premium {
-    margin-top: 22px;
-    padding: 16px 18px;
-    border-radius: 20px;
-    background: linear-gradient(180deg, rgba(239,246,255,.96), rgba(248,250,252,.98));
-    border: 1px solid rgba(147,197,253,.42);
-  }
-
-  .auth-default-premium__title {
-    font-size: 22px;
-    font-weight: 800;
-    color: #0f2b66;
-  }
-
-  .auth-default-premium__row {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid rgba(191,219,254,.58);
-    font-size: 17px;
-    color: #1e293b;
-  }
-
-  .auth-default-premium__warning {
-    margin-top: 12px;
-    color: #c2410c;
-    font-weight: 700;
-  }
-
-  .auth-tabs-premium {
-    margin-top: 18px;
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 8px;
-    padding: 6px;
-    border-radius: 18px;
-    background: rgba(248,250,252,.96);
-    border: 1px solid rgba(148,163,184,.18);
-  }
-
-  .auth-tab-premium {
-    min-height: 50px;
-    border: none;
-    border-radius: 14px;
-    background: transparent;
-    color: #64748b;
-    font-weight: 700;
-    cursor: pointer;
-  }
-
-  .auth-tab-premium.active {
-    background: #ffffff;
-    color: #0f2b66;
-    box-shadow: 0 10px 24px rgba(15,23,42,.08);
-  }
-
-  .auth-alert-premium {
-    margin-top: 14px;
-    padding: 12px 14px;
-    border-radius: 14px;
-    font-weight: 600;
-  }
-
-  .auth-alert-premium--success {
-    background: rgba(34,197,94,.10);
-    color: #166534;
-    border: 1px solid rgba(34,197,94,.24);
-  }
-
-  .auth-alert-premium--error {
-    background: rgba(239,68,68,.10);
-    color: #991b1b;
-    border: 1px solid rgba(239,68,68,.24);
-  }
-
-  .auth-panel-premium {
-    margin-top: 14px;
-    padding: 18px;
-    border-radius: 22px;
-    background: rgba(255,255,255,.92);
-    border: 1px solid rgba(226,232,240,.95);
-    box-shadow: 0 10px 26px rgba(15,23,42,.04);
-  }
-
-  .auth-grid-premium {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
-  }
-
-  .auth-grid-premium--single {
-    grid-template-columns: 1fr;
-  }
-
-  .auth-panel-premium label {
-    display: block;
-    margin-bottom: 8px;
-    font-size: 14px;
-    font-weight: 700;
-    color: #0f172a;
-    text-transform: none;
-    letter-spacing: 0;
-  }
-
-  .auth-panel-premium input,
-  .auth-panel-premium select {
-    width: 100%;
-    min-height: 54px;
-    padding: 12px 14px;
-    border-radius: 14px;
-    border: 1px solid rgba(148,163,184,.30);
-    background: #ffffff;
-    color: #0f172a;
-    font-size: 16px;
-    box-shadow: inset 0 1px 2px rgba(15,23,42,.03);
-  }
-
-  .auth-panel-premium input::placeholder {
-    color: #94a3b8;
-  }
-
-  .auth-check-premium label {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    margin: 0;
-    color: #334155;
-    font-weight: 500;
-  }
-
-  .auth-check-premium input[type="checkbox"] {
-    width: 18px;
-    min-width: 18px;
-    height: 18px;
-    min-height: 18px;
-    margin-top: 2px;
-    padding: 0;
-  }
-
-  .auth-helper-premium {
-    color: #64748b;
-    font-size: 14px;
-    line-height: 1.5;
-  }
-
-  .auth-actions-premium {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-  }
-
-  .auth-primary-premium {
-    min-width: 220px;
-    min-height: 54px;
-    padding: 0 22px;
-    border: none;
-    border-radius: 16px;
-    background: linear-gradient(135deg, #0f2b66, #083b84 55%, #0b4a9d 100%);
-    color: #ffffff;
-    font-size: 18px;
-    font-weight: 800;
-    cursor: pointer;
-    box-shadow: 0 16px 34px rgba(15,43,102,.20);
-  }
-
-  @media (max-width: 900px) {
-    .auth-tabs-premium {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
-
-  @media (max-width: 700px) {
-    .auth-page--premium {
-      padding: 14px;
-    }
-
-    .auth-shell-premium {
-      padding: 18px 16px;
-      border-radius: 24px;
-    }
-
-    .auth-header-premium--center {
-      justify-content: flex-start;
-    }
-
-    .auth-title-block h1 {
-      font-size: 30px;
-    }
-
-    .auth-logo-premium {
-      width: 44px;
-      height: 44px;
-    }
-
-    .auth-default-premium__title {
-      font-size: 20px;
-    }
-
-    .auth-default-premium__row {
-      flex-direction: column;
-      gap: 4px;
-      font-size: 16px;
-    }
-
-    .auth-tabs-premium {
-      grid-template-columns: 1fr 1fr;
-    }
-
-    .auth-grid-premium {
-      grid-template-columns: 1fr;
-      gap: 12px;
-    }
-
-    .auth-actions-premium {
-      justify-content: stretch;
-    }
-
-    .auth-primary-premium {
-      width: 100%;
-      min-width: 0;
-    }
-  }
-`;
-
-
 const THEME_PREFERENCE_KEY = "climbcrew-theme-preference";
 const THEME_OPTIONS = [
   { value: "auto", label: "Automatique" },
@@ -703,7 +403,22 @@ function App() {
     if (USE_API && authUser?.role === "admin" && tab === "administration") {
       loadAdminAccessData();
     }
-  }, [tab, authUser, authToken]);
+}, [tab, authUser, authToken]);
+
+const isAdminAccount = USE_API ? authUser?.role === "admin" : adminUnlocked;
+const canManageRouteActions = isAdminAccount;
+const canAccessAdministration = isAdminAccount;
+
+const visibleTabs = useMemo(
+  () => TABS.filter((item) => item.key !== "administration" || canAccessAdministration),
+  [canAccessAdministration]
+);
+
+useEffect(() => {
+  if (!canAccessAdministration && tab === "administration") {
+    setTab("inscriptions");
+  }
+}, [canAccessAdministration, tab]);
 
   const participantsById = useMemo(
     () => Object.fromEntries(state.participants.map((p) => [p.id, p])),
@@ -1638,17 +1353,15 @@ async function handleThemePreferenceChange(nextTheme) {
 
   if (USE_API && authLoading) {
     return (
-      <div className="auth-page auth-page--premium">
-        <style>{AUTH_PREMIUM_STYLE}</style>
-        <div className="auth-shell-premium auth-shell-premium--loading">
-          <div className="auth-header-premium auth-header-premium--center">
-            <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="auth-logo-premium" />
-            <div className="auth-title-block">
+      <div className="auth-page">
+        <div className="auth-card">
+          <div className="brand auth-brand">
+            <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="app-logo" />
+            <div>
               <h1>ClimbCrew</h1>
-              <p className="auth-subtitle-premium">Chargement de la session…</p>
+              <p className="small">Chargement de la session…</p>
             </div>
           </div>
-          <div className="auth-loading-badge">Connexion sécurisée en cours</div>
         </div>
       </div>
     );
@@ -1656,154 +1369,122 @@ async function handleThemePreferenceChange(nextTheme) {
 
   if (USE_API && !authUser) {
     return (
-      <div className="auth-page auth-page--premium">
-        <style>{AUTH_PREMIUM_STYLE}</style>
-        <div className="auth-shell-premium">
-          <div className="auth-header-premium auth-header-premium--center">
-            <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="auth-logo-premium" />
-            <div className="auth-title-block">
+      <div className="auth-page">
+        <div className="auth-card">
+          <div className="brand auth-brand">
+            <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="app-logo" />
+            <div>
               <h1>ClimbCrew</h1>
-              <p className="auth-subtitle-premium">Connexion requise pour accéder à l’application.</p>
+              <p className="small">Connexion requise pour accéder à l’application.</p>
             </div>
           </div>
 
-          <div className="auth-default-premium">
-            <div className="auth-default-premium__title">Compte par défaut</div>
-            <div className="auth-default-premium__row">
-              <strong>Email</strong>
-              <span>{DEFAULT_LOGIN_EMAIL}</span>
-            </div>
-            <div className="auth-default-premium__row">
-              <strong>Mot de passe</strong>
-              <span>{DEFAULT_LOGIN_PASSWORD}</span>
-            </div>
-            <div className="auth-default-premium__warning">
+          <div className="subcard" style={{ marginTop: 12, background: "rgba(14,165,233,.10)" }}>
+            <strong>Compte par défaut</strong>
+            <div className="small" style={{ marginTop: 6 }}>Email : {DEFAULT_LOGIN_EMAIL}</div>
+            <div className="small">Mot de passe : {DEFAULT_LOGIN_PASSWORD}</div>
+            <div className="small" style={{ marginTop: 6, color: "#f59e0b" }}>
               À modifier ou supprimer après la première mise en service.
             </div>
           </div>
 
-          <div className="auth-tabs-premium" role="tablist" aria-label="Accès ClimbCrew">
-            <button className={`auth-tab-premium ${authView === "login" ? "active" : ""}`} onClick={() => { setAuthView("login"); setAuthError(""); setAuthMessage(""); }}>
-              Connexion
-            </button>
-            <button className={`auth-tab-premium ${authView === "request" ? "active" : ""}`} onClick={() => { setAuthView("request"); setAuthError(""); setAuthMessage(""); }}>
-              Demande d’accès
-            </button>
-            <button className={`auth-tab-premium ${authView === "forgot" ? "active" : ""}`} onClick={() => { setAuthView("forgot"); setAuthError(""); setAuthMessage(""); }}>
-              Mot de passe oublié
-            </button>
-            <button className={`auth-tab-premium ${authView === "reset" ? "active" : ""}`} onClick={() => { setAuthView("reset"); setAuthError(""); setAuthMessage(""); }}>
-              Réinitialiser
-            </button>
+          <div className="group auth-switcher" style={{ marginTop: 14 }}>
+            <button className={authView === "login" ? "" : "secondary"} onClick={() => { setAuthView("login"); setAuthError(""); setAuthMessage(""); }}>Connexion</button>
+            <button className={authView === "request" ? "" : "secondary"} onClick={() => { setAuthView("request"); setAuthError(""); setAuthMessage(""); }}>Demander un accès</button>
+            <button className={authView === "forgot" ? "" : "secondary"} onClick={() => { setAuthView("forgot"); setAuthError(""); setAuthMessage(""); }}>Mot de passe perdu</button>
+            <button className={authView === "reset" ? "" : "secondary"} onClick={() => { setAuthView("reset"); setAuthError(""); setAuthMessage(""); }}>Réinitialiser</button>
           </div>
 
-          {authMessage && <div className="auth-alert-premium auth-alert-premium--success">{authMessage}</div>}
-          {authError && <div className="auth-alert-premium auth-alert-premium--error">{authError}</div>}
+          {authMessage && <div className="success" style={{ marginTop: 12 }}>{authMessage}</div>}
+          {authError && <div className="error" style={{ marginTop: 12 }}>{authError}</div>}
 
           {authView === "login" && (
-            <div className="auth-panel-premium">
-              <div className="auth-grid-premium auth-grid-premium--single">
-                <div>
-                  <label>Email</label>
-                  <input
-                    placeholder="exemple@domaine.com"
-                    value={loginForm.email}
-                    onChange={(e) => setLoginForm((p) => ({ ...p, email: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <label>Mot de passe</label>
-                  <input
-                    type="password"
-                    placeholder="Votre mot de passe"
-                    value={loginForm.password}
-                    onChange={(e) => setLoginForm((p) => ({ ...p, password: e.target.value }))}
-                  />
-                </div>
-                <div className="auth-actions-premium">
-                  <button className="auth-primary-premium" onClick={handleLogin}>Se connecter</button>
-                </div>
+            <div className="grid two" style={{ marginTop: 14 }}>
+              <div>
+                <label>Email</label>
+                <input value={loginForm.email} onChange={(e) => setLoginForm((p) => ({ ...p, email: e.target.value }))} />
+              </div>
+              <div>
+                <label>Mot de passe</label>
+                <input type="password" value={loginForm.password} onChange={(e) => setLoginForm((p) => ({ ...p, password: e.target.value }))} />
+              </div>
+              <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end" }}>
+                <button onClick={handleLogin}>Se connecter</button>
               </div>
             </div>
           )}
 
           {authView === "request" && (
-            <div className="auth-panel-premium">
-              <div className="auth-grid-premium">
-                <div>
-                  <label>Prénom</label>
-                  <input value={requestAccessForm.prenom} onChange={(e) => setRequestAccessForm((p) => ({ ...p, prenom: e.target.value }))} />
-                </div>
-                <div>
-                  <label>Nom</label>
-                  <input value={requestAccessForm.nom} onChange={(e) => setRequestAccessForm((p) => ({ ...p, nom: e.target.value }))} />
-                </div>
-                <div>
-                  <label>Email</label>
-                  <input value={requestAccessForm.email} onChange={(e) => setRequestAccessForm((p) => ({ ...p, email: e.target.value }))} />
-                </div>
-                <div>
-                  <label>Mot de passe fort</label>
-                  <input type="password" value={requestAccessForm.password} onChange={(e) => setRequestAccessForm((p) => ({ ...p, password: e.target.value }))} />
-                </div>
-                <div>
-                  <label>Confirmation</label>
-                  <input type="password" value={requestAccessForm.confirmPassword} onChange={(e) => setRequestAccessForm((p) => ({ ...p, confirmPassword: e.target.value }))} />
-                </div>
-                <div>
-                  <label>Politique mot de passe</label>
-                  <input value={PASSWORD_RULE_TEXT} readOnly />
-                </div>
-                <div style={{ gridColumn: "1 / -1" }} className="auth-check-premium">
-                  <label><input type="checkbox" checked={requestAccessForm.acceptTerms} onChange={(e) => setRequestAccessForm((p) => ({ ...p, acceptTerms: e.target.checked }))} /> J’accepte les conditions d’utilisation et la journalisation des accès.</label>
-                </div>
-                <div className="auth-actions-premium" style={{ gridColumn: "1 / -1" }}>
-                  <button className="auth-primary-premium" onClick={handleRequestAccess}>Envoyer la demande</button>
-                </div>
+            <div className="grid two" style={{ marginTop: 14 }}>
+              <div>
+                <label>Prénom</label>
+                <input value={requestAccessForm.prenom} onChange={(e) => setRequestAccessForm((p) => ({ ...p, prenom: e.target.value }))} />
+              </div>
+              <div>
+                <label>Nom</label>
+                <input value={requestAccessForm.nom} onChange={(e) => setRequestAccessForm((p) => ({ ...p, nom: e.target.value }))} />
+              </div>
+              <div>
+                <label>Email</label>
+                <input value={requestAccessForm.email} onChange={(e) => setRequestAccessForm((p) => ({ ...p, email: e.target.value }))} />
+              </div>
+              <div>
+                <label>Mot de passe fort</label>
+                <input type="password" value={requestAccessForm.password} onChange={(e) => setRequestAccessForm((p) => ({ ...p, password: e.target.value }))} />
+              </div>
+              <div>
+                <label>Confirmation</label>
+                <input type="password" value={requestAccessForm.confirmPassword} onChange={(e) => setRequestAccessForm((p) => ({ ...p, confirmPassword: e.target.value }))} />
+              </div>
+              <div>
+                <label>Politique mot de passe</label>
+                <input value={PASSWORD_RULE_TEXT} readOnly />
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label><input type="checkbox" checked={requestAccessForm.acceptTerms} onChange={(e) => setRequestAccessForm((p) => ({ ...p, acceptTerms: e.target.checked }))} /> J’accepte les conditions d’utilisation et la journalisation des accès.</label>
+              </div>
+              <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end" }}>
+                <button onClick={handleRequestAccess}>Envoyer la demande</button>
               </div>
             </div>
           )}
 
           {authView === "forgot" && (
-            <div className="auth-panel-premium">
-              <div className="auth-grid-premium auth-grid-premium--single">
-                <div>
-                  <label>Email</label>
-                  <input value={forgotPasswordForm.email} onChange={(e) => setForgotPasswordForm({ email: e.target.value })} />
-                </div>
-                <div className="auth-helper-premium">
-                  La demande sera journalisée. Un administrateur pourra générer un code de réinitialisation.
-                </div>
-                <div className="auth-actions-premium">
-                  <button className="auth-primary-premium" onClick={handleForgotPassword}>Signaler la perte du mot de passe</button>
-                </div>
+            <div className="grid two" style={{ marginTop: 14 }}>
+              <div>
+                <label>Email</label>
+                <input value={forgotPasswordForm.email} onChange={(e) => setForgotPasswordForm({ email: e.target.value })} />
+              </div>
+              <div className="small" style={{ display: "flex", alignItems: "end" }}>
+                La demande sera journalisée. Un administrateur pourra générer un code de réinitialisation.
+              </div>
+              <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end" }}>
+                <button onClick={handleForgotPassword}>Signaler la perte du mot de passe</button>
               </div>
             </div>
           )}
 
           {authView === "reset" && (
-            <div className="auth-panel-premium">
-              <div className="auth-grid-premium auth-grid-premium--single">
-                <div>
-                  <label>Email</label>
-                  <input value={resetPasswordForm.email} onChange={(e) => setResetPasswordForm((p) => ({ ...p, email: e.target.value }))} />
-                </div>
-                <div>
-                  <label>Code de réinitialisation</label>
-                  <input value={resetPasswordForm.token} onChange={(e) => setResetPasswordForm((p) => ({ ...p, token: e.target.value }))} />
-                </div>
-                <div>
-                  <label>Nouveau mot de passe fort</label>
-                  <input type="password" value={resetPasswordForm.password} onChange={(e) => setResetPasswordForm((p) => ({ ...p, password: e.target.value }))} />
-                </div>
-                <div>
-                  <label>Confirmation</label>
-                  <input type="password" value={resetPasswordForm.confirmPassword} onChange={(e) => setResetPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))} />
-                </div>
-                <div className="auth-helper-premium">{PASSWORD_RULE_TEXT}</div>
-                <div className="auth-actions-premium">
-                  <button className="auth-primary-premium" onClick={handleResetPassword}>Réinitialiser le mot de passe</button>
-                </div>
+            <div className="grid two" style={{ marginTop: 14 }}>
+              <div>
+                <label>Email</label>
+                <input value={resetPasswordForm.email} onChange={(e) => setResetPasswordForm((p) => ({ ...p, email: e.target.value }))} />
+              </div>
+              <div>
+                <label>Code de réinitialisation</label>
+                <input value={resetPasswordForm.token} onChange={(e) => setResetPasswordForm((p) => ({ ...p, token: e.target.value }))} />
+              </div>
+              <div>
+                <label>Nouveau mot de passe fort</label>
+                <input type="password" value={resetPasswordForm.password} onChange={(e) => setResetPasswordForm((p) => ({ ...p, password: e.target.value }))} />
+              </div>
+              <div>
+                <label>Confirmation</label>
+                <input type="password" value={resetPasswordForm.confirmPassword} onChange={(e) => setResetPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))} />
+              </div>
+              <div style={{ gridColumn: "1 / -1" }} className="small">{PASSWORD_RULE_TEXT}</div>
+              <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end" }}>
+                <button onClick={handleResetPassword}>Réinitialiser le mot de passe</button>
               </div>
             </div>
           )}
@@ -2394,7 +2075,7 @@ h1, h2, h3, strong, label {
           </div>
           <button className="sidebar-close" onClick={() => setSidebarOpen(false)} aria-label="Fermer le menu">×</button>
         </div>
-        {TABS.map((item) => (
+        {visibleTabs.map((item) => (
           <button
             key={item.key}
             className={`side-tab ${tab === item.key ? "active" : ""}`}
@@ -2497,7 +2178,7 @@ h1, h2, h3, strong, label {
       )}
 
       <nav className="mobile-bottom-nav" aria-label="Navigation mobile ClimbCrew">
-        {TABS.map((item) => (
+        {visibleTabs.map((item) => (
           <button
             key={item.key}
             className={`bottom-tab ${tab === item.key ? "active" : ""}`}
@@ -2601,84 +2282,86 @@ h1, h2, h3, strong, label {
         )}
 
         {tab === "voies" && (
-          <>
-            {!adminUnlocked ? (
-              <div className="card">
-                <div className="card-header"><h2>Accès administration requis</h2></div>
-                <div className="grid two">
-                  <div>
-                    <label>Code administrateur</label>
-                    <input type="password" maxLength={8} value={adminInput} onChange={(e) => setAdminInput(e.target.value.replace(/\D/g, "").slice(0, 8))} />
-                  </div>
-                  <div style={{ display: "flex", alignItems: "end" }}>
-                    <button onClick={unlockAdmin}>Déverrouiller</button>
-                  </div>
-                </div>
-                {adminError && <div className="error" style={{ marginTop: 10 }}>{adminError}</div>}
-              </div>
-            ) : (
-              <div className="card">
-                <div className="card-header"><h2>Ajouter une voie</h2></div>
-                <div className="grid four">
-                  <div><label>Numéro unique</label><input value={newRoute.numeroVoieUnique} onChange={(e) => setNewRoute((p) => ({ ...p, numeroVoieUnique: e.target.value }))} /></div>
-                  <div><label>Corde</label><select value={newRoute.numeroCorde} onChange={(e) => setNewRoute((p) => ({ ...p, numeroCorde: e.target.value }))}>{state.ropes.map((rope) => <option key={rope.numeroCorde} value={String(rope.numeroCorde)}>Corde {rope.numeroCorde} · {rope.couleurCorde}</option>)}</select></div>
-                  <div><label>Couleur voie</label><input value={newRoute.couleurPrises} onChange={(e) => setNewRoute((p) => ({ ...p, couleurPrises: e.target.value }))} /></div>
-                  <div><label>Cotation</label><select value={newRoute.cotationReference} onChange={(e) => setNewRoute((p) => ({ ...p, cotationReference: e.target.value }))}>{GRADES.map((g) => <option key={g} value={g}>{g}</option>)}</select></div>
-                  <div><label>Nom de la voie</label><input value={newRoute.nomVoie} onChange={(e) => setNewRoute((p) => ({ ...p, nomVoie: e.target.value }))} /></div>
-                  <div><label>Ouvreur</label><input value={newRoute.nomOuvreur} onChange={(e) => setNewRoute((p) => ({ ...p, nomOuvreur: e.target.value }))} /></div>
-                  <div><label>Moulinette uniquement</label><select value={newRoute.moulinetteOnly ? "oui" : "non"} onChange={(e) => setNewRoute((p) => ({ ...p, moulinetteOnly: e.target.value === "oui" }))}><option value="non">Non</option><option value="oui">Oui</option></select></div>
-                  <div style={{ display: "flex", alignItems: "end" }}><button onClick={addRoute}>Ajouter</button></div>
-                </div>
-                {routeError && <div className="error" style={{ marginTop: 10 }}>{routeError}</div>}
-              </div>
-            )}
+  <>
+    {!USE_API && !adminUnlocked ? (
+      <div className="card">
+        <div className="card-header"><h2>Accès administration requis</h2></div>
+        <div className="grid two">
+          <div>
+            <label>Code administrateur</label>
+            <input type="password" maxLength={8} value={adminInput} onChange={(e) => setAdminInput(e.target.value.replace(/\D/g, "").slice(0, 8))} />
+          </div>
+          <div style={{ display: "flex", alignItems: "end" }}>
+            <button onClick={unlockAdmin}>Déverrouiller</button>
+          </div>
+        </div>
+        {adminError && <div className="error" style={{ marginTop: 10 }}>{adminError}</div>}
+      </div>
+    ) : null}
 
-            <div className="card">
-              <div className="card-header"><h2>Tableau des voies</h2></div>
-              <div className="stack">
-                {state.ropes.map((rope) => {
-                  const ropeRoutes = state.routes.filter((route) => route.numeroCorde === rope.numeroCorde);
-                  return (
-                    <div className="subcard" key={rope.numeroCorde}>
-                      <div className="card-header">
-                        <strong>Corde {rope.numeroCorde} · {rope.couleurCorde}</strong>
-                        <span className="badge">{ropeRoutes.length} voie(s)</span>
-                      </div>
-                      {ropeRoutes.length === 0 ? (
-                        <div className="small">Aucune voie sur cette corde.</div>
-                      ) : (
-                        <div className="stack">
-                          {ropeRoutes.map((route) => {
-                            const agg = routeAggregatesById[route.id];
-                            return (
-                              <div className="route-card" key={route.id} style={{ backgroundColor: getRouteBackgroundColor(route.couleurPrises) }}>
-                                <div className="card-header">
-                                  <strong>{route.cotationAjustee} · {route.nomVoie || "Sans nom"} · {route.nomOuvreur}</strong>
-                                  <div className="group">
-                                    {route.moulinetteOnly && <span className="pill">Moulinette uniquement</span>}
-                                    <span className="pill">{route.active ? "Active" : "Archivée"}</span>
-                                    {route.active && <button className="secondary" onClick={() => openRealisationModal(route.id)}>Réalisation</button>}
-                                    {adminUnlocked && <>
-                                      <button className="secondary" onClick={() => toggleRouteActive(route.id)}>{route.active ? "Archiver" : "Réactiver"}</button>
-                                      <button className="secondary" disabled={!agg?.weightedMedianGrade} onClick={() => applyAdjustedGrade(route.id)}>Appliquer cotation ajustée</button>
-                                    </>}
-                                  </div>
-                                </div>
-                                <div className="small" style={{ color: "#111827" }}>
-                                  Réf. {route.cotationReference} · Couleur voie : {route.couleurPrises} · Propositions : {agg?.count || 0} · Médiane : {agg?.medianGrade || "-"} · Médiane pondérée : {agg?.weightedMedianGrade || "-"}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+    {canManageRouteActions && (
+      <div className="card">
+        <div className="card-header"><h2>Ajouter une voie</h2></div>
+        <div className="grid four">
+          <div><label>Numéro unique</label><input value={newRoute.numeroVoieUnique} onChange={(e) => setNewRoute((p) => ({ ...p, numeroVoieUnique: e.target.value }))} /></div>
+          <div><label>Corde</label><select value={newRoute.numeroCorde} onChange={(e) => setNewRoute((p) => ({ ...p, numeroCorde: e.target.value }))}>{state.ropes.map((rope) => <option key={rope.numeroCorde} value={String(rope.numeroCorde)}>Corde {rope.numeroCorde} · {rope.couleurCorde}</option>)}</select></div>
+          <div><label>Couleur voie</label><input value={newRoute.couleurPrises} onChange={(e) => setNewRoute((p) => ({ ...p, couleurPrises: e.target.value }))} /></div>
+          <div><label>Cotation</label><select value={newRoute.cotationReference} onChange={(e) => setNewRoute((p) => ({ ...p, cotationReference: e.target.value }))}>{GRADES.map((g) => <option key={g} value={g}>{g}</option>)}</select></div>
+          <div><label>Nom de la voie</label><input value={newRoute.nomVoie} onChange={(e) => setNewRoute((p) => ({ ...p, nomVoie: e.target.value }))} /></div>
+          <div><label>Ouvreur</label><input value={newRoute.nomOuvreur} onChange={(e) => setNewRoute((p) => ({ ...p, nomOuvreur: e.target.value }))} /></div>
+          <div><label>Moulinette uniquement</label><select value={newRoute.moulinetteOnly ? "oui" : "non"} onChange={(e) => setNewRoute((p) => ({ ...p, moulinetteOnly: e.target.value === "oui" }))}><option value="non">Non</option><option value="oui">Oui</option></select></div>
+          <div style={{ display: "flex", alignItems: "end" }}><button onClick={addRoute}>Ajouter</button></div>
+        </div>
+        {routeError && <div className="error" style={{ marginTop: 10 }}>{routeError}</div>}
+      </div>
+    )}
+
+    <div className="card">
+      <div className="card-header"><h2>Tableau des voies</h2></div>
+      <div className="stack">
+        {state.ropes.map((rope) => {
+          const ropeRoutes = state.routes.filter((route) => route.numeroCorde === rope.numeroCorde);
+          return (
+            <div className="subcard" key={rope.numeroCorde}>
+              <div className="card-header">
+                <strong>Corde {rope.numeroCorde} · {rope.couleurCorde}</strong>
+                <span className="badge">{ropeRoutes.length} voie(s)</span>
               </div>
+              {ropeRoutes.length === 0 ? (
+                <div className="small">Aucune voie sur cette corde.</div>
+              ) : (
+                <div className="stack">
+                  {ropeRoutes.map((route) => {
+                    const agg = routeAggregatesById[route.id];
+                    return (
+                      <div className="route-card" key={route.id} style={{ backgroundColor: getRouteBackgroundColor(route.couleurPrises) }}>
+                        <div className="card-header">
+                          <strong>{route.cotationAjustee} · {route.nomVoie || "Sans nom"} · {route.nomOuvreur}</strong>
+                          <div className="group">
+                            {route.moulinetteOnly && <span className="pill">Moulinette uniquement</span>}
+                            <span className="pill">{route.active ? "Active" : "Archivée"}</span>
+                            {route.active && <button className="secondary" onClick={() => openRealisationModal(route.id)}>Réalisation</button>}
+                            {canManageRouteActions && <>
+                              <button className="secondary" onClick={() => toggleRouteActive(route.id)}>{route.active ? "Archiver" : "Réactiver"}</button>
+                              <button className="secondary" disabled={!agg?.weightedMedianGrade} onClick={() => applyAdjustedGrade(route.id)}>Appliquer cotation ajustée</button>
+                            </>}
+                          </div>
+                        </div>
+                        <div className="small" style={{ color: "#111827" }}>
+                          Réf. {route.cotationReference} · Couleur voie : {route.couleurPrises} · Propositions : {agg?.count || 0} · Médiane : {agg?.medianGrade || "-"} · Médiane pondérée : {agg?.weightedMedianGrade || "-"}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          </>
-        )}
+          );
+        })}
+      </div>
+    </div>
+  </>
+)}
 
         {tab === "progression" && (
           <div className="card">
@@ -2952,7 +2635,7 @@ h1, h2, h3, strong, label {
           </div>
         )}
 
-        {tab === "administration" && (
+        {tab === "administration" && canAccessAdministration && (
           <>
             {!adminUnlocked ? (
               <div className="card">
@@ -3166,102 +2849,102 @@ h1, h2, h3, strong, label {
           </>
         )}
 
-        {tab === "faq" && (
-          <div className="card">
-            <div className="card-header"><h2>FAQ – fonctionnement de ClimbCrew</h2></div>
+{tab === "faq" && (
+  <div className="card">
+    <div className="card-header"><h2>FAQ – fonctionnement de ClimbCrew</h2></div>
 
-            <div className="faq-item">
-              <strong>À quoi sert ClimbCrew ?</strong>
-              <div className="small">
-                ClimbCrew permet de gérer les séances d’une SAE, les participants, les voies, les inscriptions et la progression des grimpeurs.
-              </div>
-            </div>
+    <div className="faq-item">
+      <strong>À quoi sert ClimbCrew ?</strong>
+      <div className="small">
+        ClimbCrew sert à gérer les séances d’une SAE, les participants, les voies, les inscriptions et le suivi de progression des grimpeurs.
+      </div>
+    </div>
 
-            <div className="faq-item">
-              <strong>Quelles sont les données partagées entre utilisateurs ?</strong>
-              <div className="small">
-                Les participants, les séances et les inscriptions sont stockés en base PostgreSQL via le backend. Ils sont donc visibles depuis plusieurs navigateurs.
-              </div>
-            </div>
+    <div className="faq-item">
+      <strong>Quelles sont les dernières évolutions introduites ?</strong>
+      <div className="small">
+        L’application intègre désormais une page de connexion, des demandes d’accès, un mot de passe oublié, des journaux d’accès, un thème Auto / Clair / Sombre par utilisateur, l’enregistrement de réalisations depuis l’onglet Voies, une timeline CPR détaillée et un historique modifiable des réalisations.
+      </div>
+    </div>
 
-            <div className="faq-item">
-              <strong>Pourquoi certaines données peuvent-elles rester locales ?</strong>
-              <div className="small">
-                Les réalisations, cordes et voies sont encore partiellement gérées côté application tant que leurs tables backend dédiées ne sont pas ajoutées. Elles peuvent donc dépendre du navigateur.
-              </div>
-            </div>
+    <div className="faq-item">
+      <strong>Qui peut accéder à l’onglet Administration ?</strong>
+      <div className="small">
+        L’onglet Administration est réservé aux comptes administrateurs. Les comptes standard ne voient pas cet onglet.
+      </div>
+    </div>
 
-            <div className="faq-item">
-              <strong>Comment fonctionnent les inscriptions ?</strong>
-              <div className="small">
-                Chaque jour propose une séance midi et une séance soir. Un participant peut être ajouté à une séance dans la limite de 18 personnes, encadrement compris.
-              </div>
-            </div>
+    <div className="faq-item">
+      <strong>Qui peut ajouter une voie, archiver une voie ou appliquer une cotation ajustée ?</strong>
+      <div className="small">
+        Ces actions sont réservées aux comptes administrateurs. Les autres utilisateurs peuvent consulter les voies et enregistrer une réalisation, mais ne peuvent pas modifier la structure du mur.
+      </div>
+    </div>
 
-            <div className="faq-item">
-              <strong>Pourquoi la date bascule-t-elle au lundi si j’ouvre l’application le week-end ?</strong>
-              <div className="small">
-                L’application privilégie les jours ouvrés, car les séances sont prévues du lundi au vendredi.
-              </div>
-            </div>
+    <div className="faq-item">
+      <strong>Comment fonctionne le thème Auto / Clair / Sombre ?</strong>
+      <div className="small">
+        En mode <strong>Automatique</strong>, ClimbCrew suit le thème clair ou sombre du système de l’utilisateur. Les modes <strong>Clair</strong> et <strong>Sombre</strong> forcent l’apparence correspondante. La préférence est mémorisée localement et enregistrée côté serveur pour le compte utilisateur.
+      </div>
+    </div>
 
-            <div className="faq-item">
-              <strong>Que signifient les couleurs des participants ?</strong>
-              <div className="small">
-                Le fond correspond au passeport du participant. Les découvertes apparaissent sur fond gris. Le cadre vert indique une cotisation à jour ; le cadre rouge indique une cotisation non renseignée ou non à jour.
-              </div>
-            </div>
+    <div className="faq-item">
+      <strong>Que signifient les couleurs des participants ?</strong>
+      <div className="small">
+        Le fond correspond au passeport. Les découvertes sont affichés sur fond gris. Le cadre vert indique un cotisant à jour ; le cadre rouge indique un non-cotisant ou une cotisation non renseignée.
+      </div>
+    </div>
 
-            <div className="faq-item">
-              <strong>Qui peut modifier les voies ?</strong>
-              <div className="small">
-                L’onglet Voies est modifiable uniquement après déverrouillage administrateur. Les autres utilisateurs peuvent consulter les voies et enregistrer une réalisation depuis une voie active.
-              </div>
-            </div>
+    <div className="faq-item">
+      <strong>Comment enregistrer une réalisation ?</strong>
+      <div className="small">
+        Depuis l’onglet Voies, le bouton <strong>Réalisation</strong> ouvre une fenêtre d’enregistrement. Les séances proposées pour un participant sont limitées à celles où il est réellement inscrit.
+      </div>
+    </div>
 
-            <div className="faq-item">
-              <strong>Comment enregistrer une voie réalisée ?</strong>
-              <div className="small">
-                Depuis l’onglet Voies, clique sur le bouton Réalisation d’une voie. Le popup propose uniquement les séances où le participant sélectionné est inscrit.
-              </div>
-            </div>
+    <div className="faq-item">
+      <strong>Que signifie CPR ?</strong>
+      <div className="small">
+        <strong>CPR</strong> signifie ici <strong>Climbing Progress Rating</strong>. C’est un indicateur simplifié de progression destiné à représenter le niveau récent du grimpeur.
+      </div>
+    </div>
 
-            <div className="faq-item">
-              <strong>Comment corriger une réalisation ?</strong>
-              <div className="small">
-                Dans l’onglet Progression, choisis un grimpeur. La Timeline CPR simplifiée affiche ses réalisations les plus récentes. Le bouton Détails permet de modifier la séance, la voie, le style, la cotation proposée, les essais et le commentaire. Le nom du participant n’est pas modifiable depuis cette zone.
-              </div>
-            </div>
+    <div className="faq-item">
+      <strong>Comment est calculé le CPR simplifié ?</strong>
+      <div className="small">
+        Chaque réalisation est rattachée à une cotation de voie convertie en indice numérique. Cet indice est ensuite pondéré par le style de réalisation : une voie réalisée à vue ou en tête est valorisée plus favorablement qu’une voie faite avec repos ou uniquement en moulinette. La timeline CPR affiche les réalisations les plus récentes en haut avec la date, le nom de la voie, la cotation et le style pour rendre le calcul plus lisible.
+      </div>
+    </div>
 
-            <div className="faq-item">
-              <strong>Qu’est-ce que le CPR simplifié ?</strong>
-              <div className="small">
-                C’est un indicateur de progression basé sur les réalisations récentes. Il combine la cotation des voies et le style de réalisation pour donner une tendance de niveau.
-              </div>
-            </div>
+    <div className="faq-item">
+      <strong>Que peut-on modifier dans la timeline CPR et dans l’historique des réalisations ?</strong>
+      <div className="small">
+        Il est possible de corriger la séance, la voie, le style, la cotation proposée, le nombre d’essais et le commentaire. Le participant reste affiché mais n’est pas modifiable depuis la zone de détails de la timeline CPR.
+      </div>
+    </div>
 
-            <div className="faq-item">
-              <strong>Pourquoi l’historique peut-il différer entre deux appareils ?</strong>
-              <div className="small">
-                Tant que les réalisations ne sont pas persistées en base, elles peuvent rester liées au navigateur. L’étape suivante consiste à ajouter la table backend des réalisations.
-              </div>
-            </div>
+    <div className="faq-item">
+      <strong>Les données sont-elles partagées entre appareils ?</strong>
+      <div className="small">
+        Les participants, les séances, les inscriptions, les comptes et les préférences de thème sont partagés via PostgreSQL. Certaines données de progression peuvent encore dépendre du navigateur tant que toute la persistance backend des réalisations n’est pas finalisée.
+      </div>
+    </div>
 
-            <div className="faq-item">
-              <strong>Comment sauvegarder ou transférer les données ?</strong>
-              <div className="small">
-                L’onglet Administration permet l’import/export JSON. Pour les données partagées, le backend PostgreSQL reste la source principale.
-              </div>
-            </div>
+    <div className="faq-item">
+      <strong>Comment sauvegarder ou restaurer les données ?</strong>
+      <div className="small">
+        L’onglet Administration permet l’import et l’export JSON. Le backend PostgreSQL reste la source principale des données partagées.
+      </div>
+    </div>
 
-            <div className="faq-item">
-              <strong>Que faire si l’application n’affiche pas les dernières données ?</strong>
-              <div className="small">
-                Recharge la page, vérifie que le bandeau indique API connectée, puis teste les endpoints backend /participants et /sessions.
-              </div>
-            </div>
-          </div>
-        )}
+    <div className="faq-item">
+      <strong>Que faire si l’affichage semble incorrect après une mise à jour ?</strong>
+      <div className="small">
+        Il faut recharger la page avec le cache vidé et vérifier que le frontend a bien été redéployé. En cas de doute, un test en navigation privée permet souvent d’écarter un problème de cache navigateur.
+      </div>
+    </div>
+  </div>
+)}
 
       </div>
     </div>
