@@ -1356,7 +1356,7 @@ async function handleThemePreferenceChange(nextTheme) {
       <div className="auth-page">
         <div className="auth-card">
           <div className="brand auth-brand">
-            <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="auth-login-logo" />
+            <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="app-logo" />
             <div>
               <h1>ClimbCrew</h1>
               <p className="small">Chargement de la session…</p>
@@ -1372,7 +1372,7 @@ async function handleThemePreferenceChange(nextTheme) {
       <div className="auth-page">
         <div className="auth-card">
           <div className="brand auth-brand">
-            <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="auth-login-logo" />
+            <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="app-logo" />
             <div>
               <h1>ClimbCrew</h1>
               <p className="small">Connexion requise pour accéder à l’application.</p>
@@ -1384,7 +1384,7 @@ async function handleThemePreferenceChange(nextTheme) {
             <div className="small" style={{ marginTop: 6 }}>Email : {DEFAULT_LOGIN_EMAIL}</div>
             <div className="small">Mot de passe : {DEFAULT_LOGIN_PASSWORD}</div>
             <div className="small" style={{ marginTop: 6, color: "#f59e0b" }}>
-              À modifier ou supprimer après la première mise en service.
+              ceci est compte de test
             </div>
           </div>
 
@@ -2064,118 +2064,21 @@ h1, h2, h3, strong, label {
 }
 
 
-        /* Page de login compacte */
-        .auth-card,
-        .auth-shell,
-        .auth-shell-premium {
-          width: min(440px, 100%);
-          margin: 0 auto;
+        .auth-actions,
+        .auth-actions-premium {
+          justify-content: flex-start !important;
         }
 
-        .auth-page {
-          padding: 20px 14px;
-          min-height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+        .auth-primary-button,
+        .auth-primary-premium {
+          margin-left: 0 !important;
+          margin-right: auto !important;
         }
 
-        .brand.auth-brand,
-        .auth-header-premium,
-        .auth-brand-row,
-        .auth-brand-row--centered {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-          gap: 10px;
-        }
-
-        .brand.auth-brand > div,
         .auth-title-block,
-        .auth-brand-copy {
-          text-align: center;
-        }
-
-        .brand.auth-brand h1,
-        .auth-title-block h1,
-        .auth-brand-copy h1 {
-          margin: 0;
-          text-align: center;
-        }
-
-        .brand.auth-brand p,
-        .auth-subtitle,
-        .auth-subtitle-premium,
-        .auth-brand-copy p {
-          margin: 0;
-          text-align: center;
-        }
-
-        .auth-login-logo {
-          width: 26px;
-          height: 26px;
-          object-fit: contain;
-          border-radius: 8px;
-          background: #ffffff;
-          padding: 2px;
-          box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
-        }
-
-        .auth-logo-premium {
-          width: 30px !important;
-          height: 30px !important;
-        }
-
-        .auth-default-premium__row,
-        .auth-default-account__line {
-          flex-direction: column;
-          align-items: center;
-          text-align: center;
-          gap: 4px;
-        }
-
-        .auth-tabs-premium,
-        .auth-tabs,
-        .auth-switcher {
-          margin-top: 16px;
-        }
-
-        .auth-panel-premium,
-        .auth-form-panel {
-          border-radius: 18px;
-        }
-
-        .auth-actions-premium,
-        .auth-actions {
-          justify-content: center;
-        }
-
-        .auth-primary-premium,
-        .auth-primary-button {
-          min-width: 0;
-          width: 100%;
-          max-width: 260px;
-        }
-
-        @media (max-width: 700px) {
-          .auth-card,
-          .auth-shell,
-          .auth-shell-premium {
-            width: min(400px, 100%);
-          }
-
-          .auth-login-logo {
-            width: 22px;
-            height: 22px;
-            padding: 2px;
-          }
-
-          .auth-logo-premium {
-            width: 26px !important;
-            height: 26px !important;
-          }
+        .auth-brand-copy,
+        .brand.auth-brand > div {
+          display: none !important;
         }
 
       `}</style>
