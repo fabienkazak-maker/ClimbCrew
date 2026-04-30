@@ -21,6 +21,7 @@
         justify-content: center !important;
         align-items: center !important;
         width: 100% !important;
+        margin-top: 12px !important;
       }
 
       [data-login-primary-action="true"] {
@@ -28,7 +29,17 @@
         justify-content: center !important;
         align-items: center !important;
         min-width: 180px !important;
+        width: auto !important;
+        min-height: 46px !important;
         margin-inline: auto !important;
+        padding: 10px 22px !important;
+        border: 2px solid #333 !important;
+        border-radius: 12px !important;
+        background: #fff !important;
+        color: #000 !important;
+        font: inherit !important;
+        line-height: 1.15 !important;
+        box-shadow: none !important;
       }
 
       .login-default-account {
@@ -54,14 +65,11 @@
       let scheduled = false;
 
       const textOf = (element) => element.textContent.trim().replace(/\s+/g, " ");
+      const buttons = () => Array.from(document.querySelectorAll("button"));
+      const findButtonByText = (text) => buttons().find((button) => textOf(button).toLowerCase() === text);
 
-      const findLoginButton = () => Array.from(document.querySelectorAll("button")).find((button) => {
-        const label = textOf(button).toLowerCase();
-        return label === "connexion" || label === "se connecter";
-      });
-
-      const addDefaultAccountInfo = (loginPanel) => {
-        if (loginPanel.querySelector(".login-default-account")) return;
+      const addDefaultAccountInfo = (submitButton, loginPanel) => {
+        document.querySelectorAll(".login-default-account").forEach((block) => block.remove());
 
         const accountInfo = document.createElement("div");
         accountInfo.className = "login-default-account";
@@ -71,7 +79,10 @@
           Mot de passe : climbcrew*2026<br>
           Ceci est un compte de test
         `;
-        loginPanel.appendChild(accountInfo);
+
+        const submitWrapper = submitButton.parentElement;
+        const target = submitWrapper?.parentElement || loginPanel;
+        target.appendChild(accountInfo);
       };
 
       const enhanceLoginPage = () => {
@@ -81,18 +92,21 @@
           }
         });
 
-        const loginButton = findLoginButton();
-        if (!loginButton) return;
-
-        loginButton.classList.remove("secondary", "outline", "ghost");
-        loginButton.dataset.loginPrimaryAction = "true";
-
-        if (loginButton.parentElement) {
-          loginButton.parentElement.dataset.loginActionWrapper = "true";
+        const submitButton = findButtonByText("se connecter");
+        if (!submitButton) {
+          document.querySelectorAll(".login-default-account").forEach((block) => block.remove());
+          return;
         }
 
-        const loginPanel = loginButton.closest("form")?.parentElement
-          || loginButton.closest(".card")
+        submitButton.classList.remove("secondary", "outline", "ghost");
+        submitButton.dataset.loginPrimaryAction = "true";
+
+        if (submitButton.parentElement) {
+          submitButton.parentElement.dataset.loginActionWrapper = "true";
+        }
+
+        const loginPanel = submitButton.closest("form")?.parentElement
+          || submitButton.closest(".card")
           || root;
 
         loginPanel.querySelectorAll("img, svg, [class*='logo'], [class*='Logo']").forEach((logo) => {
@@ -105,7 +119,7 @@
           }
         });
 
-        addDefaultAccountInfo(loginPanel);
+        addDefaultAccountInfo(submitButton, loginPanel);
       };
 
       const scheduleEnhancement = () => {
