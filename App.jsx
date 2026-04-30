@@ -2057,8 +2057,8 @@ h1, h2, h3, strong, label {
 
         @media (max-width: 700px) {
           .auth-login-logo {
-            width: 30px;
-            height: 30px;
+            width: 15px;
+            height: 15px;
             padding: 3px;
           }
         }
