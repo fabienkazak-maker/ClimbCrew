@@ -51,8 +51,8 @@ const AUTH_PREMIUM_STYLE = `
   }
 
   .auth-logo-premium {
-    width: 33px;
-    height: 33px;
+    width: 56px;
+    height: 56px;
     border-radius: 9px;
     object-fit: contain;
     flex: 0 0 auto;
@@ -274,6 +274,11 @@ const AUTH_PREMIUM_STYLE = `
 
     .auth-title-block h1 {
       font-size: 30px;
+    }
+
+    .auth-logo-premium {
+      width: 44px;
+      height: 44px;
     }
 
     .auth-default-premium__title {
