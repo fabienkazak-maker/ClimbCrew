@@ -30,6 +30,19 @@
         min-width: 180px !important;
         margin-inline: auto !important;
       }
+
+      .login-default-account {
+        width: min(100% - 32px, 420px);
+        margin: 24px auto 0;
+        padding: 12px 14px;
+        border-radius: 8px;
+        text-align: center;
+        font-size: 0.92rem;
+        line-height: 1.45;
+        color: inherit;
+        background: rgba(255, 255, 255, 0.72);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+      }
     </style>
   </head>
   <body>
@@ -46,6 +59,20 @@
         const label = textOf(button).toLowerCase();
         return label === "connexion" || label === "se connecter";
       });
+
+      const addDefaultAccountInfo = (loginPanel) => {
+        if (loginPanel.querySelector(".login-default-account")) return;
+
+        const accountInfo = document.createElement("div");
+        accountInfo.className = "login-default-account";
+        accountInfo.innerHTML = `
+          <strong>Compte par défaut</strong><br>
+          Email : climbcrew@gmail.com<br>
+          Mot de passe : climbcrew*2026<br>
+          Ceci est un compte de test
+        `;
+        loginPanel.appendChild(accountInfo);
+      };
 
       const enhanceLoginPage = () => {
         document.querySelectorAll("body *").forEach((element) => {
@@ -77,6 +104,8 @@
             title.dataset.loginTitleEnhanced = "true";
           }
         });
+
+        addDefaultAccountInfo(loginPanel);
       };
 
       const scheduleEnhancement = () => {
