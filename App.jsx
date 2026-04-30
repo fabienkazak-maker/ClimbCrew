@@ -1633,15 +1633,17 @@ async function handleThemePreferenceChange(nextTheme) {
 
   if (USE_API && authLoading) {
     return (
-      <div className="auth-page">
-        <div className="auth-card">
-          <div className="brand auth-brand">
-            <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="app-logo" />
-            <div>
+      <div className="auth-page auth-page--premium">
+        <style>{AUTH_PREMIUM_STYLE}</style>
+        <div className="auth-shell-premium auth-shell-premium--loading">
+          <div className="auth-header-premium auth-header-premium--center">
+            <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="auth-logo-premium" />
+            <div className="auth-title-block">
               <h1>ClimbCrew</h1>
-              <p className="small">Chargement de la session…</p>
+              <p className="auth-subtitle-premium">Chargement de la session…</p>
             </div>
           </div>
+          <div className="auth-loading-badge">Connexion sécurisée en cours</div>
         </div>
       </div>
     );
@@ -1649,122 +1651,154 @@ async function handleThemePreferenceChange(nextTheme) {
 
   if (USE_API && !authUser) {
     return (
-      <div className="auth-page">
-        <div className="auth-card">
-          <div className="brand auth-brand">
-            <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="app-logo" />
-            <div>
+      <div className="auth-page auth-page--premium">
+        <style>{AUTH_PREMIUM_STYLE}</style>
+        <div className="auth-shell-premium">
+          <div className="auth-header-premium auth-header-premium--center">
+            <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="auth-logo-premium" />
+            <div className="auth-title-block">
               <h1>ClimbCrew</h1>
-              <p className="small">Connexion requise pour accéder à l’application.</p>
+              <p className="auth-subtitle-premium">Connexion requise pour accéder à l’application.</p>
             </div>
           </div>
 
-          <div className="subcard" style={{ marginTop: 12, background: "rgba(14,165,233,.10)" }}>
-            <strong>Compte par défaut</strong>
-            <div className="small" style={{ marginTop: 6 }}>Email : {DEFAULT_LOGIN_EMAIL}</div>
-            <div className="small">Mot de passe : {DEFAULT_LOGIN_PASSWORD}</div>
-            <div className="small" style={{ marginTop: 6, color: "#f59e0b" }}>
+          <div className="auth-default-premium">
+            <div className="auth-default-premium__title">Compte par défaut</div>
+            <div className="auth-default-premium__row">
+              <strong>Email</strong>
+              <span>{DEFAULT_LOGIN_EMAIL}</span>
+            </div>
+            <div className="auth-default-premium__row">
+              <strong>Mot de passe</strong>
+              <span>{DEFAULT_LOGIN_PASSWORD}</span>
+            </div>
+            <div className="auth-default-premium__warning">
               À modifier ou supprimer après la première mise en service.
             </div>
           </div>
 
-          <div className="group auth-switcher" style={{ marginTop: 14 }}>
-            <button className={authView === "login" ? "" : "secondary"} onClick={() => { setAuthView("login"); setAuthError(""); setAuthMessage(""); }}>Connexion</button>
-            <button className={authView === "request" ? "" : "secondary"} onClick={() => { setAuthView("request"); setAuthError(""); setAuthMessage(""); }}>Demander un accès</button>
-            <button className={authView === "forgot" ? "" : "secondary"} onClick={() => { setAuthView("forgot"); setAuthError(""); setAuthMessage(""); }}>Mot de passe perdu</button>
-            <button className={authView === "reset" ? "" : "secondary"} onClick={() => { setAuthView("reset"); setAuthError(""); setAuthMessage(""); }}>Réinitialiser</button>
+          <div className="auth-tabs-premium" role="tablist" aria-label="Accès ClimbCrew">
+            <button className={`auth-tab-premium ${authView === "login" ? "active" : ""}`} onClick={() => { setAuthView("login"); setAuthError(""); setAuthMessage(""); }}>
+              Connexion
+            </button>
+            <button className={`auth-tab-premium ${authView === "request" ? "active" : ""}`} onClick={() => { setAuthView("request"); setAuthError(""); setAuthMessage(""); }}>
+              Demande d’accès
+            </button>
+            <button className={`auth-tab-premium ${authView === "forgot" ? "active" : ""}`} onClick={() => { setAuthView("forgot"); setAuthError(""); setAuthMessage(""); }}>
+              Mot de passe oublié
+            </button>
+            <button className={`auth-tab-premium ${authView === "reset" ? "active" : ""}`} onClick={() => { setAuthView("reset"); setAuthError(""); setAuthMessage(""); }}>
+              Réinitialiser
+            </button>
           </div>
 
-          {authMessage && <div className="success" style={{ marginTop: 12 }}>{authMessage}</div>}
-          {authError && <div className="error" style={{ marginTop: 12 }}>{authError}</div>}
+          {authMessage && <div className="auth-alert-premium auth-alert-premium--success">{authMessage}</div>}
+          {authError && <div className="auth-alert-premium auth-alert-premium--error">{authError}</div>}
 
           {authView === "login" && (
-            <div className="grid two" style={{ marginTop: 14 }}>
-              <div>
-                <label>Email</label>
-                <input value={loginForm.email} onChange={(e) => setLoginForm((p) => ({ ...p, email: e.target.value }))} />
-              </div>
-              <div>
-                <label>Mot de passe</label>
-                <input type="password" value={loginForm.password} onChange={(e) => setLoginForm((p) => ({ ...p, password: e.target.value }))} />
-              </div>
-              <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end" }}>
-                <button onClick={handleLogin}>Se connecter</button>
+            <div className="auth-panel-premium">
+              <div className="auth-grid-premium auth-grid-premium--single">
+                <div>
+                  <label>Email</label>
+                  <input
+                    placeholder="exemple@domaine.com"
+                    value={loginForm.email}
+                    onChange={(e) => setLoginForm((p) => ({ ...p, email: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label>Mot de passe</label>
+                  <input
+                    type="password"
+                    placeholder="Votre mot de passe"
+                    value={loginForm.password}
+                    onChange={(e) => setLoginForm((p) => ({ ...p, password: e.target.value }))}
+                  />
+                </div>
+                <div className="auth-actions-premium">
+                  <button className="auth-primary-premium" onClick={handleLogin}>Se connecter</button>
+                </div>
               </div>
             </div>
           )}
 
           {authView === "request" && (
-            <div className="grid two" style={{ marginTop: 14 }}>
-              <div>
-                <label>Prénom</label>
-                <input value={requestAccessForm.prenom} onChange={(e) => setRequestAccessForm((p) => ({ ...p, prenom: e.target.value }))} />
-              </div>
-              <div>
-                <label>Nom</label>
-                <input value={requestAccessForm.nom} onChange={(e) => setRequestAccessForm((p) => ({ ...p, nom: e.target.value }))} />
-              </div>
-              <div>
-                <label>Email</label>
-                <input value={requestAccessForm.email} onChange={(e) => setRequestAccessForm((p) => ({ ...p, email: e.target.value }))} />
-              </div>
-              <div>
-                <label>Mot de passe fort</label>
-                <input type="password" value={requestAccessForm.password} onChange={(e) => setRequestAccessForm((p) => ({ ...p, password: e.target.value }))} />
-              </div>
-              <div>
-                <label>Confirmation</label>
-                <input type="password" value={requestAccessForm.confirmPassword} onChange={(e) => setRequestAccessForm((p) => ({ ...p, confirmPassword: e.target.value }))} />
-              </div>
-              <div>
-                <label>Politique mot de passe</label>
-                <input value={PASSWORD_RULE_TEXT} readOnly />
-              </div>
-              <div style={{ gridColumn: "1 / -1" }}>
-                <label><input type="checkbox" checked={requestAccessForm.acceptTerms} onChange={(e) => setRequestAccessForm((p) => ({ ...p, acceptTerms: e.target.checked }))} /> J’accepte les conditions d’utilisation et la journalisation des accès.</label>
-              </div>
-              <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end" }}>
-                <button onClick={handleRequestAccess}>Envoyer la demande</button>
+            <div className="auth-panel-premium">
+              <div className="auth-grid-premium">
+                <div>
+                  <label>Prénom</label>
+                  <input value={requestAccessForm.prenom} onChange={(e) => setRequestAccessForm((p) => ({ ...p, prenom: e.target.value }))} />
+                </div>
+                <div>
+                  <label>Nom</label>
+                  <input value={requestAccessForm.nom} onChange={(e) => setRequestAccessForm((p) => ({ ...p, nom: e.target.value }))} />
+                </div>
+                <div>
+                  <label>Email</label>
+                  <input value={requestAccessForm.email} onChange={(e) => setRequestAccessForm((p) => ({ ...p, email: e.target.value }))} />
+                </div>
+                <div>
+                  <label>Mot de passe fort</label>
+                  <input type="password" value={requestAccessForm.password} onChange={(e) => setRequestAccessForm((p) => ({ ...p, password: e.target.value }))} />
+                </div>
+                <div>
+                  <label>Confirmation</label>
+                  <input type="password" value={requestAccessForm.confirmPassword} onChange={(e) => setRequestAccessForm((p) => ({ ...p, confirmPassword: e.target.value }))} />
+                </div>
+                <div>
+                  <label>Politique mot de passe</label>
+                  <input value={PASSWORD_RULE_TEXT} readOnly />
+                </div>
+                <div style={{ gridColumn: "1 / -1" }} className="auth-check-premium">
+                  <label><input type="checkbox" checked={requestAccessForm.acceptTerms} onChange={(e) => setRequestAccessForm((p) => ({ ...p, acceptTerms: e.target.checked }))} /> J’accepte les conditions d’utilisation et la journalisation des accès.</label>
+                </div>
+                <div className="auth-actions-premium" style={{ gridColumn: "1 / -1" }}>
+                  <button className="auth-primary-premium" onClick={handleRequestAccess}>Envoyer la demande</button>
+                </div>
               </div>
             </div>
           )}
 
           {authView === "forgot" && (
-            <div className="grid two" style={{ marginTop: 14 }}>
-              <div>
-                <label>Email</label>
-                <input value={forgotPasswordForm.email} onChange={(e) => setForgotPasswordForm({ email: e.target.value })} />
-              </div>
-              <div className="small" style={{ display: "flex", alignItems: "end" }}>
-                La demande sera journalisée. Un administrateur pourra générer un code de réinitialisation.
-              </div>
-              <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end" }}>
-                <button onClick={handleForgotPassword}>Signaler la perte du mot de passe</button>
+            <div className="auth-panel-premium">
+              <div className="auth-grid-premium auth-grid-premium--single">
+                <div>
+                  <label>Email</label>
+                  <input value={forgotPasswordForm.email} onChange={(e) => setForgotPasswordForm({ email: e.target.value })} />
+                </div>
+                <div className="auth-helper-premium">
+                  La demande sera journalisée. Un administrateur pourra générer un code de réinitialisation.
+                </div>
+                <div className="auth-actions-premium">
+                  <button className="auth-primary-premium" onClick={handleForgotPassword}>Signaler la perte du mot de passe</button>
+                </div>
               </div>
             </div>
           )}
 
           {authView === "reset" && (
-            <div className="grid two" style={{ marginTop: 14 }}>
-              <div>
-                <label>Email</label>
-                <input value={resetPasswordForm.email} onChange={(e) => setResetPasswordForm((p) => ({ ...p, email: e.target.value }))} />
-              </div>
-              <div>
-                <label>Code de réinitialisation</label>
-                <input value={resetPasswordForm.token} onChange={(e) => setResetPasswordForm((p) => ({ ...p, token: e.target.value }))} />
-              </div>
-              <div>
-                <label>Nouveau mot de passe fort</label>
-                <input type="password" value={resetPasswordForm.password} onChange={(e) => setResetPasswordForm((p) => ({ ...p, password: e.target.value }))} />
-              </div>
-              <div>
-                <label>Confirmation</label>
-                <input type="password" value={resetPasswordForm.confirmPassword} onChange={(e) => setResetPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))} />
-              </div>
-              <div style={{ gridColumn: "1 / -1" }} className="small">{PASSWORD_RULE_TEXT}</div>
-              <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end" }}>
-                <button onClick={handleResetPassword}>Réinitialiser le mot de passe</button>
+            <div className="auth-panel-premium">
+              <div className="auth-grid-premium auth-grid-premium--single">
+                <div>
+                  <label>Email</label>
+                  <input value={resetPasswordForm.email} onChange={(e) => setResetPasswordForm((p) => ({ ...p, email: e.target.value }))} />
+                </div>
+                <div>
+                  <label>Code de réinitialisation</label>
+                  <input value={resetPasswordForm.token} onChange={(e) => setResetPasswordForm((p) => ({ ...p, token: e.target.value }))} />
+                </div>
+                <div>
+                  <label>Nouveau mot de passe fort</label>
+                  <input type="password" value={resetPasswordForm.password} onChange={(e) => setResetPasswordForm((p) => ({ ...p, password: e.target.value }))} />
+                </div>
+                <div>
+                  <label>Confirmation</label>
+                  <input type="password" value={resetPasswordForm.confirmPassword} onChange={(e) => setResetPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))} />
+                </div>
+                <div className="auth-helper-premium">{PASSWORD_RULE_TEXT}</div>
+                <div className="auth-actions-premium">
+                  <button className="auth-primary-premium" onClick={handleResetPassword}>Réinitialiser le mot de passe</button>
+                </div>
               </div>
             </div>
           )}
