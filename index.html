@@ -8,5 +8,22 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/main.jsx"></script>
+    <script type="module">
+      const textToRemove = "Connexion requise pour accéder à l’application.";
+
+      const removeLoginRequiredText = () => {
+        document.querySelectorAll("body *").forEach((element) => {
+          if (element.childNodes.length === 1 && element.textContent.trim() === textToRemove) {
+            element.remove();
+          }
+        });
+      };
+
+      removeLoginRequiredText();
+      new MutationObserver(removeLoginRequiredText).observe(document.getElementById("root"), {
+        childList: true,
+        subtree: true,
+      });
+    </script>
   </body>
 </html>
