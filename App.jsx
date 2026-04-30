@@ -12,6 +12,24 @@ const DEFAULT_LOGIN_EMAIL = "climbcrew@gmail.com";
 const DEFAULT_LOGIN_PASSWORD = "climbcrew*2026";
 const PASSWORD_RULE_TEXT = "Minimum 12 caractères avec majuscule, minuscule, chiffre et caractère spécial.";
 
+const THEME_PREFERENCE_KEY = "climbcrew-theme-preference";
+const THEME_OPTIONS = [
+  { value: "auto", label: "Automatique" },
+  { value: "light", label: "Clair" },
+  { value: "dark", label: "Sombre" },
+];
+
+function getSystemTheme() {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return "light";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function resolveThemePreference(value) {
+  if (value === "light" || value === "dark") return value;
+  return getSystemTheme();
+}
+
+
 function isStrongPassword(value) {
   return typeof value === "string"
     && value.length >= 12
@@ -270,6 +288,7 @@ function App() {
   const [adminAuthUsers, setAdminAuthUsers] = useState([]);
   const [adminAccessLogs, setAdminAccessLogs] = useState([]);
   const [generatedResetToken, setGeneratedResetToken] = useState("");
+  const [themePreference, setThemePreference] = useState(() => localStorage.getItem(THEME_PREFERENCE_KEY) || "auto");
 
   const [newParticipant, setNewParticipant] = useState({
     nom: "",
@@ -1001,6 +1020,28 @@ function App() {
     }
   }
 
+async function handleThemePreferenceChange(nextTheme) {
+  const previousTheme = themePreference;
+  setThemePreference(nextTheme);
+
+  if (!USE_API || !authToken || !authUser) return;
+
+  try {
+    const data = await authApiFetch("/auth/theme", authToken, {
+      method: "PUT",
+      body: JSON.stringify({ theme_preference: nextTheme }),
+    });
+    if (data.user) {
+      setAuthUser(data.user);
+    }
+    setAuthMessage("Préférence d’affichage mise à jour.");
+    setAuthError("");
+  } catch (error) {
+    setThemePreference(previousTheme);
+    setAuthError(String(error.message || error));
+  }
+}
+
   async function handleLogin() {
     try {
       setAuthError("");
@@ -1013,6 +1054,9 @@ function App() {
 
       setAuthToken(data.token);
       setAuthUser(data.user);
+      if (data.user?.theme_preference) {
+        setThemePreference(data.user.theme_preference);
+      }
       if (data.user?.role === "admin") {
         setAdminUnlocked(true);
       }
@@ -1295,12 +1339,13 @@ function App() {
   if (USE_API && authLoading) {
     return (
       <div className="auth-page">
-        <div className="auth-shell auth-shell--loading">
-          <div className="auth-hero auth-hero--centered">
-            <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="auth-logo-large" />
-            <h1>ClimbCrew</h1>
-            <p className="auth-subtitle">Chargement de la session…</p>
-            <div className="auth-loading-pill">Connexion sécurisée en cours</div>
+        <div className="auth-card">
+          <div className="brand auth-brand">
+            <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="app-logo" />
+            <div>
+              <h1>ClimbCrew</h1>
+              <p className="small">Chargement de la session…</p>
+            </div>
           </div>
         </div>
       </div>
@@ -1310,141 +1355,121 @@ function App() {
   if (USE_API && !authUser) {
     return (
       <div className="auth-page">
-        <div className="auth-shell">
-          <div className="auth-hero auth-hero--centered">
-            <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="auth-logo-large" />
-            <h1>ClimbCrew</h1>
-            <p className="auth-subtitle">Connexion requise pour accéder à l’application.</p>
+        <div className="auth-card">
+          <div className="brand auth-brand">
+            <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="app-logo" />
+            <div>
+              <h1>ClimbCrew</h1>
+              <p className="small">Connexion requise pour accéder à l’application.</p>
+            </div>
           </div>
 
-          <div className="auth-default-account">
-            <div className="auth-default-account__title">Compte par défaut</div>
-            <div className="auth-default-account__line"><strong>Email</strong><span>{DEFAULT_LOGIN_EMAIL}</span></div>
-            <div className="auth-default-account__line"><strong>Mot de passe</strong><span>{DEFAULT_LOGIN_PASSWORD}</span></div>
-            <div className="auth-default-account__warning">À modifier ou supprimer après la première mise en service.</div>
+          <div className="subcard" style={{ marginTop: 12, background: "rgba(14,165,233,.10)" }}>
+            <strong>Compte par défaut</strong>
+            <div className="small" style={{ marginTop: 6 }}>Email : {DEFAULT_LOGIN_EMAIL}</div>
+            <div className="small">Mot de passe : {DEFAULT_LOGIN_PASSWORD}</div>
+            <div className="small" style={{ marginTop: 6, color: "#f59e0b" }}>
+              À modifier ou supprimer après la première mise en service.
+            </div>
           </div>
 
-          <div className="auth-tabs" role="tablist" aria-label="Accès ClimbCrew">
-            <button className={`auth-tab ${authView === "login" ? "active" : ""}`} onClick={() => { setAuthView("login"); setAuthError(""); setAuthMessage(""); }}>
-              Connexion
-            </button>
-            <button className={`auth-tab ${authView === "request" ? "active" : ""}`} onClick={() => { setAuthView("request"); setAuthError(""); setAuthMessage(""); }}>
-              Demande d’accès
-            </button>
-            <button className={`auth-tab ${authView === "forgot" ? "active" : ""}`} onClick={() => { setAuthView("forgot"); setAuthError(""); setAuthMessage(""); }}>
-              Mot de passe oublié
-            </button>
-            <button className={`auth-tab ${authView === "reset" ? "active" : ""}`} onClick={() => { setAuthView("reset"); setAuthError(""); setAuthMessage(""); }}>
-              Réinitialiser
-            </button>
+          <div className="group auth-switcher" style={{ marginTop: 14 }}>
+            <button className={authView === "login" ? "" : "secondary"} onClick={() => { setAuthView("login"); setAuthError(""); setAuthMessage(""); }}>Connexion</button>
+            <button className={authView === "request" ? "" : "secondary"} onClick={() => { setAuthView("request"); setAuthError(""); setAuthMessage(""); }}>Demander un accès</button>
+            <button className={authView === "forgot" ? "" : "secondary"} onClick={() => { setAuthView("forgot"); setAuthError(""); setAuthMessage(""); }}>Mot de passe perdu</button>
+            <button className={authView === "reset" ? "" : "secondary"} onClick={() => { setAuthView("reset"); setAuthError(""); setAuthMessage(""); }}>Réinitialiser</button>
           </div>
 
-          {authMessage && <div className="auth-banner auth-banner--success">{authMessage}</div>}
-          {authError && <div className="auth-banner auth-banner--error">{authError}</div>}
+          {authMessage && <div className="success" style={{ marginTop: 12 }}>{authMessage}</div>}
+          {authError && <div className="error" style={{ marginTop: 12 }}>{authError}</div>}
 
           {authView === "login" && (
-            <div className="auth-form-panel">
-              <div className="auth-form-grid auth-form-grid--single">
-                <div>
-                  <label>Email</label>
-                  <input
-                    placeholder="exemple@domaine.com"
-                    value={loginForm.email}
-                    onChange={(e) => setLoginForm((p) => ({ ...p, email: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <label>Mot de passe</label>
-                  <input
-                    type="password"
-                    placeholder="Votre mot de passe"
-                    value={loginForm.password}
-                    onChange={(e) => setLoginForm((p) => ({ ...p, password: e.target.value }))}
-                  />
-                </div>
-                <div className="auth-actions">
-                  <button className="auth-primary-button" onClick={handleLogin}>Se connecter</button>
-                </div>
+            <div className="grid two" style={{ marginTop: 14 }}>
+              <div>
+                <label>Email</label>
+                <input value={loginForm.email} onChange={(e) => setLoginForm((p) => ({ ...p, email: e.target.value }))} />
+              </div>
+              <div>
+                <label>Mot de passe</label>
+                <input type="password" value={loginForm.password} onChange={(e) => setLoginForm((p) => ({ ...p, password: e.target.value }))} />
+              </div>
+              <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end" }}>
+                <button onClick={handleLogin}>Se connecter</button>
               </div>
             </div>
           )}
 
           {authView === "request" && (
-            <div className="auth-form-panel">
-              <div className="auth-form-grid">
-                <div>
-                  <label>Prénom</label>
-                  <input value={requestAccessForm.prenom} onChange={(e) => setRequestAccessForm((p) => ({ ...p, prenom: e.target.value }))} />
-                </div>
-                <div>
-                  <label>Nom</label>
-                  <input value={requestAccessForm.nom} onChange={(e) => setRequestAccessForm((p) => ({ ...p, nom: e.target.value }))} />
-                </div>
-                <div>
-                  <label>Email</label>
-                  <input value={requestAccessForm.email} onChange={(e) => setRequestAccessForm((p) => ({ ...p, email: e.target.value }))} />
-                </div>
-                <div>
-                  <label>Mot de passe fort</label>
-                  <input type="password" value={requestAccessForm.password} onChange={(e) => setRequestAccessForm((p) => ({ ...p, password: e.target.value }))} />
-                </div>
-                <div>
-                  <label>Confirmation</label>
-                  <input type="password" value={requestAccessForm.confirmPassword} onChange={(e) => setRequestAccessForm((p) => ({ ...p, confirmPassword: e.target.value }))} />
-                </div>
-                <div>
-                  <label>Politique mot de passe</label>
-                  <input value={PASSWORD_RULE_TEXT} readOnly />
-                </div>
-                <div style={{ gridColumn: "1 / -1" }} className="auth-checkline">
-                  <label><input type="checkbox" checked={requestAccessForm.acceptTerms} onChange={(e) => setRequestAccessForm((p) => ({ ...p, acceptTerms: e.target.checked }))} /> J’accepte les conditions d’utilisation et la journalisation des accès.</label>
-                </div>
-                <div className="auth-actions" style={{ gridColumn: "1 / -1" }}>
-                  <button className="auth-primary-button" onClick={handleRequestAccess}>Envoyer la demande</button>
-                </div>
+            <div className="grid two" style={{ marginTop: 14 }}>
+              <div>
+                <label>Prénom</label>
+                <input value={requestAccessForm.prenom} onChange={(e) => setRequestAccessForm((p) => ({ ...p, prenom: e.target.value }))} />
+              </div>
+              <div>
+                <label>Nom</label>
+                <input value={requestAccessForm.nom} onChange={(e) => setRequestAccessForm((p) => ({ ...p, nom: e.target.value }))} />
+              </div>
+              <div>
+                <label>Email</label>
+                <input value={requestAccessForm.email} onChange={(e) => setRequestAccessForm((p) => ({ ...p, email: e.target.value }))} />
+              </div>
+              <div>
+                <label>Mot de passe fort</label>
+                <input type="password" value={requestAccessForm.password} onChange={(e) => setRequestAccessForm((p) => ({ ...p, password: e.target.value }))} />
+              </div>
+              <div>
+                <label>Confirmation</label>
+                <input type="password" value={requestAccessForm.confirmPassword} onChange={(e) => setRequestAccessForm((p) => ({ ...p, confirmPassword: e.target.value }))} />
+              </div>
+              <div>
+                <label>Politique mot de passe</label>
+                <input value={PASSWORD_RULE_TEXT} readOnly />
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label><input type="checkbox" checked={requestAccessForm.acceptTerms} onChange={(e) => setRequestAccessForm((p) => ({ ...p, acceptTerms: e.target.checked }))} /> J’accepte les conditions d’utilisation et la journalisation des accès.</label>
+              </div>
+              <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end" }}>
+                <button onClick={handleRequestAccess}>Envoyer la demande</button>
               </div>
             </div>
           )}
 
           {authView === "forgot" && (
-            <div className="auth-form-panel">
-              <div className="auth-form-grid auth-form-grid--single">
-                <div>
-                  <label>Email</label>
-                  <input value={forgotPasswordForm.email} onChange={(e) => setForgotPasswordForm({ email: e.target.value })} />
-                </div>
-                <div className="auth-helper-text">
-                  La demande est journalisée. Un administrateur peut générer un code de réinitialisation si nécessaire.
-                </div>
-                <div className="auth-actions">
-                  <button className="auth-primary-button" onClick={handleForgotPassword}>Demander une réinitialisation</button>
-                </div>
+            <div className="grid two" style={{ marginTop: 14 }}>
+              <div>
+                <label>Email</label>
+                <input value={forgotPasswordForm.email} onChange={(e) => setForgotPasswordForm({ email: e.target.value })} />
+              </div>
+              <div className="small" style={{ display: "flex", alignItems: "end" }}>
+                La demande sera journalisée. Un administrateur pourra générer un code de réinitialisation.
+              </div>
+              <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end" }}>
+                <button onClick={handleForgotPassword}>Signaler la perte du mot de passe</button>
               </div>
             </div>
           )}
 
           {authView === "reset" && (
-            <div className="auth-form-panel">
-              <div className="auth-form-grid auth-form-grid--single">
-                <div>
-                  <label>Email</label>
-                  <input value={resetPasswordForm.email} onChange={(e) => setResetPasswordForm((p) => ({ ...p, email: e.target.value }))} />
-                </div>
-                <div>
-                  <label>Code de réinitialisation</label>
-                  <input value={resetPasswordForm.resetCode} onChange={(e) => setResetPasswordForm((p) => ({ ...p, resetCode: e.target.value }))} />
-                </div>
-                <div>
-                  <label>Nouveau mot de passe</label>
-                  <input type="password" value={resetPasswordForm.newPassword} onChange={(e) => setResetPasswordForm((p) => ({ ...p, newPassword: e.target.value }))} />
-                </div>
-                <div>
-                  <label>Confirmation</label>
-                  <input type="password" value={resetPasswordForm.confirmPassword} onChange={(e) => setResetPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))} />
-                </div>
-                <div className="auth-actions">
-                  <button className="auth-primary-button" onClick={handleResetPassword}>Mettre à jour le mot de passe</button>
-                </div>
+            <div className="grid two" style={{ marginTop: 14 }}>
+              <div>
+                <label>Email</label>
+                <input value={resetPasswordForm.email} onChange={(e) => setResetPasswordForm((p) => ({ ...p, email: e.target.value }))} />
+              </div>
+              <div>
+                <label>Code de réinitialisation</label>
+                <input value={resetPasswordForm.token} onChange={(e) => setResetPasswordForm((p) => ({ ...p, token: e.target.value }))} />
+              </div>
+              <div>
+                <label>Nouveau mot de passe fort</label>
+                <input type="password" value={resetPasswordForm.password} onChange={(e) => setResetPasswordForm((p) => ({ ...p, password: e.target.value }))} />
+              </div>
+              <div>
+                <label>Confirmation</label>
+                <input type="password" value={resetPasswordForm.confirmPassword} onChange={(e) => setResetPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))} />
+              </div>
+              <div style={{ gridColumn: "1 / -1" }} className="small">{PASSWORD_RULE_TEXT}</div>
+              <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end" }}>
+                <button onClick={handleResetPassword}>Réinitialiser le mot de passe</button>
               </div>
             </div>
           )}
@@ -1840,311 +1865,186 @@ function App() {
         }
 
 
-        
-.auth-page {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 32px 16px;
-  background:
-    radial-gradient(circle at 15% 20%, rgba(59,130,246,.10), transparent 16%),
-    radial-gradient(circle at 85% 18%, rgba(14,165,233,.08), transparent 14%),
-    radial-gradient(circle at 82% 78%, rgba(59,130,246,.08), transparent 18%),
-    linear-gradient(180deg, #f5f7fb 0%, #eef2f7 100%);
+        .auth-page {
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+          background: linear-gradient(180deg, #020617 0%, #0f172a 100%);
+        }
+
+        .auth-card {
+          width: min(880px, 100%);
+          padding: 22px;
+          border-radius: 24px;
+          background: rgba(15, 23, 42, .96);
+          border: 1px solid rgba(148, 163, 184, .2);
+          box-shadow: 0 24px 80px rgba(0,0,0,.45);
+        }
+
+        .auth-brand {
+          align-items: center;
+          justify-content: flex-start;
+        }
+
+        .auth-switcher {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .topbar-user {
+          margin-left: auto;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .badge.danger {
+          background: rgba(239,68,68,.18);
+          color: #fecaca;
+          border-color: rgba(239,68,68,.35);
+        }
+
+        @media (max-width: 700px) {
+          .auth-card {
+            padding: 16px;
+            border-radius: 18px;
+          }
+
+          .topbar-user {
+            width: 100%;
+            justify-content: space-between;
+            margin-left: 0;
+            margin-top: 8px;
+          }
+
+          .auth-switcher {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+          }
+        }
+
+:root {
+  --theme-page-bg: #0f172a;
+  --theme-app-bg: linear-gradient(135deg,#020617,#0f172a,#1e293b);
+  --theme-card-bg: rgba(15, 23, 42, .92);
+  --theme-card-soft: rgba(2, 6, 23, .42);
+  --theme-card-border: rgba(148,163,184,.22);
+  --theme-text: #e2e8f0;
+  --theme-text-muted: #cbd5e1;
+  --theme-input-bg: rgba(2, 6, 23, .55);
+  --theme-input-border: rgba(148,163,184,.32);
+  --theme-sidebar-bg: rgba(2,6,23,.95);
+  --theme-accent: #22d3ee;
+  --theme-stat-bg: rgba(2,6,23,.48);
 }
 
-.auth-shell {
-  width: min(760px, 100%);
-  padding: 28px;
-  border-radius: 28px;
-  background: rgba(255,255,255,.94);
-  border: 1px solid rgba(148,163,184,.18);
-  box-shadow: 0 24px 70px rgba(15,23,42,.12);
-  color: #0f172a;
+:root[data-theme="light"] {
+  --theme-page-bg: #f4f7fb;
+  --theme-app-bg: linear-gradient(180deg,#f8fbff,#eef2f7);
+  --theme-card-bg: rgba(255,255,255,.94);
+  --theme-card-soft: rgba(248,250,252,.98);
+  --theme-card-border: rgba(148,163,184,.20);
+  --theme-text: #0f172a;
+  --theme-text-muted: #475569;
+  --theme-input-bg: #ffffff;
+  --theme-input-border: rgba(148,163,184,.28);
+  --theme-sidebar-bg: rgba(255,255,255,.98);
+  --theme-accent: #0b4a9d;
+  --theme-stat-bg: rgba(248,250,252,.95);
 }
 
-.auth-shell--loading {
-  width: min(520px, 100%);
+body {
+  background: var(--theme-page-bg) !important;
+  color: var(--theme-text);
+  transition: background .25s ease, color .25s ease;
 }
 
-.auth-hero {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+.app {
+  background: var(--theme-app-bg) !important;
+  color: var(--theme-text) !important;
 }
 
-.auth-hero--centered {
-  align-items: center;
-  text-align: center;
+.toolbar,
+.card,
+.subcard,
+.muted-box,
+.stat,
+.modal-panel,
+.auth-card,
+.auth-shell,
+.sidebar,
+.mobile-bottom-nav {
+  background: var(--theme-card-bg) !important;
+  border-color: var(--theme-card-border) !important;
+  color: var(--theme-text) !important;
 }
 
-.auth-logo-large {
-  width: 132px;
-  height: 132px;
-  object-fit: contain;
-  filter: drop-shadow(0 8px 18px rgba(15,23,42,.08));
+.subcard,
+.muted-box,
+.stat {
+  background: var(--theme-card-soft) !important;
 }
 
-.auth-hero h1 {
-  margin: 0;
-  font-size: clamp(40px, 5vw, 56px);
-  line-height: 1;
-  color: #0f172a;
+.sidebar {
+  background: var(--theme-sidebar-bg) !important;
 }
 
-.auth-subtitle {
-  margin: 0;
-  font-size: 18px;
-  color: #475569;
+input,
+select,
+textarea {
+  background: var(--theme-input-bg) !important;
+  color: var(--theme-text) !important;
+  border-color: var(--theme-input-border) !important;
 }
 
-.auth-loading-pill {
-  margin-top: 8px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 42px;
-  padding: 0 18px;
-  border-radius: 999px;
-  background: rgba(59,130,246,.10);
-  color: #1d4ed8;
-  font-weight: 700;
-}
-
-.auth-default-account {
-  margin-top: 24px;
-  padding: 18px 20px;
-  border-radius: 18px;
-  background: linear-gradient(180deg, rgba(239,246,255,.96), rgba(248,250,252,.96));
-  border: 1px solid rgba(147,197,253,.45);
-}
-
-.auth-default-account__title {
-  font-size: 28px;
-  font-weight: 800;
-  color: #0f2b66;
-}
-
-.auth-default-account__line {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(191,219,254,.55);
-  font-size: 18px;
-  color: #1e293b;
-}
-
-.auth-default-account__line strong {
-  color: #0f2b66;
-}
-
-.auth-default-account__warning {
-  margin-top: 12px;
-  color: #c2410c;
-  font-weight: 700;
-}
-
-.auth-tabs {
-  margin-top: 18px;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-  padding: 6px;
-  border-radius: 18px;
-  background: #f8fafc;
-  border: 1px solid rgba(148,163,184,.22);
-}
-
-.auth-tab {
-  min-height: 52px;
-  border: none;
-  border-radius: 14px;
-  background: transparent;
-  color: #64748b;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.auth-tab.active {
-  background: #ffffff;
-  color: #0f2b66;
-  box-shadow: 0 10px 24px rgba(15,23,42,.08);
-}
-
-.auth-form-panel {
-  margin-top: 16px;
-  padding: 20px;
-  border-radius: 22px;
-  background: rgba(255,255,255,.86);
-  border: 1px solid rgba(148,163,184,.20);
-}
-
-.auth-form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.auth-form-grid--single {
-  grid-template-columns: 1fr;
-}
-
-.auth-form-panel label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 14px;
-  font-weight: 700;
-  color: #0f172a;
-  text-transform: none;
-  letter-spacing: 0;
-}
-
-.auth-form-panel input,
-.auth-form-panel select {
-  width: 100%;
-  min-height: 54px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  border: 1px solid rgba(148,163,184,.35);
-  background: #ffffff;
-  color: #0f172a;
-  font-size: 16px;
-}
-
-.auth-form-panel input::placeholder {
-  color: #94a3b8;
-}
-
-.auth-checkline label {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin: 0;
-  font-weight: 500;
-  color: #334155;
-}
-
-.auth-checkline input[type="checkbox"] {
-  width: 18px;
-  min-width: 18px;
-  height: 18px;
-  min-height: 18px;
-  margin-top: 2px;
-  padding: 0;
-}
-
+.small,
+.label,
+.auth-subtitle,
 .auth-helper-text {
-  color: #64748b;
-  font-size: 14px;
-  line-height: 1.5;
+  color: var(--theme-text-muted) !important;
 }
 
-.auth-actions {
+h1, h2, h3, strong, label {
+  color: var(--theme-text) !important;
+}
+
+.menu-button,
+.secondary,
+.sidebar-close,
+.side-tab,
+.bottom-tab {
+  border-color: var(--theme-card-border) !important;
+}
+
+.theme-selector-inline {
   display: flex;
-  justify-content: flex-end;
   align-items: center;
+  gap: 8px;
+  margin-left: 6px;
 }
 
-.auth-primary-button {
-  min-width: 220px;
-  min-height: 54px;
-  padding: 0 22px;
-  border: none;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #0f2b66, #0b4a9d);
-  color: #ffffff;
-  font-size: 18px;
-  font-weight: 800;
-  cursor: pointer;
-  box-shadow: 0 14px 30px rgba(15,43,102,.20);
+.theme-selector-inline select {
+  min-width: 130px;
 }
 
-.auth-banner {
-  margin-top: 14px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  font-weight: 600;
-}
-
-.auth-banner--success {
-  background: rgba(34,197,94,.10);
-  color: #166534;
-  border: 1px solid rgba(34,197,94,.24);
-}
-
-.auth-banner--error {
-  background: rgba(239,68,68,.10);
-  color: #991b1b;
-  border: 1px solid rgba(239,68,68,.24);
-}
-
-@media (max-width: 900px) {
-  .auth-shell {
-    width: min(640px, 100%);
-    padding: 22px;
-  }
-
-  .auth-tabs {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+:root[data-theme="light"] .app-logo,
+:root[data-theme="light"] .sidebar-logo {
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(15,23,42,.08);
 }
 
 @media (max-width: 700px) {
-  .auth-page {
-    padding: 14px;
-  }
-
-  .auth-shell {
-    padding: 18px 16px;
-    border-radius: 22px;
-  }
-
-  .auth-logo-large {
-    width: 104px;
-    height: 104px;
-  }
-
-  .auth-hero h1 {
-    font-size: 36px;
-  }
-
-  .auth-subtitle {
-    font-size: 16px;
-  }
-
-  .auth-default-account__title {
-    font-size: 22px;
-  }
-
-  .auth-default-account__line {
-    flex-direction: column;
-    gap: 4px;
-    font-size: 16px;
-  }
-
-  .auth-tabs {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .auth-form-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .auth-form-panel {
-    padding: 16px;
-  }
-
-  .auth-actions {
-    justify-content: stretch;
-  }
-
-  .auth-primary-button {
+  .theme-selector-inline {
     width: 100%;
+    justify-content: space-between;
+  }
+
+  .theme-selector-inline select {
     min-width: 0;
+    width: 150px;
   }
 }
 
@@ -2865,6 +2765,20 @@ function App() {
                 ) : USE_API ? (
                   <div className="card">
                     <div className="card-header"><h2>Accès et comptes</h2></div>
+                    <div className="subcard" style={{ marginBottom: 14 }}>
+                      <div className="card-header"><h3>Préférences d’affichage</h3></div>
+                      <div className="grid two">
+                        <div>
+                          <label>Thème</label>
+                          <select value={themePreference} onChange={(e) => handleThemePreferenceChange(e.target.value)}>
+                            {THEME_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                          </select>
+                        </div>
+                        <div className="small" style={{ alignSelf: "end" }}>
+                          Le mode <strong>Automatique</strong> suit le thème clair/sombre du poste utilisateur.
+                        </div>
+                      </div>
+                    </div>
                     <div className="muted-box">Cette section est réservée à un compte administrateur authentifié.</div>
                   </div>
                 ) : null}

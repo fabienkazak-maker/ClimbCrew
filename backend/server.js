@@ -77,6 +77,7 @@ function serializeUser(row) {
     revoked_reason: row.revoked_reason,
     last_login_at: row.last_login_at,
     must_reset_password: row.must_reset_password,
+    theme_preference: row.theme_preference || 'auto',
   };
 }
 
@@ -204,6 +205,8 @@ async function ensureSchema() {
     create index if not exists idx_access_logs_created_at on access_logs(created_at desc);
     create index if not exists idx_access_logs_event_type on access_logs(event_type);
   `);
+
+  await pool.query(`alter table users add column if not exists theme_preference text not null default 'auto'`);
 }
 
 async function ensureDefaultAdmin() {
@@ -264,7 +267,8 @@ async function loadSessionFromToken(rawToken) {
         u.revoked_at as user_revoked_at,
         u.revoked_reason,
         u.last_login_at,
-        u.must_reset_password
+        u.must_reset_password,
+        u.theme_preference
       from user_sessions us
       join users u on u.id = us.user_id
       where us.token_hash = $1
@@ -462,6 +466,42 @@ app.post("/auth/login", async (req, res) => {
 
 app.get("/auth/me", requireAuth, async (req, res) => {
   res.json({ ok: true, user: req.auth.user });
+});
+
+
+app.put("/auth/theme", requireAuth, async (req, res) => {
+  const nextTheme = String(req.body?.theme_preference || "auto").trim().toLowerCase();
+  const allowed = new Set(["auto", "light", "dark"]);
+
+  if (!allowed.has(nextTheme)) {
+    return res.status(400).json({ error: "Préférence de thème invalide" });
+  }
+
+  try {
+    const result = await pool.query(
+      `
+        update users
+        set theme_preference = $2
+        where id = $1
+        returning *
+      `,
+      [req.auth.user.id, nextTheme]
+    );
+
+    const user = serializeUser(result.rows[0]);
+
+    await logAccess({
+      userId: req.auth.user.id,
+      eventType: "theme_changed",
+      success: true,
+      req,
+      details: { theme_preference: nextTheme },
+    });
+
+    res.json({ ok: true, user });
+  } catch (error) {
+    res.status(500).json({ error: String(error) });
+  }
 });
 
 app.post("/auth/logout", requireAuth, async (req, res) => {

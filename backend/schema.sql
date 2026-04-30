@@ -47,7 +47,8 @@ create table if not exists users (
   approved_at timestamptz,
   revoked_at timestamptz,
   revoked_reason text,
-  last_login_at timestamptz
+  last_login_at timestamptz,
+  theme_preference text not null default 'auto'
 );
 
 create index if not exists idx_users_email on users(lower(email));
