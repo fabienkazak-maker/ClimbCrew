@@ -403,7 +403,22 @@ function App() {
     if (USE_API && authUser?.role === "admin" && tab === "administration") {
       loadAdminAccessData();
     }
-  }, [tab, authUser, authToken]);
+}, [tab, authUser, authToken]);
+
+const isAdminAccount = USE_API ? authUser?.role === "admin" : adminUnlocked;
+const canManageRouteActions = isAdminAccount;
+const canAccessAdministration = isAdminAccount;
+
+const visibleTabs = useMemo(
+  () => TABS.filter((item) => item.key !== "administration" || canAccessAdministration),
+  [canAccessAdministration]
+);
+
+useEffect(() => {
+  if (!canAccessAdministration && tab === "administration") {
+    setTab("inscriptions");
+  }
+}, [canAccessAdministration, tab]);
 
   const participantsById = useMemo(
     () => Object.fromEntries(state.participants.map((p) => [p.id, p])),
@@ -2049,349 +2064,40 @@ h1, h2, h3, strong, label {
 }
 
 
-        /* Responsive complet / interface auto-adaptative */
-        img, svg {
-          max-width: 100%;
-          height: auto;
-        }
-
-        .app,
-        .shell,
-        .toolbar,
-        .card,
-        .subcard,
-        .modal-panel,
-        .auth-card,
-        .auth-shell,
-        .auth-shell-premium {
-          width: 100%;
-          box-sizing: border-box;
-        }
-
-        .shell {
-          width: min(100%, 1400px);
-          margin: 0 auto;
-        }
-
-        .toolbar-row {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) auto;
-          gap: 12px;
-          align-items: center;
-        }
-
-        .date-nav {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-        }
-
-        .grid.two {
-          grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-        }
-
-        .grid.three {
-          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        }
-
-        .grid.four {
-          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        }
-
-        .grid.five {
-          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-        }
-
-        .stats-grid {
-          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        }
-
-        .session-form-row {
-          grid-template-columns: minmax(140px, .7fr) minmax(180px, 1fr) minmax(220px, 1.4fr);
-        }
-
-        .inline-field {
-          grid-template-columns: minmax(80px, auto) minmax(0, 1fr);
-        }
-
-        .route-card .card-header,
-        .participant-row,
-        .topbar-user,
-        .group {
-          flex-wrap: wrap;
-        }
-
-        .topbar-user {
-          gap: 10px;
-        }
-
-        .theme-selector-inline {
-          flex-wrap: wrap;
-        }
-
+        /* Fond login avec logo */
         .auth-page,
         .auth-page--premium {
-          padding: 20px 14px;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .auth-page::before,
+        .auth-page--premium::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background-image: url('/logo-climbcrew.png');
+          background-repeat: no-repeat;
+          background-position: center;
+          background-size: min(55vw, 520px);
+          opacity: 0.08;
+          pointer-events: none;
+          z-index: 0;
         }
 
         .auth-card,
         .auth-shell,
         .auth-shell-premium {
-          width: min(460px, 100%);
-          margin: 0 auto;
-        }
-
-        .brand.auth-brand,
-        .auth-header-premium,
-        .auth-brand-row,
-        .auth-brand-row--centered {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-          gap: 10px;
-        }
-
-        .brand.auth-brand > div,
-        .auth-title-block,
-        .auth-brand-copy {
-          text-align: center;
-        }
-
-        .auth-actions,
-        .auth-actions-premium {
-          justify-content: center;
-        }
-
-        .auth-primary-button,
-        .auth-primary-premium {
-          width: 100%;
-          max-width: 260px;
-          min-width: 0;
-        }
-
-        .modal-panel {
-          width: min(960px, 100%);
-          max-width: 100%;
-        }
-
-        @media (max-width: 1100px) {
-          .app {
-            padding: 14px;
-          }
-
-          .shell {
-            width: 100%;
-          }
-
-          .stats-grid {
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-          }
-
-          .session-form-row {
-            grid-template-columns: 1fr 1fr;
-          }
-
-          .add-participant-field {
-            grid-column: 1 / -1;
-          }
-        }
-
-        @media (max-width: 800px) {
-          .toolbar-row {
-            grid-template-columns: 1fr;
-          }
-
-          .date-nav,
-          .group,
-          .topbar,
-          .card-header {
-            width: 100%;
-          }
-
-          .topbar {
-            flex-wrap: wrap;
-          }
-
-          .topbar-user {
-            width: 100%;
-            justify-content: space-between;
-          }
-
-          .session-form-row {
-            grid-template-columns: 1fr;
-            gap: 10px;
-          }
-
-          .inline-field {
-            grid-template-columns: 1fr;
-            gap: 6px;
-          }
-
-          .inline-field label {
-            white-space: normal;
-          }
-
-          .route-card .card-header {
-            align-items: flex-start;
-          }
-
-          .stats-grid {
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-          }
-
-          .auth-tabs,
-          .auth-tabs-premium,
-          .auth-switcher {
-            grid-template-columns: 1fr 1fr;
-          }
+          position: relative;
+          z-index: 1;
+          backdrop-filter: blur(3px);
         }
 
         @media (max-width: 700px) {
-          .app {
-            padding: 10px 10px 86px;
-          }
-
-          .shell {
-            width: 100%;
-          }
-
-          .toolbar,
-          .card,
-          .subcard,
-          .stat,
-          .auth-card,
-          .auth-shell,
-          .auth-shell-premium,
-          .modal-panel {
-            padding: 14px;
-            border-radius: 18px;
-          }
-
-          .brand.auth-brand,
-          .auth-header-premium,
-          .auth-brand-row,
-          .auth-brand-row--centered {
-            flex-direction: column;
-          }
-
-          .date-nav {
-            display: grid;
-            grid-template-columns: 42px minmax(0, 1fr) 42px;
-            align-items: center;
-          }
-
-          .date-input {
-            max-width: none;
-            width: 100%;
-            min-width: 0;
-          }
-
-          .nav-symbol {
-            width: 42px;
-            min-width: 42px;
-            min-height: 42px;
-            padding: 0;
-          }
-
-          .group {
-            width: 100%;
-          }
-
-          .group button,
-          .topbar-user button,
-          .auth-primary-button,
-          .auth-primary-premium {
-            width: 100%;
-            max-width: none;
-          }
-
-          .participant-row {
-            flex-direction: column;
-            align-items: stretch;
-          }
-
-          .stats-grid {
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-          }
-
-          .table-scroll,
-          .stack {
-            width: 100%;
-            overflow-x: auto;
-          }
-
-          .mobile-bottom-nav {
-            left: 8px;
-            right: 8px;
-            bottom: 8px;
-          }
-
-          .theme-selector-inline {
-            width: 100%;
-            justify-content: space-between;
-          }
-
-          .theme-selector-inline select {
-            width: 150px;
-          }
-        }
-
-        @media (max-width: 480px) {
-          .app {
-            padding: 8px 8px 84px;
-          }
-
-          .toolbar,
-          .card,
-          .subcard,
-          .stat,
-          .auth-card,
-          .auth-shell,
-          .auth-shell-premium {
-            padding: 12px;
-            border-radius: 16px;
-          }
-
-          .stats-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .grid.two,
-          .grid.three,
-          .grid.four,
-          .grid.five {
-            grid-template-columns: 1fr;
-          }
-
-          .auth-card,
-          .auth-shell,
-          .auth-shell-premium {
-            width: min(100%, 380px);
-          }
-
-          .auth-tabs,
-          .auth-tabs-premium,
-          .auth-switcher {
-            grid-template-columns: 1fr;
-          }
-
-          .auth-login-logo {
-            width: 22px;
-            height: 22px;
-          }
-
-          .auth-logo-premium {
-            width: 26px !important;
-            height: 26px !important;
-          }
-
-          .sidebar {
-            width: 100vw;
-            max-width: none;
-            padding: 14px;
+          .auth-page::before,
+          .auth-page--premium::before {
+            background-size: min(82vw, 360px);
+            opacity: 0.07;
           }
         }
       `}</style>
@@ -2406,7 +2112,7 @@ h1, h2, h3, strong, label {
           </div>
           <button className="sidebar-close" onClick={() => setSidebarOpen(false)} aria-label="Fermer le menu">×</button>
         </div>
-        {TABS.map((item) => (
+        {visibleTabs.map((item) => (
           <button
             key={item.key}
             className={`side-tab ${tab === item.key ? "active" : ""}`}
@@ -2509,7 +2215,7 @@ h1, h2, h3, strong, label {
       )}
 
       <nav className="mobile-bottom-nav" aria-label="Navigation mobile ClimbCrew">
-        {TABS.map((item) => (
+        {visibleTabs.map((item) => (
           <button
             key={item.key}
             className={`bottom-tab ${tab === item.key ? "active" : ""}`}
@@ -2613,84 +2319,86 @@ h1, h2, h3, strong, label {
         )}
 
         {tab === "voies" && (
-          <>
-            {!adminUnlocked ? (
-              <div className="card">
-                <div className="card-header"><h2>Accès administration requis</h2></div>
-                <div className="grid two">
-                  <div>
-                    <label>Code administrateur</label>
-                    <input type="password" maxLength={8} value={adminInput} onChange={(e) => setAdminInput(e.target.value.replace(/\D/g, "").slice(0, 8))} />
-                  </div>
-                  <div style={{ display: "flex", alignItems: "end" }}>
-                    <button onClick={unlockAdmin}>Déverrouiller</button>
-                  </div>
-                </div>
-                {adminError && <div className="error" style={{ marginTop: 10 }}>{adminError}</div>}
-              </div>
-            ) : (
-              <div className="card">
-                <div className="card-header"><h2>Ajouter une voie</h2></div>
-                <div className="grid four">
-                  <div><label>Numéro unique</label><input value={newRoute.numeroVoieUnique} onChange={(e) => setNewRoute((p) => ({ ...p, numeroVoieUnique: e.target.value }))} /></div>
-                  <div><label>Corde</label><select value={newRoute.numeroCorde} onChange={(e) => setNewRoute((p) => ({ ...p, numeroCorde: e.target.value }))}>{state.ropes.map((rope) => <option key={rope.numeroCorde} value={String(rope.numeroCorde)}>Corde {rope.numeroCorde} · {rope.couleurCorde}</option>)}</select></div>
-                  <div><label>Couleur voie</label><input value={newRoute.couleurPrises} onChange={(e) => setNewRoute((p) => ({ ...p, couleurPrises: e.target.value }))} /></div>
-                  <div><label>Cotation</label><select value={newRoute.cotationReference} onChange={(e) => setNewRoute((p) => ({ ...p, cotationReference: e.target.value }))}>{GRADES.map((g) => <option key={g} value={g}>{g}</option>)}</select></div>
-                  <div><label>Nom de la voie</label><input value={newRoute.nomVoie} onChange={(e) => setNewRoute((p) => ({ ...p, nomVoie: e.target.value }))} /></div>
-                  <div><label>Ouvreur</label><input value={newRoute.nomOuvreur} onChange={(e) => setNewRoute((p) => ({ ...p, nomOuvreur: e.target.value }))} /></div>
-                  <div><label>Moulinette uniquement</label><select value={newRoute.moulinetteOnly ? "oui" : "non"} onChange={(e) => setNewRoute((p) => ({ ...p, moulinetteOnly: e.target.value === "oui" }))}><option value="non">Non</option><option value="oui">Oui</option></select></div>
-                  <div style={{ display: "flex", alignItems: "end" }}><button onClick={addRoute}>Ajouter</button></div>
-                </div>
-                {routeError && <div className="error" style={{ marginTop: 10 }}>{routeError}</div>}
-              </div>
-            )}
+  <>
+    {!USE_API && !adminUnlocked ? (
+      <div className="card">
+        <div className="card-header"><h2>Accès administration requis</h2></div>
+        <div className="grid two">
+          <div>
+            <label>Code administrateur</label>
+            <input type="password" maxLength={8} value={adminInput} onChange={(e) => setAdminInput(e.target.value.replace(/\D/g, "").slice(0, 8))} />
+          </div>
+          <div style={{ display: "flex", alignItems: "end" }}>
+            <button onClick={unlockAdmin}>Déverrouiller</button>
+          </div>
+        </div>
+        {adminError && <div className="error" style={{ marginTop: 10 }}>{adminError}</div>}
+      </div>
+    ) : null}
 
-            <div className="card">
-              <div className="card-header"><h2>Tableau des voies</h2></div>
-              <div className="stack">
-                {state.ropes.map((rope) => {
-                  const ropeRoutes = state.routes.filter((route) => route.numeroCorde === rope.numeroCorde);
-                  return (
-                    <div className="subcard" key={rope.numeroCorde}>
-                      <div className="card-header">
-                        <strong>Corde {rope.numeroCorde} · {rope.couleurCorde}</strong>
-                        <span className="badge">{ropeRoutes.length} voie(s)</span>
-                      </div>
-                      {ropeRoutes.length === 0 ? (
-                        <div className="small">Aucune voie sur cette corde.</div>
-                      ) : (
-                        <div className="stack">
-                          {ropeRoutes.map((route) => {
-                            const agg = routeAggregatesById[route.id];
-                            return (
-                              <div className="route-card" key={route.id} style={{ backgroundColor: getRouteBackgroundColor(route.couleurPrises) }}>
-                                <div className="card-header">
-                                  <strong>{route.cotationAjustee} · {route.nomVoie || "Sans nom"} · {route.nomOuvreur}</strong>
-                                  <div className="group">
-                                    {route.moulinetteOnly && <span className="pill">Moulinette uniquement</span>}
-                                    <span className="pill">{route.active ? "Active" : "Archivée"}</span>
-                                    {route.active && <button className="secondary" onClick={() => openRealisationModal(route.id)}>Réalisation</button>}
-                                    {adminUnlocked && <>
-                                      <button className="secondary" onClick={() => toggleRouteActive(route.id)}>{route.active ? "Archiver" : "Réactiver"}</button>
-                                      <button className="secondary" disabled={!agg?.weightedMedianGrade} onClick={() => applyAdjustedGrade(route.id)}>Appliquer cotation ajustée</button>
-                                    </>}
-                                  </div>
-                                </div>
-                                <div className="small" style={{ color: "#111827" }}>
-                                  Réf. {route.cotationReference} · Couleur voie : {route.couleurPrises} · Propositions : {agg?.count || 0} · Médiane : {agg?.medianGrade || "-"} · Médiane pondérée : {agg?.weightedMedianGrade || "-"}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+    {canManageRouteActions && (
+      <div className="card">
+        <div className="card-header"><h2>Ajouter une voie</h2></div>
+        <div className="grid four">
+          <div><label>Numéro unique</label><input value={newRoute.numeroVoieUnique} onChange={(e) => setNewRoute((p) => ({ ...p, numeroVoieUnique: e.target.value }))} /></div>
+          <div><label>Corde</label><select value={newRoute.numeroCorde} onChange={(e) => setNewRoute((p) => ({ ...p, numeroCorde: e.target.value }))}>{state.ropes.map((rope) => <option key={rope.numeroCorde} value={String(rope.numeroCorde)}>Corde {rope.numeroCorde} · {rope.couleurCorde}</option>)}</select></div>
+          <div><label>Couleur voie</label><input value={newRoute.couleurPrises} onChange={(e) => setNewRoute((p) => ({ ...p, couleurPrises: e.target.value }))} /></div>
+          <div><label>Cotation</label><select value={newRoute.cotationReference} onChange={(e) => setNewRoute((p) => ({ ...p, cotationReference: e.target.value }))}>{GRADES.map((g) => <option key={g} value={g}>{g}</option>)}</select></div>
+          <div><label>Nom de la voie</label><input value={newRoute.nomVoie} onChange={(e) => setNewRoute((p) => ({ ...p, nomVoie: e.target.value }))} /></div>
+          <div><label>Ouvreur</label><input value={newRoute.nomOuvreur} onChange={(e) => setNewRoute((p) => ({ ...p, nomOuvreur: e.target.value }))} /></div>
+          <div><label>Moulinette uniquement</label><select value={newRoute.moulinetteOnly ? "oui" : "non"} onChange={(e) => setNewRoute((p) => ({ ...p, moulinetteOnly: e.target.value === "oui" }))}><option value="non">Non</option><option value="oui">Oui</option></select></div>
+          <div style={{ display: "flex", alignItems: "end" }}><button onClick={addRoute}>Ajouter</button></div>
+        </div>
+        {routeError && <div className="error" style={{ marginTop: 10 }}>{routeError}</div>}
+      </div>
+    )}
+
+    <div className="card">
+      <div className="card-header"><h2>Tableau des voies</h2></div>
+      <div className="stack">
+        {state.ropes.map((rope) => {
+          const ropeRoutes = state.routes.filter((route) => route.numeroCorde === rope.numeroCorde);
+          return (
+            <div className="subcard" key={rope.numeroCorde}>
+              <div className="card-header">
+                <strong>Corde {rope.numeroCorde} · {rope.couleurCorde}</strong>
+                <span className="badge">{ropeRoutes.length} voie(s)</span>
               </div>
+              {ropeRoutes.length === 0 ? (
+                <div className="small">Aucune voie sur cette corde.</div>
+              ) : (
+                <div className="stack">
+                  {ropeRoutes.map((route) => {
+                    const agg = routeAggregatesById[route.id];
+                    return (
+                      <div className="route-card" key={route.id} style={{ backgroundColor: getRouteBackgroundColor(route.couleurPrises) }}>
+                        <div className="card-header">
+                          <strong>{route.cotationAjustee} · {route.nomVoie || "Sans nom"} · {route.nomOuvreur}</strong>
+                          <div className="group">
+                            {route.moulinetteOnly && <span className="pill">Moulinette uniquement</span>}
+                            <span className="pill">{route.active ? "Active" : "Archivée"}</span>
+                            {route.active && <button className="secondary" onClick={() => openRealisationModal(route.id)}>Réalisation</button>}
+                            {canManageRouteActions && <>
+                              <button className="secondary" onClick={() => toggleRouteActive(route.id)}>{route.active ? "Archiver" : "Réactiver"}</button>
+                              <button className="secondary" disabled={!agg?.weightedMedianGrade} onClick={() => applyAdjustedGrade(route.id)}>Appliquer cotation ajustée</button>
+                            </>}
+                          </div>
+                        </div>
+                        <div className="small" style={{ color: "#111827" }}>
+                          Réf. {route.cotationReference} · Couleur voie : {route.couleurPrises} · Propositions : {agg?.count || 0} · Médiane : {agg?.medianGrade || "-"} · Médiane pondérée : {agg?.weightedMedianGrade || "-"}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          </>
-        )}
+          );
+        })}
+      </div>
+    </div>
+  </>
+)}
 
         {tab === "progression" && (
           <div className="card">
@@ -2964,7 +2672,7 @@ h1, h2, h3, strong, label {
           </div>
         )}
 
-        {tab === "administration" && (
+        {tab === "administration" && canAccessAdministration && (
           <>
             {!adminUnlocked ? (
               <div className="card">
@@ -3178,102 +2886,102 @@ h1, h2, h3, strong, label {
           </>
         )}
 
-        {tab === "faq" && (
-          <div className="card">
-            <div className="card-header"><h2>FAQ – fonctionnement de ClimbCrew</h2></div>
+{tab === "faq" && (
+  <div className="card">
+    <div className="card-header"><h2>FAQ – fonctionnement de ClimbCrew</h2></div>
 
-            <div className="faq-item">
-              <strong>À quoi sert ClimbCrew ?</strong>
-              <div className="small">
-                ClimbCrew permet de gérer les séances d’une SAE, les participants, les voies, les inscriptions et la progression des grimpeurs.
-              </div>
-            </div>
+    <div className="faq-item">
+      <strong>À quoi sert ClimbCrew ?</strong>
+      <div className="small">
+        ClimbCrew sert à gérer les séances d’une SAE, les participants, les voies, les inscriptions et le suivi de progression des grimpeurs.
+      </div>
+    </div>
 
-            <div className="faq-item">
-              <strong>Quelles sont les données partagées entre utilisateurs ?</strong>
-              <div className="small">
-                Les participants, les séances et les inscriptions sont stockés en base PostgreSQL via le backend. Ils sont donc visibles depuis plusieurs navigateurs.
-              </div>
-            </div>
+    <div className="faq-item">
+      <strong>Quelles sont les dernières évolutions introduites ?</strong>
+      <div className="small">
+        L’application intègre désormais une page de connexion, des demandes d’accès, un mot de passe oublié, des journaux d’accès, un thème Auto / Clair / Sombre par utilisateur, l’enregistrement de réalisations depuis l’onglet Voies, une timeline CPR détaillée et un historique modifiable des réalisations.
+      </div>
+    </div>
 
-            <div className="faq-item">
-              <strong>Pourquoi certaines données peuvent-elles rester locales ?</strong>
-              <div className="small">
-                Les réalisations, cordes et voies sont encore partiellement gérées côté application tant que leurs tables backend dédiées ne sont pas ajoutées. Elles peuvent donc dépendre du navigateur.
-              </div>
-            </div>
+    <div className="faq-item">
+      <strong>Qui peut accéder à l’onglet Administration ?</strong>
+      <div className="small">
+        L’onglet Administration est réservé aux comptes administrateurs. Les comptes standard ne voient pas cet onglet.
+      </div>
+    </div>
 
-            <div className="faq-item">
-              <strong>Comment fonctionnent les inscriptions ?</strong>
-              <div className="small">
-                Chaque jour propose une séance midi et une séance soir. Un participant peut être ajouté à une séance dans la limite de 18 personnes, encadrement compris.
-              </div>
-            </div>
+    <div className="faq-item">
+      <strong>Qui peut ajouter une voie, archiver une voie ou appliquer une cotation ajustée ?</strong>
+      <div className="small">
+        Ces actions sont réservées aux comptes administrateurs. Les autres utilisateurs peuvent consulter les voies et enregistrer une réalisation, mais ne peuvent pas modifier la structure du mur.
+      </div>
+    </div>
 
-            <div className="faq-item">
-              <strong>Pourquoi la date bascule-t-elle au lundi si j’ouvre l’application le week-end ?</strong>
-              <div className="small">
-                L’application privilégie les jours ouvrés, car les séances sont prévues du lundi au vendredi.
-              </div>
-            </div>
+    <div className="faq-item">
+      <strong>Comment fonctionne le thème Auto / Clair / Sombre ?</strong>
+      <div className="small">
+        En mode <strong>Automatique</strong>, ClimbCrew suit le thème clair ou sombre du système de l’utilisateur. Les modes <strong>Clair</strong> et <strong>Sombre</strong> forcent l’apparence correspondante. La préférence est mémorisée localement et enregistrée côté serveur pour le compte utilisateur.
+      </div>
+    </div>
 
-            <div className="faq-item">
-              <strong>Que signifient les couleurs des participants ?</strong>
-              <div className="small">
-                Le fond correspond au passeport du participant. Les découvertes apparaissent sur fond gris. Le cadre vert indique une cotisation à jour ; le cadre rouge indique une cotisation non renseignée ou non à jour.
-              </div>
-            </div>
+    <div className="faq-item">
+      <strong>Que signifient les couleurs des participants ?</strong>
+      <div className="small">
+        Le fond correspond au passeport. Les découvertes sont affichés sur fond gris. Le cadre vert indique un cotisant à jour ; le cadre rouge indique un non-cotisant ou une cotisation non renseignée.
+      </div>
+    </div>
 
-            <div className="faq-item">
-              <strong>Qui peut modifier les voies ?</strong>
-              <div className="small">
-                L’onglet Voies est modifiable uniquement après déverrouillage administrateur. Les autres utilisateurs peuvent consulter les voies et enregistrer une réalisation depuis une voie active.
-              </div>
-            </div>
+    <div className="faq-item">
+      <strong>Comment enregistrer une réalisation ?</strong>
+      <div className="small">
+        Depuis l’onglet Voies, le bouton <strong>Réalisation</strong> ouvre une fenêtre d’enregistrement. Les séances proposées pour un participant sont limitées à celles où il est réellement inscrit.
+      </div>
+    </div>
 
-            <div className="faq-item">
-              <strong>Comment enregistrer une voie réalisée ?</strong>
-              <div className="small">
-                Depuis l’onglet Voies, clique sur le bouton Réalisation d’une voie. Le popup propose uniquement les séances où le participant sélectionné est inscrit.
-              </div>
-            </div>
+    <div className="faq-item">
+      <strong>Que signifie CPR ?</strong>
+      <div className="small">
+        <strong>CPR</strong> signifie ici <strong>Climbing Progress Rating</strong>. C’est un indicateur simplifié de progression destiné à représenter le niveau récent du grimpeur.
+      </div>
+    </div>
 
-            <div className="faq-item">
-              <strong>Comment corriger une réalisation ?</strong>
-              <div className="small">
-                Dans l’onglet Progression, choisis un grimpeur. La Timeline CPR simplifiée affiche ses réalisations les plus récentes. Le bouton Détails permet de modifier la séance, la voie, le style, la cotation proposée, les essais et le commentaire. Le nom du participant n’est pas modifiable depuis cette zone.
-              </div>
-            </div>
+    <div className="faq-item">
+      <strong>Comment est calculé le CPR simplifié ?</strong>
+      <div className="small">
+        Chaque réalisation est rattachée à une cotation de voie convertie en indice numérique. Cet indice est ensuite pondéré par le style de réalisation : une voie réalisée à vue ou en tête est valorisée plus favorablement qu’une voie faite avec repos ou uniquement en moulinette. La timeline CPR affiche les réalisations les plus récentes en haut avec la date, le nom de la voie, la cotation et le style pour rendre le calcul plus lisible.
+      </div>
+    </div>
 
-            <div className="faq-item">
-              <strong>Qu’est-ce que le CPR simplifié ?</strong>
-              <div className="small">
-                C’est un indicateur de progression basé sur les réalisations récentes. Il combine la cotation des voies et le style de réalisation pour donner une tendance de niveau.
-              </div>
-            </div>
+    <div className="faq-item">
+      <strong>Que peut-on modifier dans la timeline CPR et dans l’historique des réalisations ?</strong>
+      <div className="small">
+        Il est possible de corriger la séance, la voie, le style, la cotation proposée, le nombre d’essais et le commentaire. Le participant reste affiché mais n’est pas modifiable depuis la zone de détails de la timeline CPR.
+      </div>
+    </div>
 
-            <div className="faq-item">
-              <strong>Pourquoi l’historique peut-il différer entre deux appareils ?</strong>
-              <div className="small">
-                Tant que les réalisations ne sont pas persistées en base, elles peuvent rester liées au navigateur. L’étape suivante consiste à ajouter la table backend des réalisations.
-              </div>
-            </div>
+    <div className="faq-item">
+      <strong>Les données sont-elles partagées entre appareils ?</strong>
+      <div className="small">
+        Les participants, les séances, les inscriptions, les comptes et les préférences de thème sont partagés via PostgreSQL. Certaines données de progression peuvent encore dépendre du navigateur tant que toute la persistance backend des réalisations n’est pas finalisée.
+      </div>
+    </div>
 
-            <div className="faq-item">
-              <strong>Comment sauvegarder ou transférer les données ?</strong>
-              <div className="small">
-                L’onglet Administration permet l’import/export JSON. Pour les données partagées, le backend PostgreSQL reste la source principale.
-              </div>
-            </div>
+    <div className="faq-item">
+      <strong>Comment sauvegarder ou restaurer les données ?</strong>
+      <div className="small">
+        L’onglet Administration permet l’import et l’export JSON. Le backend PostgreSQL reste la source principale des données partagées.
+      </div>
+    </div>
 
-            <div className="faq-item">
-              <strong>Que faire si l’application n’affiche pas les dernières données ?</strong>
-              <div className="small">
-                Recharge la page, vérifie que le bandeau indique API connectée, puis teste les endpoints backend /participants et /sessions.
-              </div>
-            </div>
-          </div>
-        )}
+    <div className="faq-item">
+      <strong>Que faire si l’affichage semble incorrect après une mise à jour ?</strong>
+      <div className="small">
+        Il faut recharger la page avec le cache vidé et vérifier que le frontend a bien été redéployé. En cas de doute, un test en navigation privée permet souvent d’écarter un problème de cache navigateur.
+      </div>
+    </div>
+  </div>
+)}
 
       </div>
     </div>
