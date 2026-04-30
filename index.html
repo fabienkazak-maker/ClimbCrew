@@ -5,12 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ClimbCrew</title>
     <style>
-      [data-login-logo-enhanced="true"] {
-        width: clamp(140px, 24vw, 220px) !important;
-        max-width: 100% !important;
-        height: auto !important;
-      }
-
       [data-login-action-wrapper="true"] {
         display: flex !important;
         justify-content: center !important;
@@ -160,10 +154,6 @@
         const loginPanel = submitButton.closest("form")?.parentElement
           || submitButton.closest(".card")
           || root;
-
-        loginPanel.querySelectorAll("img, svg, [class*='logo'], [class*='Logo']").forEach((logo) => {
-          logo.dataset.loginLogoEnhanced = "true";
-        });
 
         loginPanel.querySelectorAll("h1").forEach((title) => {
           if (/^climbcrew$/i.test(textOf(title))) {
