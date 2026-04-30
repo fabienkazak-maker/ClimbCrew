@@ -1358,10 +1358,6 @@ async function handleThemePreferenceChange(nextTheme) {
         <div className="auth-card">
           <div className="brand auth-brand">
             <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="auth-login-logo" />
-            <div>
-              <h1>ClimbCrew</h1>
-              <p className="small">Connexion requise pour accéder à l’application.</p>
-            </div>
           </div>
 
           <div className="subcard" style={{ marginTop: 12, background: "rgba(14,165,233,.10)" }}>
@@ -1369,7 +1365,7 @@ async function handleThemePreferenceChange(nextTheme) {
             <div className="small" style={{ marginTop: 6 }}>Email : {DEFAULT_LOGIN_EMAIL}</div>
             <div className="small">Mot de passe : {DEFAULT_LOGIN_PASSWORD}</div>
             <div className="small" style={{ marginTop: 6, color: "#f59e0b" }}>
-              À modifier ou supprimer après la première mise en service.
+              C'est un compte de test.
             </div>
           </div>
 
@@ -2050,8 +2046,8 @@ h1, h2, h3, strong, label {
 
 
         .auth-login-logo {
-          width: 36px;
-          height: 36px;
+          width: 18px;
+          height: 18px;
           object-fit: contain;
           border-radius: 10px;
           background: #ffffff;
