@@ -36,6 +36,19 @@
         line-height: 1.15 !important;
         box-shadow: none !important;
       }
+
+      .login-default-account {
+        width: min(100% - 32px, 420px);
+        margin: 24px auto 0;
+        padding: 12px 14px;
+        border-radius: 8px;
+        text-align: center;
+        font-size: 0.92rem;
+        line-height: 1.45;
+        color: inherit;
+        background: rgba(255, 255, 255, 0.72);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+      }
     </style>
   </head>
   <body>
@@ -50,6 +63,23 @@
       const buttons = () => Array.from(document.querySelectorAll("button"));
       const findButtonByText = (text) => buttons().find((button) => textOf(button).toLowerCase() === text);
 
+      const addDefaultAccountInfo = (submitButton, loginPanel) => {
+        document.querySelectorAll(".login-default-account").forEach((block) => block.remove());
+
+        const accountInfo = document.createElement("div");
+        accountInfo.className = "login-default-account";
+        accountInfo.innerHTML = `
+          <strong>Compte par défaut</strong><br>
+          Email : climbcrew@gmail.com<br>
+          Mot de passe : climbcrew*2026<br>
+          Ceci est un compte de test
+        `;
+
+        const submitWrapper = submitButton.parentElement;
+        const target = submitWrapper?.parentElement || loginPanel;
+        target.appendChild(accountInfo);
+      };
+
       const enhanceLoginPage = () => {
         document.querySelectorAll("body *").forEach((element) => {
           if (element.childNodes.length === 1 && textOf(element) === textToRemove) {
@@ -57,10 +87,11 @@
           }
         });
 
-        document.querySelectorAll(".login-default-account").forEach((block) => block.remove());
-
         const submitButton = findButtonByText("se connecter");
-        if (!submitButton) return;
+        if (!submitButton) {
+          document.querySelectorAll(".login-default-account").forEach((block) => block.remove());
+          return;
+        }
 
         submitButton.classList.remove("secondary", "outline", "ghost");
         submitButton.dataset.loginPrimaryAction = "true";
@@ -82,6 +113,8 @@
             title.remove();
           }
         });
+
+        addDefaultAccountInfo(submitButton, loginPanel);
       };
 
       const scheduleEnhancement = () => {
