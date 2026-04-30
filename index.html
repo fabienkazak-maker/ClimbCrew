@@ -11,11 +11,6 @@
         height: auto !important;
       }
 
-      [data-login-title-enhanced="true"] {
-        font-size: clamp(2.4rem, 7vw, 4rem) !important;
-        line-height: 1.05 !important;
-      }
-
       [data-login-action-wrapper="true"] {
         display: flex !important;
         justify-content: center !important;
@@ -114,8 +109,8 @@
         });
 
         loginPanel.querySelectorAll("h1").forEach((title) => {
-          if (/climbcrew/i.test(textOf(title))) {
-            title.dataset.loginTitleEnhanced = "true";
+          if (/^climbcrew$/i.test(textOf(title))) {
+            title.remove();
           }
         });
 
