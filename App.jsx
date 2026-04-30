@@ -2046,8 +2046,8 @@ h1, h2, h3, strong, label {
 
 
         .auth-login-logo {
-          width: 18px;
-          height: 18px;
+          width: 10px;
+          height: 10px;
           object-fit: contain;
           border-radius: 10px;
           background: #ffffff;
@@ -2055,10 +2055,10 @@ h1, h2, h3, strong, label {
           box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
         }
 
-        @media (max-width: 700px) {
+        @media (max-width: 350px) {
           .auth-login-logo {
-            width: 15px;
-            height: 15px;
+            width: 10px;
+            height: 10px;
             padding: 3px;
           }
         }
