@@ -37,6 +37,11 @@
         box-shadow: none !important;
       }
 
+      [data-sidebar-logout="true"] {
+        width: 100% !important;
+        margin-top: 12px !important;
+      }
+
       .login-default-account {
         width: min(100% - 32px, 420px);
         margin: 24px auto 0;
@@ -60,8 +65,33 @@
       let scheduled = false;
 
       const textOf = (element) => element.textContent.trim().replace(/\s+/g, " ");
+      const normalizedTextOf = (element) => textOf(element).toLowerCase();
       const buttons = () => Array.from(document.querySelectorAll("button"));
-      const findButtonByText = (text) => buttons().find((button) => textOf(button).toLowerCase() === text);
+      const findButtonByText = (text) => buttons().find((button) => normalizedTextOf(button) === text);
+
+      const isDefaultAccountText = (text) => (
+        text.includes("compte par défaut")
+        && text.includes("climbcrew@gmail.com")
+        && text.includes("climbcrew*2026")
+        && text.includes("ceci est un compte de test")
+      );
+
+      const removeNativeDefaultAccountInfo = () => {
+        const candidates = Array.from(document.querySelectorAll("body *"))
+          .filter((element) => (
+            !element.classList.contains("login-default-account")
+            && !element.closest(".login-default-account")
+            && !element.querySelector(".login-default-account")
+            && isDefaultAccountText(normalizedTextOf(element))
+          ))
+          .sort((a, b) => textOf(a).length - textOf(b).length);
+
+        candidates.forEach((element) => {
+          if (!document.body.contains(element)) return;
+          const hasSmallerCandidate = candidates.some((candidate) => candidate !== element && element.contains(candidate));
+          if (!hasSmallerCandidate) element.remove();
+        });
+      };
 
       const addDefaultAccountInfo = (submitButton, loginPanel) => {
         document.querySelectorAll(".login-default-account").forEach((block) => block.remove());
@@ -80,12 +110,39 @@
         target.appendChild(accountInfo);
       };
 
+      const commonAncestor = (elements) => {
+        if (elements.length === 0) return null;
+        const [first, ...rest] = elements;
+        const ancestors = [];
+        let current = first.parentElement;
+        while (current && current !== document.body) {
+          ancestors.push(current);
+          current = current.parentElement;
+        }
+        return ancestors.find((ancestor) => rest.every((element) => ancestor.contains(element))) || null;
+      };
+
+      const moveLogoutToMenu = () => {
+        const logoutButton = buttons().find((button) => /^(déconnexion|deconnexion)$/i.test(textOf(button)));
+        if (!logoutButton) return;
+
+        const menuLabels = ["inscriptions", "participants", "voies", "progression", "administration", "statistiques", "faq"];
+        const menuButtons = buttons().filter((button) => menuLabels.includes(normalizedTextOf(button)));
+        const menu = commonAncestor(menuButtons) || document.querySelector("aside, nav, [class*='sidebar'], [class*='menu']");
+
+        if (!menu || menu.contains(logoutButton)) return;
+        logoutButton.dataset.sidebarLogout = "true";
+        menu.appendChild(logoutButton);
+      };
+
       const enhanceLoginPage = () => {
         document.querySelectorAll("body *").forEach((element) => {
           if (element.childNodes.length === 1 && textOf(element) === textToRemove) {
             element.remove();
           }
         });
+
+        moveLogoutToMenu();
 
         const submitButton = findButtonByText("se connecter");
         if (!submitButton) {
@@ -114,7 +171,9 @@
           }
         });
 
+        removeNativeDefaultAccountInfo();
         addDefaultAccountInfo(submitButton, loginPanel);
+        removeNativeDefaultAccountInfo();
       };
 
       const scheduleEnhancement = () => {
