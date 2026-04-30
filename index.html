@@ -4,23 +4,92 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ClimbCrew</title>
+    <style>
+      [data-login-logo-enhanced="true"] {
+        width: clamp(140px, 24vw, 220px) !important;
+        max-width: 100% !important;
+        height: auto !important;
+      }
+
+      [data-login-title-enhanced="true"] {
+        font-size: clamp(2.4rem, 7vw, 4rem) !important;
+        line-height: 1.05 !important;
+      }
+
+      [data-login-action-wrapper="true"] {
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        width: 100% !important;
+      }
+
+      [data-login-primary-action="true"] {
+        display: inline-flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        min-width: 180px !important;
+        margin-inline: auto !important;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/main.jsx"></script>
     <script type="module">
+      const root = document.getElementById("root");
       const textToRemove = "Connexion requise pour accéder à l’application.";
+      let scheduled = false;
 
-      const removeLoginRequiredText = () => {
+      const textOf = (element) => element.textContent.trim().replace(/\s+/g, " ");
+
+      const findLoginButton = () => Array.from(document.querySelectorAll("button")).find((button) => {
+        const label = textOf(button).toLowerCase();
+        return label === "connexion" || label === "se connecter";
+      });
+
+      const enhanceLoginPage = () => {
         document.querySelectorAll("body *").forEach((element) => {
-          if (element.childNodes.length === 1 && element.textContent.trim() === textToRemove) {
+          if (element.childNodes.length === 1 && textOf(element) === textToRemove) {
             element.remove();
+          }
+        });
+
+        const loginButton = findLoginButton();
+        if (!loginButton) return;
+
+        loginButton.classList.remove("secondary", "outline", "ghost");
+        loginButton.dataset.loginPrimaryAction = "true";
+
+        if (loginButton.parentElement) {
+          loginButton.parentElement.dataset.loginActionWrapper = "true";
+        }
+
+        const loginPanel = loginButton.closest("form")?.parentElement
+          || loginButton.closest(".card")
+          || root;
+
+        loginPanel.querySelectorAll("img, svg, [class*='logo'], [class*='Logo']").forEach((logo) => {
+          logo.dataset.loginLogoEnhanced = "true";
+        });
+
+        loginPanel.querySelectorAll("h1").forEach((title) => {
+          if (/climbcrew/i.test(textOf(title))) {
+            title.dataset.loginTitleEnhanced = "true";
           }
         });
       };
 
-      removeLoginRequiredText();
-      new MutationObserver(removeLoginRequiredText).observe(document.getElementById("root"), {
+      const scheduleEnhancement = () => {
+        if (scheduled) return;
+        scheduled = true;
+        requestAnimationFrame(() => {
+          scheduled = false;
+          enhanceLoginPage();
+        });
+      };
+
+      scheduleEnhancement();
+      new MutationObserver(scheduleEnhancement).observe(root, {
         childList: true,
         subtree: true,
       });
