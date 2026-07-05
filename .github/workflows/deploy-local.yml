@@ -20,7 +20,5 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Deploy local HTTPS server
-        shell: powershell
-        run: powershell -ExecutionPolicy Bypass -File .\.github\scripts\deploy-local.ps1
-
-
+        shell: cmd
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\.github\scripts\deploy-local.ps1
