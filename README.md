@@ -37,13 +37,13 @@ Docker Desktop doit être démarré avant de lancer l'application.
 Dézipper le projet sur le Bureau Windows pour obtenir :
 
 ```text
-C:\Users\alext\Desktop\ClimbCrew
+C:\Users\[YourUsername]\Desktop\ClimbCrew
 ```
 
 Ouvrir PowerShell, puis aller dans le dossier projet :
 
 ```powershell
-cd C:\Users\alext\Desktop\ClimbCrew
+cd C:\Users\[YourUsername]\Desktop\ClimbCrew
 ```
 
 ---
@@ -89,7 +89,7 @@ Ne pas utiliser `https://localhost:5173` : le port `5173` est réservé au mode 
 Dans une deuxième fenêtre PowerShell :
 
 ```powershell
-cd C:\Users\alext\Desktop\ClimbCrew
+cd C:\Users\[YourUsername]\Desktop\ClimbCrew
 powershell -ExecutionPolicy Bypass -File .\verify-local-https.ps1
 ```
 
@@ -109,7 +109,7 @@ Le résultat attendu :
 Pour travailler avec le serveur Vite et le rechargement rapide :
 
 ```powershell
-cd C:\Users\alext\Desktop\ClimbCrew
+cd C:\Users\[YourUsername]\Desktop\ClimbCrew
 powershell -ExecutionPolicy Bypass -File .\start-dev.ps1
 ```
 
@@ -132,7 +132,7 @@ powershell -ExecutionPolicy Bypass -File .\stop-dev.ps1
 Cette commande supprime la base de développement locale et réimporte les données legacy :
 
 ```powershell
-cd C:\Users\alext\Desktop\ClimbCrew
+cd C:\Users\[YourUsername]\Desktop\ClimbCrew
 powershell -ExecutionPolicy Bypass -File .\reset-dev-with-legacy-data.ps1
 ```
 
@@ -291,7 +291,7 @@ powershell -ExecutionPolicy Bypass -File .\start-server-https.ps1
 Pour remplacer complètement le dépôt GitHub `fabienkazak-maker/ClimbCrew` par ce code :
 
 ```powershell
-cd C:\Users\alext\Desktop\ClimbCrew
+cd C:\Users\[YourUsername]\Desktop\ClimbCrew
 powershell -ExecutionPolicy Bypass -File .\scripts\replace-github-main.ps1
 ```
 
