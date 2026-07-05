@@ -1,0 +1,76 @@
+services:
+  db-dev:
+    image: postgres:16
+    container_name: climbcrew-db-dev
+    environment:
+      POSTGRES_DB: app_dev
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  backend-dev:
+    build:
+      context: ./backend
+    image: climbcrew-backend-dev:legacy-full
+    container_name: climbcrew-backend-dev
+    command: sh -c "node seed-local.js && npm start"
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgres://app:app_password@db-dev:5432/app_dev
+      PG_SSL: "false"
+      CORS_ORIGIN: http://localhost:5173,http://localhost:8080
+      SECURE_COOKIES: "false"
+      COOKIE_SAMESITE: lax
+      SESSION_COOKIE_NAME: climbcrew_session
+      SETUP_TOKEN: local-setup
+      DEV_ADMIN_ENABLED: "true"
+      DEV_ADMIN_EMAIL: admin@test.local
+      DEV_ADMIN_PASSWORD: admin
+      FIRST_ADMIN_EMAIL: admin@test.local
+      FIRST_ADMIN_PASSWORD: admin
+      ALLOW_WEAK_FIRST_ADMIN_PASSWORD: "true"
+      BCRYPT_ROUNDS: 10
+      AUTO_IMPORT_DATA: "true"
+      MAX_JSON_BODY_SIZE: 10mb
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./backend:/app
+      - backend_node_modules:/app/node_modules
+    depends_on:
+      db-dev:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend-dev:
+    build:
+      context: ./frontend
+    image: climbcrew-frontend-dev:legacy-full
+    container_name: climbcrew-frontend-dev
+    command: npm run dev -- --host 0.0.0.0
+    environment:
+      NODE_ENV: development
+      VITE_API_URL: /api
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    depends_on:
+      - backend-dev
+    restart: unless-stopped
+
+volumes:
+  pgdata_dev:
+  backend_node_modules:
+  frontend_node_modules:

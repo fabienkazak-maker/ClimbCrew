@@ -1,0 +1,36 @@
+# Dépendances / builds
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+.tmp/
+
+# Environnements et secrets
+.env
+.env.local
+.env.*.local
+*.secret
+*.secrets
+
+# Données privées / imports locaux
+backend/import-data.json
+backend/*.private.json
+*.private.json
+
+# Certificats locaux auto-signés : ne jamais commiter la clé privée.
+certs/
+nginx/certs/
+*.key
+*.pem
+*.pfx
+
+# Archives et logs
+*.zip
+*.log
+npm-debug.log*
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

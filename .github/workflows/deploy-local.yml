@@ -1,0 +1,24 @@
+name: Deploy local ClimbCrew server
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: climbcrew-local-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy-local:
+    name: Deploy on self-hosted Windows runner
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy local HTTPS server
+        shell: pwsh
+        run: .\.github\scripts\deploy-local.ps1

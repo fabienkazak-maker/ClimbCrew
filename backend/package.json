@@ -1,0 +1,17 @@
+{
+  "name": "climbcrew-backend",
+  "private": true,
+  "version": "1.2.0-legacy-import-ready",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "seed:local": "node seed-local.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "pg": "^8.13.1"
+  }
+}

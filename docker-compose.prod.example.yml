@@ -1,0 +1,56 @@
+# Exemple de déploiement durci pour un vrai serveur HTTPS.
+# À copier vers docker-compose.prod.yml et à compléter avec un fichier .env.prod non versionné.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?missing}
+      POSTGRES_USER: ${POSTGRES_USER:?missing}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?missing}
+    volumes:
+      - pgdata_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      PG_SSL: "false"
+      CORS_ORIGIN: ${CORS_ORIGIN:?missing}
+      SECURE_COOKIES: "true"
+      COOKIE_SAMESITE: lax
+      SESSION_COOKIE_NAME: climbcrew_session
+      CSRF_COOKIE_NAME: climbcrew_csrf
+      SETUP_TOKEN: ${SETUP_TOKEN:?missing}
+      FIRST_ADMIN_EMAIL: ${FIRST_ADMIN_EMAIL:?missing}
+      FIRST_ADMIN_PASSWORD: ${FIRST_ADMIN_PASSWORD:?missing}
+      DEV_ADMIN_ENABLED: "false"
+      AUTO_IMPORT_DATA: "false"
+      BCRYPT_ROUNDS: 12
+      MAX_JSON_BODY_SIZE: 512kb
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend/dist:/usr/share/nginx/html:ro
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  pgdata_prod:
