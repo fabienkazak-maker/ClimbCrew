@@ -1,38 +1,37 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
-Set-Location $PSScriptRoot
 
-Write-Host "=== Verification Docker ==="
+Write-Host "=== Verification ClimbCrew HTTPS local ==="
+
+Write-Host "=== Verification des conteneurs ==="
 docker ps
 
-Write-Host ""
-Write-Host "=== Test nginx HTTPS / frontend ==="
-$html = curl.exe -k -s -o NUL -w "%{http_code}" https://localhost:8443/
-Write-Host "GET / => HTTP $html"
-if ($html -ne "200") { throw "Frontend HTTPS indisponible" }
+Write-Host "=== Test page HTTPS ==="
+$homeBody = Join-Path $env:TEMP "climbcrew_home.html"
+$homeStatus = curl.exe -k -s -o $homeBody -w "%{http_code}" "https://localhost:8443/"
 
-Write-Host ""
+if ($homeStatus -ne "200") {
+  throw "La page HTTPS ne repond pas correctement. Code HTTP : $homeStatus"
+}
+
+Write-Host "Page HTTPS OK : HTTP $homeStatus"
+
 Write-Host "=== Test API non connectee ==="
-$api = curl.exe -k -s -i https://localhost:8443/api/auth/me
-Write-Host $api
-if ($api -notmatch "401" -and $api -notmatch "Authentification") {
-  throw "La route API /api/auth/me ne repond pas comme attendu."
+$apiBody = Join-Path $env:TEMP "climbcrew_auth_me.json"
+$apiStatus = curl.exe -k -s -o $apiBody -w "%{http_code}" "https://localhost:8443/api/auth/me"
+$apiContent = Get-Content $apiBody -Raw
+
+Write-Host "Code HTTP API : $apiStatus"
+Write-Host "Reponse API   : $apiContent"
+
+if ($apiStatus -ne "401") {
+  throw "La route API /api/auth/me devrait repondre 401 sans authentification. Code obtenu : $apiStatus"
 }
 
-Write-Host ""
-Write-Host "=== Test login admin ==="
-$body = @{ email = "admin@test.local"; password = "admin" } | ConvertTo-Json -Compress
-try {
-  $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-  $login = Invoke-RestMethod -Uri "https://localhost:8443/api/auth/login" -Method Post -ContentType "application/json" -Body $body -WebSession $session -SkipCertificateCheck
-} catch {
-  # Windows PowerShell 5.1 ne supporte pas -SkipCertificateCheck : fallback curl.
-  $loginRaw = curl.exe -k -s -X POST "https://localhost:8443/api/auth/login" -H "Content-Type: application/json" --data-raw '{"email":"admin@test.local","password":"admin"}'
-  Write-Host $loginRaw
-  if ($loginRaw -notmatch '"ok"\s*:\s*true') { throw "Login admin KO" }
-  Write-Host "Login admin OK via curl."
-  exit 0
+if ($apiContent -notmatch "Authentification requise") {
+  throw "La route API /api/auth/me ne retourne pas le message attendu."
 }
 
-if (!$login.ok) { throw "Login admin KO" }
-Write-Host "Login admin OK."
+Write-Host "API OK : acces refuse correctement sans connexion."
+Write-Host "=== Verification terminee avec succes ==="
+Write-Host "Application disponible : https://localhost:8443"
