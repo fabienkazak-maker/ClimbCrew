@@ -1,0 +1,16 @@
+FROM node:20-alpine
+
+ENV NODE_ENV=production
+WORKDIR /app
+
+# Installation des dépendances sans dépendre de l'environnement Linux hôte.
+COPY package*.json ./
+RUN npm install --omit=dev --no-audit --no-fund
+
+COPY . .
+
+# Exécution avec l'utilisateur non-root fourni par l'image Node.
+USER node
+
+EXPOSE 3000
+CMD ["npm", "start"]

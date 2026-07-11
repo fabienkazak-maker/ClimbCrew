@@ -1,0 +1,26 @@
+[Unit]
+Description=ClimbCrew Backend Node.js
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/climbcrew/backend
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=5
+User=climbcrew
+Group=climbcrew
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=PORT=3000
+Environment=TRUST_PROXY=1
+EnvironmentFile=/opt/climbcrew/.env.production
+
+# Durcissement systemd raisonnable.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
