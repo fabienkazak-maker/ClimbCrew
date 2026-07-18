@@ -20,7 +20,7 @@ const API_BASE = (import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_
 const USE_API = Boolean(API_BASE);
 
 // La session est conservée uniquement dans un cookie HttpOnly côté backend.
-const APP_VERSION_LABEL = "Version 2026-07-18";
+const APP_VERSION_LABEL = "Version 2026-07-18.2";
 const PASSWORD_RULE_TEXT = "Minimum 12 caractères avec majuscule, minuscule, chiffre et caractère spécial.";
 
 const AUTH_LOGIN_INLINE_STYLE = `
@@ -313,6 +313,11 @@ function formatDateFr(dateStr) {
   });
   return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
+
+function formatDateShortFr(dateStr) {
+  const [year, month, day] = String(dateStr || "").slice(0, 10).split("-");
+  return year && month && day ? `${day}-${month}-${year}` : String(dateStr || "");
+}
 function isWeekend(dateStr) {
   const d = new Date(`${dateStr}T12:00:00`);
   const day = d.getDay();
@@ -324,21 +329,29 @@ function nextBusinessDay(dateStr, delta) {
   return d.toISOString().slice(0, 10);
 }
 function calculateSimpleCpr(realisations, routesById) {
-  const timeline = realisations
+  const now = Date.now();
+  const cutoff = now - (90 * 24 * 60 * 60 * 1000);
+
+  const bestRecent = realisations
     .map((r) => {
       const route = routesById[r.voieId];
-      if (!route) return null;
+      const dateTimestamp = new Date(r.dateRealisation).getTime();
+      if (!route || !Number.isFinite(dateTimestamp) || dateTimestamp < cutoff || dateTimestamp > now) return null;
+
       return {
         date: r.dateRealisation,
         grade: route.cotationAjustee,
         weightedIndex: gradeToIndex(route.cotationAjustee) * (STYLE_WEIGHTS[r.styleRealisation] || 1),
       };
     })
-    .filter(Boolean);
-  if (!timeline.length) return { currentGrade: null, averageIndex: null, timeline: [] };
-  const recent = [...timeline].sort((a, b) => a.date.localeCompare(b.date)).slice(-10);
-  const averageIndex = recent.reduce((sum, item) => sum + item.weightedIndex, 0) / recent.length;
-  return { currentGrade: indexToGrade(Math.round(averageIndex)), averageIndex, timeline: recent };
+    .filter(Boolean)
+    .sort((a, b) => b.weightedIndex - a.weightedIndex || b.date.localeCompare(a.date))
+    .slice(0, 10);
+
+  if (!bestRecent.length) return { currentGrade: null, averageIndex: null, timeline: [] };
+
+  const averageIndex = bestRecent.reduce((sum, item) => sum + item.weightedIndex, 0) / bestRecent.length;
+  return { currentGrade: indexToGrade(Math.round(averageIndex)), averageIndex, timeline: bestRecent };
 }
 function weightedMedian(values) {
   if (!values.length) return null;
@@ -2438,7 +2451,7 @@ h1, h2, h3, strong, label {
                   {modalAvailableDays.length === 0 ? (
                     <option value="" disabled>Aucun jour disponible</option>
                   ) : (
-                    modalAvailableDays.map((day) => <option key={day} value={day}>{day}</option>)
+                    modalAvailableDays.map((day) => <option key={day} value={day}>{formatDateShortFr(day)}</option>)
                   )}
                 </select>
                 <div className="small" style={{ marginTop: 6, color: "inherit" }}>
@@ -2769,7 +2782,7 @@ h1, h2, h3, strong, label {
                                   {availableSessionsForRealisation.length === 0 ? (
                                     <option value="">Aucune séance inscrite</option>
                                   ) : (
-                                    availableSessionsForRealisation.map((s) => <option key={s.id} value={s.id}>{s.date} · {s.slot}</option>)
+                                    availableSessionsForRealisation.map((s) => <option key={s.id} value={s.id}>{formatDateShortFr(s.date)} · {s.slot}</option>)
                                   )}
                                 </select>
                               </div>
@@ -2897,7 +2910,7 @@ h1, h2, h3, strong, label {
                                 {availableSessionsForRealisation.length === 0 ? (
                                   <option value="">Aucune séance inscrite</option>
                                 ) : (
-                                  availableSessionsForRealisation.map((s) => <option key={s.id} value={s.id}>{s.date} · {s.slot}</option>)
+                                  availableSessionsForRealisation.map((s) => <option key={s.id} value={s.id}>{formatDateShortFr(s.date)} · {s.slot}</option>)
                                 )}
                               </select>
                             </div>
