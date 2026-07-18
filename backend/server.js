@@ -309,13 +309,14 @@ async function ensureSchema() {
       ffme boolean not null default false,
       can_encadrer boolean not null default false,
       can_referer boolean not null default false,
+      can_admin boolean not null default false,
       created_at timestamptz not null default now()
     );
 
     create table if not exists sessions (
       id text primary key,
       date text not null,
-      slot text not null check (slot in ('midi', 'soir')),
+      slot text not null check (slot in ('midi', 'matin', 'soir')),
       status text not null default 'fermee',
       encadrant_id text,
       referent_id text,
@@ -329,6 +330,11 @@ async function ensureSchema() {
       created_at timestamptz not null default now(),
       primary key (session_id, participant_id)
     );
+
+    alter table participants add column if not exists can_admin boolean not null default false;
+
+    alter table sessions drop constraint if exists sessions_slot_check;
+    alter table sessions add constraint sessions_slot_check check (slot in ('midi', 'matin', 'soir'));
 
     create index if not exists idx_sessions_date on sessions(date);
     create index if not exists idx_session_participants_participant on session_participants(participant_id);
@@ -675,6 +681,7 @@ function participantDbToApi(row) {
     ffme: row.ffme,
     canEncadrer: row.can_encadrer,
     canReferer: row.can_referer,
+    canAdmin: row.can_admin,
   };
 }
 
@@ -1386,7 +1393,7 @@ app.post("/admin/auth/users/:id/reset-token", requireAuth, requireAdmin, async (
 app.get("/participants", requireAuth, async (_req, res) => {
   try {
     const result = await pool.query(`
-      select id, nom, prenom, passport, cotisation, ffme, can_encadrer, can_referer
+      select id, nom, prenom, passport, cotisation, ffme, can_encadrer, can_referer, can_admin
       from participants
       order by prenom asc, nom asc
     `);
@@ -1406,6 +1413,7 @@ app.post("/participants", requireAuth, requireAdmin, async (req, res) => {
       ffme = false,
       canEncadrer = false,
       canReferer = false,
+      canAdmin = false,
     } = req.body || {};
 
     if (!nom || !prenom) {
@@ -1415,11 +1423,11 @@ app.post("/participants", requireAuth, requireAdmin, async (req, res) => {
     const result = await pool.query(
       `
         insert into participants
-        (nom, prenom, passport, cotisation, ffme, can_encadrer, can_referer)
-        values ($1,$2,$3,$4,$5,$6,$7)
-        returning id, nom, prenom, passport, cotisation, ffme, can_encadrer, can_referer
+        (nom, prenom, passport, cotisation, ffme, can_encadrer, can_referer, can_admin)
+        values ($1,$2,$3,$4,$5,$6,$7,$8)
+        returning id, nom, prenom, passport, cotisation, ffme, can_encadrer, can_referer, can_admin
       `,
-      [nom, prenom, passport, cotisation, ffme, canEncadrer, canReferer]
+      [nom, prenom, passport, cotisation, ffme, canEncadrer, canReferer, canAdmin]
     );
 
     res.status(201).json(participantDbToApi(result.rows[0]));
@@ -1439,6 +1447,7 @@ app.put("/participants/:id", requireAuth, requireAdmin, async (req, res) => {
       ffme = false,
       canEncadrer = false,
       canReferer = false,
+      canAdmin = false,
     } = req.body || {};
 
     const result = await pool.query(
@@ -1450,11 +1459,12 @@ app.put("/participants/:id", requireAuth, requireAdmin, async (req, res) => {
             cotisation = $5,
             ffme = $6,
             can_encadrer = $7,
-            can_referer = $8
+            can_referer = $8,
+            can_admin = $9
         where id = $1
-        returning id, nom, prenom, passport, cotisation, ffme, can_encadrer, can_referer
+        returning id, nom, prenom, passport, cotisation, ffme, can_encadrer, can_referer, can_admin
       `,
-      [id, nom, prenom, passport, cotisation, ffme, canEncadrer, canReferer]
+      [id, nom, prenom, passport, cotisation, ffme, canEncadrer, canReferer, canAdmin]
     );
 
     if (!result.rowCount) {
@@ -1557,6 +1567,21 @@ app.put("/sessions/:id", requireAuth, async (req, res) => {
 
     const uniqueParticipantIds = [...new Set(participantIds.map(String))];
 
+    if (status === "libre" && uniqueParticipantIds.length) {
+      const eligibleResult = await client.query(
+        `select id from participants where id = any($1::bigint[]) and lower(passport) in ('jaune', 'orange', 'vert', 'bleu')`,
+        [uniqueParticipantIds]
+      );
+      const eligibleIds = new Set(eligibleResult.rows.map((row) => String(row.id)));
+      const ineligibleIds = uniqueParticipantIds.filter((participantId) => !eligibleIds.has(participantId));
+      if (ineligibleIds.length) {
+        await client.query("rollback");
+        return res.status(400).json({
+          error: "Une séance libre est réservée aux passeports Jaune, Orange, Vert ou Bleu.",
+        });
+      }
+    }
+
     for (const participantId of uniqueParticipantIds) {
       await client.query(
         `
@@ -1640,8 +1665,8 @@ async function importLegacyPayload(inputPayload) {
       const result = await client.query(
         `
           insert into participants
-          (nom, prenom, passport, cotisation, ffme, can_encadrer, can_referer)
-          values ($1,$2,$3,$4,$5,$6,$7)
+          (nom, prenom, passport, cotisation, ffme, can_encadrer, can_referer, can_admin)
+          values ($1,$2,$3,$4,$5,$6,$7,$8)
           returning id
         `,
         [
@@ -1652,6 +1677,7 @@ async function importLegacyPayload(inputPayload) {
           Boolean(participant.ffme),
           Boolean(participant.canEncadrer),
           Boolean(participant.canReferer),
+          Boolean(participant.canAdmin),
         ]
       );
       participantIdMap.set(String(participant.id), String(result.rows[0].id));
@@ -1812,6 +1838,7 @@ async function exportLegacyPayload() {
       ffme: row.ffme,
       canEncadrer: row.can_encadrer,
       canReferer: row.can_referer,
+      canAdmin: row.can_admin,
     };
   });
 
@@ -1921,8 +1948,8 @@ app.post("/import-data", requireSetupAccess, async (req, res) => {
       const result = await client.query(
         `
           insert into participants
-          (nom, prenom, passport, cotisation, ffme, can_encadrer, can_referer)
-          values ($1,$2,$3,$4,$5,$6,$7)
+          (nom, prenom, passport, cotisation, ffme, can_encadrer, can_referer, can_admin)
+          values ($1,$2,$3,$4,$5,$6,$7,$8)
           returning id
         `,
         [
@@ -1933,6 +1960,7 @@ app.post("/import-data", requireSetupAccess, async (req, res) => {
           Boolean(participant.ffme),
           Boolean(participant.canEncadrer),
           Boolean(participant.canReferer),
+          Boolean(participant.canAdmin),
         ]
       );
 
