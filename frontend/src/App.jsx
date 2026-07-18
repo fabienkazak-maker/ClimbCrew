@@ -20,11 +20,7 @@ const API_BASE = (import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_
 const USE_API = Boolean(API_BASE);
 
 // La session est conservée uniquement dans un cookie HttpOnly côté backend.
-const APP_VERSION_LABEL = "Version 2026-05-04.3";
-const DEFAULT_TEST_USER_EMAIL = "admin@test.local";
-const DEFAULT_TEST_USER_PASSWORD = "";
-const DEFAULT_TEST_ADMIN_EMAIL = "admin@test.local";
-const DEFAULT_TEST_ADMIN_PASSWORD = "";
+const APP_VERSION_LABEL = "Version 2026-07-18";
 const PASSWORD_RULE_TEXT = "Minimum 12 caractères avec majuscule, minuscule, chiffre et caractère spécial.";
 
 const AUTH_LOGIN_INLINE_STYLE = `
@@ -189,6 +185,7 @@ const PASSPORT_STYLES = {
   jaune: { backgroundColor: "#fde047", color: "#111827" },
   orange: { backgroundColor: "#fb923c", color: "#111827" },
   vert: { backgroundColor: "#22c55e", color: "#052e16" },
+  bleu: { backgroundColor: "#60a5fa", color: "#0f172a" },
 
   // Passeport découverte : fond gris.
   // Le cadre dépend ensuite du statut cotisation.
@@ -434,8 +431,8 @@ function App() {
   const [authError, setAuthError] = useState("");
   const [authMessage, setAuthMessage] = useState("");
   const [loginForm, setLoginForm] = useState({
-    email: DEFAULT_TEST_USER_EMAIL,
-    password: DEFAULT_TEST_USER_PASSWORD,
+    email: "",
+    password: "",
   });
   const [requestAccessForm, setRequestAccessForm] = useState({
     prenom: "",
@@ -467,6 +464,7 @@ function App() {
     ffme: false,
     canEncadrer: false,
     canReferer: false,
+    canAdmin: false,
   });
   const [newRoute, setNewRoute] = useState({
     numeroVoieUnique: "",
@@ -674,7 +672,7 @@ function App() {
   const selectedDate = state.selectedDate || todayIso();
 
   const daySessions = useMemo(() => {
-    return ["midi", "soir"].map((slot) => {
+    return ["midi", "matin", "soir"].map((slot) => {
       const found = state.sessions.find((s) => s.date === selectedDate && s.slot === slot);
       return found || {
         id: `${selectedDate}-${slot}`,
@@ -704,7 +702,7 @@ function App() {
   const weekSessions = useMemo(() => {
     return weekDates.map((date) => ({
       date,
-      sessions: ["midi", "soir"].map((slot) => {
+      sessions: ["midi", "matin", "soir"].map((slot) => {
         const found = state.sessions.find((s) => s.date === date && s.slot === slot);
         return found || {
           id: `${date}-${slot}`,
@@ -868,7 +866,7 @@ function App() {
   }
 
   function buildDefaultSession(sessionId, patch = {}) {
-    const slot = sessionId.endsWith("-soir") ? "soir" : "midi";
+    const slot = sessionId.endsWith("-soir") ? "soir" : sessionId.endsWith("-matin") ? "matin" : "midi";
     const date = sessionId.slice(0, 10);
     return {
       id: sessionId,
@@ -902,7 +900,7 @@ function App() {
     setState((prev) => {
       const sessions = [...prev.sessions];
 
-      ["midi", "soir"].forEach((slot) => {
+      ["midi", "matin", "soir"].forEach((slot) => {
         if (!sessions.some((s) => s.date === date && s.slot === slot)) {
           const session = {
             id: `${date}-${slot}`,
@@ -1007,7 +1005,7 @@ function App() {
     if (!newParticipant.nom.trim() || !newParticipant.prenom.trim()) return;
     const participant = {
       ...newParticipant,
-      nom: newParticipant.nom.trim().charAt(0).toUpperCase(),
+      nom: newParticipant.nom.trim(),
       prenom: newParticipant.prenom.trim(),
     };
 
@@ -1036,7 +1034,7 @@ function App() {
         ]);
       }
       setNewParticipant({
-        nom: "", prenom: "", passport: "sans", cotisation: false, ffme: false, canEncadrer: false, canReferer: false,
+        nom: "", prenom: "", passport: "sans", cotisation: false, ffme: false, canEncadrer: false, canReferer: false, canAdmin: false,
       });
     } catch (e) {
       setSyncMessage(`Erreur ajout participant`);
@@ -1561,7 +1559,11 @@ async function handleThemePreferenceChange(nextTheme) {
   function renderSessionCard(session) {
     const inscrits = session.participantIds.map((id) => participantsById[id]).filter(Boolean);
     const occupied = inscrits.length + (session.encadrantId ? 1 : 0) + (session.referentId ? 1 : 0);
-    const availableParticipants = state.participants.filter((p) => !session.participantIds.includes(p.id));
+    const freeSessionPassports = new Set(["jaune", "orange", "vert", "bleu"]);
+    const availableParticipants = state.participants.filter((p) =>
+      !session.participantIds.includes(p.id)
+      && (session.status !== "libre" || freeSessionPassports.has(normalizePassport(p.passport)))
+    );
 
     return (
       <div className="card session-card" key={session.id}>
@@ -1782,9 +1784,6 @@ async function handleThemePreferenceChange(nextTheme) {
             <button className={authView === "reset" ? "" : "secondary"} onClick={() => { setAuthView("reset"); setAuthError(""); setAuthMessage(""); }}>Réinitialiser</button>
           </div>
 
-          <div className="small" style={{ marginTop: 16, textAlign: "center", color: "#475569" }}>
-            Compte local de test : administrateur <strong>{DEFAULT_TEST_ADMIN_EMAIL}</strong>. Le mot de passe n’est plus prérempli dans l’interface.
-          </div>
           <div className="small" style={{ marginTop: 10, textAlign: "center", color: "#475569" }}>
             {APP_VERSION_LABEL}
           </div>
@@ -2974,7 +2973,6 @@ h1, h2, h3, strong, label {
                   <div>
                     <label>Code administrateur</label>
                     <input type="password" maxLength={8} value={adminInput} onChange={(e) => setAdminInput(e.target.value.replace(/\D/g, "").slice(0, 8))} />
-                    <div className="small">Code par défaut : 12345678</div>
                   </div>
                   <div style={{ display: "flex", alignItems: "end" }}><button onClick={unlockAdmin}>Déverrouiller</button></div>
                 </div>
@@ -2999,9 +2997,9 @@ h1, h2, h3, strong, label {
                 <div className="card">
                   <div className="card-header"><h2>Ajouter un participant</h2></div>
                   <div className="grid four">
-                    <div><label>Nom (anonymisé à l’ajout)</label><input value={newParticipant.nom} onChange={(e) => setNewParticipant((p) => ({ ...p, nom: e.target.value }))} /></div>
+                    <div><label>Nom</label><input value={newParticipant.nom} onChange={(e) => setNewParticipant((p) => ({ ...p, nom: e.target.value }))} /></div>
                     <div><label>Prénom</label><input value={newParticipant.prenom} onChange={(e) => setNewParticipant((p) => ({ ...p, prenom: e.target.value }))} /></div>
-                    <div><label>Passeport</label><select value={newParticipant.passport} onChange={(e) => setNewParticipant((p) => ({ ...p, passport: e.target.value }))}><option value="sans">Sans</option><option value="jaune">Jaune</option><option value="orange">Orange</option><option value="vert">Vert</option><option value="decouverte">Découverte</option></select></div>
+                    <div><label>Passeport</label><select value={newParticipant.passport} onChange={(e) => setNewParticipant((p) => ({ ...p, passport: e.target.value }))}><option value="sans">Sans</option><option value="jaune">Jaune</option><option value="orange">Orange</option><option value="vert">Vert</option><option value="bleu">Bleu</option><option value="decouverte">Découverte</option></select></div>
                     <div style={{ display: "flex", alignItems: "end" }}><button onClick={addParticipant}>Ajouter</button></div>
                   </div>
                   <div className="group" style={{ marginTop: 12 }}>
@@ -3009,6 +3007,7 @@ h1, h2, h3, strong, label {
                     <label><input type="checkbox" checked={newParticipant.ffme} onChange={(e) => setNewParticipant((p) => ({ ...p, ffme: e.target.checked }))} /> FFME</label>
                     <label><input type="checkbox" checked={newParticipant.canEncadrer} onChange={(e) => setNewParticipant((p) => ({ ...p, canEncadrer: e.target.checked }))} /> Encadrant</label>
                     <label><input type="checkbox" checked={newParticipant.canReferer} onChange={(e) => setNewParticipant((p) => ({ ...p, canReferer: e.target.checked }))} /> Référent</label>
+                    <label><input type="checkbox" checked={newParticipant.canAdmin} onChange={(e) => setNewParticipant((p) => ({ ...p, canAdmin: e.target.checked }))} /> Administrateur</label>
                   </div>
                 </div>
 
@@ -3020,7 +3019,7 @@ h1, h2, h3, strong, label {
                         <div className="grid four">
                           <div><label>Nom</label><input value={p.nom} onChange={(e) => updateParticipant(p.id, { nom: e.target.value })} /></div>
                           <div><label>Prénom</label><input value={p.prenom} onChange={(e) => updateParticipant(p.id, { prenom: e.target.value })} /></div>
-                          <div><label>Passeport</label><select value={p.passport} onChange={(e) => updateParticipant(p.id, { passport: e.target.value })}><option value="sans">Sans</option><option value="jaune">Jaune</option><option value="orange">Orange</option><option value="vert">Vert</option><option value="decouverte">Découverte</option></select></div>
+                          <div><label>Passeport</label><select value={p.passport} onChange={(e) => updateParticipant(p.id, { passport: e.target.value })}><option value="sans">Sans</option><option value="jaune">Jaune</option><option value="orange">Orange</option><option value="vert">Vert</option><option value="bleu">Bleu</option><option value="decouverte">Découverte</option></select></div>
                           <div style={{ display: "flex", alignItems: "end" }}><button className="danger" onClick={() => deleteParticipant(p.id)}>Supprimer</button></div>
                         </div>
                         <div className="group" style={{ marginTop: 12 }}>
@@ -3028,6 +3027,7 @@ h1, h2, h3, strong, label {
                           <label><input type="checkbox" checked={p.ffme} onChange={(e) => updateParticipant(p.id, { ffme: e.target.checked })} /> FFME</label>
                           <label><input type="checkbox" checked={p.canEncadrer} onChange={(e) => updateParticipant(p.id, { canEncadrer: e.target.checked })} /> Encadrant</label>
                           <label><input type="checkbox" checked={p.canReferer} onChange={(e) => updateParticipant(p.id, { canReferer: e.target.checked })} /> Référent</label>
+                          <label><input type="checkbox" checked={Boolean(p.canAdmin)} onChange={(e) => updateParticipant(p.id, { canAdmin: e.target.checked })} /> Administrateur</label>
                         </div>
                       </div>
                     ))}
@@ -3191,13 +3191,6 @@ h1, h2, h3, strong, label {
       <strong>Quelle version de l’application est affichée ?</strong>
       <div className="small">
         {APP_VERSION_LABEL}. Cette information est affichée aussi sur la page de connexion pour vérifier rapidement si le navigateur utilise bien la dernière version déployée.
-      </div>
-    </div>
-
-    <div className="faq-item">
-      <strong>Quels comptes de test sont disponibles ?</strong>
-      <div className="small">
-        Un compte administrateur local existe avec l’email <strong>{DEFAULT_TEST_ADMIN_EMAIL}</strong>. Le mot de passe de test n’est plus affiché ni prérempli dans l’interface.
       </div>
     </div>
 
