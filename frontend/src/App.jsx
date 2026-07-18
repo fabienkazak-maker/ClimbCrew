@@ -2547,7 +2547,6 @@ h1, h2, h3, strong, label {
               <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="app-logo" />
               <div>
                 <h1>ClimbCrew</h1>
-                <p className="small">{syncMessage}{isSyncing ? " · sync..." : ""}</p>
               </div>
             </div>
 
