@@ -1791,10 +1791,8 @@ async function handleThemePreferenceChange(nextTheme) {
           )}
 
           <div className="group auth-switcher" style={{ marginTop: 14 }}>
-            <button className={authView === "login" ? "" : "secondary"} onClick={() => { setAuthView("login"); setAuthError(""); setAuthMessage(""); }}>Connexion</button>
             <button className={authView === "request" ? "" : "secondary"} onClick={() => { setAuthView("request"); setAuthError(""); setAuthMessage(""); }}>Demander un accès</button>
             <button className={authView === "forgot" ? "" : "secondary"} onClick={() => { setAuthView("forgot"); setAuthError(""); setAuthMessage(""); }}>Mot de passe perdu</button>
-            <button className={authView === "reset" ? "" : "secondary"} onClick={() => { setAuthView("reset"); setAuthError(""); setAuthMessage(""); }}>Réinitialiser</button>
           </div>
 
           <div className="small" style={{ marginTop: 10, textAlign: "center", color: "#475569" }}>
