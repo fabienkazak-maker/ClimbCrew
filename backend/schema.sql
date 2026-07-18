@@ -9,13 +9,14 @@ create table if not exists participants (
   ffme boolean not null default false,
   can_encadrer boolean not null default false,
   can_referer boolean not null default false,
+  can_admin boolean not null default false,
   created_at timestamptz not null default now()
 );
 
 create table if not exists sessions (
   id text primary key,
   date text not null,
-  slot text not null check (slot in ('midi', 'soir')),
+  slot text not null check (slot in ('midi', 'matin', 'soir')),
   status text not null default 'fermee',
   encadrant_id text,
   referent_id text,
@@ -29,6 +30,11 @@ create table if not exists session_participants (
   created_at timestamptz not null default now(),
   primary key (session_id, participant_id)
 );
+
+alter table participants add column if not exists can_admin boolean not null default false;
+
+alter table sessions drop constraint if exists sessions_slot_check;
+alter table sessions add constraint sessions_slot_check check (slot in ('midi', 'matin', 'soir'));
 
 create index if not exists idx_sessions_date on sessions(date);
 create index if not exists idx_session_participants_participant on session_participants(participant_id);
