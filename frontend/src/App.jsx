@@ -631,8 +631,17 @@ function App() {
     });
   }, [state.sessions]);
 
+  function isManagedSession(session) {
+    return (session.status === "encadree" && Boolean(session.encadrantId))
+      || (session.status === "libre" && Boolean(session.referentId));
+  }
+
   const modalAllAvailableDays = useMemo(() => {
-    return [...new Set(sortedSessionsByDate.map((session) => session.date))];
+    return [...new Set(
+      sortedSessionsByDate
+        .filter(isManagedSession)
+        .map((session) => session.date)
+    )];
   }, [sortedSessionsByDate]);
 
   function getParticipantSessionDays(participantId) {
@@ -640,6 +649,7 @@ function App() {
 
     return [...new Set(
       state.sessions
+        .filter(isManagedSession)
         .filter((session) => session.participantIds?.includes(participantId))
         .map((session) => session.date)
     )].sort((a, b) => b.localeCompare(a));
@@ -663,24 +673,12 @@ function App() {
     const participantIdsForSelectedDay = new Set(
       state.sessions
         .filter((session) => session.date === newRealisation.selectedDay)
+        .filter(isManagedSession)
         .flatMap((session) => session.participantIds || [])
     );
 
     return modalAllEligibleParticipants.filter((participant) => participantIdsForSelectedDay.has(participant.id));
   }, [newRealisation.selectedDay, modalAllEligibleParticipants, state.sessions]);
-
-  useEffect(() => {
-    if (!realisationModalRouteId) return;
-
-    if (newRealisation.participantId && !modalEligibleParticipants.some((participant) => participant.id === newRealisation.participantId)) {
-      setNewRealisation((prev) => ({ ...prev, participantId: "" }));
-      return;
-    }
-
-    if (newRealisation.selectedDay && !modalAvailableDays.includes(newRealisation.selectedDay)) {
-      setNewRealisation((prev) => ({ ...prev, selectedDay: "" }));
-    }
-  }, [realisationModalRouteId, modalEligibleParticipants, modalAvailableDays, newRealisation.participantId, newRealisation.selectedDay]);
 
   const selectedDate = state.selectedDate || todayIso();
 
@@ -1168,6 +1166,7 @@ function App() {
 
     const matchingSessions = state.sessions
       .filter((session) => session.date === selectedDay)
+      .filter(isManagedSession)
       .filter((session) => session.participantIds?.includes(participantId))
       .sort((a, b) => a.slot.localeCompare(b.slot));
 
@@ -2435,13 +2434,10 @@ h1, h2, h3, strong, label {
                   value={newRealisation.selectedDay}
                   onChange={(e) => {
                     const selectedDay = e.target.value;
-                    const eligibleParticipants = modalAllEligibleParticipants.filter((participant) => getParticipantSessionDays(participant.id).includes(selectedDay));
-
                     setNewRealisation((prev) => ({
                       ...prev,
                       selectedDay,
                       sessionId: "",
-                      participantId: eligibleParticipants.some((participant) => participant.id === prev.participantId) ? prev.participantId : "",
                     }));
                   }}
                 >
@@ -2463,13 +2459,10 @@ h1, h2, h3, strong, label {
                   value={newRealisation.participantId}
                   onChange={(e) => {
                     const participantId = e.target.value;
-                    const availableDays = getParticipantSessionDays(participantId);
-
                     setNewRealisation((prev) => ({
                       ...prev,
                       participantId,
                       sessionId: "",
-                      selectedDay: availableDays.includes(prev.selectedDay) ? prev.selectedDay : "",
                     }));
                   }}
                 >
@@ -2481,7 +2474,7 @@ h1, h2, h3, strong, label {
                   )}
                 </select>
                 <div className="small" style={{ marginTop: 6, color: "inherit" }}>
-                  Seuls les participants cotisants inscrits au jour choisi sont proposés. La saisie ne distingue pas midi et soir.
+                  Seuls les participants cotisants inscrits aux séances du référent ou de l’encadrant à la date choisie sont proposés.
                 </div>
               </div>
 
