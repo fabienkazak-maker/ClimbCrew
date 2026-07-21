@@ -2624,21 +2624,7 @@ h1, h2, h3, strong, label {
 
         {tab === "voies" && (
           <>
-            {!adminUnlocked ? (
-              <div className="card">
-                <div className="card-header"><h2>Accès administration requis</h2></div>
-                <div className="grid two">
-                  <div>
-                    <label>Code administrateur</label>
-                    <input type="password" maxLength={8} value={adminInput} onChange={(e) => setAdminInput(e.target.value.replace(/\D/g, "").slice(0, 8))} />
-                  </div>
-                  <div style={{ display: "flex", alignItems: "end" }}>
-                    <button onClick={unlockAdmin}>Déverrouiller</button>
-                  </div>
-                </div>
-                {adminError && <div className="error" style={{ marginTop: 10 }}>{adminError}</div>}
-              </div>
-            ) : (
+            {adminUnlocked && (
               <div className="card">
                 <div className="card-header"><h2>Ajouter une voie</h2></div>
                 <div className="grid four">
@@ -2675,10 +2661,9 @@ h1, h2, h3, strong, label {
                             return (
                               <div className="route-card" key={route.id} style={getRouteCardStyle(route.couleurPrises)}>
                                 <div className="card-header">
-                                  <strong>{route.cotationAjustee} · {route.nomVoie || "Sans nom"} · {route.nomOuvreur}</strong>
+                                  <strong>Corde {route.numeroCorde} · {route.cotationAjustee} · {route.nomVoie || "Sans nom"} · {route.nomOuvreur}</strong>
                                   <div className="group">
                                     {route.moulinetteOnly && <span className="pill">Moulinette uniquement</span>}
-                                    <span className="pill">{route.active ? "Active" : "Archivée"}</span>
                                     {route.active && <button className="secondary" onClick={() => openRealisationModal(route.id)}>Réalisation</button>}
                                     {adminUnlocked && <>
                                       <button className="secondary" onClick={() => toggleRouteActive(route.id)}>{route.active ? "Archiver" : "Réactiver"}</button>
