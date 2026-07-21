@@ -64,6 +64,159 @@ function injectStyles() {
       border-color: rgba(100, 116, 139, .42) !important;
     }
 
+    /* Interface compacte et cadres de grimpeurs alignés. */
+    .hero {
+      padding: 12px 14px !important;
+    }
+
+    .toolbar,
+    .card {
+      margin-top: 8px !important;
+      padding: 10px !important;
+    }
+
+    .subcard,
+    .stat,
+    .modal-panel {
+      padding: 8px !important;
+    }
+
+    .grid {
+      gap: 8px !important;
+    }
+
+    .stack {
+      gap: 6px !important;
+    }
+
+    .card-header {
+      gap: 6px !important;
+      margin-bottom: 6px !important;
+    }
+
+    .app h1,
+    .app h2,
+    .app h3,
+    .app p {
+      margin-top: 0 !important;
+      margin-bottom: 4px !important;
+    }
+
+    .app label {
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+      line-height: 1.1 !important;
+    }
+
+    .participant-row {
+      gap: 6px !important;
+      min-height: 0 !important;
+      padding: 3px 8px !important;
+      line-height: 1.15 !important;
+    }
+
+    .participant-name {
+      display: block !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      line-height: 1.05 !important;
+    }
+
+    .session-participant-list .participant-row {
+      min-height: 28px !important;
+      padding: 2px 4px 2px 8px !important;
+    }
+
+    .session-participant-list .remove-button {
+      width: 24px !important;
+      min-width: 24px !important;
+      height: 24px !important;
+      min-height: 24px !important;
+      font-size: 16px !important;
+    }
+
+    .app .small,
+    .app strong {
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+      line-height: 1.1 !important;
+    }
+
+    .app span,
+    .app .label,
+    .app .value,
+    .app .muted-box {
+      line-height: 1.1 !important;
+    }
+
+    .muted-box {
+      padding-top: 6px !important;
+      padding-bottom: 6px !important;
+    }
+
+    .badge,
+    .pill {
+      padding-top: 2px !important;
+      padding-bottom: 2px !important;
+    }
+
+    .faq-item {
+      padding: 7px 0 !important;
+    }
+
+    .session-form-row {
+      gap: 8px !important;
+      margin-bottom: 8px !important;
+    }
+
+    .subcard > .stack {
+      margin-top: 3px !important;
+    }
+
+    .passport-row {
+      width: 100% !important;
+      box-sizing: border-box !important;
+      justify-content: space-between !important;
+    }
+
+    .session-participant-list {
+      display: grid !important;
+      grid-template-columns: minmax(0, 1fr) !important;
+      gap: 3px !important;
+    }
+
+    .shell {
+      touch-action: pan-y;
+      overscroll-behavior-x: contain;
+    }
+
+    /* Contraste renforcé dans l'onglet Voies. */
+    .route-card {
+      border: 2px solid rgba(15, 23, 42, .38) !important;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .22) !important;
+    }
+
+    .route-card strong {
+      font-weight: 900 !important;
+      letter-spacing: .01em;
+    }
+
+    .route-card .small {
+      font-weight: 700 !important;
+      opacity: 1 !important;
+    }
+
+    .route-card .pill {
+      background: rgba(255, 255, 255, .62) !important;
+      color: #0f172a !important;
+      border: 1px solid rgba(15, 23, 42, .45) !important;
+      font-weight: 800 !important;
+    }
+
     /* Une personne sans passeport reste inscrite, mais est signalée en Libre. */
     .passport-warning-hatched {
       background-image: repeating-linear-gradient(
@@ -171,6 +324,43 @@ function updateFaq() {
   });
 }
 
+function enableHorizontalSwipe() {
+  let startX = 0;
+  let startY = 0;
+  let tracking = false;
+
+  document.addEventListener("touchstart", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    if (target.closest("button, input, select, textarea, a, .modal-overlay, .sidebar")) return;
+    if (!document.querySelector(".date-nav")) return;
+
+    const touch = event.touches[0];
+    if (!touch) return;
+    startX = touch.clientX;
+    startY = touch.clientY;
+    tracking = true;
+  }, { passive: true });
+
+  document.addEventListener("touchend", (event) => {
+    if (!tracking) return;
+    tracking = false;
+
+    const touch = event.changedTouches[0];
+    if (!touch) return;
+    const deltaX = touch.clientX - startX;
+    const deltaY = touch.clientY - startY;
+
+    if (Math.abs(deltaX) < 60 || Math.abs(deltaX) <= Math.abs(deltaY) * 1.25) return;
+
+    const navigationButtons = [...document.querySelectorAll(".date-nav .nav-symbol")];
+    if (navigationButtons.length < 2) return;
+
+    const button = deltaX < 0 ? navigationButtons.at(-1) : navigationButtons[0];
+    button?.click();
+  }, { passive: true });
+}
+
 let scheduled = false;
 function refresh() {
   if (scheduled) return;
@@ -186,6 +376,7 @@ function refresh() {
 function start() {
   injectStyles();
   refresh();
+  enableHorizontalSwipe();
   new MutationObserver(refresh).observe(document.body, { childList: true, subtree: true });
   document.addEventListener("change", refresh, true);
 }
