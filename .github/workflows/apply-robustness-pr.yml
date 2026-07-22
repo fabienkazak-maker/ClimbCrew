@@ -44,8 +44,11 @@ jobs:
         working-directory: frontend
         run: npm run build
 
+      - name: Prepare Docker validation environment
+        run: cp .env.production.example .env.production
+
       - name: Validate Docker Compose
-        run: docker compose --env-file .env.production.example -f docker-compose.prod.yml config
+        run: docker compose --env-file .env.production -f docker-compose.prod.yml config
 
       - name: Commit consolidated code
         shell: bash
