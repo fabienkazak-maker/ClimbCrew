@@ -30,6 +30,13 @@ jobs:
       - name: Apply consolidated fixes
         run: node .github/scripts/apply-robustness.mjs
 
+      - name: Restore temporary automation files
+        run: |
+          git checkout HEAD -- .github/scripts/apply-robustness.mjs
+          git checkout HEAD -- .github/workflows/apply-robustness-once.yml
+          git checkout HEAD -- .github/workflows/apply-robustness-pr.yml
+          git checkout HEAD -- .github/workflows/validate-linux.yml
+
       - name: Validate source consistency
         run: node scripts/validate-source.mjs
 
