@@ -1,0 +1,50 @@
+name: Apply ClimbCrew evolutions PR
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-validate:
+    if: ${{ github.event.pull_request.head.ref == 'agent/evolutions-ui-demo-juillet' && !contains(github.event.pull_request.title, '[applied]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/evolutions-ui-demo-juillet
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Apply source transformations
+        run: python tools/apply_climbcrew_evolutions.py
+
+      - name: Validate backend syntax
+        run: node --check backend/server.js
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm install --package-lock=false --no-audit --no-fund
+          npm run build
+
+      - name: Commit generated changes
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend/server.js frontend/src/App.jsx frontend/src/climbcrew-enhancements.js frontend/src/demo-data.js frontend/index.html frontend/public docs/SIMULATION.md
+          if git diff --cached --quiet; then
+            echo "No generated changes to commit."
+            exit 0
+          fi
+          git commit -m "Implémenter les évolutions et la simulation [evolutions-applied]"
+          git push origin HEAD:agent/evolutions-ui-demo-juillet
