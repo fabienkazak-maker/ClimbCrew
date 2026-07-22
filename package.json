@@ -1,18 +1,15 @@
 {
-  "name": "climbcrew-local-windows",
+  "name": "climbcrew-linux-server",
   "private": true,
-  "version": "2.3.0-secure-https-local",
+  "version": "3.0.0-linux",
   "scripts": {
-    "dev": "docker compose -f docker-compose.dev.yml up --build",
-    "dev:down": "docker compose -f docker-compose.dev.yml down --remove-orphans",
-    "legacy:import": "powershell -ExecutionPolicy Bypass -File ./import-legacy-data.ps1",
-    "legacy:reset": "powershell -ExecutionPolicy Bypass -File ./reset-dev-with-legacy-data.ps1",
-    "legacy:validate": "node tools/validate-import-data.mjs ./backend/import-data.json",
-    "server:build": "powershell -ExecutionPolicy Bypass -File ./build-server-local.ps1",
-    "server:up": "docker compose -f docker-compose.server.yml up --build -d",
-    "server:down": "docker compose -f docker-compose.server.yml down --remove-orphans",
-    "cert:create": "powershell -ExecutionPolicy Bypass -File ./create-local-certificate.ps1",
-    "cert:trust": "powershell -ExecutionPolicy Bypass -File ./trust-local-certificate.ps1",
-    "server:https": "powershell -ExecutionPolicy Bypass -File ./start-server-https.ps1"
+    "prod:config": "docker compose --env-file .env.production -f docker-compose.prod.yml config",
+    "prod:build": "docker compose --env-file .env.production -f docker-compose.prod.yml build",
+    "prod:up": "docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build",
+    "prod:down": "docker compose --env-file .env.production -f docker-compose.prod.yml down",
+    "prod:logs": "docker compose --env-file .env.production -f docker-compose.prod.yml logs -f",
+    "prod:setup-db": "bash deploy/scripts/setup-db.sh .env.production",
+    "prod:health": "bash deploy/scripts/healthcheck.sh .env.production",
+    "legacy:validate": "node tools/validate-import-data.mjs ./backend/import-data.json"
   }
 }
