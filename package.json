@@ -1,8 +1,22 @@
 {
-  "name": "climbcrew-linux-server",
+  "name": "climbcrew",
   "private": true,
-  "version": "3.0.0-linux",
+  "version": "4.0.0",
+  "type": "module",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
   "scripts": {
+    "dev": "bun --cwd frontend run dev",
+    "backend:dev": "bun --cwd backend run dev",
+    "build": "bun run typecheck && bun --cwd frontend run build",
+    "typecheck": "tsc -b",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "test:api": "bun tests/api/run-api-suite.ts",
+    "test:browser": "playwright test",
+    "test:e2e": "bun tests/e2e/run-stack.ts",
     "prod:config": "docker compose --env-file .env.production -f docker-compose.prod.yml config",
     "prod:build": "docker compose --env-file .env.production -f docker-compose.prod.yml build",
     "prod:up": "docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build",
@@ -10,6 +24,13 @@
     "prod:logs": "docker compose --env-file .env.production -f docker-compose.prod.yml logs -f",
     "prod:setup-db": "bash deploy/scripts/setup-db.sh .env.production",
     "prod:health": "bash deploy/scripts/healthcheck.sh .env.production",
-    "legacy:validate": "node tools/validate-import-data.mjs ./backend/import-data.json"
+    "legacy:extract": "bun tools/extract-legacy-data.ts",
+    "legacy:validate": "bun tools/validate-import-data.ts ./backend/import-data.json"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.5",
+    "@playwright/test": "1.61.1",
+    "@types/node": "^24.10.1",
+    "typescript": "^5.9.3"
   }
 }
