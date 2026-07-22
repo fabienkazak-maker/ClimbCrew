@@ -1,0 +1,136 @@
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  padding: 0;
+  border-radius: 0;
+  background: rgb(2 6 23 / 65%);
+}
+
+.sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: min(310px, 88vw);
+  padding: 18px;
+  background: #0f172a;
+  border-right: 1px solid #334155;
+  transform: translateX(-105%);
+  transition: transform 180ms ease;
+}
+
+.sidebar.open {
+  transform: translateX(0);
+}
+
+.sidebar-header,
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sidebar-logo {
+  width: 44px;
+  height: 44px;
+  padding: 4px;
+  border-radius: 11px;
+  background: #fff;
+}
+
+.sidebar-nav {
+  display: grid;
+  gap: 8px;
+}
+
+.side-tab {
+  width: 100%;
+  color: #cbd5e1;
+  background: #1e293b;
+  text-align: left;
+}
+
+.side-tab.active {
+  color: #082f49;
+  background: #22d3ee;
+}
+
+.sidebar-account {
+  display: grid;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid #334155;
+}
+
+@media (max-width: 1000px) {
+  .week-grid,
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .grid-form,
+  .session-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .participant-admin-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .app {
+    padding: 8px;
+  }
+  .hero {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    gap: 9px;
+    padding: 10px;
+  }
+  .hero .app-logo {
+    width: 42px;
+    height: 42px;
+  }
+  .hero-title h1 {
+    font-size: 1.25rem;
+  }
+  .hero > button:last-child {
+    font-size: 0;
+  }
+  .hero > button:last-child::after {
+    content: "Réalisation";
+    font-size: 0.78rem;
+  }
+  .card,
+  .toolbar {
+    margin-top: 10px;
+    padding: 12px;
+  }
+  .session-toolbar {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+  }
+  .session-toolbar > strong {
+    min-width: 0;
+  }
+  .session-toolbar .segmented {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
+  .week-grid,
+  .stats-grid,
+  .grid-form,
+  .session-fields,
+  .participant-admin-row {
+    grid-template-columns: 1fr;
+  }
+  .card-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+}
