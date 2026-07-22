@@ -21,7 +21,7 @@ source = replaceOnce(source,
 }
 
 function defaultSessionStatus(date, slot) {
-  const day = new Date(\`${date}T12:00:00\`).getDay();
+  const day = new Date(\`${'${date}'}T12:00:00\`).getDay();
   return slot === "midi" && (day === 2 || day === 4) ? "encadree" : "libre";
 }
 `,
@@ -113,9 +113,8 @@ source = replaceOnce(source,
 "const previousParticipantsResult = await client.query(");
 
 const runtimeDir = fs.mkdtempSync(path.join(os.tmpdir(), "climbcrew-runtime-"));
-try {
-  fs.symlinkSync(path.join(process.cwd(), "node_modules"), path.join(runtimeDir, "node_modules"), "dir");
-} catch {}
+const nodeModules = path.join(runtimeDir, "node_modules");
+try { fs.symlinkSync(path.join(process.cwd(), "node_modules"), nodeModules, "dir"); } catch {}
 const runtimeFile = path.join(runtimeDir, "server.mjs");
 fs.writeFileSync(runtimeFile, source, "utf8");
 await import(pathToFileURL(runtimeFile).href);
