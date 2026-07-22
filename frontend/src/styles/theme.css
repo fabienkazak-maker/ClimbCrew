@@ -1,0 +1,40 @@
+:root[data-theme="light"] {
+  color: #0f172a;
+  background: #f8fafc;
+}
+
+:root[data-theme="light"] .app {
+  background: linear-gradient(135deg, #f8fafc, #e2e8f0, #cbd5e1);
+}
+
+:root[data-theme="light"] .hero,
+:root[data-theme="light"] .card,
+:root[data-theme="light"] .toolbar,
+:root[data-theme="light"] .stat {
+  border-color: #cbd5e1;
+  background: rgb(255 255 255 / 92%);
+}
+
+:root[data-theme="light"] .subcard,
+:root[data-theme="light"] .route-card {
+  border-color: #cbd5e1;
+  background: rgb(241 245 249 / 80%);
+}
+
+:root[data-theme="light"] input,
+:root[data-theme="light"] select {
+  border-color: #94a3b8;
+  color: #0f172a;
+  background: #fff;
+}
+
+:root[data-theme="light"] label,
+:root[data-theme="light"] .small,
+:root[data-theme="light"] .muted-box {
+  color: #475569;
+}
+
+:root[data-theme="light"] .modal {
+  border-color: #cbd5e1;
+  background: #fff;
+}
