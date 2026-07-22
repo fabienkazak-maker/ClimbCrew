@@ -1,13 +1,10 @@
-FROM node:20-bookworm-slim
+FROM oven/bun:1.3.14-debian
 
 WORKDIR /app
-
-COPY package*.json ./
-RUN npm install -g npm@11.18.0 \
-    && npm install --no-audit --no-fund
-
-COPY . .
+COPY package.json ./
+RUN bun install
+COPY schema.sql ./
+COPY src ./src
 
 EXPOSE 3000
-
-CMD ["npm", "start"]
+CMD ["bun", "run", "dev"]
