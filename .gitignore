@@ -8,6 +8,7 @@ dist/
 # Environnements et secrets
 .env
 .env.local
+.env.production
 .env.*.local
 *.secret
 *.secrets

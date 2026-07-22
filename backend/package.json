@@ -4,7 +4,7 @@
   "version": "1.2.0-legacy-import-ready",
   "type": "module",
   "scripts": {
-    "start": "node server-runtime.js",
+    "start": "node server.js",
     "seed:local": "node seed-local.js"
   },
   "dependencies": {

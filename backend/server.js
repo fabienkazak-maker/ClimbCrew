@@ -120,6 +120,11 @@ function cleanEmail(value = "") {
   return String(value || "").trim().toLowerCase();
 }
 
+function defaultSessionStatus(date, slot) {
+  const day = new Date(`${date}T12:00:00`).getDay();
+  return slot === "midi" && (day === 2 || day === 4) ? "encadree" : "libre";
+}
+
 function parseCookies(req) {
   const header = req.headers.cookie || "";
   return Object.fromEntries(
@@ -1535,7 +1540,7 @@ app.put("/sessions/:id", requireAuth, async (req, res) => {
     const {
       date,
       slot,
-      status = "fermee",
+      status = null,
       encadrantId = null,
       referentId = null,
       participantIds = [],
@@ -1544,6 +1549,8 @@ app.put("/sessions/:id", requireAuth, async (req, res) => {
     if (!id || !date || !slot) {
       return res.status(400).json({ error: "id, date and slot are required" });
     }
+
+    const resolvedStatus = status || defaultSessionStatus(date, slot);
 
     await client.query("begin");
 
@@ -1560,24 +1567,35 @@ app.put("/sessions/:id", requireAuth, async (req, res) => {
           updated_at = now()
         returning id, date, slot, status, encadrant_id, referent_id
       `,
-      [id, date, slot, status, encadrantId || null, referentId || null]
+      [id, date, slot, resolvedStatus, encadrantId || null, referentId || null]
+    );
+
+    const previousParticipantsResult = await client.query(
+      `select participant_id from session_participants where session_id = $1`,
+      [id]
+    );
+    const previousParticipantIds = new Set(
+      previousParticipantsResult.rows.map((row) => String(row.participant_id))
     );
 
     await client.query("delete from session_participants where session_id = $1", [id]);
 
     const uniqueParticipantIds = [...new Set(participantIds.map(String))];
+    const newlyAddedParticipantIds = uniqueParticipantIds.filter(
+      (participantId) => !previousParticipantIds.has(participantId)
+    );
 
-    if (status === "libre" && uniqueParticipantIds.length) {
+    if (resolvedStatus === "libre" && newlyAddedParticipantIds.length) {
       const eligibleResult = await client.query(
         `select id from participants where id = any($1::bigint[]) and lower(passport) in ('jaune', 'orange', 'vert', 'bleu')`,
-        [uniqueParticipantIds]
+        [newlyAddedParticipantIds]
       );
       const eligibleIds = new Set(eligibleResult.rows.map((row) => String(row.id)));
-      const ineligibleIds = uniqueParticipantIds.filter((participantId) => !eligibleIds.has(participantId));
+      const ineligibleIds = newlyAddedParticipantIds.filter((participantId) => !eligibleIds.has(participantId));
       if (ineligibleIds.length) {
         await client.query("rollback");
         return res.status(400).json({
-          error: "Une séance libre est réservée aux passeports Jaune, Orange, Vert ou Bleu.",
+          error: "Une séance libre est réservée aux passeports Jaune, Orange, Vert ou Bleu pour toute nouvelle inscription.",
         });
       }
     }

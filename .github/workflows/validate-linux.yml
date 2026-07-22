@@ -7,14 +7,18 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: climbcrew-linux-validation-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   validate:
-    name: Validate Linux build
+    name: Validate Linux build and runtime
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repository
@@ -23,9 +27,15 @@ jobs:
       - name: Configure Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
+
+      - name: Validate source consistency
+        run: node scripts/validate-source.mjs
+
+      - name: Validate backend syntax
+        run: node --check backend/server.js
 
       - name: Install frontend dependencies
         working-directory: frontend
@@ -35,5 +45,34 @@ jobs:
         working-directory: frontend
         run: npm run build
 
+      - name: Prepare validation environment
+        run: cp .env.production.example .env.production
+
       - name: Validate Docker Compose
-        run: docker compose --env-file .env.production.example -f docker-compose.prod.yml config
+        run: docker compose --env-file .env.production -f docker-compose.prod.yml config
+
+      - name: Build Linux images
+        run: docker compose --env-file .env.production -f docker-compose.prod.yml build
+
+      - name: Start stack and smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose --env-file .env.production -f docker-compose.prod.yml up -d
+
+          for attempt in {1..40}; do
+            if curl --fail --silent http://127.0.0.1:3000/health >/dev/null \
+              && curl --fail --silent http://127.0.0.1:8080/ >/dev/null; then
+              echo "ClimbCrew smoke test succeeded."
+              exit 0
+            fi
+            sleep 3
+          done
+
+          docker compose --env-file .env.production -f docker-compose.prod.yml ps
+          docker compose --env-file .env.production -f docker-compose.prod.yml logs --tail=200
+          exit 1
+
+      - name: Stop validation stack
+        if: always()
+        run: docker compose --env-file .env.production -f docker-compose.prod.yml down -v
