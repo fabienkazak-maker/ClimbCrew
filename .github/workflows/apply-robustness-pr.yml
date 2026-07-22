@@ -1,0 +1,57 @@
+name: Apply ClimbCrew robustness on PR
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.head_ref == 'agent/robustesse-climbcrew'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout working branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/robustesse-climbcrew
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Configure Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Apply consolidated fixes
+        run: node .github/scripts/apply-robustness.mjs
+
+      - name: Validate source consistency
+        run: node scripts/validate-source.mjs
+
+      - name: Validate backend syntax
+        run: node --check backend/server.js
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Validate Docker Compose
+        run: docker compose --env-file .env.production.example -f docker-compose.prod.yml config
+
+      - name: Commit consolidated code
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Renforce la robustesse du frontend et du serveur Linux"
+          git push origin HEAD:agent/robustesse-climbcrew
