@@ -1,0 +1,108 @@
+.app {
+  min-height: 100vh;
+  padding: 20px;
+  background: linear-gradient(135deg, #020617, #0f172a, #1e293b);
+}
+
+.shell,
+.hero {
+  width: min(1400px, 100%);
+  margin-inline: auto;
+}
+
+.hero {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid #334155;
+  border-radius: 22px;
+  background: rgb(15 23 42 / 92%);
+  box-shadow: 0 20px 60px rgb(0 0 0 / 35%);
+}
+
+.hero .app-logo {
+  width: 60px;
+  height: 60px;
+  padding: 5px;
+  border-radius: 15px;
+  background: #fff;
+  object-fit: contain;
+}
+
+.hero-title {
+  flex: 1;
+}
+
+.hero-title h1 {
+  margin: 0 0 4px;
+}
+
+.card,
+.toolbar {
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid #334155;
+  border-radius: 18px;
+  background: rgb(15 23 42 / 88%);
+}
+
+.card-header,
+.button-group,
+.segmented {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.card-header {
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.card-header h2,
+.card-header h3 {
+  margin: 0;
+}
+
+.stack {
+  display: grid;
+  gap: 12px;
+}
+
+.grid-form,
+.session-fields {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.wide {
+  grid-column: 1 / -1;
+}
+
+.week-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.session-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.session-toolbar > strong {
+  min-width: 220px;
+  text-align: center;
+}
