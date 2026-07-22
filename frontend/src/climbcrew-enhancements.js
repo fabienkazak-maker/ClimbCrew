@@ -217,6 +217,71 @@ function injectStyles() {
       font-weight: 800 !important;
     }
 
+    .route-card.moulinette-only {
+      border: 3px solid #ef4444 !important;
+      box-shadow: 0 0 0 2px rgba(239, 68, 68, .22) !important;
+    }
+
+    .multi-signup {
+      min-width: min(100%, 300px);
+    }
+
+    .signup-details {
+      position: relative;
+    }
+
+    .signup-trigger {
+      cursor: pointer;
+      list-style: none;
+      min-height: 42px !important;
+      justify-content: center !important;
+      background: #1e3a5f !important;
+      color: #ffffff !important;
+      border: 2px dashed #60a5fa !important;
+      font-weight: 800;
+    }
+
+    .signup-trigger::-webkit-details-marker {
+      display: none;
+    }
+
+    .signup-menu {
+      position: absolute;
+      z-index: 30;
+      left: 0;
+      top: calc(100% + 6px);
+      width: min(360px, 85vw);
+      max-height: 360px;
+      overflow: auto;
+      display: grid;
+      gap: 6px;
+      padding: 10px;
+      border-radius: 14px;
+      background: var(--theme-card-bg, #0f172a);
+      border: 1px solid var(--theme-card-border, rgba(148,163,184,.3));
+      box-shadow: 0 18px 45px rgba(0, 0, 0, .28);
+    }
+
+    .signup-option {
+      cursor: pointer;
+      grid-template-columns: auto 1fr;
+      justify-content: flex-start !important;
+    }
+
+    .signup-option input {
+      width: 18px !important;
+      min-height: 18px !important;
+      margin: 0 6px 0 0 !important;
+    }
+
+    .demo-badge {
+      display: inline-flex;
+      margin-top: 4px;
+      background: #f59e0b !important;
+      color: #111827 !important;
+      border-color: #92400e !important;
+    }
+
     /* Une personne sans passeport reste inscrite, mais est signalée en Libre. */
     .passport-warning-hatched {
       background-image: repeating-linear-gradient(
@@ -315,7 +380,7 @@ function updateFaq() {
     if (!answer) return;
 
     if (question.startsWith("que signifient les couleurs")) {
-      answer.textContent = "Dans les inscriptions, le fond correspond au passeport : gris foncé sans passeport, jaune, orange, vert ou bleu selon le niveau, et gris pour le passeport Découverte. Le cadre vert indique une cotisation réglée ; le cadre rouge une cotisation non réglée. En séance Libre, un fond hachuré signale une personne déjà inscrite sans passeport requis ; les hachures disparaissent si la séance redevient Encadrée. Pour les voies, le fond reprend la couleur des prises.";
+      answer.textContent = "Dans les inscriptions, le fond correspond au passeport. Le cadre vert indique une cotisation réglée et le rouge une cotisation non réglée. Le contour est plein avec une licence FFME ; sans licence, il alterne la couleur significative avec du noir. En séance Libre, un fond hachuré signale une personne déjà inscrite sans passeport requis ; les hachures disparaissent si la séance redevient Encadrée. Pour les voies, le texte est noir sur blanc, l’ocre apparaît sur fond marron et un cadre rouge indique une voie uniquement en moulinette.";
     }
 
     if (question.startsWith("que signifie cpr")) {
@@ -386,3 +451,4 @@ if (document.readyState === "loading") {
 } else {
   start();
 }
+
