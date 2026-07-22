@@ -242,6 +242,16 @@ function todayIso() {
   return toLocalIso(date);
 }
 
+/**
+ * Règle de création automatique des séances :
+ * - toutes les séances sont libres par défaut ;
+ * - les séances du mardi midi et du jeudi midi sont encadrées.
+ */
+function defaultSessionStatus(dateStr, slot) {
+  const day = new Date(`${dateStr}T12:00:00`).getDay();
+  return slot === "midi" && (day === 2 || day === 4) ? "encadree" : "libre";
+}
+
 function normalizePassport(value) {
   return String(value || "")
     .trim()
@@ -261,11 +271,16 @@ function getPassportStyle(participant) {
     : PASSPORT_STYLES[participant?.passport] || PASSPORT_STYLES.sans;
 
   const isCotisant = Boolean(participant?.cotisation);
+  const hasFfmeLicence = Boolean(participant?.ffme);
+  const borderColor = isCotisant ? "#22c55e" : "#ef4444";
 
   return {
     ...baseStyle,
     color: getContrastingTextColor(baseStyle.backgroundColor),
-    border: isCotisant ? "2px solid #22c55e" : "2px solid #ef4444",
+    border: hasFfmeLicence ? `2px solid ${borderColor}` : "2px solid transparent",
+    borderImage: hasFfmeLicence
+      ? "none"
+      : `repeating-linear-gradient(90deg, ${borderColor} 0 8px, #111827 8px 16px) 1`,
     boxShadow: isCotisant
       ? "0 0 0 1px rgba(34,197,94,.25)"
       : "0 0 0 1px rgba(239,68,68,.25)",
@@ -285,7 +300,8 @@ function getRouteBackgroundColor(color) {
     vert: "#4ade80", green: "#4ade80", jaune: "#facc15", yellow: "#facc15",
     orange: "#fb923c", violet: "#a78bfa", purple: "#a78bfa", rose: "#f472b6",
     pink: "#f472b6", noir: "#94a3b8", black: "#94a3b8", blanc: "#f8fafc",
-    white: "#f8fafc", gris: "#cbd5e1", gray: "#cbd5e1", grey: "#cbd5e1",
+    white: "#f8fafc", ocre: "#8b5a2b", ochre: "#8b5a2b", marron: "#8b5a2b", brown: "#8b5a2b",
+    gris: "#cbd5e1", gray: "#cbd5e1", grey: "#cbd5e1",
   };
   return map[normalized] || "#f8fafc";
 }
@@ -300,9 +316,12 @@ function getContrastingTextColor(backgroundColor) {
 }
 function getRouteCardStyle(color) {
   const backgroundColor = getRouteBackgroundColor(color);
+  const normalizedColor = normalizePassport(color);
   return {
     backgroundColor,
-    color: getContrastingTextColor(backgroundColor),
+    color: ["blanc", "white"].includes(normalizedColor)
+      ? "#0f172a"
+      : getContrastingTextColor(backgroundColor),
   };
 }
 function formatDateFr(dateStr) {
@@ -434,7 +453,7 @@ function App() {
   const [adminError, setAdminError] = useState("");
   const [routeError, setRouteError] = useState("");
   const [importMessage, setImportMessage] = useState("");
-  const [syncMessage, setSyncMessage] = useState(USE_API ? "API activée" : "Mode local");
+  const [, setSyncMessage] = useState(USE_API ? "API activée" : "Mode local");
   const [isSyncing, setIsSyncing] = useState(false);
 
   const [authToken, setAuthToken] = useState(() => (USE_API ? "cookie" : ""));
@@ -538,8 +557,7 @@ function App() {
         routes: Array.isArray(routes) && routes.length ? routes : prev.routes,
       }));
 
-      const message = `API connectée · ${participants.length} participants · ${sessions.length} séances · ${routes.length} voies`;
-      setSyncMessage(message);
+      setSyncMessage("Données actualisées");
       return { participants, sessions, realisations, ropes, routes };
     } catch (e) {
       if (isMounted()) {
@@ -683,13 +701,13 @@ function App() {
   const selectedDate = state.selectedDate || todayIso();
 
   const daySessions = useMemo(() => {
-    return ["midi", "matin", "soir"].map((slot) => {
+    return ["midi", "soir", "matin"].map((slot) => {
       const found = state.sessions.find((s) => s.date === selectedDate && s.slot === slot);
       return found || {
         id: `${selectedDate}-${slot}`,
         date: selectedDate,
         slot,
-        status: "fermee",
+        status: defaultSessionStatus(date, slot),
         encadrantId: null,
         referentId: null,
         participantIds: [],
@@ -713,13 +731,13 @@ function App() {
   const weekSessions = useMemo(() => {
     return weekDates.map((date) => ({
       date,
-      sessions: ["midi", "matin", "soir"].map((slot) => {
+      sessions: ["midi", "soir", "matin"].map((slot) => {
         const found = state.sessions.find((s) => s.date === date && s.slot === slot);
         return found || {
           id: `${date}-${slot}`,
           date,
           slot,
-          status: "fermee",
+          status: defaultSessionStatus(date, slot),
           encadrantId: null,
           referentId: null,
           participantIds: [],
@@ -786,6 +804,18 @@ function App() {
     return [...state.participants].sort((a, b) => fullName(a).localeCompare(fullName(b), "fr"));
   }, [state.participants]);
 
+  const cprByParticipantId = useMemo(() => {
+    return Object.fromEntries(
+      state.participants.map((participant) => [
+        participant.id,
+        calculateSimpleCpr(
+          state.realisations.filter((realisation) => String(realisation.participantId) === String(participant.id)),
+          routesById
+        ),
+      ])
+    );
+  }, [state.participants, state.realisations, routesById]);
+
   const sortedStatsParticipants = useMemo(() => {
     const direction = statsSortDirection === "asc" ? 1 : -1;
     return [...state.participants].sort((a, b) => {
@@ -816,6 +846,14 @@ function App() {
         return (left - right) * direction;
       }
 
+      if (statsSortField === "cpr") {
+        left = cprByParticipantId[a.id]?.averageIndex;
+        right = cprByParticipantId[b.id]?.averageIndex;
+        const normalizedLeft = Number.isFinite(left) ? left : -1;
+        const normalizedRight = Number.isFinite(right) ? right : -1;
+        return (normalizedLeft - normalizedRight) * direction;
+      }
+
       if (statsSortField === "participations") {
         left = sessionStats.participationCount[a.id] || 0;
         right = sessionStats.participationCount[b.id] || 0;
@@ -824,7 +862,7 @@ function App() {
 
       return fullName(a).localeCompare(fullName(b), "fr") * direction;
     });
-  }, [state.participants, sessionStats.participationCount, statsSortField, statsSortDirection]);
+  }, [state.participants, sessionStats.participationCount, cprByParticipantId, statsSortField, statsSortDirection]);
 
   const adminParticipants = useMemo(() => {
     const recentSet = new Set(recentlyAddedParticipantIds.map(String));
@@ -883,7 +921,7 @@ function App() {
       id: sessionId,
       date,
       slot,
-      status: "fermee",
+      status: defaultSessionStatus(date, slot),
       encadrantId: null,
       referentId: null,
       participantIds: [],
@@ -911,13 +949,13 @@ function App() {
     setState((prev) => {
       const sessions = [...prev.sessions];
 
-      ["midi", "matin", "soir"].forEach((slot) => {
+      ["midi", "soir", "matin"].forEach((slot) => {
         if (!sessions.some((s) => s.date === date && s.slot === slot)) {
           const session = {
             id: `${date}-${slot}`,
             date,
             slot,
-            status: "fermee",
+            status: defaultSessionStatus(date, slot),
             encadrantId: null,
             referentId: null,
             participantIds: [],
@@ -955,25 +993,29 @@ function App() {
     syncSessionToApi(updatedSession);
   }
 
-  function addParticipantToSession(sessionId, participantId) {
-    if (!participantId) return;
+  function addParticipantsToSession(sessionId, participantIds) {
+    const requestedIds = [...new Set((participantIds || []).map(String).filter(Boolean))];
+    if (!requestedIds.length) return;
 
     const currentSession =
       state.sessions.find((s) => s.id === sessionId) ||
       buildDefaultSession(sessionId);
 
-    if (currentSession.participantIds.includes(participantId)) return;
-
     const occupied =
       currentSession.participantIds.length +
       (currentSession.encadrantId ? 1 : 0) +
       (currentSession.referentId ? 1 : 0);
+    const remainingPlaces = Math.max(0, MAX_PARTICIPANTS - occupied);
 
-    if (occupied >= MAX_PARTICIPANTS) return;
+    const additions = requestedIds
+      .filter((participantId) => !currentSession.participantIds.map(String).includes(participantId))
+      .slice(0, remainingPlaces);
+
+    if (!additions.length) return;
 
     const updatedSession = {
       ...currentSession,
-      participantIds: [...currentSession.participantIds, participantId],
+      participantIds: [...currentSession.participantIds.map(String), ...additions],
     };
 
     setState((prev) => {
@@ -987,6 +1029,10 @@ function App() {
     });
 
     syncSessionToApi(updatedSession);
+  }
+
+  function addParticipantToSession(sessionId, participantId) {
+    addParticipantsToSession(sessionId, [participantId]);
   }
 
   function removeParticipantFromSession(sessionId, participantId) {
@@ -1634,15 +1680,38 @@ async function handleThemePreferenceChange(nextTheme) {
             </div>
           )}
 
-          <div className="inline-field add-participant-field">
-            <label>Inscrit</label>
-            <select onChange={(e) => addParticipantToSession(session.id, e.target.value)} defaultValue="">
-              <option value="" disabled>Choisir un participant</option>
-              {availableParticipants.sort((a, b) => fullName(a).localeCompare(fullName(b), "fr")).map((p) => (
-                <option key={p.id} value={p.id}>{fullName(p)}</option>
-              ))}
-            </select>
-          </div>
+          <form
+            className="inline-field add-participant-field multi-signup"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const form = event.currentTarget;
+              const selectedIds = new FormData(form).getAll("participantIds");
+              addParticipantsToSession(session.id, selectedIds);
+              form.reset();
+              const details = form.querySelector("details");
+              if (details) details.open = false;
+            }}
+          >
+            <label>Inscription</label>
+            <details className="signup-details">
+              <summary className="participant-row signup-trigger">S'inscrire</summary>
+              <div className="signup-menu">
+                {availableParticipants.length === 0 ? (
+                  <div className="muted-box">Aucune personne disponible.</div>
+                ) : (
+                  availableParticipants
+                    .sort((a, b) => fullName(a).localeCompare(fullName(b), "fr"))
+                    .map((p) => (
+                      <label className="participant-row signup-option" key={p.id} style={getPassportStyle(p)}>
+                        <input type="checkbox" name="participantIds" value={p.id} />
+                        <span className="participant-name">{fullName(p)}</span>
+                      </label>
+                    ))
+                )}
+                <button type="submit" disabled={availableParticipants.length === 0}>Inscrire la sélection</button>
+              </div>
+            </details>
+          </form>
         </div>
 
         <div className="stack session-participant-list">
@@ -1650,7 +1719,11 @@ async function handleThemePreferenceChange(nextTheme) {
             <div className="muted-box">Aucun inscrit.</div>
           ) : (
             inscrits.map((p) => (
-              <div className="participant-row passport-row" key={p.id} style={getPassportStyle(p)}>
+              <div
+                className={`participant-row passport-row ${session.status === "libre" && normalizePassport(p.passport) === "sans" ? "passport-warning-hatched" : ""}`}
+                key={p.id}
+                style={getPassportStyle(p)}
+              >
                 <span className="participant-name">{fullName(p)}</span>
                 <button className="remove-button" onClick={() => removeParticipantFromSession(session.id, p.id)} aria-label="Retirer">×</button>
               </div>
@@ -2652,7 +2725,7 @@ h1, h2, h3, strong, label {
                           {ropeRoutes.map((route) => {
                             const agg = routeAggregatesById[route.id];
                             return (
-                              <div className="route-card" key={route.id} style={getRouteCardStyle(route.couleurPrises)}>
+                              <div className={`route-card ${route.moulinetteOnly ? "moulinette-only" : ""}`} key={route.id} style={getRouteCardStyle(route.couleurPrises)}>
                                 <div className="card-header">
                                   <strong>Corde {route.numeroCorde} · {route.cotationAjustee} · {route.nomVoie || "Sans nom"} · {route.nomOuvreur}</strong>
                                   <div className="group">
@@ -2664,9 +2737,7 @@ h1, h2, h3, strong, label {
                                     </>}
                                   </div>
                                 </div>
-                                <div className="small" style={{ color: "inherit" }}>
-                                  Réf. {route.cotationReference} · Couleur voie : {route.couleurPrises} · Propositions : {agg?.count || 0} · Médiane : {agg?.medianGrade || "-"} · Médiane pondérée : {agg?.weightedMedianGrade || "-"}
-                                </div>
+                                {/* Détails de référence retirés de l’affichage. */}
                               </div>
                             );
                           })}
@@ -3147,6 +3218,7 @@ h1, h2, h3, strong, label {
                       <option value="passport">Passeport</option>
                       <option value="cotisation">Cotisation</option>
                       <option value="ffme">Licence FFME</option>
+                      <option value="cpr">CPR</option>
                       <option value="participations">Participations</option>
                     </select>
                   </div>
@@ -3163,7 +3235,7 @@ h1, h2, h3, strong, label {
                 {sortedStatsParticipants.map((participant) => (
                   <div className="participant-row passport-row" key={participant.id} style={getPassportStyle(participant)}>
                     <span className="participant-name">{fullName(participant)}</span>
-                    <span className="small" style={{ color: "inherit" }}>Cotisation : {participant.cotisation ? "Oui" : "Non"} · FFME : {participant.ffme ? "Oui" : "Non"} · Participations : {sessionStats.participationCount[participant.id] || 0} · Passeport : {participant.passport}</span>
+                    <span className="small" style={{ color: "inherit" }}>Cotisation : {participant.cotisation ? "Oui" : "Non"} · FFME : {participant.ffme ? "Oui" : "Non"} · CPR : {cprByParticipantId[participant.id]?.currentGrade || "Non calculé"} · Participations : {sessionStats.participationCount[participant.id] || 0} · Passeport : {participant.passport}</span>
                   </div>
                 ))}
               </div>
@@ -3175,12 +3247,7 @@ h1, h2, h3, strong, label {
   <div className="card">
     <div className="card-header"><h2>FAQ – fonctionnement de ClimbCrew</h2></div>
 
-    <div className="faq-item">
-      <strong>Quelle version de l’application est affichée ?</strong>
-      <div className="small">
-        {APP_VERSION_LABEL}. Cette information est affichée aussi sur la page de connexion pour vérifier rapidement si le navigateur utilise bien la dernière version déployée.
-      </div>
-    </div>
+    {/* La version n’est plus affichée dans la FAQ. */}
 
     <div className="faq-item">
       <strong>À quoi sert ClimbCrew ?</strong>
@@ -3199,7 +3266,7 @@ h1, h2, h3, strong, label {
     <div className="faq-item">
       <strong>Que signifient les couleurs des participants et des voies ?</strong>
       <div className="small">
-        Le fond correspond au passeport du participant ou à la couleur de la voie. Le texte s’adapte automatiquement pour rester lisible selon la couleur du fond.
+        Dans les inscriptions, le fond correspond au passeport. La couleur du cadre indique la cotisation (vert si réglée, rouge sinon). Le cadre est plein avec une licence FFME et alterne la couleur significative avec du noir en l’absence de licence. Lorsqu’une séance encadrée devient libre, les personnes déjà inscrites sans passeport requis restent affichées avec un fond hachuré. Dans les voies, le fond reprend la couleur des prises ; le texte des voies blanches est noir, l’ocre est affiché en marron et un cadre rouge signale une voie uniquement en moulinette.
       </div>
     </div>
 
@@ -3220,7 +3287,7 @@ h1, h2, h3, strong, label {
     <div className="faq-item">
       <strong>Que signifie CPR ?</strong>
       <div className="small">
-        CPR signifie ici “Climbing Progress Rating”. C’est un indicateur simplifié de progression destiné à représenter le niveau récent d’un grimpeur.
+        Le CPR de ClimbCrew représente le niveau récent. Il utilise les réalisations des 90 derniers jours, pondère la cotation selon le style, conserve les 10 meilleures performances, puis convertit leur moyenne pondérée en cotation. Une voie facile d’échauffement ne réduit donc pas le CPR si elle ne fait pas partie des 10 meilleures performances récentes.
       </div>
     </div>
   </div>
