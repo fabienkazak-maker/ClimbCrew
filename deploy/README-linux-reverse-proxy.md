@@ -1,110 +1,65 @@
-# ClimbCrew — déploiement Linux derrière reverse proxy HTTPS
+# Déploiement Linux derrière un reverse proxy HTTPS
 
-Ce pack rend ClimbCrew compatible avec un serveur Linux où le certificat SSL/TLS est géré par un reverse proxy externe.
+ClimbCrew fonctionne entièrement sous Linux avec Docker Compose.
 
-L'application ne doit pas écouter directement en HTTPS. Elle expose uniquement :
+## Services exposés localement
 
-- le frontend en HTTP local sur `127.0.0.1:8080` ;
-- le backend API en HTTP local sur `127.0.0.1:3000` ;
-- PostgreSQL dans le réseau Docker interne.
+- frontend : `127.0.0.1:8080` ;
+- backend : `127.0.0.1:3000` ;
+- PostgreSQL : réseau Docker uniquement.
 
-Le reverse proxy du serveur expose ensuite :
+Le reverse proxy du serveur publie le domaine HTTPS et gère le certificat TLS.
 
-- `https://climbcrew.dip-tcs.com/` vers le frontend ;
-- `https://climbcrew.dip-tcs.com/api/` vers le backend.
-
-## Fichiers à ajouter au dépôt
+## Fichiers de production
 
 ```text
 .env.production.example
 docker-compose.prod.yml
-.dockerignore
 backend/Dockerfile.prod
-backend/.dockerignore
 frontend/Dockerfile.prod
-frontend/.env.production
-frontend/.dockerignore
 frontend/nginx.prod.conf
 deploy/nginx/climbcrew.reverse-proxy.example.conf
 deploy/systemd/climbcrew-backend.service
 deploy/scripts/deploy-docker.sh
 deploy/scripts/setup-db.sh
 deploy/scripts/healthcheck.sh
-deploy/patches/0001-backend-host-linux.patch
-deploy/patches/0002-root-package-prod-scripts.patch
-deploy/README-linux-reverse-proxy.md
 ```
 
-## Patch backend recommandé
-
-Le backend doit pouvoir choisir son interface d'écoute via `HOST`.
-
-Appliquer :
-
-```bash
-git apply deploy/patches/0001-backend-host-linux.patch
-```
-
-Ce patch permet :
-
-- `HOST=0.0.0.0` dans Docker ;
-- `HOST=127.0.0.1` en installation systemd classique.
-
-## Patch package.json facultatif
-
-Pour ajouter des commandes npm de production :
-
-```bash
-git apply deploy/patches/0002-root-package-prod-scripts.patch
-```
-
-## Déploiement Docker recommandé
-
-Sur le serveur :
+## Installation
 
 ```bash
 cd /opt/climbcrew
 cp .env.production.example .env.production
 nano .env.production
-```
-
-Renseigner au minimum :
-
-- `POSTGRES_PASSWORD` ;
-- `DATABASE_URL` avec le même mot de passe ;
-- `SETUP_TOKEN` ;
-- `FIRST_ADMIN_EMAIL` ;
-- `FIRST_ADMIN_PASSWORD`.
-
-Lancer :
-
-```bash
 chmod +x deploy/scripts/*.sh
-./deploy/scripts/deploy-docker.sh .env.production
 ```
 
-Initialiser ou vérifier la base :
+## Vérification de la configuration
 
 ```bash
+docker compose --env-file .env.production -f docker-compose.prod.yml config
+```
+
+## Déploiement
+
+```bash
+./deploy/scripts/deploy-docker.sh .env.production
 ./deploy/scripts/setup-db.sh .env.production
 ./deploy/scripts/healthcheck.sh .env.production
 ```
 
-## Configuration reverse proxy
+## Reverse proxy
 
-Un exemple Nginx est fourni dans :
+Adapter `deploy/nginx/climbcrew.reverse-proxy.example.conf` :
 
-```text
-deploy/nginx/climbcrew.reverse-proxy.example.conf
-```
+- `/` vers `http://127.0.0.1:8080` ;
+- `/api/` vers `http://127.0.0.1:3000`.
 
-Le responsable serveur doit l'adapter à sa gestion de certificats. L'application ne fournit aucun certificat et ne doit pas gérer le renouvellement SSL/TLS.
+## Sécurité
 
-## Points de sécurité
-
-- Ne pas committer `.env.production`.
-- Ne pas stocker de certificat dans le dépôt.
-- Ne pas exposer directement le backend sur Internet.
-- Garder `SECURE_COOKIES=true` en production.
-- Garder `TRUST_PROXY=1` derrière le reverse proxy.
-- Utiliser un `SETUP_TOKEN` long et aléatoire.
+- ne pas committer `.env.production` ;
+- ne stocker aucun certificat dans le dépôt ;
+- conserver `SECURE_COOKIES=true` ;
+- conserver `TRUST_PROXY=1` ;
+- utiliser un `SETUP_TOKEN` long et aléatoire ;
+- sauvegarder le volume PostgreSQL avant toute mise à jour.

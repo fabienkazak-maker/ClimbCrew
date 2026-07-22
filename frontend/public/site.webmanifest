@@ -1,0 +1,12 @@
+{
+  "name": "ClimbCrew",
+  "short_name": "ClimbCrew",
+  "description": "Gestion des séances et de la progression du club d’escalade",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1e3a5f",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
