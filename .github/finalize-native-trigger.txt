@@ -1,1 +1,0 @@
-Déclenchement de l’intégration native des évolutions et suppression du mode simulation.
