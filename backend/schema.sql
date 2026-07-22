@@ -1,5 +1,3 @@
--- ClimbCrew - schéma de base + accès utilisateurs
-
 create table if not exists participants (
   id bigserial primary key,
   nom text not null,
