@@ -48,13 +48,23 @@ export function participantBody(value: unknown): ParticipantBody | null {
   };
 }
 
+function defaultSessionStatus(
+  date: string,
+  slot: SessionBody["slot"],
+): SessionBody["status"] {
+  const weekday = new Date(`${date}T12:00:00`).getDay();
+  return slot === "midi" && (weekday === 2 || weekday === 4)
+    ? "encadree"
+    : "libre";
+}
+
 export function sessionBody(id: string, value: unknown): SessionBody | null {
   if (!isRecord(value)) return null;
   const date = stringValue(value.date);
   const slot = value.slot;
-  const status = value.status;
   if (!id || !date || (slot !== "matin" && slot !== "midi" && slot !== "soir"))
     return null;
+  const status = value.status ?? defaultSessionStatus(date, slot);
   if (status !== "fermee" && status !== "libre" && status !== "encadree")
     return null;
   if (

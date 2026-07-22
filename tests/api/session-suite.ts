@@ -1,4 +1,4 @@
-import { jsonRecord, stringField } from "./assertions";
+import { assert, jsonRecord, stringField } from "./assertions";
 import type { TestContext } from "./test-context";
 
 function participant(passport: string, suffix: string) {
@@ -45,6 +45,22 @@ export async function runSessionSuite(context: TestContext): Promise<void> {
     method: "PUT",
     body: session,
   });
+  const defaultResponse = await context.user.request(
+    "/sessions/api-session-default",
+    {
+      method: "PUT",
+      body: {
+        id: "api-session-default",
+        date: "2026-08-06",
+        slot: "midi",
+        encadrantId: null,
+        referentId: null,
+        participantIds: [],
+      },
+    },
+  );
+  const defaultSession = await jsonRecord(defaultResponse);
+  assert(defaultSession.status === "encadree", "Statut par défaut invalide");
   await context.user.request(`/sessions/${sessionId}`, {
     method: "PUT",
     body: { ...session, status: "libre" },
@@ -92,6 +108,10 @@ export async function runSessionSuite(context: TestContext): Promise<void> {
     },
   });
   await context.admin.request(`/sessions/${sessionId}`, {
+    method: "DELETE",
+    expected: 204,
+  });
+  await context.admin.request("/sessions/api-session-default", {
     method: "DELETE",
     expected: 204,
   });

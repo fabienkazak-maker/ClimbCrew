@@ -92,7 +92,7 @@ sessionRouter.put(
           await client.query("rollback");
           response.status(400).json({
             error:
-              "Une séance libre est réservée aux passeports Jaune, Orange, Vert ou Bleu.",
+              "Une séance libre est réservée aux passeports Jaune, Orange, Vert ou Bleu pour toute nouvelle inscription.",
           });
           return;
         }

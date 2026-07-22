@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./app";
+import { ErrorBoundary } from "./error-boundary";
 import "./styles/base.css";
 import "./styles/auth.css";
 import "./styles/layout.css";
@@ -13,6 +14,8 @@ if (!root) throw new Error("Élément racine introuvable");
 
 createRoot(root).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 );
