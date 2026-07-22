@@ -707,7 +707,7 @@ function App() {
         id: `${selectedDate}-${slot}`,
         date: selectedDate,
         slot,
-        status: defaultSessionStatus(date, slot),
+        status: defaultSessionStatus(selectedDate, slot),
         encadrantId: null,
         referentId: null,
         participantIds: [],

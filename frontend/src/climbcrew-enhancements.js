@@ -15,6 +15,10 @@ function normalize(value) {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
+function setTextIfChanged(element, value) {
+  if (element.textContent !== value) element.textContent = value;
+}
+
 function injectStyles() {
   if (document.getElementById(STYLE_ID)) return;
 
@@ -380,11 +384,11 @@ function updateFaq() {
     if (!answer) return;
 
     if (question.startsWith("que signifient les couleurs")) {
-      answer.textContent = "Dans les inscriptions, le fond correspond au passeport. Le cadre vert indique une cotisation réglée et le rouge une cotisation non réglée. Le contour est plein avec une licence FFME ; sans licence, il alterne la couleur significative avec du noir. En séance Libre, un fond hachuré signale une personne déjà inscrite sans passeport requis ; les hachures disparaissent si la séance redevient Encadrée. Pour les voies, le texte est noir sur blanc, l’ocre apparaît sur fond marron et un cadre rouge indique une voie uniquement en moulinette.";
+      setTextIfChanged(answer, "Dans les inscriptions, le fond correspond au passeport. Le cadre vert indique une cotisation réglée et le rouge une cotisation non réglée. Le contour est plein avec une licence FFME ; sans licence, il alterne la couleur significative avec du noir. En séance Libre, un fond hachuré signale une personne déjà inscrite sans passeport requis ; les hachures disparaissent si la séance redevient Encadrée. Pour les voies, le texte est noir sur blanc, l’ocre apparaît sur fond marron et un cadre rouge indique une voie uniquement en moulinette.");
     }
 
     if (question.startsWith("que signifie cpr")) {
-      answer.textContent = "Le CPR de ClimbCrew représente le niveau récent. Le calcul retient les réalisations des 90 derniers jours, classe les performances selon la cotation de la voie corrigée par le style, puis conserve les 10 meilleures. Coefficients : à vue 1,25 ; flash 1,20 ; en tête 1,00 ; moulinette 0,85 ; travaillée 0,75 ; avec repos 0,60 ; projet 0,30 ; non enchaînée 0,20 ; essai/test 0,10. La moyenne des indices pondérés est arrondie puis reconvertie en cotation. Une voie facile d’échauffement ne fait donc pas baisser le CPR si elle n’entre pas dans les 10 meilleures performances récentes.";
+      setTextIfChanged(answer, "Le CPR de ClimbCrew représente le niveau récent. Le calcul retient les réalisations des 90 derniers jours, classe les performances selon la cotation de la voie corrigée par le style, puis conserve les 10 meilleures. Coefficients : à vue 1,25 ; flash 1,20 ; en tête 1,00 ; moulinette 0,85 ; travaillée 0,75 ; avec repos 0,60 ; projet 0,30 ; non enchaînée 0,20 ; essai/test 0,10. La moyenne des indices pondérés est arrondie puis reconvertie en cotation. Une voie facile d’échauffement ne fait donc pas baisser le CPR si elle n’entre pas dans les 10 meilleures performances récentes.");
     }
   });
 }
