@@ -17,10 +17,19 @@ test("parcours fonctionnel complet", async ({ page }, testInfo) => {
   const fixture = await runParticipantSessionFlow(page, suffix);
   await runRouteReportFlow(page, fixture, suffix);
   await runTransferUiFlow(page, fixture);
-  const fitsViewport = await page.evaluate(
-    () => document.documentElement.scrollWidth <= window.innerWidth,
-  );
-  expect(fitsViewport).toBe(true);
+  const horizontalOverflow = await page
+    .locator("body *")
+    .evaluateAll((elements) =>
+      elements.flatMap((element) => {
+        const rectangle = element.getBoundingClientRect();
+        if (rectangle.right <= window.innerWidth + 1) return [];
+        const classes = Array.from(element.classList).join(".");
+        return [
+          `${element.tagName.toLowerCase()}.${classes}:${Math.round(rectangle.right)}`,
+        ];
+      }),
+    );
+  expect(horizontalOverflow).toEqual([]);
   const storageKeys = await page.evaluate(() => Object.keys(localStorage));
   expect(storageKeys).not.toContain("climbcrew_auth_token");
   expect(storageKeys).not.toContain("climbcrew_local_data_v2");

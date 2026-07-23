@@ -60,6 +60,15 @@
   margin-bottom: 14px;
 }
 
+.card-header > *,
+.button-group {
+  min-width: 0;
+}
+
+.button-group {
+  flex-wrap: wrap;
+}
+
 .card-header h2,
 .card-header h3 {
   margin: 0;

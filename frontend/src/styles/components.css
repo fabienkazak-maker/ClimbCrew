@@ -1,9 +1,11 @@
 .subcard,
 .route-card {
+  min-width: 0;
   padding: 13px;
   border: 1px solid #334155;
   border-radius: 14px;
   background: rgb(2 6 23 / 50%);
+  overflow-wrap: anywhere;
 }
 
 .route-card p:last-child,

@@ -131,6 +131,12 @@
   }
   .card-header {
     align-items: flex-start;
-    flex-wrap: wrap;
+    flex-direction: column;
+  }
+  .card-header > .button-group {
+    width: 100%;
+  }
+  .route-card .button-group > button {
+    flex: 1 1 auto;
   }
 }
