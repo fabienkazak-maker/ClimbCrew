@@ -223,6 +223,13 @@ function fullName(p) {
   return p ? `${p.nom} ${p.prenom}`.trim() : "";
 }
 
+function formatRouteName(route) {
+  const opener = String(route?.nomOuvreur || "").trim();
+  const name = String(route?.nomVoie || "").trim();
+  const label = [opener, name].filter(Boolean).join(" · ");
+  return label || (route?.numeroVoieUnique ? `#${route.numeroVoieUnique}` : "Voie");
+}
+
 function toLocalIso(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -993,29 +1000,25 @@ function App() {
     syncSessionToApi(updatedSession);
   }
 
-  function addParticipantsToSession(sessionId, participantIds) {
-    const requestedIds = [...new Set((participantIds || []).map(String).filter(Boolean))];
-    if (!requestedIds.length) return;
+  function addParticipantToSession(sessionId, participantId) {
+    const requestedId = String(participantId || "");
+    if (!requestedId) return;
 
     const currentSession =
       state.sessions.find((s) => s.id === sessionId) ||
       buildDefaultSession(sessionId);
 
+    const currentParticipantIds = currentSession.participantIds.map(String);
     const occupied =
-      currentSession.participantIds.length +
+      currentParticipantIds.length +
       (currentSession.encadrantId ? 1 : 0) +
       (currentSession.referentId ? 1 : 0);
-    const remainingPlaces = Math.max(0, MAX_PARTICIPANTS - occupied);
 
-    const additions = requestedIds
-      .filter((participantId) => !currentSession.participantIds.map(String).includes(participantId))
-      .slice(0, remainingPlaces);
-
-    if (!additions.length) return;
+    if (occupied >= MAX_PARTICIPANTS || currentParticipantIds.includes(requestedId)) return;
 
     const updatedSession = {
       ...currentSession,
-      participantIds: [...currentSession.participantIds.map(String), ...additions],
+      participantIds: [...currentParticipantIds, requestedId],
     };
 
     setState((prev) => {
@@ -1029,10 +1032,6 @@ function App() {
     });
 
     syncSessionToApi(updatedSession);
-  }
-
-  function addParticipantToSession(sessionId, participantId) {
-    addParticipantsToSession(sessionId, [participantId]);
   }
 
   function removeParticipantFromSession(sessionId, participantId) {
@@ -1289,6 +1288,36 @@ async function updateRealisationInApi(realisationId, patch) {
     method: "PUT",
     body: JSON.stringify(patch),
   });
+}
+
+async function deleteRealisation(realisation) {
+  if (!realisation?.id) return;
+
+  const route = routesById[realisation.voieId];
+  const routeLabel = route ? formatRouteName(route) : "la voie concernée";
+  const dateLabel = realisation.dateRealisation
+    ? formatDateShortFr(realisation.dateRealisation.slice(0, 10))
+    : "date inconnue";
+
+  if (!window.confirm(`Supprimer définitivement la réalisation « ${routeLabel} » du ${dateLabel} ?`)) return;
+
+  const previousRealisations = state.realisations;
+  setState((prev) => ({
+    ...prev,
+    realisations: prev.realisations.filter((item) => item.id !== realisation.id),
+  }));
+  setOpenTimelineRealisationId((current) => (current === realisation.id ? null : current));
+
+  try {
+    if (USE_API) {
+      await authApiFetch(`/realisations/${encodeURIComponent(realisation.id)}`, authToken, {
+        method: "DELETE",
+      });
+    }
+  } catch (error) {
+    setState((prev) => ({ ...prev, realisations: previousRealisations }));
+    alert(`Suppression impossible : ${error.message || error}`);
+  }
 }
 
   async function addRealisation() {
@@ -1680,38 +1709,28 @@ async function handleThemePreferenceChange(nextTheme) {
             </div>
           )}
 
-          <form
-            className="inline-field add-participant-field multi-signup"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const form = event.currentTarget;
-              const selectedIds = new FormData(form).getAll("participantIds");
-              addParticipantsToSession(session.id, selectedIds);
-              form.reset();
-              const details = form.querySelector("details");
-              if (details) details.open = false;
-            }}
-          >
+          <div className="inline-field add-participant-field">
             <label>Inscription</label>
-            <details className="signup-details">
-              <summary className="participant-row signup-trigger">S'inscrire</summary>
-              <div className="signup-menu">
-                {availableParticipants.length === 0 ? (
-                  <div className="muted-box">Aucune personne disponible.</div>
-                ) : (
-                  availableParticipants
-                    .sort((a, b) => fullName(a).localeCompare(fullName(b), "fr"))
-                    .map((p) => (
-                      <label className="participant-row signup-option" key={p.id} style={getPassportStyle(p)}>
-                        <input type="checkbox" name="participantIds" value={p.id} />
-                        <span className="participant-name">{fullName(p)}</span>
-                      </label>
-                    ))
-                )}
-                <button type="submit" disabled={availableParticipants.length === 0}>Inscrire la sélection</button>
-              </div>
-            </details>
-          </form>
+            <select
+              defaultValue=""
+              disabled={availableParticipants.length === 0 || occupied >= MAX_PARTICIPANTS}
+              onChange={(event) => {
+                const participantId = event.currentTarget.value;
+                if (!participantId) return;
+                addParticipantToSession(session.id, participantId);
+                event.currentTarget.value = "";
+              }}
+            >
+              <option value="">
+                {availableParticipants.length === 0 ? "Aucune personne disponible" : "S'inscrire"}
+              </option>
+              {availableParticipants
+                .sort((a, b) => fullName(a).localeCompare(fullName(b), "fr"))
+                .map((p) => (
+                  <option key={p.id} value={p.id}>{fullName(p)}</option>
+                ))}
+            </select>
+          </div>
         </div>
 
         <div className="stack session-participant-list">
@@ -1908,8 +1927,8 @@ async function handleThemePreferenceChange(nextTheme) {
         .add-participant-field { grid-column: span 1; }
         .passport-row { color: #111827; border: 1px solid rgba(255,255,255,.28); }
         .participant-name { font-weight: 800; }
-        .remove-button { background: #000; color: #fff; border: 1px solid rgba(255,255,255,.3); }
-        .remove-button:hover { background: #111827; }
+        .remove-button { background: transparent; color: #000000; border: 0; border-radius: 0; padding: 0 4px; font-size: 20px; line-height: 1; box-shadow: none; }
+        .remove-button:hover { background: transparent; color: #000000; }
         .hero { background: rgba(15,23,42,.88); border: 1px solid rgba(148,163,184,.25); border-radius: 24px; padding: 22px; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
         .hero h1 { margin: 0; font-size: 32px; }
         .hero p { margin: 8px 0 0; color: #94a3b8; }
@@ -1943,6 +1962,8 @@ async function handleThemePreferenceChange(nextTheme) {
         .stat .label { font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: .04em; }
         .stat .value { margin-top: 10px; font-size: 30px; font-weight: 800; }
         .route-card { color: #111827; border: 1px solid rgba(0,0,0,.1); border-radius: 14px; padding: 12px; }
+        .route-card strong,
+        .passport-row .participant-name { color: inherit !important; }
         .small { font-size: 12px; color: #94a3b8; }
         .success { color: #86efac; }
         .error { color: #fca5a5; }
@@ -2494,7 +2515,7 @@ h1, h2, h3, strong, label {
               <div>
                 <h2 className="modal-title">Enregistrer une voie réalisée</h2>
                 <div className="small">
-                  {realisationModalRoute.nomVoie || "Voie sans nom"} · Corde {realisationModalRoute.numeroCorde} · {realisationModalRoute.cotationAjustee}
+                  {formatRouteName(realisationModalRoute)} · Corde {realisationModalRoute.numeroCorde} · {realisationModalRoute.cotationAjustee}
                 </div>
               </div>
               <button className="danger ghost modal-close" onClick={closeRealisationModal} aria-label="Fermer">×</button>
@@ -2553,7 +2574,7 @@ h1, h2, h3, strong, label {
 
               <div>
                 <label>Voie</label>
-                <input value={`${realisationModalRoute.nomVoie || "Sans nom"} · Corde ${realisationModalRoute.numeroCorde} · ${realisationModalRoute.cotationAjustee}`} readOnly />
+                <input value={`${formatRouteName(realisationModalRoute)} · Corde ${realisationModalRoute.numeroCorde} · ${realisationModalRoute.cotationAjustee}`} readOnly />
               </div>
 
               <div>
@@ -2710,7 +2731,7 @@ h1, h2, h3, strong, label {
             <div className="card">
               <div className="card-header"><h2>Tableau des voies</h2></div>
               <div className="stack">
-                {state.ropes.map((rope) => {
+                {state.ropes.filter((rope) => state.routes.some((route) => route.numeroCorde === rope.numeroCorde)).map((rope) => {
                   const ropeRoutes = state.routes.filter((route) => route.numeroCorde === rope.numeroCorde);
                   return (
                     <div className="subcard" key={rope.numeroCorde}>
@@ -2727,7 +2748,7 @@ h1, h2, h3, strong, label {
                             return (
                               <div className={`route-card ${route.moulinetteOnly ? "moulinette-only" : ""}`} key={route.id} style={getRouteCardStyle(route.couleurPrises)}>
                                 <div className="card-header">
-                                  <strong>Corde {route.numeroCorde} · {route.cotationAjustee} · {route.nomVoie || "Sans nom"} · {route.nomOuvreur}</strong>
+                                  <strong>Corde {route.numeroCorde} · {route.cotationAjustee} · {formatRouteName(route)}</strong>
                                   <div className="group">
                                     {route.moulinetteOnly && <span className="pill">Moulinette uniquement</span>}
                                     {route.active && <button className="secondary" onClick={() => openRealisationModal(route.id)}>Réalisation</button>}
@@ -2797,19 +2818,24 @@ h1, h2, h3, strong, label {
                           <div>
                             <strong>{formatDateFr(realisation.dateRealisation.slice(0, 10))}</strong>
                             <div className="small">
-                              {route?.nomVoie || `#${route?.numeroVoieUnique}` || "Voie inconnue"}
+                              {route ? formatRouteName(route) : "Voie inconnue"}
                               {" · "}
                               {route?.cotationAjustee || realisation.cotationProposee || "-"}
                               {" · "}
                               {STYLE_LABELS[realisation.styleRealisation] || realisation.styleRealisation}
                             </div>
                           </div>
-                          <button
-                            className="secondary"
-                            onClick={() => setOpenTimelineRealisationId(isOpen ? null : realisation.id)}
-                          >
-                            {isOpen ? "Masquer" : "Détails"}
-                          </button>
+                          <div className="group">
+                            <button
+                              className="secondary"
+                              onClick={() => setOpenTimelineRealisationId(isOpen ? null : realisation.id)}
+                            >
+                              {isOpen ? "Masquer" : "Détails"}
+                            </button>
+                            <button className="danger" onClick={() => deleteRealisation(realisation)}>
+                              Supprimer
+                            </button>
+                          </div>
                         </div>
 
                         {isOpen && (
@@ -2841,7 +2867,7 @@ h1, h2, h3, strong, label {
                                 >
                                   {state.routes.map((r) => (
                                     <option key={r.id} value={r.id}>
-                                      {r.nomVoie || `#${r.numeroVoieUnique}`} · corde {r.numeroCorde} · {r.cotationAjustee}
+                                      {formatRouteName(r)} · corde {r.numeroCorde} · {r.cotationAjustee}
                                     </option>
                                   ))}
                                 </select>
@@ -3266,7 +3292,7 @@ h1, h2, h3, strong, label {
     <div className="faq-item">
       <strong>Que signifient les couleurs des participants et des voies ?</strong>
       <div className="small">
-        Dans les inscriptions, le fond correspond au passeport. La couleur du cadre indique la cotisation (vert si réglée, rouge sinon). Le cadre est plein avec une licence FFME et alterne la couleur significative avec du noir en l’absence de licence. Lorsqu’une séance encadrée devient libre, les personnes déjà inscrites sans passeport requis restent affichées avec un fond hachuré. Dans les voies, le fond reprend la couleur des prises ; le texte des voies blanches est noir, l’ocre est affiché en marron et un cadre rouge signale une voie uniquement en moulinette.
+        Dans les inscriptions, le fond correspond au passeport. La couleur du cadre indique la cotisation (vert si réglée, rouge sinon). Le cadre est plein avec une licence FFME et alterne la couleur significative avec du noir en l’absence de licence. Lorsqu’une séance encadrée devient libre, les personnes déjà inscrites sans passeport requis restent affichées avec un fond hachuré. Dans les voies, le fond reprend la couleur des prises ; le texte des voies blanches et jaunes est noir et un cadre rouge signale une voie uniquement en moulinette.
       </div>
     </div>
 
