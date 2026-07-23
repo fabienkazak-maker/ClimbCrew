@@ -20,7 +20,7 @@ const API_BASE = (import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_
 const USE_API = Boolean(API_BASE);
 
 // La session est conservée uniquement dans un cookie HttpOnly côté backend.
-const APP_VERSION_LABEL = "Version 2026-07-18.2";
+const APP_VERSION_LABEL = "Version 2026-07-23.1";
 const PASSWORD_RULE_TEXT = "Minimum 12 caractères avec majuscule, minuscule, chiffre et caractère spécial.";
 
 const AUTH_LOGIN_INLINE_STYLE = `
@@ -146,6 +146,7 @@ const THEME_OPTIONS = [
   { value: "auto", label: "Automatique" },
   { value: "light", label: "Clair" },
   { value: "dark", label: "Sombre" },
+  { value: "fun", label: "Fun" },
 ];
 
 function getSystemTheme() {
@@ -154,7 +155,7 @@ function getSystemTheme() {
 }
 
 function resolveThemePreference(value) {
-  if (value === "light" || value === "dark") return value;
+  if (["light", "dark", "fun"].includes(value)) return value;
   return getSystemTheme();
 }
 
@@ -536,6 +537,32 @@ function App() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
 
+  useEffect(() => {
+    const applyTheme = () => {
+      const resolvedTheme = resolveThemePreference(themePreference);
+      document.documentElement.dataset.theme = resolvedTheme;
+      document.documentElement.dataset.themePreference = themePreference;
+      localStorage.setItem(THEME_PREFERENCE_KEY, themePreference);
+    };
+
+    applyTheme();
+
+    if (themePreference !== "auto" || typeof window.matchMedia !== "function") {
+      return undefined;
+    }
+
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const onSystemThemeChange = () => applyTheme();
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", onSystemThemeChange);
+      return () => mediaQuery.removeEventListener("change", onSystemThemeChange);
+    }
+
+    mediaQuery.addListener(onSystemThemeChange);
+    return () => mediaQuery.removeListener(onSystemThemeChange);
+  }, [themePreference]);
+
   /**
    * Recharge toutes les données depuis le backend.
    * Important : les anciennes versions ne rechargeaient que participants/séances/réalisations.
@@ -597,6 +624,9 @@ function App() {
         const data = await authApiFetch("/auth/me", authToken);
         if (!isMounted) return;
         setAuthUser(data.user);
+        if (data.user?.theme_preference) {
+          setThemePreference(data.user.theme_preference);
+        }
         if (data.user?.role === "admin") {
           setAdminUnlocked(true);
         }
@@ -1643,7 +1673,7 @@ async function handleThemePreferenceChange(nextTheme) {
     event.target.value = "";
   }
 
-  function renderSessionCard(session) {
+  function renderSessionCard(session, compact = false) {
     const inscrits = session.participantIds.map((id) => participantsById[id]).filter(Boolean);
     const occupied = inscrits.length + (session.encadrantId ? 1 : 0) + (session.referentId ? 1 : 0);
     const freeSessionPassports = new Set(["jaune", "orange", "vert", "bleu"]);
@@ -1653,7 +1683,7 @@ async function handleThemePreferenceChange(nextTheme) {
     );
 
     return (
-      <div className="card session-card" key={session.id}>
+      <div className={`card session-card ${compact ? "session-card-compact" : ""}`} key={session.id}>
         <div className="card-header">
           <h3>Séance {session.slot}</h3>
           <span className="badge">{occupied}/{MAX_PARTICIPANTS}</span>
@@ -1969,6 +1999,23 @@ async function handleThemePreferenceChange(nextTheme) {
         .error { color: #fca5a5; }
         .pill { padding: 4px 8px; border-radius: 999px; background: rgba(255,255,255,.35); font-size: 12px; display: inline-flex; align-items: center; }
         .faq-item { padding: 12px 0; border-bottom: 1px solid rgba(148,163,184,.2); }
+        .week-grid { display: grid; grid-template-columns: repeat(5, minmax(240px, 1fr)); gap: 12px; align-items: start; overflow-x: auto; padding-bottom: 8px; }
+        .week-day-card { min-width: 0; padding: 12px; border-radius: 18px; background: var(--theme-card-soft); border: 1px solid var(--theme-card-border); }
+        .week-day-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+        .week-day-header h3 { margin: 0; font-size: 16px; }
+        .week-day-open { padding: 7px 9px; font-size: 12px; white-space: nowrap; }
+        .week-day-sessions { display: grid; gap: 10px; }
+        .session-card-compact { margin-top: 0; padding: 10px; border-radius: 15px; }
+        .session-card-compact .session-form-row { grid-template-columns: 1fr; gap: 7px; margin-bottom: 9px; }
+        .session-card-compact .inline-field { grid-template-columns: 1fr; gap: 5px; }
+        .session-card-compact .inline-field label { font-size: 10px; }
+        .session-card-compact .card-header h3 { font-size: 15px; text-transform: capitalize; }
+        .session-card-compact .session-participant-list { gap: 6px; }
+        .sidebar-theme { margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--theme-card-border); }
+        .sidebar-theme label { margin-bottom: 6px; }
+        @media (min-width: 701px) and (max-width: 1199px) {
+          .week-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); overflow-x: visible; }
+        }
         @media (max-width: 1100px) {
           .tabs { grid-template-columns: repeat(3,minmax(0,1fr)); }
           .stats-grid, .grid.five, .grid.four, .grid.three, .grid.two { grid-template-columns: 1fr; }
@@ -2075,6 +2122,10 @@ async function handleThemePreferenceChange(nextTheme) {
           .side-tab { min-height: 48px; }
 
           .grid.five, .grid.four, .grid.three, .grid.two { grid-template-columns: 1fr; }
+          .week-grid { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; margin: 0 -8px; padding: 0 8px 10px; -webkit-overflow-scrolling: touch; }
+          .week-day-card { flex: 0 0 min(92vw, 430px); scroll-snap-align: start; }
+          .week-day-header { position: sticky; top: 64px; z-index: 2; padding: 4px 0; background: var(--theme-card-soft); }
+          .theme-selector-inline { display: none; }
         }
 
         @media (max-width: 420px) {
@@ -2358,6 +2409,7 @@ async function handleThemePreferenceChange(nextTheme) {
   --theme-input-border: rgba(148,163,184,.32);
   --theme-sidebar-bg: rgba(2,6,23,.95);
   --theme-accent: #22d3ee;
+  --theme-accent-text: #082f49;
   --theme-stat-bg: rgba(2,6,23,.48);
 }
 
@@ -2373,7 +2425,24 @@ async function handleThemePreferenceChange(nextTheme) {
   --theme-input-border: rgba(148,163,184,.28);
   --theme-sidebar-bg: rgba(255,255,255,.98);
   --theme-accent: #0b4a9d;
+  --theme-accent-text: #ffffff;
   --theme-stat-bg: rgba(248,250,252,.95);
+}
+
+:root[data-theme="fun"] {
+  --theme-page-bg: #fff7ed;
+  --theme-app-bg: linear-gradient(135deg,#fff7ed,#fef3c7,#fce7f3);
+  --theme-card-bg: rgba(255,255,255,.94);
+  --theme-card-soft: rgba(255,247,237,.96);
+  --theme-card-border: rgba(249,115,22,.28);
+  --theme-text: #292524;
+  --theme-text-muted: #7c2d12;
+  --theme-input-bg: #ffffff;
+  --theme-input-border: rgba(249,115,22,.35);
+  --theme-sidebar-bg: rgba(255,247,237,.98);
+  --theme-accent: #f97316;
+  --theme-accent-text: #ffffff;
+  --theme-stat-bg: rgba(254,243,199,.78);
 }
 
 body {
@@ -2450,8 +2519,24 @@ h1, h2, h3, strong, label {
   min-width: 130px;
 }
 
+button:not(.danger):not(.secondary):not(.ghost),
+.side-tab.active,
+.bottom-tab.active {
+  background: var(--theme-accent) !important;
+  color: var(--theme-accent-text) !important;
+}
+
+:root[data-theme="fun"] .hero,
+:root[data-theme="fun"] .toolbar,
+:root[data-theme="fun"] .card,
+:root[data-theme="fun"] .week-day-card {
+  box-shadow: 0 16px 40px rgba(249,115,22,.12);
+}
+
 :root[data-theme="light"] .app-logo,
-:root[data-theme="light"] .sidebar-logo {
+:root[data-theme="light"] .sidebar-logo,
+:root[data-theme="fun"] .app-logo,
+:root[data-theme="fun"] .sidebar-logo {
   background: #ffffff;
   box-shadow: 0 8px 24px rgba(15,23,42,.08);
 }
@@ -2492,6 +2577,18 @@ h1, h2, h3, strong, label {
             {item.label}
           </button>
         ))}
+        <div className="sidebar-theme">
+          <label htmlFor="sidebar-theme-selector">Ambiance</label>
+          <select
+            id="sidebar-theme-selector"
+            value={themePreference}
+            onChange={(event) => handleThemePreferenceChange(event.target.value)}
+          >
+            {THEME_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </div>
         {authUser && (
           <div className="sidebar-account">
             <div className="small">{authUser.email}</div>
@@ -2637,6 +2734,18 @@ h1, h2, h3, strong, label {
               </div>
             </div>
 
+            <div className="theme-selector-inline">
+              <label htmlFor="header-theme-selector">Ambiance</label>
+              <select
+                id="header-theme-selector"
+                value={themePreference}
+                onChange={(event) => handleThemePreferenceChange(event.target.value)}
+              >
+                {THEME_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -2676,33 +2785,28 @@ h1, h2, h3, strong, label {
             </div>
 
             {viewMode === "jour" ? (
-              <div className="stack">{daySessions.map(renderSessionCard)}</div>
+              <div className="stack">{daySessions.map((session) => renderSessionCard(session))}</div>
             ) : (
-              <div className="grid five">
+              <div className="week-grid" aria-label="Semaine interactive">
                 {weekSessions.map((day) => (
-                  <div className="card" key={day.date}>
-                    <div className="card-header"><h3>{formatDateFr(day.date)}</h3></div>
-                    <div className="stack">
-                      {day.sessions.map((session) => {
-                        const inscrits = session.participantIds.map((id) => participantsById[id]).filter(Boolean);
-                        const occupied = inscrits.length + (session.encadrantId ? 1 : 0) + (session.referentId ? 1 : 0);
-                        return (
-                          <div className="subcard" key={session.id}>
-                            <div className="card-header">
-                              <strong>{session.slot}</strong>
-                              <span className="badge">{occupied}/{MAX_PARTICIPANTS}</span>
-                            </div>
-                            <div className="small">Statut : {session.status}</div>
-                            {session.encadrantId && <div className="small">Encadrant : {fullName(participantsById[session.encadrantId])}</div>}
-                            {session.referentId && <div className="small">Référent : {fullName(participantsById[session.referentId])}</div>}
-                            <div className="stack" style={{ marginTop: 8 }}>
-                              {inscrits.length === 0 ? <div className="small">Aucun inscrit</div> : inscrits.map((p) => <div className="participant-row passport-row" key={p.id} style={getPassportStyle(p)}><span className="participant-name">{fullName(p)}</span></div>)}
-                            </div>
-                          </div>
-                        );
-                      })}
+                  <section className="week-day-card" key={day.date}>
+                    <div className="week-day-header">
+                      <h3>{formatDateFr(day.date)}</h3>
+                      <button
+                        className="secondary week-day-open"
+                        onClick={() => {
+                          setSelectedDate(day.date);
+                          ensureSessionsForDate(day.date);
+                          setViewMode("jour");
+                        }}
+                      >
+                        Ouvrir le jour
+                      </button>
                     </div>
-                  </div>
+                    <div className="week-day-sessions">
+                      {day.sessions.map((session) => renderSessionCard(session, true))}
+                    </div>
+                  </section>
                 ))}
               </div>
             )}

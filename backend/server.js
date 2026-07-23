@@ -976,7 +976,7 @@ app.get("/auth/csrf", requireAuth, async (req, res) => {
 
 app.put("/auth/theme", requireAuth, async (req, res) => {
   const nextTheme = String(req.body?.theme_preference || "auto").trim().toLowerCase();
-  const allowed = new Set(["auto", "light", "dark"]);
+  const allowed = new Set(["auto", "light", "dark", "fun"]);
 
   if (!allowed.has(nextTheme)) {
     return res.status(400).json({ error: "Préférence de thème invalide" });
