@@ -99,6 +99,9 @@
   .hero-title h1 {
     font-size: 1.25rem;
   }
+  .hero > button {
+    padding-inline: 9px;
+  }
   .hero > button:last-child {
     font-size: 0;
   }

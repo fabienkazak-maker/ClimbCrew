@@ -32,6 +32,7 @@
 
 .hero-title {
   flex: 1;
+  min-width: 0;
 }
 
 .hero-title h1 {

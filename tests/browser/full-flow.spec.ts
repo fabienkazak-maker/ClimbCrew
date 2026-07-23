@@ -24,8 +24,9 @@ test("parcours fonctionnel complet", async ({ page }, testInfo) => {
         const rectangle = element.getBoundingClientRect();
         if (rectangle.right <= window.innerWidth + 1) return [];
         const classes = Array.from(element.classList).join(".");
+        const content = element.textContent?.trim().slice(0, 40) ?? "";
         return [
-          `${element.tagName.toLowerCase()}.${classes}:${Math.round(rectangle.right)}`,
+          `${element.tagName.toLowerCase()}.${classes}[${content}]:${Math.round(rectangle.right)}`,
         ];
       }),
     );
