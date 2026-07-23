@@ -1,0 +1,62 @@
+name: Apply ClimbCrew evolutions 2026-07-23
+
+on:
+  push:
+    branches:
+      - agent/evolutions-inscriptions-voies-progression
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout working branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/evolutions-inscriptions-voies-progression
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Configure Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Apply requested evolutions
+        run: node .github/scripts/apply-evolutions-20260723.mjs
+
+      - name: Validate source consistency
+        run: node scripts/validate-source.mjs
+
+      - name: Validate backend syntax
+        run: node --check backend/server.js
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Prepare Docker validation environment
+        run: cp .env.production.example .env.production
+
+      - name: Validate Docker Compose
+        run: docker compose --env-file .env.production -f docker-compose.prod.yml config
+
+      - name: Commit and push application changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Simplifie les inscriptions et enrichit voies progression"
+          git push origin HEAD:agent/evolutions-inscriptions-voies-progression
