@@ -1,0 +1,98 @@
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #e2e8f0;
+  background: #020617;
+  font-synthesis: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button,
+.file-button {
+  min-height: 42px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 12px;
+  color: #082f49;
+  background: #22d3ee;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+button.secondary,
+.file-button {
+  color: #e2e8f0;
+  background: #334155;
+}
+
+button.ghost {
+  color: #e2e8f0;
+  background: transparent;
+  border: 1px solid #64748b;
+}
+
+button.danger {
+  color: #fff;
+  background: #dc2626;
+}
+
+input,
+select {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid #475569;
+  border-radius: 10px;
+  color: #e2e8f0;
+  background: #0f172a;
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+h2 {
+  font-size: 1.25rem;
+}
+
+.small {
+  color: #94a3b8;
+  font-size: 0.78rem;
+}
+
+.centered {
+  text-align: center;
+}
+
+.success {
+  color: #86efac;
+}
+
+.error {
+  color: #fca5a5;
+}

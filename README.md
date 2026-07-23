@@ -1,88 +1,60 @@
-# ClimbCrew — serveur Linux
+# ClimbCrew
 
-ClimbCrew est une application de gestion de club d’escalade composée de :
-
-- un frontend React/Vite servi par Nginx ;
-- un backend Node.js/Express ;
-- une base PostgreSQL ;
-- un déploiement Docker Compose pour Linux ;
-- un reverse proxy HTTPS externe au projet.
+ClimbCrew est une application de gestion de club d’escalade. Elle regroupe les inscriptions aux séances, les participants, les voies et les réalisations.
 
 ## Architecture
 
-```text
-Internet
-  ↓
-Reverse proxy HTTPS du serveur Linux
-  ↓
-Frontend : 127.0.0.1:8080
-Backend API : 127.0.0.1:3000
-  ↓
-PostgreSQL dans le réseau Docker
-```
+- Frontend React, Vite et TypeScript strict
+- Backend Express et TypeScript strict exécuté par Bun
+- PostgreSQL comme source de vérité
+- Authentification par cookie HttpOnly et protection CSRF
+- Déploiement Linux avec Docker Compose et reverse proxy HTTPS
 
-Le certificat TLS est géré par le reverse proxy du serveur. ClimbCrew n’expose pas directement PostgreSQL et n’embarque aucun certificat.
+Le frontend appelle l’API sous `/api`. Le reverse proxy dirige le frontend vers `127.0.0.1:8080` et l’API vers `127.0.0.1:3000`. PostgreSQL reste privé dans le réseau Docker.
 
-## Prérequis
+## Développement
 
-- serveur Linux ;
-- Docker Engine ;
-- plugin Docker Compose ;
-- Git ;
-- un nom de domaine configuré vers le serveur ;
-- un reverse proxy HTTPS existant.
-
-## Installation
+Prérequis : Bun 1.3.14 et PostgreSQL.
 
 ```bash
-sudo mkdir -p /opt/climbcrew
-sudo chown "$USER":"$USER" /opt/climbcrew
-git clone https://github.com/fabienkazak-maker/ClimbCrew.git /opt/climbcrew
-cd /opt/climbcrew
+bun install
+cp backend/.env.example backend/.env
+bun run backend:dev
+bun run dev
+```
+
+Le frontend utilise `http://localhost:5173` et le backend `http://localhost:3000` par défaut.
+
+## Validation
+
+```bash
+bun run lint
+bun run typecheck
+bun run build
+bun run test:e2e
+```
+
+La suite complète construit la pile Docker isolée, exécute les tests API, puis vérifie Chromium et Firefox sur les formats desktop et mobile. Les secrets, comptes et données de test sont générés à chaque exécution, puis le volume PostgreSQL temporaire est supprimé.
+
+## Production
+
+```bash
 cp .env.production.example .env.production
-nano .env.production
+bun run prod:config
+bun run prod:up
+bun run prod:setup-db
+bun run prod:health
 ```
 
-Renseigner au minimum les mots de passe PostgreSQL, `DATABASE_URL`, `SETUP_TOKEN`, `FIRST_ADMIN_EMAIL` et `FIRST_ADMIN_PASSWORD`.
+Renseigner des valeurs uniques et robustes pour PostgreSQL, `SETUP_TOKEN`, `FIRST_ADMIN_EMAIL` et `FIRST_ADMIN_PASSWORD` avant le premier démarrage.
 
-## Déploiement
+Le certificat TLS est géré par le reverse proxy du serveur. Les routes attendues sont :
 
-```bash
-chmod +x deploy/scripts/*.sh
-./deploy/scripts/deploy-docker.sh .env.production
-./deploy/scripts/setup-db.sh .env.production
-./deploy/scripts/healthcheck.sh .env.production
-```
+- `/` vers `http://127.0.0.1:8080`
+- `/api/` vers `http://127.0.0.1:3000`
 
-Commandes npm équivalentes :
+La configuration détaillée se trouve dans [deploy/README-linux-reverse-proxy.md](deploy/README-linux-reverse-proxy.md).
 
-```bash
-npm run prod:config
-npm run prod:up
-npm run prod:logs
-npm run prod:health
-```
+## Données
 
-## Reverse proxy HTTPS
-
-Adapter le fichier :
-
-```text
-deploy/nginx/climbcrew.reverse-proxy.example.conf
-```
-
-Le reverse proxy doit envoyer :
-
-- `/` vers `http://127.0.0.1:8080` ;
-- `/api/` vers `http://127.0.0.1:3000`.
-
-## Sécurité
-
-- ne jamais versionner `.env.production` ;
-- conserver `SECURE_COOKIES=true` ;
-- conserver `TRUST_PROXY=1` derrière le reverse proxy ;
-- utiliser des secrets longs et uniques ;
-- ne pas exposer directement PostgreSQL ni le backend ;
-- sauvegarder régulièrement le volume `climbcrew_pgdata`.
-
-La documentation détaillée se trouve dans [deploy/README-linux-reverse-proxy.md](deploy/README-linux-reverse-proxy.md).
+Les exports réels ne doivent jamais être versionnés. `backend/import-data.example.json` documente uniquement la structure vide attendue. L’import administrateur est transactionnel et les routes de maintenance nécessitent `SETUP_TOKEN`.
