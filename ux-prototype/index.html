@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#17211b" />
+  <meta name="description" content="Simulation publique de la nouvelle expérience ClimbCrew avec données fictives." />
+  <title>ClimbCrew — Nouvelle expérience</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">CC</div>
+        <div><strong>ClimbCrew</strong><small>Club en mouvement</small></div>
+      </div>
+      <nav class="nav" aria-label="Navigation principale">
+        <button class="active" data-page="home"><span data-icon="home"></span>Accueil</button>
+        <button data-page="sessions"><span data-icon="calendar"></span>Séances</button>
+        <button data-page="routes"><span data-icon="route"></span>Voies</button>
+        <button data-page="progress"><span data-icon="chart"></span>Progression</button>
+        <button data-page="club"><span data-icon="users"></span>Club</button>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="demo-pill"><strong>Simulation publique</strong><br>Données entièrement fictives. Aucune connexion au serveur ClimbCrew.</div>
+        <button class="theme-btn" id="themeToggle">◐ Changer d’ambiance</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="mobile-head">
+        <div class="brand"><div class="brand-mark">CC</div><div><strong>ClimbCrew</strong></div></div>
+        <div class="profile-mini"><div class="avatar">CM</div><div><strong>Camille Martin</strong><small>Passeport vert</small></div></div>
+      </header>
+      <header class="topbar">
+        <div><h1 id="pageTitle">Bonjour Camille 👋</h1><p id="pageSubtitle">Voici l’essentiel pour grimper cette semaine.</p></div>
+        <div class="profile-mini"><div class="avatar">CM</div><div><strong>Camille Martin</strong><small>Passeport vert</small></div></div>
+      </header>
+
+      <section class="page active" id="home">
+        <div class="hero">
+          <div class="hero-grid">
+            <div>
+              <span class="eyebrow">● Prochaine séance</span>
+              <h2>Jeudi midi,<br>on grimpe ensemble.</h2>
+              <p>Séance encadrée de 12 h 15 à 13 h 45. Il reste 6 places et deux référents seront présents.</p>
+              <div class="hero-actions">
+                <button class="btn primary signup-btn" data-session="Jeudi midi">Je m’inscris</button>
+                <button class="btn secondary" data-open-modal>Ajouter une réalisation</button>
+              </div>
+            </div>
+            <aside class="hero-status">
+              <h3>Mon dossier club</h3>
+              <div class="status-list">
+                <div class="status-row"><span>Passeport</span><span class="badge green">Vert</span></div>
+                <div class="status-row"><span>Cotisation</span><span class="badge green">À jour</span></div>
+                <div class="status-row"><span>Licence FFME</span><span class="badge green">Validée</span></div>
+                <div class="status-row"><span>CPR</span><span class="badge yellow">57 · 6b</span></div>
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        <div class="section-head"><div><h2>À venir</h2><p>Les séances qui vous concernent vraiment.</p></div><button class="text-btn" data-go="sessions">Voir la semaine</button></div>
+        <div class="dashboard-grid">
+          <div style="display:grid;gap:12px">
+            <article class="card session-card">
+              <div class="date-tile"><div><span>Jeu.</span><strong>30</strong><span>juillet</span></div></div>
+              <div class="session-main"><h3>Midi · Séance encadrée</h3><div class="meta"><span>12 h 15 — 13 h 45</span><span>Référents : Léa & Thomas</span></div><div class="progress-line"><span style="width:66%"></span></div></div>
+              <div class="session-side"><span class="capacity">12 / 18 inscrits</span><button class="btn light signup-btn" data-session="Jeudi midi">Je m’inscris</button></div>
+            </article>
+            <article class="card session-card">
+              <div class="date-tile"><div><span>Ven.</span><strong>31</strong><span>juillet</span></div></div>
+              <div class="session-main"><h3>Soir · Séance libre</h3><div class="meta"><span>18 h 00 — 20 h 30</span><span>Autonomie requise</span></div><div class="progress-line"><span style="width:44%"></span></div></div>
+              <div class="session-side"><span class="capacity">8 / 18 inscrits</span><button class="btn light signup-btn" data-session="Vendredi soir">Je m’inscris</button></div>
+            </article>
+          </div>
+          <aside class="card quick-card">
+            <h3>Action rapide</h3><p>Les deux gestes les plus fréquents restent accessibles immédiatement.</p>
+            <div class="quick-actions">
+              <button class="btn" data-go="sessions"><span data-icon="calendar"></span>Choisir une séance</button>
+              <button class="btn" data-open-modal><span data-icon="plus"></span>Saisir une réalisation</button>
+              <button class="btn" data-go="routes"><span data-icon="route"></span>Trouver une voie</button>
+            </div>
+          </aside>
+        </div>
+
+        <div class="section-head"><div><h2>Ma dynamique</h2><p>Des repères simples, sans tableau compliqué.</p></div></div>
+        <div class="stats-row">
+          <article class="card stat"><small>CPR actuel</small><strong>57</strong><span class="trend">+3 ce mois</span></article>
+          <article class="card stat"><small>Niveau repère</small><strong>6b</strong></article>
+          <article class="card stat"><small>Voies enchaînées</small><strong>34</strong></article>
+          <article class="card stat"><small>Séances ce mois</small><strong>7</strong></article>
+        </div>
+      </section>
+
+      <section class="page" id="sessions">
+        <div class="section-head" style="margin-top:0"><div><h2>Ma semaine d’escalade</h2><p>Chaque séance est placée directement sous son jour.</p></div></div>
+        <div class="toolbar">
+          <div class="segmented"><button class="active">Semaine</button><button>Jour</button><button>Liste</button></div>
+          <div class="segmented"><button>‹</button><button class="active">27 juil. — 2 août</button><button>›</button></div>
+        </div>
+        <div class="week">
+          <article class="card day"><div class="day-head"><strong>Lundi</strong><span>27 juil.</span></div><div class="slot"><span class="badge dark">Midi · libre</span><h4>12 h 15 — 13 h 45</h4><div class="people"><div class="dots"><i class="dot" style="background:#e36c5c">AM</i><i class="dot" style="background:#5985d8">JL</i><i class="dot" style="background:#9467bd">SR</i></div><span>5 / 18</span></div></div><div class="slot"><span class="badge blue">Soir · libre</span><h4>18 h 00 — 20 h 30</h4><div class="people"><div class="dots"><i class="dot" style="background:#3b8d70">LB</i><i class="dot" style="background:#cc7a28">TM</i></div><span>9 / 18</span></div></div></article>
+          <article class="card day"><div class="day-head"><strong>Mardi</strong><span>28 juil.</span></div><div class="slot"><span class="badge yellow">Midi · encadrée</span><h4>12 h 15 — 13 h 45</h4><div class="people"><div class="dots"><i class="dot" style="background:#e36c5c">AM</i><i class="dot" style="background:#5985d8">JL</i><i class="dot" style="background:#3b8d70">LB</i></div><span>14 / 18</span></div></div></article>
+          <article class="card day"><div class="day-head"><strong>Mercredi</strong><span>29 juil.</span></div><div class="slot"><span class="badge green">Matin · libre</span><h4>07 h 30 — 09 h 00</h4><div class="people"><div class="dots"><i class="dot" style="background:#9467bd">SR</i></div><span>4 / 18</span></div></div><div class="slot"><span class="badge blue">Soir · libre</span><h4>18 h 00 — 20 h 30</h4><div class="people"><div class="dots"><i class="dot" style="background:#cc7a28">TM</i><i class="dot" style="background:#3b8d70">LB</i></div><span>7 / 18</span></div></div></article>
+          <article class="card day today"><div class="day-head"><strong>Jeudi</strong><span>Aujourd’hui · 30</span></div><div class="slot"><span class="badge yellow">Midi · encadrée</span><h4>12 h 15 — 13 h 45</h4><div class="people"><div class="dots"><i class="dot" style="background:#e36c5c">AM</i><i class="dot" style="background:#5985d8">JL</i><i class="dot" style="background:#9467bd">SR</i></div><span>12 / 18</span></div><button class="btn primary signup-btn" data-session="Jeudi midi" style="width:100%;margin-top:12px">Je m’inscris</button></div></article>
+          <article class="card day"><div class="day-head"><strong>Vendredi</strong><span>31 juil.</span></div><div class="slot"><span class="badge blue">Soir · libre</span><h4>18 h 00 — 20 h 30</h4><div class="people"><div class="dots"><i class="dot" style="background:#3b8d70">LB</i><i class="dot" style="background:#cc7a28">TM</i></div><span>8 / 18</span></div><button class="btn light signup-btn" data-session="Vendredi soir" style="width:100%;margin-top:12px">Je m’inscris</button></div></article>
+        </div>
+      </section>
+
+      <section class="page" id="routes">
+        <div class="section-head" style="margin-top:0"><div><h2>Les voies</h2><p>Rechercher par cotation, couleur, corde ou ouvreur.</p></div></div>
+        <div class="toolbar">
+          <label class="search"><span data-icon="search"></span><input id="routeSearch" type="search" placeholder="Rechercher une voie…" /></label>
+          <div class="segmented" id="gradeFilter"><button class="active" data-grade="all">Toutes</button><button data-grade="5">5</button><button data-grade="6">6</button><button data-grade="7">7</button></div>
+        </div>
+        <div class="route-grid" id="routeGrid">
+          <article class="card route-card" data-route="fabien soleil vertical 5c corde 4" data-grade="5" style="--route:#ffd637"><div class="route-band"></div><div class="route-top"><div class="rope">4</div><div class="grade">5c</div></div><h3>Fabien · Soleil vertical</h3><p>Jaune · Mur principal</p><div class="route-foot"><span class="badge green">Disponible</span><button class="mini-btn" data-open-modal data-route-name="Soleil vertical" data-route-grade="5c">Je l’ai faite</button></div></article>
+          <article class="card route-card" data-route="lea l equilibre 6a corde 7" data-grade="6" style="--route:#ef7f38"><div class="route-band"></div><div class="route-top"><div class="rope">7</div><div class="grade">6a</div></div><h3>Léa · L’Équilibre</h3><p>Orange · Dévers léger</p><div class="route-foot"><span class="badge green">Disponible</span><button class="mini-btn" data-open-modal data-route-name="L’Équilibre" data-route-grade="6a">Je l’ai faite</button></div></article>
+          <article class="card route-card" data-route="thomas rhino discret 6b corde 10" data-grade="6" style="--route:#7ccf5b"><div class="route-band"></div><div class="route-top"><div class="rope">10</div><div class="grade">6b</div></div><h3>Thomas · Rhino discret</h3><p>Verte · Proue</p><div class="route-foot"><span class="badge yellow">Très demandée</span><button class="mini-btn" data-open-modal data-route-name="Rhino discret" data-route-grade="6b">Je l’ai faite</button></div></article>
+          <article class="card route-card" data-route="maya grande bleue 6b+ corde 12" data-grade="6" style="--route:#4c94e8"><div class="route-band"></div><div class="route-top"><div class="rope">12</div><div class="grade">6b+</div></div><h3>Maya · La Grande Bleue</h3><p>Bleue · Dalle technique</p><div class="route-foot"><span class="badge green">Disponible</span><button class="mini-btn" data-open-modal data-route-name="La Grande Bleue" data-route-grade="6b+">Je l’ai faite</button></div></article>
+          <article class="card route-card" data-route="nicolas grain de sable 7a corde 16" data-grade="7" style="--route:#d8b075"><div class="route-band"></div><div class="route-top"><div class="rope">16</div><div class="grade">7a</div></div><h3>Nicolas · Grain de sable</h3><p>Ocre · Grand dévers</p><div class="route-foot"><span class="badge red">Moulinette seule</span><button class="mini-btn" data-open-modal data-route-name="Grain de sable" data-route-grade="7a">Je l’ai faite</button></div></article>
+          <article class="card route-card" data-route="ines page blanche 5b corde 19" data-grade="5" style="--route:#f3f3f3"><div class="route-band"></div><div class="route-top"><div class="rope">19</div><div class="grade">5b</div></div><h3>Inès · Page blanche</h3><p>Blanche · Mur école</p><div class="route-foot"><span class="badge green">Disponible</span><button class="mini-btn" data-open-modal data-route-name="Page blanche" data-route-grade="5b">Je l’ai faite</button></div></article>
+        </div>
+      </section>
+
+      <section class="page" id="progress">
+        <div class="section-head" style="margin-top:0"><div><h2>Ma progression</h2><p>Un récit de progression plutôt qu’une suite de tableaux.</p></div></div>
+        <div class="progress-layout">
+          <article class="card cpr-card"><small>Climbing Performance Rating</small><div class="cpr-score">57</div><strong>Niveau repère : 6b</strong><div class="cpr-bar"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></div><p class="cpr-note">Le CPR synthétise vos réalisations récentes en tenant compte de la cotation, du style et de la régularité.</p></article>
+          <article class="card chart"><div class="section-head" style="margin:0 0 15px"><div><h2 style="font-size:21px">Évolution sur 8 semaines</h2><p>+8 points depuis début juin</p></div></div><svg viewBox="0 0 560 230" role="img" aria-label="Courbe de progression CPR"><defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6d8d39" stop-opacity=".35"/><stop offset="1" stop-color="#6d8d39" stop-opacity="0"/></linearGradient></defs><g stroke="currentColor" opacity=".09"><path d="M35 35H540M35 85H540M35 135H540M35 185H540"/></g><path d="M35 177 C85 170 110 158 145 160 S210 138 245 145 S310 120 345 126 S410 98 445 104 S500 73 540 76 L540 205 L35 205Z" fill="url(#area)"/><path d="M35 177 C85 170 110 158 145 160 S210 138 245 145 S310 120 345 126 S410 98 445 104 S500 73 540 76" fill="none" stroke="#6d8d39" stroke-width="5" stroke-linecap="round"/><g fill="#d6ff54" stroke="#254436" stroke-width="3"><circle cx="35" cy="177" r="6"/><circle cx="145" cy="160" r="6"/><circle cx="245" cy="145" r="6"/><circle cx="345" cy="126" r="6"/><circle cx="445" cy="104" r="6"/><circle cx="540" cy="76" r="6"/></g></svg></article>
+        </div>
+        <div class="section-head"><div><h2>Derniers jalons</h2><p>Des réussites qui donnent envie de continuer.</p></div><button class="btn light" data-open-modal>+ Réalisation</button></div>
+        <div class="achievement-list">
+          <article class="card achievement"><div class="achievement-icon">6b</div><div><h4>Premier 6b à vue</h4><p>Rhino discret · il y a 3 jours</p></div></article>
+          <article class="card achievement"><div class="achievement-icon">🔥</div><div><h4>4 séances consécutives</h4><p>Votre meilleure régularité depuis avril</p></div></article>
+          <article class="card achievement"><div class="achievement-icon">12</div><div><h4>12 voies en juillet</h4><p>8 en tête, 3 à vue et 1 travaillée</p></div></article>
+        </div>
+      </section>
+
+      <section class="page" id="club">
+        <div class="section-head" style="margin-top:0"><div><h2>La vie du club</h2><p>Les informations administratives deviennent des indicateurs utiles.</p></div></div>
+        <div class="club-grid">
+          <article class="card club-card"><span class="badge green">À jour</span><div class="big">86%</div><h3>Dossiers complets</h3><p>Cotisation et licence FFME validées. 7 membres restent à accompagner.</p></article>
+          <article class="card club-card"><span class="badge blue">Cette semaine</span><div class="big">42</div><h3>Participations prévues</h3><p>Une fréquentation équilibrée, avec encore de la place vendredi soir.</p></article>
+          <article class="card club-card"><h3>Référents disponibles</h3><p style="margin-bottom:16px">Léa Bernard, Thomas Morel, Inès Caron et Nicolas Petit.</p><div class="dots"><i class="dot" style="background:#3b8d70">LB</i><i class="dot" style="background:#cc7a28">TM</i><i class="dot" style="background:#9467bd">IC</i><i class="dot" style="background:#5985d8">NP</i></div></article>
+          <article class="card club-card"><h3>Mode administrateur</h3><p>La gestion détaillée reste accessible aux responsables sans encombrer l’expérience des grimpeurs.</p><button class="btn light" style="margin-top:16px" id="adminPreview">Aperçu administrateur</button></article>
+        </div>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" aria-label="Navigation mobile">
+      <button class="active" data-page="home"><span data-icon="home"></span>Accueil</button>
+      <button data-page="sessions"><span data-icon="calendar"></span>Séances</button>
+      <button data-page="routes"><span data-icon="route"></span>Voies</button>
+      <button data-page="progress"><span data-icon="chart"></span>Progrès</button>
+      <button data-page="club"><span data-icon="users"></span>Club</button>
+    </nav>
+  </div>
+
+  <div class="modal-backdrop" id="realisationModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal">
+      <div class="modal-head"><div><span class="eyebrow" style="color:#57713b">Saisie rapide</span><h2 id="modalTitle">Ajouter une réalisation</h2></div><button class="close" data-close-modal aria-label="Fermer">×</button></div>
+      <form id="realisationForm">
+        <div class="form-grid">
+          <div class="field full"><label for="routeName">Voie</label><input id="routeName" required value="Rhino discret" /></div>
+          <div class="field"><label for="routeGrade">Cotation</label><select id="routeGrade"><option>5c</option><option>6a</option><option selected>6b</option><option>6b+</option><option>6c</option><option>7a</option></select></div>
+          <div class="field"><label for="style">Style</label><select id="style"><option>À vue</option><option>Flash</option><option selected>En tête</option><option>En moulinette</option><option>Travaillée</option><option>Projet</option></select></div>
+          <div class="field"><label for="attempts">Nombre d’essais</label><input id="attempts" type="number" min="1" value="1" /></div>
+          <div class="field"><label for="proposed">Cotation proposée</label><select id="proposed"><option>Conserver 6b</option><option>Proposer 6a+</option><option>Proposer 6b+</option></select></div>
+          <div class="field full"><label for="comment">Commentaire</label><input id="comment" placeholder="Un ressenti, un conseil…" /></div>
+        </div>
+        <div class="modal-actions"><button type="button" class="btn light" data-close-modal>Annuler</button><button type="submit" class="btn primary">Enregistrer</button></div>
+      </form>
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
