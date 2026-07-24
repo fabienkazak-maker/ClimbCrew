@@ -1,0 +1,48 @@
+name: Deploy public UX prototype
+
+on:
+  push:
+    branches:
+      - agent/public-ux-prototype
+    paths:
+      - "ux-prototype/**"
+      - ".github/workflows/deploy-ux-prototype.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-ux-prototype
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Configurer GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Préparer le site statique
+        run: |
+          test -f ux-prototype/index.html
+          mkdir -p _site
+          cp -R ux-prototype/. _site/
+          touch _site/.nojekyll
+
+      - name: Publier l’artefact Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Déployer sur GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
