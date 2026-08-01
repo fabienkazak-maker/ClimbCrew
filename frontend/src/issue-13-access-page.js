@@ -87,7 +87,6 @@ function enhanceButtons(card, requestFormVisible) {
     requestSwitchButton.classList.toggle("issue13-hidden", requestFormVisible);
 
     if (!requestFormVisible) {
-      requestSwitchButton.classList.add("secondary");
       requestSwitchButton.textContent = "Demander la création d’un compte";
     }
   }
