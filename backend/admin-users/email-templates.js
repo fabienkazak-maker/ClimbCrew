@@ -70,7 +70,7 @@ export function buildAccountRequestConfirmation({ prenom, nom, publicUrl }) {
     "",
     "Ta demande de création de compte ClimbCrew a bien été enregistrée.",
     "Un administrateur doit maintenant l'approuver avant ta première connexion.",
-    "Tu recevras une information lorsque ton accès sera activé.",
+    "Tu pourras te connecter dès que cette approbation aura été effectuée.",
     normalizedUrl ? `ClimbCrew : ${normalizedUrl}` : "",
   ].filter(Boolean).join("\n");
 
@@ -81,7 +81,7 @@ export function buildAccountRequestConfirmation({ prenom, nom, publicUrl }) {
       <p style="margin:0 0 16px;">Bonjour <strong>${safeName}</strong>,</p>
       <p style="margin:0 0 14px;">Ta demande de création de compte ClimbCrew a bien été enregistrée.</p>
       <p style="margin:0 0 14px;">Un administrateur doit maintenant l’approuver avant ta première connexion.</p>
-      <p style="margin:0;">Tu recevras une information lorsque ton accès sera activé.</p>
+      <p style="margin:0;">Tu pourras te connecter dès que cette approbation aura été effectuée.</p>
       ${loginLink}
     `,
   });
