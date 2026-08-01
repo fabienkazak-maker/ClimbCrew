@@ -1,0 +1,16 @@
+/* Issue #16 — compacter verticalement le nom des voies sans modifier les autres cartes. */
+.route-card {
+  padding-top: 7px !important;
+  padding-bottom: 7px !important;
+}
+
+.route-card > .card-header {
+  margin-bottom: 4px !important;
+  align-items: center;
+}
+
+.route-card > .card-header > strong {
+  margin: 0;
+  padding: 0;
+  line-height: 1.2;
+}
