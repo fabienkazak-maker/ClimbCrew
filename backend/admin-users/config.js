@@ -8,4 +8,7 @@ export const CSRF_COOKIE_NAME = process.env.CSRF_COOKIE_NAME || "climbcrew_csrf"
 export const BCRYPT_ROUNDS = Number(
   process.env.BCRYPT_ROUNDS || (process.env.NODE_ENV === "production" ? 12 : 10)
 );
+export const RESET_TOKEN_DURATION_MS = 1000 * 60 * Number(
+  process.env.RESET_TOKEN_DURATION_MINUTES || 60
+);
 export const INSTALL_FLAG = Symbol.for("climbcrew.adminUserEnhancements.installed");
