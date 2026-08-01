@@ -70,6 +70,8 @@ function enhanceConsent(card) {
 }
 
 function enhanceButtons(card, requestFormVisible) {
+  // Les deux changements de l’issue #15 ne doivent s’appliquer que sur
+  // le formulaire de création de compte, jamais sur l’écran de connexion.
   const submitButton = card.querySelector(".auth-submit-row button");
   if (requestFormVisible && submitButton) {
     submitButton.textContent = "Demander la création d’un compte";
