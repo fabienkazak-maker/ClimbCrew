@@ -75,14 +75,26 @@ function enhanceButtons(card, requestFormVisible) {
     submitButton.textContent = "Demander la création d’un compte";
   }
 
-  const requestSwitchButton = [...card.querySelectorAll(".auth-switcher button")]
-    .find((button) => normalizedText(button.textContent).includes("demander un accès") || normalizedText(button.textContent).includes("création d’un compte"));
+  const switchButtons = [...card.querySelectorAll(".auth-switcher button")];
+  const requestSwitchButton = switchButtons.find((button) => {
+    const text = normalizedText(button.textContent);
+    return text.includes("demander un accès") || text.includes("création d’un compte");
+  });
+  const forgotPasswordButton = switchButtons.find((button) => normalizedText(button.textContent).includes("mot de passe perdu"));
 
   if (requestSwitchButton) {
     requestSwitchButton.classList.toggle("issue13-hidden", requestFormVisible);
+    requestSwitchButton.classList.remove("secondary");
+
     if (!requestFormVisible && requestSwitchButton.textContent !== "Demander la création d’un compte") {
       requestSwitchButton.textContent = "Demander la création d’un compte";
     }
+  }
+
+  if (forgotPasswordButton) {
+    forgotPasswordButton.classList.add("issue13-hidden");
+    forgotPasswordButton.setAttribute("aria-hidden", "true");
+    forgotPasswordButton.tabIndex = -1;
   }
 }
 
