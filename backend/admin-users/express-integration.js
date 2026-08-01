@@ -1,7 +1,12 @@
 import express from "express";
 import { INSTALL_FLAG } from "./config.js";
 import { ensureAdminUserSchema } from "./database.js";
-import { requestAccess, listUsers, updateAdminRight } from "./account-service.js";
+import {
+  forgotPassword,
+  listUsers,
+  requestAccess,
+  updateAdminRight,
+} from "./account-service.js";
 import { exportAllData } from "./export-service.js";
 import { requireAdmin } from "./security.js";
 
@@ -20,6 +25,9 @@ export function installExpressIntegration() {
   express.application.post = function patchedPost(path, ...handlers) {
     if (path === "/auth/request-access" && handlers.length) {
       return replaceLastHandler(originalPost, this, path, handlers, requestAccess);
+    }
+    if (path === "/auth/forgot-password" && handlers.length) {
+      return replaceLastHandler(originalPost, this, path, handlers, forgotPassword);
     }
     return originalPost.call(this, path, ...handlers);
   };
