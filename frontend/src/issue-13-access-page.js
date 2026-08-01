@@ -71,8 +71,9 @@ function enhanceConsent(card) {
 
 function enhanceButtons(card, requestFormVisible) {
   const submitButton = card.querySelector(".auth-submit-row button");
-  if (requestFormVisible && submitButton && submitButton.textContent !== "Demander la création d’un compte") {
+  if (requestFormVisible && submitButton) {
     submitButton.textContent = "Demander la création d’un compte";
+    submitButton.classList.remove("secondary");
   }
 
   const switchButtons = [...card.querySelectorAll(".auth-switcher button")];
@@ -84,17 +85,23 @@ function enhanceButtons(card, requestFormVisible) {
 
   if (requestSwitchButton) {
     requestSwitchButton.classList.toggle("issue13-hidden", requestFormVisible);
-    requestSwitchButton.classList.remove("secondary");
 
-    if (!requestFormVisible && requestSwitchButton.textContent !== "Demander la création d’un compte") {
+    if (!requestFormVisible) {
+      requestSwitchButton.classList.add("secondary");
       requestSwitchButton.textContent = "Demander la création d’un compte";
     }
   }
 
   if (forgotPasswordButton) {
-    forgotPasswordButton.classList.add("issue13-hidden");
-    forgotPasswordButton.setAttribute("aria-hidden", "true");
-    forgotPasswordButton.tabIndex = -1;
+    forgotPasswordButton.classList.toggle("issue13-hidden", requestFormVisible);
+
+    if (requestFormVisible) {
+      forgotPasswordButton.setAttribute("aria-hidden", "true");
+      forgotPasswordButton.tabIndex = -1;
+    } else {
+      forgotPasswordButton.removeAttribute("aria-hidden");
+      forgotPasswordButton.removeAttribute("tabindex");
+    }
   }
 }
 
