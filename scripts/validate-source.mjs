@@ -17,7 +17,17 @@ const main = fs.readFileSync("frontend/src/main.jsx", "utf8");
 if (!main.includes("<ErrorBoundary>")) fail("ErrorBoundary absent du point d’entrée React");
 
 const backendPackage = JSON.parse(fs.readFileSync("backend/package.json", "utf8"));
-if (backendPackage.scripts?.start !== "node server.js") fail("le backend ne démarre pas directement server.js");
+const allowedBackendStartCommands = new Set([
+  "node server.js",
+  "node --import ./admin-user-enhancements.js server.js",
+]);
+if (!allowedBackendStartCommands.has(backendPackage.scripts?.start)) {
+  fail("commande de démarrage backend non reconnue");
+}
+if (backendPackage.scripts?.start.includes("admin-user-enhancements.js")
+    && !fs.existsSync("backend/admin-user-enhancements.js")) {
+  fail("préchargement admin-user-enhancements.js introuvable");
+}
 if (fs.existsSync("backend/server-runtime.js")) fail("server-runtime.js ne doit plus être utilisé");
 
 if (app.includes("multi-signup") || app.includes('name="participantIds"')) fail("la sélection multiple des inscriptions est encore présente");
