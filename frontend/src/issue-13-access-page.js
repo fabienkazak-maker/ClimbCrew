@@ -70,7 +70,7 @@ function enhanceConsent(card) {
 }
 
 function enhanceButtons(card, requestFormVisible) {
-  // Les deux changements de l’issue #15 ne doivent s’appliquer que sur
+  // Les changements de l’issue #15 ne doivent s’appliquer que sur
   // le formulaire de création de compte, jamais sur l’écran de connexion.
   const submitButton = card.querySelector(".auth-submit-row button");
   if (requestFormVisible && submitButton) {
@@ -119,6 +119,7 @@ function enhanceAccessPage() {
   if (!card) return;
 
   const requestFormVisible = enhancePasswordPolicy(card);
+  card.classList.toggle("issue13-request-form", requestFormVisible);
   if (requestFormVisible) enhanceConsent(card);
   enhanceButtons(card, requestFormVisible);
   hideVersion(card);
