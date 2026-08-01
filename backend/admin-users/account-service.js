@@ -1,9 +1,24 @@
+import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
-import { BCRYPT_ROUNDS } from "./config.js";
+import { BCRYPT_ROUNDS, RESET_TOKEN_DURATION_MS } from "./config.js";
 import { getPool } from "./database.js";
 import { writeAccessLog } from "./access-log-service.js";
-import { cleanEmail, isStrongPassword } from "./security.js";
+import { cleanEmail, hashToken, isStrongPassword } from "./security.js";
 import { serializeUser } from "./user-serializer.js";
+import {
+  sendAccountRequestConfirmation,
+  sendPasswordResetCode,
+} from "./email-service.js";
+
+function emailLogDetails(result, email) {
+  return {
+    email,
+    delivered: Boolean(result?.sent),
+    skipped: Boolean(result?.skipped),
+    reason: result?.reason || null,
+    messageId: result?.messageId || null,
+  };
+}
 
 /**
  * Associe un compte à un participant existant ou crée un participant minimal.
@@ -76,24 +91,155 @@ export async function requestAccess(req, res) {
 
     await client.query("commit");
 
+    const user = userResult.rows[0];
     await writeAccessLog({
-      userId: userResult.rows[0].id,
+      userId: user.id,
       eventType: "request_access",
       req,
       details: { email, participantId: String(participantId), participantCreated },
     });
 
+    let emailSent = false;
+    try {
+      const emailResult = await sendAccountRequestConfirmation({ email, prenom, nom });
+      emailSent = Boolean(emailResult.sent);
+      await writeAccessLog({
+        userId: user.id,
+        eventType: emailResult.sent
+          ? "account_request_confirmation_email_sent"
+          : "account_request_confirmation_email_skipped",
+        success: Boolean(emailResult.sent || emailResult.skipped),
+        req,
+        details: emailLogDetails(emailResult, email),
+      });
+    } catch (error) {
+      console.error("Envoi de la confirmation de création de compte impossible :", error);
+      await writeAccessLog({
+        userId: user.id,
+        eventType: "account_request_confirmation_email_failed",
+        success: false,
+        req,
+        details: { email, error: String(error.message || error) },
+      });
+    }
+
     res.json({
       ok: true,
-      message: "Demande d’accès enregistrée. Un administrateur doit l’approuver.",
-      user: serializeUser(userResult.rows[0]),
+      message: emailSent
+        ? "Demande d’accès enregistrée. Un e-mail de confirmation a été envoyé. Un administrateur doit maintenant approuver le compte."
+        : "Demande d’accès enregistrée. Un administrateur doit l’approuver. La confirmation par e-mail n’a pas pu être envoyée.",
+      user: serializeUser(user),
       participantCreated,
+      emailSent,
     });
   } catch (error) {
     await client.query("rollback");
     res.status(500).json({ error: String(error.message || error) });
   } finally {
     client.release();
+  }
+}
+
+/**
+ * Génère un code temporaire et l'envoie par e-mail lorsque le compte est actif.
+ * La réponse reste volontairement générique afin de ne pas révéler si une adresse existe.
+ */
+export async function forgotPassword(req, res) {
+  const email = cleanEmail(req.body?.email);
+  const genericMessage = "Si un compte actif correspond à cette adresse, un code de réinitialisation valable une heure a été envoyé par e-mail. Vérifie également les courriers indésirables.";
+
+  if (!email) return res.status(400).json({ error: "Email requis" });
+
+  try {
+    const userResult = await getPool().query(
+      `select id, email, prenom, nom, status from users where lower(email) = $1 limit 1`,
+      [email]
+    );
+    const user = userResult.rows[0] || null;
+
+    await writeAccessLog({
+      userId: user?.id || null,
+      eventType: "forgot_password_requested",
+      req,
+      details: { email },
+    });
+
+    if (!user || user.status !== "active") {
+      return res.json({ ok: true, message: genericMessage });
+    }
+
+    const resetCode = crypto.randomBytes(4).toString("hex").toUpperCase();
+    const expiresAt = new Date(Date.now() + RESET_TOKEN_DURATION_MS).toISOString();
+    const pool = getPool();
+    const client = await pool.connect();
+
+    try {
+      await client.query("begin");
+      await client.query(
+        `update password_reset_tokens set used_at = now() where user_id = $1 and used_at is null`,
+        [user.id]
+      );
+      await client.query(
+        `
+          insert into password_reset_tokens (user_id, token_hash, expires_at)
+          values ($1, $2, $3)
+        `,
+        [user.id, hashToken(resetCode), expiresAt]
+      );
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    } finally {
+      client.release();
+    }
+
+    try {
+      const emailResult = await sendPasswordResetCode({
+        email: user.email,
+        prenom: user.prenom,
+        code: resetCode,
+        expiresAt,
+      });
+
+      if (!emailResult.sent) {
+        await pool.query(
+          `update password_reset_tokens set used_at = now() where user_id = $1 and token_hash = $2 and used_at is null`,
+          [user.id, hashToken(resetCode)]
+        );
+      }
+
+      await writeAccessLog({
+        userId: user.id,
+        eventType: emailResult.sent
+          ? "password_reset_email_sent"
+          : "password_reset_email_skipped",
+        success: Boolean(emailResult.sent),
+        req,
+        details: {
+          ...emailLogDetails(emailResult, email),
+          expiresAt,
+        },
+      });
+    } catch (error) {
+      await pool.query(
+        `update password_reset_tokens set used_at = now() where user_id = $1 and token_hash = $2 and used_at is null`,
+        [user.id, hashToken(resetCode)]
+      );
+      console.error("Envoi du code de réinitialisation impossible :", error);
+      await writeAccessLog({
+        userId: user.id,
+        eventType: "password_reset_email_failed",
+        success: false,
+        req,
+        details: { email, expiresAt, error: String(error.message || error) },
+      });
+    }
+
+    return res.json({ ok: true, message: genericMessage });
+  } catch (error) {
+    console.error("Traitement mot de passe perdu impossible :", error);
+    return res.status(500).json({ error: "La demande de réinitialisation ne peut pas être traitée pour le moment" });
   }
 }
 
