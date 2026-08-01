@@ -1,4 +1,5 @@
 const PASSWORD_POLICY_TEXT = "Au moins 12 caractères, avec au moins une lettre majuscule, une lettre minuscule, un chiffre et un caractère spécial.";
+const FORGOT_PASSWORD_HELP_TEXT = "Un code de réinitialisation valable une heure sera envoyé par e-mail si le compte est actif.";
 
 function normalizedText(value) {
   return String(value || "").trim().replace(/\s+/g, " ").toLocaleLowerCase("fr");
@@ -69,6 +70,18 @@ function enhanceConsent(card) {
   }
 }
 
+function enhanceForgotPasswordCopy(card) {
+  const helper = [...card.querySelectorAll(".small")].find((element) => {
+    const text = normalizedText(element.textContent);
+    return text.includes("administrateur pourra générer un code")
+      || text.includes("demande sera journalisée");
+  });
+
+  if (helper && helper.textContent !== FORGOT_PASSWORD_HELP_TEXT) {
+    helper.textContent = FORGOT_PASSWORD_HELP_TEXT;
+  }
+}
+
 function enhanceButtons(card, requestFormVisible) {
   // Les changements de l’issue #15 ne doivent s’appliquer que sur
   // le formulaire de création de compte, jamais sur l’écran de connexion.
@@ -121,6 +134,7 @@ function enhanceAccessPage() {
   const requestFormVisible = enhancePasswordPolicy(card);
   card.classList.toggle("issue13-request-form", requestFormVisible);
   if (requestFormVisible) enhanceConsent(card);
+  enhanceForgotPasswordCopy(card);
   enhanceButtons(card, requestFormVisible);
   hideVersion(card);
 }
