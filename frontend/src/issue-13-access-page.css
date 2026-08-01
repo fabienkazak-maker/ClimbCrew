@@ -48,6 +48,17 @@
   text-underline-offset: 2px;
 }
 
+.auth-card.issue13-request-form .auth-submit-row {
+  justify-content: center !important;
+}
+
+.auth-card.issue13-request-form .auth-submit-row button {
+  width: min(100%, 320px) !important;
+  min-width: 220px;
+  min-height: 44px;
+  border-radius: 12px !important;
+}
+
 .issue13-hidden {
   display: none !important;
 }
