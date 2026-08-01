@@ -7,6 +7,7 @@ import "./issue-13-access-page.js";
 import "./climbcrew-enhancements.js";
 import "./issue-11.css";
 import "./issue-13-access-page.css";
+import "./issue-16-routes.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
