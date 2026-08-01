@@ -1,10 +1,10 @@
 {
   "name": "climbcrew-backend",
   "private": true,
-  "version": "1.2.0-legacy-import-ready",
+  "version": "1.3.0-admin-users-export",
   "type": "module",
   "scripts": {
-    "start": "node server.js",
+    "start": "node --import ./admin-user-enhancements.js server.js",
     "seed:local": "node seed-local.js"
   },
   "dependencies": {
