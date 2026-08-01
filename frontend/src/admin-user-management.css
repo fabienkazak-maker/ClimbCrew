@@ -1,0 +1,56 @@
+/* Gestion des droits administrateur — visible uniquement dans l’onglet réservé aux administrateurs. */
+.admin-account-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-user-right-control {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 0 auto !important;
+  padding: 7px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 12px;
+  color: inherit !important;
+  font-size: 12px !important;
+  font-weight: 700;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  cursor: pointer;
+}
+
+.admin-user-right-control input[type="checkbox"] {
+  width: 18px !important;
+  min-width: 18px;
+  height: 18px;
+  min-height: 18px !important;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-user-right-control.is-saving {
+  opacity: 0.6;
+}
+
+.admin-user-right-control.is-saved {
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25);
+}
+
+@media (max-width: 700px) {
+  .admin-account-header-actions,
+  .admin-complete-export-button {
+    width: 100%;
+  }
+
+  .admin-account-header-actions button {
+    flex: 1 1 180px;
+  }
+
+  .admin-user-right-control {
+    margin-left: 0 !important;
+  }
+}
