@@ -1,0 +1,4 @@
+/* Issue #11 — la version ne doit plus être visible sur la page d’accueil / connexion. */
+.auth-card > .small:last-child {
+  display: none !important;
+}
