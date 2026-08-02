@@ -20,6 +20,7 @@ import {
 
 /** Variables modifiées par les tests et restaurées après chaque scénario. */
 const MANAGED_ENV_KEYS = [
+  "NODE_ENV",
   "RENDER",
   "CORS_ORIGIN",
   "FRONTEND_ORIGIN",
@@ -58,6 +59,7 @@ function runMiddleware(middleware, req) {
 test("fusionne les origines Render et Linux sans doublon", () => {
   const previousEnvironment = saveEnvironment();
   try {
+    process.env.NODE_ENV = "production";
     process.env.RENDER = "true";
     process.env.CORS_ORIGIN = "https://climbcrew.onrender.com";
     process.env.RENDER_FRONTEND_URL = "https://climbcrew.onrender.com/";
@@ -67,7 +69,7 @@ test("fusionne les origines Render et Linux sans doublon", () => {
 
     assert.equal(
       process.env.CORS_ORIGIN,
-      "https://climbcrew.onrender.com,https://climbcrew.dip-tcs.com,http://localhost:5173"
+      "https://climbcrew.onrender.com,https://climbcrew.dip-tcs.com"
     );
     assert.equal(process.env.TRUST_PROXY, "1");
     assert.equal(process.env.SECURE_COOKIES, "true");
@@ -77,9 +79,27 @@ test("fusionne les origines Render et Linux sans doublon", () => {
   }
 });
 
+test("ajoute localhost uniquement pendant le développement", () => {
+  const previousEnvironment = saveEnvironment();
+  try {
+    process.env.NODE_ENV = "development";
+    delete process.env.CORS_ORIGIN;
+    delete process.env.FRONTEND_ORIGIN;
+    delete process.env.RENDER_FRONTEND_URL;
+    delete process.env.PUBLIC_URL;
+
+    configureDeploymentEnvironment();
+
+    assert.equal(process.env.CORS_ORIGIN, "http://localhost:5173");
+  } finally {
+    restoreEnvironment(previousEnvironment);
+  }
+});
+
 test("conserve les valeurs de cookies explicitement définies sur Linux", () => {
   const previousEnvironment = saveEnvironment();
   try {
+    process.env.NODE_ENV = "production";
     process.env.RENDER = "true";
     process.env.SECURE_COOKIES = "false";
     process.env.COOKIE_SAMESITE = "lax";
