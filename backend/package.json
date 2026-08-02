@@ -1,11 +1,15 @@
 {
   "name": "climbcrew-backend",
   "private": true,
-  "version": "1.4.0-email-notifications",
+  "version": "1.5.0-render-linux-compatible",
   "type": "module",
   "scripts": {
     "start": "node --import ./admin-user-enhancements.js server.js",
+    "test": "node --test",
     "seed:local": "node seed-local.js"
+  },
+  "engines": {
+    "node": ">=20.18.0 <25"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
