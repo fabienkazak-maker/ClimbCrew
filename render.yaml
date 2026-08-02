@@ -141,9 +141,12 @@ services:
 # -----------------------------------------------------------------------------
 # PostgreSQL : stockage durable des comptes, séances, inscriptions et voies.
 # L'API utilise la connexion interne Render, plus rapide et non exposée au web.
+#
+# Le nom logique de la base et l'utilisateur ne sont pas imposés ici : Render
+# conserve ainsi les paramètres d'une base ClimbCrew-db déjà existante. Pour une
+# nouvelle base, Render génère automatiquement des valeurs compatibles et les
+# transmet à l'API grâce à DATABASE_URL.
 # -----------------------------------------------------------------------------
 databases:
   - name: ClimbCrew-db
     plan: free
-    databaseName: climbcrew
-    user: climbcrew
