@@ -1,5 +1,3 @@
-import crypto from "node:crypto";
-
 /**
  * Compatibilité des environnements de déploiement.
  *
@@ -60,16 +58,14 @@ function parseCookieHeader(header = "") {
   );
 }
 
-/** Comparaison résistante aux attaques temporelles pour les jetons de sécurité. */
-function constantTimeEqual(leftValue, rightValue) {
-  const left = Buffer.from(String(leftValue || ""));
-  const right = Buffer.from(String(rightValue || ""));
-  return left.length === right.length && crypto.timingSafeEqual(left, right);
-}
-
 /** Indique si le processus est exécuté par la plateforme Render. */
 function isRenderDeployment() {
   return String(process.env.RENDER || "").toLowerCase() === "true";
+}
+
+/** Indique si les facilités réservées au développement local peuvent être activées. */
+function isProductionEnvironment() {
+  return String(process.env.NODE_ENV || "").toLowerCase() === "production";
 }
 
 /**
@@ -78,16 +74,18 @@ function isRenderDeployment() {
  * - Render fournit l'URL du frontend par RENDER_FRONTEND_URL ;
  * - le serveur Linux utilise généralement PUBLIC_URL ou FRONTEND_ORIGIN ;
  * - CORS_ORIGIN reste prioritaire lorsqu'il est défini manuellement ;
+ * - localhost n'est ajouté automatiquement qu'en développement ;
  * - les valeurs de cookies spécifiques à Render ne remplacent jamais une
  *   configuration explicite du serveur Linux.
  */
 export function configureDeploymentEnvironment() {
+  const localDevelopmentOrigin = isProductionEnvironment() ? "" : "http://localhost:5173";
   const allowedOrigins = collectOrigins(
     process.env.CORS_ORIGIN,
     process.env.FRONTEND_ORIGIN,
     process.env.RENDER_FRONTEND_URL,
     process.env.PUBLIC_URL,
-    "http://localhost:5173"
+    localDevelopmentOrigin
   );
 
   if (allowedOrigins.length) {
