@@ -1,29 +1,66 @@
-# ClimbCrew — serveur Linux
+# ClimbCrew
 
-ClimbCrew est une application de gestion de club d’escalade composée de :
+ClimbCrew est une application de gestion de club d'escalade composée de :
 
-- un frontend React/Vite servi par Nginx ;
+- un frontend React/Vite ;
 - un backend Node.js/Express ;
 - une base PostgreSQL ;
-- un déploiement Docker Compose pour Linux ;
-- un reverse proxy HTTPS externe au projet.
+- une authentification par cookie sécurisé ;
+- une messagerie SMTP pour les demandes de compte et la récupération du mot de passe.
 
-## Architecture
+## Deux modes de déploiement compatibles
+
+Le dépôt prend en charge deux environnements sans mélanger leurs configurations :
+
+| Environnement | Fichier principal | Frontend | Backend | PostgreSQL |
+|---|---|---|---|---|
+| Serveur Linux | `docker-compose.prod.yml` | Nginx Docker | Node Docker | Docker local |
+| Render | `render.yaml` | Static Site | Web Service Node | Render Postgres |
+
+Le déploiement Linux reste la cible de production historique. Render permet une simulation ou un hébergement séparé en utilisant les mêmes sources.
+
+## Architecture Linux
 
 ```text
 Internet
   ↓
 Reverse proxy HTTPS du serveur Linux
-  ↓
-Frontend : 127.0.0.1:8080
-Backend API : 127.0.0.1:3000
-  ↓
-PostgreSQL dans le réseau Docker
+  ├─ /      → Frontend : 127.0.0.1:8080
+  └─ /api/  → Backend  : 127.0.0.1:3000
+                         ↓
+                  PostgreSQL Docker
 ```
 
-Le certificat TLS est géré par le reverse proxy du serveur. ClimbCrew n’expose pas directement PostgreSQL et n’embarque aucun certificat.
+Le certificat TLS est géré par le reverse proxy du serveur. ClimbCrew n'expose pas directement PostgreSQL et n'embarque aucun certificat.
 
-## Prérequis
+**Impact visuel :** le frontend et l'API partagent le même domaine. Les changements de page, les chargements de données et les actions d'administration restent donc transparents pour le navigateur.
+
+## Architecture Render
+
+```text
+ClimbCrew-frontend : React/Vite statique
+          ↓ requêtes HTTPS avec cookies
+ClimbCrew-api : Node/Express
+          ↓ connexion privée Render
+ClimbCrew-db : PostgreSQL
+```
+
+Le fichier `render.yaml` relie automatiquement les trois ressources. L'adresse publique réelle du backend est injectée dans le build Vite sans suffixe Render codé en dur.
+
+Le détail de la configuration, des contrôles CORS/CSRF et du diagnostic se trouve dans [`deploy/README-render.md`](deploy/README-render.md).
+
+## Organisation des commentaires dans le code
+
+Les fichiers de configuration et les modules modifiés sont commentés en français par section. Les commentaires précisent notamment :
+
+- le rôle technique de chaque partie ;
+- les interactions avec les autres composants ;
+- l'effet attendu sur la sécurité ou les données ;
+- l'impact visuel lorsqu'une section influence directement ce que voit l'utilisateur.
+
+Les commentaires décrivent l'intention sans répéter chaque instruction ligne par ligne, afin de garder le code lisible et maintenable.
+
+## Prérequis Linux
 
 - serveur Linux ;
 - Docker Engine ;
@@ -33,7 +70,7 @@ Le certificat TLS est géré par le reverse proxy du serveur. ClimbCrew n’expo
 - un reverse proxy HTTPS existant ;
 - un compte SMTP pour les courriels de création et de réinitialisation des comptes.
 
-## Installation
+## Installation Linux
 
 ```bash
 sudo mkdir -p /opt/climbcrew
@@ -52,10 +89,10 @@ Pour activer les courriels, renseigner également `EMAIL_ENABLED=true`, `SMTP_HO
 
 Le backend envoie deux types de courriels transactionnels :
 
-- une confirmation après l’enregistrement d’une demande de création de compte ;
-- un code à usage unique lorsqu’un utilisateur actif signale la perte de son mot de passe.
+- une confirmation après l'enregistrement d'une demande de création de compte ;
+- un code à usage unique lorsqu'un utilisateur actif signale la perte de son mot de passe.
 
-Le code de réinitialisation est valable 60 minutes par défaut. La durée peut être changée avec `RESET_TOKEN_DURATION_MINUTES`. Lorsqu’un nouveau code est demandé, les anciens codes non utilisés sont invalidés.
+Le code de réinitialisation est valable 60 minutes par défaut. La durée peut être changée avec `RESET_TOKEN_DURATION_MINUTES`. Lorsqu'un nouveau code est demandé, les anciens codes non utilisés sont invalidés.
 
 Le service utilise SMTP via Nodemailer. Configuration courante :
 
@@ -75,14 +112,14 @@ RESET_TOKEN_DURATION_MINUTES=60
 
 Pour le port 465, utiliser `SMTP_SECURE=true` et `SMTP_REQUIRE_TLS=false`.
 
-En cas d’échec SMTP :
+En cas d'échec SMTP :
 
 - la demande de création du compte reste enregistrée ;
 - un code de réinitialisation non envoyé est immédiatement invalidé ;
-- l’échec apparaît dans l’onglet des logs administrateur ;
+- l'échec apparaît dans l'onglet des logs administrateur ;
 - aucune réponse publique ne confirme si une adresse existe ou non.
 
-## Déploiement
+## Déploiement Linux
 
 ```bash
 chmod +x deploy/scripts/*.sh
@@ -100,7 +137,25 @@ npm run prod:logs
 npm run prod:health
 ```
 
-## Reverse proxy HTTPS
+## Déploiement Render
+
+Le Blueprint est défini dans `render.yaml`. Dans Render :
+
+1. créer ou rattacher un Blueprint au dépôt ;
+2. vérifier les ressources `ClimbCrew-api`, `ClimbCrew-frontend` et `ClimbCrew-db` ;
+3. renseigner `FIRST_ADMIN_EMAIL` et `FIRST_ADMIN_PASSWORD` ;
+4. synchroniser puis vérifier `/health` sur le backend.
+
+Render fournit lui-même `PORT`. Le backend utilise automatiquement cette valeur et ne doit pas recevoir un port fixe depuis le tableau de bord.
+
+Les tests de compatibilité peuvent être exécutés depuis le dossier backend :
+
+```bash
+cd backend
+npm test
+```
+
+## Reverse proxy HTTPS Linux
 
 Adapter le fichier :
 
@@ -116,12 +171,14 @@ Le reverse proxy doit envoyer :
 ## Sécurité
 
 - ne jamais versionner `.env.production` ;
-- conserver `SECURE_COOKIES=true` ;
-- conserver `TRUST_PROXY=1` derrière le reverse proxy ;
+- conserver `SECURE_COOKIES=true` en production HTTPS ;
+- utiliser `COOKIE_SAMESITE=lax` sur Linux sous un même domaine ;
+- utiliser `COOKIE_SAMESITE=none` lorsque frontend et API Render sont séparés ;
+- conserver `TRUST_PROXY=1` derrière le reverse proxy Linux ou Render ;
 - utiliser des secrets longs et uniques ;
-- ne pas exposer directement PostgreSQL ni le backend ;
+- ne pas exposer directement PostgreSQL ni le backend Linux ;
 - sauvegarder régulièrement le volume `climbcrew_pgdata` ;
 - utiliser un mot de passe SMTP dédié et ne jamais le placer dans le frontend ;
-- configurer SPF, DKIM et DMARC sur le domaine d’envoi lorsque le fournisseur le permet.
+- configurer SPF, DKIM et DMARC sur le domaine d'envoi lorsque le fournisseur le permet.
 
-La documentation détaillée se trouve dans [deploy/README-linux-reverse-proxy.md](deploy/README-linux-reverse-proxy.md).
+La documentation Linux détaillée se trouve dans [`deploy/README-linux-reverse-proxy.md`](deploy/README-linux-reverse-proxy.md).
