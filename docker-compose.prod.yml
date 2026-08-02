@@ -1,4 +1,15 @@
+# =============================================================================
+# Déploiement de production sur serveur Linux avec Docker Compose
+# =============================================================================
+# Ce fichier reste indépendant de render.yaml. Il orchestre localement la base,
+# l'API et le frontend derrière le reverse proxy HTTPS déjà présent sur le serveur.
+
 services:
+  # ---------------------------------------------------------------------------
+  # Base PostgreSQL locale au réseau Docker.
+  # Impact visuel : les données affichées dans toutes les pages proviennent de
+  # ce volume. Le conteneur n'est jamais publié directement sur Internet.
+  # ---------------------------------------------------------------------------
   db:
     image: postgres:16-alpine
     container_name: climbcrew-db
@@ -8,13 +19,21 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER manquant}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant}
     volumes:
+      # Volume persistant : une reconstruction des images ne supprime pas les
+      # comptes, séances, voies, inscriptions ni réalisations.
       - climbcrew_pgdata:/var/lib/postgresql/data
     healthcheck:
+      # Le backend n'est démarré que lorsque PostgreSQL accepte les connexions.
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 12
 
+  # ---------------------------------------------------------------------------
+  # API Node/Express.
+  # Le port est lié uniquement à 127.0.0.1 : seul le reverse proxy du serveur
+  # Linux peut l'exposer publiquement sous /api.
+  # ---------------------------------------------------------------------------
   backend:
     build:
       context: ./backend
@@ -36,17 +55,25 @@ services:
       db:
         condition: service_healthy
     healthcheck:
+      # /health vérifie aussi la connexion PostgreSQL. Une réponse non 2xx
+      # empêche le frontend de démarrer sur une API inutilisable.
       test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
       interval: 30s
       timeout: 5s
       retries: 5
       start_period: 20s
 
+  # ---------------------------------------------------------------------------
+  # Frontend React compilé puis servi par Nginx.
+  # Impact visuel : ce conteneur fournit toutes les pages, feuilles de style et
+  # ressources graphiques visibles par l'utilisateur.
+  # ---------------------------------------------------------------------------
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile.prod
       args:
+        # URL relative conservant frontend et API sous le même domaine Linux.
         VITE_API_URL: ${VITE_API_URL:-/api}
     image: climbcrew-frontend:prod
     container_name: climbcrew-frontend
@@ -57,11 +84,13 @@ services:
       backend:
         condition: service_healthy
     healthcheck:
+      # Vérifie que Nginx sert bien la page d'accueil compilée.
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null 2>&1 || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5
       start_period: 10s
 
+# Volume nommé conservé lors des redémarrages et mises à jour des conteneurs.
 volumes:
   climbcrew_pgdata:
