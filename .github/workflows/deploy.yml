@@ -1,35 +1,52 @@
 name: Deploy to Production
 
 on:
-push:
-branches: [main]
-workflow_dispatch:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: climbcrew-production-deploy
+  cancel-in-progress: false
 
 jobs:
-deploy:
-runs-on: self-hosted
-labels: [deploy, production]
+  deploy:
+    name: Deploy on production server
+    runs-on: self-hosted
+    timeout-minutes: 30
 
-steps:
-- name: Checkout code
-uses: actions/checkout@v4
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-- name: Check if .env.production exists
-run: |
-if [ ! -f "/opt/climbcrew/.env.production" ]; then
-echo "❌ ERROR: /opt/climbcrew/.env.production not found!"
-echo "Please create it manually before deploying."
-exit 1
-fi
-echo "✅ .env.production found"
+      - name: Check production environment file
+        shell: bash
+        run: |
+          set -euo pipefail
 
-- name: Deploy to production
-run: |
-cd /opt/climbcrew
+          if [ ! -f "/opt/climbcrew/.env.production" ]; then
+            echo "ERROR: /opt/climbcrew/.env.production not found."
+            echo "Please create it manually before deploying."
+            exit 1
+          fi
 
-echo "=== Pulling latest code ==="
-git pull origin main
+          echo ".env.production found"
 
-echo "=== Building and starting containers ==="
-docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
-echo "=== Deployment completed ==="
+      - name: Deploy to production
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cd /opt/climbcrew
+
+          echo "=== Pulling latest code ==="
+          git pull --ff-only origin main
+
+          echo "=== Building and starting containers ==="
+          docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+
+          echo "=== Deployment completed ==="
