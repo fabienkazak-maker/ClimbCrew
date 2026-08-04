@@ -1,0 +1,33 @@
+on:
+push:
+branches: [main]
+workflow_dispatch:
+
+jobs:
+deploy:
+runs-on: self-hosted
+labels: [deploy, production]
+
+steps:
+- name: Checkout code
+uses: actions/checkout@v4
+
+- name: Check if .env.production exists
+run: |
+if [ ! -f "/opt/climbcrew/.env.production" ]; then
+echo "❌ ERROR: /opt/climbcrew/.env.production not found!"
+echo "Please create it manually before deploying."
+exit 1
+fi
+echo "✅ .env.production found"
+
+- name: Deploy to production
+run: |
+cd /opt/climbcrew
+
+echo "=== Pulling latest code ==="
+git pull origin main
+
+echo "=== Building and starting containers ==="
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+echo "=== Deployment completed ==="
