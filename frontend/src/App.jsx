@@ -3380,7 +3380,7 @@ button:not(.danger):not(.secondary):not(.ghost),
     {/* La version n’est plus affichée dans la FAQ. */}
 
     <div className="faq-item">
-      <strong>À quoi sert ClimbCrew ?</strong>
+      <strong>À quoi sert ClimbClub ?</strong>
       <div className="small">
         ClimbCrew sert à gérer les séances, les inscriptions, les participants, les voies et le suivi de progression des grimpeurs du site SAE de Cristal.
       </div>
