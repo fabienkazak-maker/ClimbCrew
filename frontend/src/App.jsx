@@ -3375,7 +3375,7 @@ button:not(.danger):not(.secondary):not(.ghost),
 
         {tab === "faq" && (
   <div className="card">
-    <div className="card-header"><h2>FAQ – fonctionnement de ClimbClub</h2></div>
+    <div className="card-header"><h2>FAQ – fonctionnement de ClimbClub TEST</h2></div>
 
     {/* La version n’est plus affichée dans la FAQ. */}
 
