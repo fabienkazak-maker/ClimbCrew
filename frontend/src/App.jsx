@@ -1790,9 +1790,9 @@ async function handleThemePreferenceChange(nextTheme) {
         <style>{AUTH_LOGIN_INLINE_STYLE}</style>
         <div className="auth-card">
           <div className="brand auth-brand">
-            <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="app-logo" />
+            <img src="/logo-climbcrew.png" alt="Logo ClimbClub" className="app-logo" />
             <div>
-              <h1>ClimbCrew</h1>
+              <h1>ClimbClub</h1>
               <p className="small">Chargement de la session…</p>
             </div>
           </div>
@@ -1807,9 +1807,9 @@ async function handleThemePreferenceChange(nextTheme) {
         <style>{AUTH_LOGIN_INLINE_STYLE}</style>
         <div className="auth-card">
           <div className="brand auth-brand">
-            <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="app-logo" />
+            <img src="/logo-climbcrew.png" alt="Logo ClimbClub" className="app-logo" />
             <div>
-              <h1>ClimbCrew</h1>
+              <h1>ClimbClub</h1>
               <p className="small">Connexion requise pour accéder à l’application.</p>
             </div>
           </div>
@@ -2557,11 +2557,11 @@ button:not(.danger):not(.secondary):not(.ghost),
 
       {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
 
-      <aside className={`sidebar ${sidebarOpen ? "open" : ""}`} aria-label="Navigation ClimbCrew">
+      <aside className={`sidebar ${sidebarOpen ? "open" : ""}`} aria-label="Navigation ClimbClub">
         <div className="sidebar-header">
           <div className="sidebar-brand">
-            <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="sidebar-logo" />
-            <span>ClimbCrew</span>
+            <img src="/logo-climbcrew.png" alt="Logo ClimbClub" className="sidebar-logo" />
+            <span>ClimbClub</span>
           </div>
           <button className="sidebar-close" onClick={() => setSidebarOpen(false)} aria-label="Fermer le menu">×</button>
         </div>
@@ -2708,7 +2708,7 @@ button:not(.danger):not(.secondary):not(.ghost),
         </div>
       )}
 
-      <nav className="mobile-bottom-nav" aria-label="Navigation mobile ClimbCrew">
+      <nav className="mobile-bottom-nav" aria-label="Navigation mobile ClimbClub">
         {visibleTabs.map((item) => (
           <button
             key={item.key}
@@ -2728,9 +2728,9 @@ button:not(.danger):not(.secondary):not(.ghost),
               ☰
             </button>
             <div className="brand">
-              <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="app-logo" />
+              <img src="/logo-climbcrew.png" alt="Logo ClimbClub" className="app-logo" />
               <div>
-                <h1>ClimbCrew</h1>
+                <h1>ClimbClub</h1>
               </div>
             </div>
 
@@ -3417,7 +3417,7 @@ button:not(.danger):not(.secondary):not(.ghost),
     <div className="faq-item">
       <strong>Que signifie CPR ?</strong>
       <div className="small">
-        Le CPR de ClimbCrew représente le niveau récent. Il utilise les réalisations des 90 derniers jours, pondère la cotation selon le style, conserve les 10 meilleures performances, puis convertit leur moyenne pondérée en cotation. Une voie facile d’échauffement ne réduit donc pas le CPR si elle ne fait pas partie des 10 meilleures performances récentes.
+        Le CPR de ClimbClub représente le niveau récent. Il utilise les réalisations des 90 derniers jours, pondère la cotation selon le style, conserve les 10 meilleures performances, puis convertit leur moyenne pondérée en cotation. Une voie facile d’échauffement ne réduit donc pas le CPR si elle ne fait pas partie des 10 meilleures performances récentes.
       </div>
     </div>
   </div>
