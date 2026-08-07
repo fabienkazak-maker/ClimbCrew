@@ -1945,6 +1945,8 @@ async function handleThemePreferenceChange(nextTheme) {
         .sidebar-brand { display: flex; align-items: center; gap: 10px; font-weight: 900; color: #e2e8f0; }
         .sidebar-logo { width: 44px; height: 44px; object-fit: contain; background: #fff; border-radius: 12px; padding: 4px; }
         .sidebar-close { background: #020617; color: #e2e8f0; border: 1px solid rgba(148,163,184,.4); }
+        .sidebar-logout { display: inline-flex; align-items: center; justify-content: center; gap: 5px; width: auto !important; min-width: 0; padding: 6px 8px; font-size: 12px; white-space: nowrap; }
+        .sidebar-logout-icon { width: 16px; height: 16px; flex: 0 0 16px; }
         .side-tab { text-align: left; width: 100%; background: #1e293b; color: #cbd5e1; border: 1px solid rgba(148,163,184,.18); }
         .side-tab.active { background: #22d3ee; color: #082f49; }
         .sidebar-account { margin-top: 4px; padding-top: 10px; border-top: 1px solid rgba(148,163,184,.2); display: grid; gap: 8px; }
@@ -2573,7 +2575,20 @@ button:not(.danger):not(.secondary):not(.ghost),
             <img src="/logo-climbcrew.png" alt="Logo ClimbClubCristal" className="sidebar-logo" />
             <span>ClimbClubCristal</span>
           </div>
-          <button className="sidebar-close" onClick={() => setSidebarOpen(false)} aria-label="Fermer le menu">×</button>
+          <button
+            className="sidebar-close sidebar-logout"
+            onClick={() => {
+              setSidebarOpen(false);
+              handleLogout();
+            }}
+            aria-label="Se déconnecter"
+            title="Déconnexion"
+          >
+            <svg className="sidebar-logout-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M10 5H5v14h5M14 8l4 4-4 4M8 12h10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span>Déconnexion</span>
+          </button>
         </div>
         {visibleTabs.map((item) => (
           <button
@@ -2602,15 +2617,6 @@ button:not(.danger):not(.secondary):not(.ghost),
         {authUser && (
           <div className="sidebar-account">
             <div className="small">{authUser.email}</div>
-            <button
-              className="secondary"
-              onClick={() => {
-                setSidebarOpen(false);
-                handleLogout();
-              }}
-            >
-              Déconnexion
-            </button>
           </div>
         )}
       </aside>
