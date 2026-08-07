@@ -2870,11 +2870,9 @@ button:not(.danger):not(.secondary):not(.ghost),
 
         {tab === "progression" && (
           <div className="card">
-            <div className="card-header"><h2>Suivi individuel</h2></div>
-
             <div style={{ maxWidth: 360 }}>
-              <label>Grimpeur</label>
               <select
+                aria-label="Choisir un grimpeur"
                 value={state.selectedParticipantProgress || ""}
                 onChange={(e) => setState((prev) => ({ ...prev, selectedParticipantProgress: e.target.value }))}
               >
