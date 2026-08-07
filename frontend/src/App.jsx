@@ -389,6 +389,7 @@ function calculateSimpleCpr(realisations, routesById) {
       if (!route || !Number.isFinite(dateTimestamp) || dateTimestamp < cutoff || dateTimestamp > now) return null;
 
       return {
+        id: r.id,
         date: r.dateRealisation,
         grade: route.cotationAjustee,
         weightedIndex: gradeToIndex(route.cotationAjustee) * (STYLE_WEIGHTS[r.styleRealisation] || 1),
@@ -814,25 +815,14 @@ function App() {
   }, [state.realisations, state.selectedParticipantProgress]);
 
   const participantProgressStats = useMemo(() => {
-    const cleanStyles = ["a_vue", "flash", "en_tete"];
     const gradesAll = selectedParticipantRealisations.map((r) => routesById[r.voieId]?.cotationAjustee).filter(Boolean);
-    const gradesClean = selectedParticipantRealisations
-      .filter((r) => cleanStyles.includes(r.styleRealisation))
-      .map((r) => routesById[r.voieId]?.cotationAjustee)
-      .filter(Boolean);
-
     const bestAll = gradesAll.length
       ? gradesAll.reduce((best, current) => (gradeToIndex(current) > gradeToIndex(best) ? current : best))
-      : null;
-
-    const bestClean = gradesClean.length
-      ? gradesClean.reduce((best, current) => (gradeToIndex(current) > gradeToIndex(best) ? current : best))
       : null;
 
     return {
       count: selectedParticipantRealisations.length,
       bestAll,
-      bestClean,
       cpr: calculateSimpleCpr(selectedParticipantRealisations, routesById),
     };
   }, [selectedParticipantRealisations, routesById]);
@@ -3021,10 +3011,8 @@ button:not(.danger):not(.secondary):not(.ghost),
               <div className="stats-grid" style={{ marginTop: 12 }}>
                 <div className="stat"><div className="label">Voies réalisées</div><div className="value">{participantProgressStats.count}</div></div>
                 <div className="stat"><div className="label">Meilleure cotation</div><div className="value">{participantProgressStats.bestAll || "-"}</div></div>
-                <div className="stat"><div className="label">Meilleure cotation propre</div><div className="value">{participantProgressStats.bestClean || "-"}</div></div>
                 <div className="stat"><div className="label">CPR actuel</div><div className="value">{participantProgressStats.cpr.currentGrade || "-"}</div></div>
                 <div className="stat"><div className="label">Points</div><div className="value">{formatPoints(pointsByParticipantId[state.selectedParticipantProgress])}</div></div>
-                <div className="stat"><div className="label">Réalisations prises en compte</div><div className="value">{participantProgressStats.cpr.timeline.length}</div></div>
               </div>
             )}
 
@@ -3051,8 +3039,12 @@ button:not(.danger):not(.secondary):not(.ghost),
                   progressViewRealisations.map((realisation) => {
                     const participant = participantsById[realisation.participantId];
                     const route = routesById[realisation.voieId];
-                    const session = sessionsById[realisation.sessionId];
                     const availableSessionsForRealisation = getParticipantSessions(realisation.participantId);
+                    const isIncludedInCpr = Boolean(
+                      cprByParticipantId[realisation.participantId]?.timeline.some(
+                        (performance) => String(performance.id) === String(realisation.id)
+                      )
+                    );
 
                     return (
                       <div className="subcard editable-realisation-card" key={realisation.id}>
@@ -3066,7 +3058,7 @@ button:not(.danger):not(.secondary):not(.ghost),
                             </div>
                           </div>
                           <div className="group">
-                            <span className="badge">{session?.slot || "-"}</span>
+                            {isIncludedInCpr && <span className="pill">Prise en compte dans le CPR</span>}
                             <button className="danger" onClick={() => deleteRealisation(realisation)}>Supprimer</button>
                           </div>
                         </div>
