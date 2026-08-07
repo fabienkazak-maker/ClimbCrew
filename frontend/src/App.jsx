@@ -363,6 +363,11 @@ function formatDateShortFr(dateStr) {
   const [year, month, day] = String(dateStr || "").slice(0, 10).split("-");
   return year && month && day ? `${day}-${month}-${year}` : String(dateStr || "");
 }
+
+function formatPoints(value) {
+  return Number(value || 0).toLocaleString("fr-FR", { maximumFractionDigits: 1 });
+}
+
 function isWeekend(dateStr) {
   const d = new Date(`${dateStr}T12:00:00`);
   const day = d.getDay();
@@ -878,6 +883,30 @@ function App() {
     );
   }, [state.participants, state.realisations, routesById]);
 
+  const pointsByParticipantId = useMemo(() => {
+    const points = Object.fromEntries(state.participants.map((participant) => [participant.id, 0]));
+
+    state.routes.forEach((route) => {
+      const leadClimbers = new Set(
+        state.realisations
+          .filter((realisation) => (
+            String(realisation.voieId) === String(route.id)
+            && realisation.styleRealisation === "en_tete"
+          ))
+          .map((realisation) => String(realisation.participantId))
+      );
+
+      if (leadClimbers.size === 0) return;
+      const share = 1000 / leadClimbers.size;
+
+      leadClimbers.forEach((participantId) => {
+        points[participantId] = (points[participantId] || 0) + share;
+      });
+    });
+
+    return points;
+  }, [state.participants, state.routes, state.realisations]);
+
   const sortedStatsParticipants = useMemo(() => {
     const direction = statsSortDirection === "asc" ? 1 : -1;
     return [...state.participants].sort((a, b) => {
@@ -916,6 +945,12 @@ function App() {
         return (normalizedLeft - normalizedRight) * direction;
       }
 
+      if (statsSortField === "points") {
+        left = pointsByParticipantId[a.id] || 0;
+        right = pointsByParticipantId[b.id] || 0;
+        return (left - right) * direction;
+      }
+
       if (statsSortField === "participations") {
         left = sessionStats.participationCount[a.id] || 0;
         right = sessionStats.participationCount[b.id] || 0;
@@ -924,7 +959,7 @@ function App() {
 
       return fullName(a).localeCompare(fullName(b), "fr") * direction;
     });
-  }, [state.participants, sessionStats.participationCount, cprByParticipantId, statsSortField, statsSortDirection]);
+  }, [state.participants, sessionStats.participationCount, cprByParticipantId, pointsByParticipantId, statsSortField, statsSortDirection]);
 
   const adminParticipants = useMemo(() => {
     const recentSet = new Set(recentlyAddedParticipantIds.map(String));
@@ -2988,6 +3023,7 @@ button:not(.danger):not(.secondary):not(.ghost),
                 <div className="stat"><div className="label">Meilleure cotation</div><div className="value">{participantProgressStats.bestAll || "-"}</div></div>
                 <div className="stat"><div className="label">Meilleure cotation propre</div><div className="value">{participantProgressStats.bestClean || "-"}</div></div>
                 <div className="stat"><div className="label">CPR actuel</div><div className="value">{participantProgressStats.cpr.currentGrade || "-"}</div></div>
+                <div className="stat"><div className="label">Points</div><div className="value">{formatPoints(pointsByParticipantId[state.selectedParticipantProgress])}</div></div>
                 <div className="stat"><div className="label">Réalisations prises en compte</div><div className="value">{participantProgressStats.cpr.timeline.length}</div></div>
               </div>
             )}
@@ -3315,6 +3351,7 @@ button:not(.danger):not(.secondary):not(.ghost),
                       <option value="cotisation">Cotisation</option>
                       <option value="ffme">Licence FFME</option>
                       <option value="cpr">CPR</option>
+                      <option value="points">Points</option>
                       <option value="participations">Participations</option>
                     </select>
                   </div>
@@ -3334,7 +3371,7 @@ button:not(.danger):not(.secondary):not(.ghost),
                       <span className="passport-dot" style={getPassportDotStyle(participant)} aria-hidden="true" />
                       <span className="participant-name">{fullName(participant)}</span>
                     </span>
-                    <span className="small" style={{ color: "inherit" }}>Cotisation : {participant.cotisation ? "Oui" : "Non"} · FFME : {participant.ffme ? "Oui" : "Non"} · CPR : {cprByParticipantId[participant.id]?.currentGrade || "Non calculé"} · Participations : {sessionStats.participationCount[participant.id] || 0} · Passeport : {participant.passport}</span>
+                    <span className="small" style={{ color: "inherit" }}>Cotisation : {participant.cotisation ? "Oui" : "Non"} · FFME : {participant.ffme ? "Oui" : "Non"} · CPR : {cprByParticipantId[participant.id]?.currentGrade || "Non calculé"} · Points : {formatPoints(pointsByParticipantId[participant.id])} · Participations : {sessionStats.participationCount[participant.id] || 0} · Passeport : {participant.passport}</span>
                   </div>
                 ))}
               </div>
@@ -3378,6 +3415,13 @@ button:not(.danger):not(.secondary):not(.ghost),
               <summary><strong>Comment est calculée la cotation consensus ?</strong></summary>
               <div className="small">
                 Le consensus utilise uniquement les cotations proposées pour la voie. Chaque cotation est convertie en indice de 4a = 0 à 7b = 14. L’indice CPR utilisé est limité à l’intervalle 0–14. Le poids d’un avis vaut 1 + (indice CPR du grimpeur ÷ 14) : il varie donc de 1 à 2. Sans CPR calculable, le poids reste égal à 1. La formule est : somme des indices proposés multipliés par leur poids, divisée par la somme des poids. Le résultat est arrondi à l’indice le plus proche puis reconverti en cotation. Ainsi, tous les avis comptent, tandis que l’expérience récente mesurée par le CPR augmente progressivement leur poids sans jamais le doubler au-delà de 2.
+              </div>
+            </details>
+
+            <details className="faq-item">
+              <summary><strong>Comment fonctionne la règle des 1 000 points ?</strong></summary>
+              <div className="small">
+                Chaque voie distribue exactement 1 000 points entre les grimpeurs distincts qui l’ont enregistrée avec le style « En tête ». La part reçue pour une voie est donc égale à 1 000 divisé par le nombre de grimpeurs concernés. Par exemple, une personne seule reçoit 1 000 points ; quatre personnes reçoivent 250 points chacune. Plusieurs enregistrements en tête de la même voie par le même grimpeur ne lui donnent qu’une seule part. Les réalisations dans les autres styles ne distribuent pas de points. Le total d’un grimpeur est la somme de ses parts sur toutes les voies.
               </div>
             </details>
 
