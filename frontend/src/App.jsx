@@ -3162,20 +3162,6 @@ button:not(.danger):not(.secondary):not(.ghost),
             ) : (
               <>
                 <div className="card">
-                  <div className="card-header">
-                    <h2>Administration</h2>
-                    <button className="secondary" onClick={() => setAdminUnlocked(false)}>Verrouiller</button>
-                  </div>
-                  <div className="small" style={{ marginBottom: 12 }}>
-                    Les onglets <strong>Gestion des comptes</strong> et <strong>Log</strong> sont réservés aux administrateurs.
-                  </div>
-                  <div className="group">
-                    <button className="secondary" onClick={() => setTab("gestion_comptes")}>Gestion des comptes</button>
-                    <button className="secondary" onClick={() => setTab("logs")}>Log</button>
-                  </div>
-                </div>
-
-                <div className="card">
                   <div className="card-header"><h2>Ajouter un participant</h2></div>
                   <div className="grid four">
                     <div><label>Nom</label><input value={newParticipant.nom} onChange={(e) => setNewParticipant((p) => ({ ...p, nom: e.target.value }))} /></div>
