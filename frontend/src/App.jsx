@@ -2848,7 +2848,7 @@ button:not(.danger):not(.secondary):not(.ghost),
                                   <strong>Corde {route.numeroCorde} · {route.cotationAjustee} · {formatRouteName(route)}</strong>
                                   <div className="group">
                                     {route.moulinetteOnly && <span className="pill">Moulinette uniquement</span>}
-                                    {route.active && <button className="secondary" onClick={() => openRealisationModal(route.id)}>Réalisation</button>}
+                                    <button className="secondary" onClick={() => openRealisationModal(route.id)}>Réalisation</button>
                                     {adminUnlocked && (
                                       <button className="secondary" disabled={!agg?.weightedMedianGrade} onClick={() => applyAdjustedGrade(route.id)}>Appliquer cotation ajustée</button>
                                     )}
