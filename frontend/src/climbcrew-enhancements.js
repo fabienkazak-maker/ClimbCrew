@@ -226,32 +226,44 @@ function injectStyles() {
       margin-top:0!important;
     }
 
-    /* Réglages compacts existants. */
-    .hero { padding:12px 14px!important; }
-    .toolbar,.card { margin-top:8px!important; padding:10px!important; }
-    .subcard,.stat,.modal-panel { padding:8px!important; }
-    .grid { gap:8px!important; }
-    .stack { gap:6px!important; }
-    .card-header { gap:6px!important; margin-bottom:6px!important; }
-    .app h1,.app h2,.app h3,.app p { margin-top:0!important; margin-bottom:4px!important; }
+    /* Tous les cadres sont arrondis et les espaces autour des textes sont réduits d'environ 30 %. */
+    .app :where(button,input,select,textarea,.card,.toolbar,.subcard,.stat,.muted-box,.participant-row,.route-card,.badge,.pill,.modal-panel,.week-day-card) {
+      border-radius:14px!important;
+    }
+    .hero { padding:8px 10px!important; border-radius:18px!important; }
+    .toolbar,.card { margin-top:6px!important; padding:7px!important; }
+    .subcard,.stat,.modal-panel { padding:6px!important; }
+    .app button { padding:7px 10px!important; }
+    .app input,.app select,.app textarea { padding:7px 8px!important; }
+    .grid { gap:6px!important; }
+    .stack { gap:4px!important; }
+    .card-header { gap:4px!important; margin-bottom:4px!important; }
+    .app h1,.app h2,.app h3,.app p { margin-top:0!important; margin-bottom:3px!important; }
     .app label { margin:0!important; padding:0!important; line-height:1.1!important; }
-    .participant-row { gap:6px!important; min-height:0!important; padding:3px 8px!important; line-height:1.15!important; }
+    .participant-row { gap:4px!important; min-height:0!important; padding:3px 6px!important; line-height:1.15!important; }
+    .participant-identity { display:inline-flex!important; align-items:center!important; gap:6px!important; min-width:0!important; }
+    .passport-dot { width:14px!important; min-width:14px!important; height:14px!important; border-radius:999px!important; }
     .participant-name { display:block!important; margin:0!important; padding:0!important; line-height:1.05!important; }
-    .session-participant-list { display:grid!important; grid-template-columns:minmax(0,1fr)!important; gap:3px!important; }
-    .session-participant-list .participant-row { min-height:28px!important; padding:2px 4px 2px 8px!important; }
+    .session-participant-list { display:grid!important; grid-template-columns:minmax(0,1fr)!important; gap:2px!important; }
+    .session-participant-list .participant-row { min-height:28px!important; padding:2px 3px 2px 6px!important; }
     .session-participant-list .remove-button {
+      display:inline-flex!important; align-items:center!important; justify-content:center!important;
       width:24px!important; min-width:24px!important; height:24px!important; min-height:24px!important;
       padding:0!important; font-size:20px!important; line-height:1!important;
-      color:#000!important; background:transparent!important; border:0!important; box-shadow:none!important;
+      color:inherit!important; background:rgba(148,163,184,.28)!important;
+      border:1px solid rgba(148,163,184,.45)!important; border-radius:999px!important; box-shadow:none!important;
     }
     .app .small,.app strong { margin:0!important; padding:0!important; line-height:1.1!important; }
     .app span,.app .label,.app .value,.app .muted-box { line-height:1.1!important; }
-    .muted-box { padding-top:6px!important; padding-bottom:6px!important; }
-    .badge,.pill { padding-top:2px!important; padding-bottom:2px!important; }
-    .faq-item { padding:7px 0!important; }
-    .session-form-row { gap:8px!important; margin-bottom:8px!important; }
-    .subcard>.stack { margin-top:3px!important; }
-    .passport-row { width:100%!important; box-sizing:border-box!important; justify-content:space-between!important; }
+    .muted-box { padding-top:4px!important; padding-bottom:4px!important; }
+    .badge,.pill { padding:2px 5px!important; border-radius:999px!important; }
+    .faq-item { padding:5px 0!important; }
+    .session-form-row { gap:6px!important; margin-bottom:6px!important; }
+    .subcard>.stack { margin-top:2px!important; }
+    .passport-row {
+      width:100%!important; box-sizing:border-box!important; justify-content:space-between!important;
+      background:transparent!important; border-radius:999px!important;
+    }
     .shell { touch-action:pan-y; overscroll-behavior-x:contain; }
 
     /* Les couleurs de voies et de passeports restent fonctionnelles. */
@@ -435,9 +447,7 @@ function sessionStatus(card) {
 }
 
 function hasNoPassport(row) {
-  const inline = normalize(row.style.backgroundColor).replace(/\s/g, "");
-  if (inline === "#334155" || inline === "rgb(51,65,85)") return true;
-  return getComputedStyle(row).backgroundColor.replace(/\s/g, "") === "rgb(51,65,85)";
+  return normalize(row.dataset.passport) === "sans";
 }
 
 function updateHatching() {
