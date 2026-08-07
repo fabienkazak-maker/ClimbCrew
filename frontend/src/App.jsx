@@ -943,10 +943,21 @@ function App() {
     return Object.fromEntries(
       state.routes.map((route) => {
         const proposals = state.realisations
-          .filter((r) => r.voieId === route.id && r.cotationProposee)
-          .map((r) => ({ grade: r.cotationProposee, style: r.styleRealisation }));
+          .filter((realisation) => realisation.voieId === route.id && realisation.cotationProposee)
+          .map((realisation) => {
+            const cprIndex = cprByParticipantId[realisation.participantId]?.averageIndex;
+            const normalizedCpr = Number.isFinite(cprIndex)
+              ? Math.max(0, Math.min(GRADES.length - 1, cprIndex)) / (GRADES.length - 1)
+              : 0;
 
-        const weightedProposals = proposals.map((p) => ({ grade: p.grade, weight: STYLE_WEIGHTS[p.style] || 1 }));
+            return {
+              grade: realisation.cotationProposee,
+              style: realisation.styleRealisation,
+              consensusWeight: 1 + normalizedCpr,
+            };
+          });
+
+        const weightedProposals = proposals.map((proposal) => ({ grade: proposal.grade, weight: STYLE_WEIGHTS[proposal.style] || 1 }));
 
         const distribution = GRADES.filter((g) => proposals.some((p) => p.grade === g)).map((g) => ({
           grade: g,
@@ -961,16 +972,26 @@ function App() {
           ? indexToGrade([...proposals].map((p) => gradeToIndex(p.grade)).sort((a, b) => a - b)[Math.floor((proposals.length - 1) / 2)])
           : null;
 
+        const consensusWeightTotal = proposals.reduce((sum, proposal) => sum + proposal.consensusWeight, 0);
+        const consensusIndex = consensusWeightTotal
+          ? proposals.reduce(
+              (sum, proposal) => sum + (gradeToIndex(proposal.grade) * proposal.consensusWeight),
+              0
+            ) / consensusWeightTotal
+          : null;
+
         return [route.id, {
           count: proposals.length,
           averageGrade: averageIndex === null ? null : indexToGrade(Math.round(averageIndex)),
           medianGrade,
           weightedMedianGrade: proposals.length >= 5 ? weightedMedian(weightedProposals) : null,
+          consensusGrade: consensusIndex === null ? null : indexToGrade(Math.round(consensusIndex)),
+          consensusIndex,
           distribution,
         }];
       })
     );
-  }, [state.routes, state.realisations]);
+  }, [state.routes, state.realisations, cprByParticipantId]);
 
   function setSelectedDate(date) {
     setState((prev) => ({ ...prev, selectedDate: date }));
@@ -2718,6 +2739,11 @@ button:not(.danger):not(.secondary):not(.ghost),
                 </select>
               </div>
 
+              <div>
+                <label>Cotation consensus</label>
+                <input value={routeAggregatesById[realisationModalRoute.id]?.consensusGrade || "Non calculée"} readOnly />
+              </div>
+
             </div>
 
             <div style={{ marginTop: 12 }}>
@@ -2866,7 +2892,10 @@ button:not(.danger):not(.secondary):not(.ghost),
                             return (
                               <div className={`route-card ${route.moulinetteOnly ? "moulinette-only" : ""}`} key={route.id} style={getRouteCardStyle(route.couleurPrises)}>
                                 <div className="card-header">
-                                  <strong>Corde {route.numeroCorde} · {route.cotationAjustee} · {formatRouteName(route)}</strong>
+                                  <strong>
+                                    Corde {route.numeroCorde} · {route.cotationAjustee} · {formatRouteName(route)}
+                                    {" · "}Consensus {routeAggregatesById[route.id]?.consensusGrade || "non calculé"}
+                                  </strong>
                                   <div className="group">
                                     {route.moulinetteOnly && <span className="pill">Moulinette uniquement</span>}
                                     <button className="secondary" onClick={() => openRealisationModal(route.id, state.selectedParticipantProgress)}>Réalisation</button>
@@ -3076,6 +3105,11 @@ button:not(.danger):not(.secondary):not(.ghost),
                               <option value="">Aucune</option>
                               {GRADES.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
                             </select>
+                          </div>
+
+                          <div>
+                            <label>Cotation consensus</label>
+                            <input value={routeAggregatesById[realisation.voieId]?.consensusGrade || "Non calculée"} readOnly />
                           </div>
 
                         </div>
@@ -3337,6 +3371,13 @@ button:not(.danger):not(.secondary):not(.ghost),
               <summary><strong>Que signifie CPR ?</strong></summary>
               <div className="small">
                 Le CPR représente le niveau récent du grimpeur. Le calcul examine les réalisations des 90 derniers jours et convertit chaque cotation en indice, de 4a à 7b. Cet indice est multiplié par le coefficient du style : à vue 1,25 ; flash 1,20 ; en tête 1,00 ; moulinette 0,85 ; travaillée 0,75 ; avec repos 0,60 ; projet 0,30 ; non enchaînée 0,20 ; essai ou test 0,10. Les performances sont ensuite classées par indice pondéré et seules les 10 meilleures sont conservées. La moyenne de leurs indices pondérés est arrondie à l’indice de cotation le plus proche, puis reconvertie en cotation. S’il existe moins de 10 réalisations valides, le calcul utilise uniquement celles disponibles. Une voie facile d’échauffement ne réduit donc pas le CPR si elle ne figure pas parmi les 10 meilleures performances récentes.
+              </div>
+            </details>
+
+            <details className="faq-item">
+              <summary><strong>Comment est calculée la cotation consensus ?</strong></summary>
+              <div className="small">
+                Le consensus utilise uniquement les cotations proposées pour la voie. Chaque cotation est convertie en indice de 4a = 0 à 7b = 14. Le poids d’un avis vaut 1 + (indice CPR du grimpeur ÷ 14) : il varie donc de 1 à 2. Sans CPR calculable, le poids reste égal à 1. La formule est : somme des indices proposés multipliés par leur poids, divisée par la somme des poids. Le résultat est arrondi à l’indice le plus proche puis reconverti en cotation. Ainsi, tous les avis comptent, tandis que l’expérience récente mesurée par le CPR augmente progressivement leur poids sans jamais le doubler au-delà de 2.
               </div>
             </details>
 
