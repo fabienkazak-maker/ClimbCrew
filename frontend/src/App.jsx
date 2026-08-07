@@ -547,8 +547,9 @@ function App() {
   // depuis l'onglet Voies.
   const [realisationModalRouteId, setRealisationModalRouteId] = useState(null);
 
-  // Réalisation dont les détails sont ouverts dans la Timeline CPR simplifiée.
-  const [openTimelineRealisationId, setOpenTimelineRealisationId] = useState(null);
+  // Filtres de consultation et voie choisie pour une nouvelle réalisation depuis Progression.
+  const [selectedRouteProgress, setSelectedRouteProgress] = useState("");
+  const [progressEntryRouteId, setProgressEntryRouteId] = useState("");
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -832,10 +833,16 @@ function App() {
     };
   }, [selectedParticipantRealisations, routesById]);
 
-  const cprTimelineRealisations = useMemo(() => {
-    return [...selectedParticipantRealisations]
+  const selectedRouteRealisations = useMemo(() => {
+    if (!selectedRouteProgress) return [];
+    return state.realisations
+      .filter((realisation) => realisation.voieId === selectedRouteProgress)
       .sort((a, b) => b.dateRealisation.localeCompare(a.dateRealisation));
-  }, [selectedParticipantRealisations]);
+  }, [state.realisations, selectedRouteProgress]);
+
+  const progressViewRealisations = state.selectedParticipantProgress
+    ? [...selectedParticipantRealisations].sort((a, b) => b.dateRealisation.localeCompare(a.dateRealisation))
+    : selectedRouteRealisations;
 
   const sessionStats = useMemo(() => {
     const unique = new Set(state.sessions.flatMap((s) => s.participantIds));
@@ -1337,7 +1344,6 @@ async function deleteRealisation(realisation) {
     ...prev,
     realisations: prev.realisations.filter((item) => item.id !== realisation.id),
   }));
-  setOpenTimelineRealisationId((current) => (current === realisation.id ? null : current));
 
   try {
     if (USE_API) {
@@ -2883,273 +2889,217 @@ button:not(.danger):not(.secondary):not(.ghost),
 
         {tab === "progression" && (
           <div className="card">
-            <div style={{ maxWidth: 360 }}>
-              <select
-                aria-label="Choisir un grimpeur"
-                value={state.selectedParticipantProgress || ""}
-                onChange={(e) => setState((prev) => ({ ...prev, selectedParticipantProgress: e.target.value }))}
-              >
-                <option value="">Choisir un grimpeur</option>
-                {alphabeticalParticipants.map((p) => <option key={p.id} value={p.id}>{fullName(p)}</option>)}
-              </select>
-            </div>
-
-            <div className="stats-grid" style={{ marginTop: 14 }}>
-              <div className="stat"><div className="label">Voies réalisées</div><div className="value">{participantProgressStats.count}</div></div>
-              <div className="stat"><div className="label">Meilleure cotation</div><div className="value">{participantProgressStats.bestAll || "-"}</div></div>
-              <div className="stat"><div className="label">Meilleure cotation propre</div><div className="value">{participantProgressStats.bestClean || "-"}</div></div>
-              <div className="stat"><div className="label">CPR actuel</div><div className="value">{participantProgressStats.cpr.currentGrade || "-"}</div></div>
-              <div className="stat"><div className="label">Réalisations prises en compte</div><div className="value">{participantProgressStats.cpr.timeline.length}</div></div>
-            </div>
-
-            <div className="card" style={{ marginTop: 16, background: "rgba(14,165,233,.10)" }}>
-              <div className="card-header">
-                <h3>Timeline CPR simplifiée</h3>
-                <span className="badge">{cprTimelineRealisations.length} réalisation(s)</span>
+            <div className="grid two progression-filters">
+              <div>
+                <label>Consulter par grimpeur</label>
+                <select
+                  value={state.selectedParticipantProgress || ""}
+                  onChange={(event) => {
+                    const participantId = event.target.value;
+                    setState((prev) => ({ ...prev, selectedParticipantProgress: participantId }));
+                    if (participantId) setSelectedRouteProgress("");
+                  }}
+                >
+                  <option value="">Choisir un grimpeur</option>
+                  {alphabeticalParticipants.map((participant) => (
+                    <option key={participant.id} value={participant.id}>{fullName(participant)}</option>
+                  ))}
+                </select>
               </div>
+
+              <div>
+                <label>Consulter par voie</label>
+                <select
+                  value={selectedRouteProgress}
+                  onChange={(event) => {
+                    const routeId = event.target.value;
+                    setSelectedRouteProgress(routeId);
+                    if (routeId) {
+                      setState((prev) => ({ ...prev, selectedParticipantProgress: "" }));
+                    }
+                  }}
+                >
+                  <option value="">Choisir une voie</option>
+                  {state.routes.map((route) => (
+                    <option key={route.id} value={route.id}>
+                      {formatRouteName(route)} · corde {route.numeroCorde} · {route.cotationAjustee}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="card" style={{ marginTop: 12 }}>
+              <div className="card-header"><h3>Saisir une réalisation</h3></div>
+              <div className="group">
+                <select
+                  aria-label="Choisir la voie à réaliser"
+                  value={progressEntryRouteId}
+                  onChange={(event) => setProgressEntryRouteId(event.target.value)}
+                  style={{ flex: "1 1 260px" }}
+                >
+                  <option value="">Choisir une voie</option>
+                  {state.routes.map((route) => (
+                    <option key={route.id} value={route.id}>
+                      {formatRouteName(route)} · corde {route.numeroCorde} · {route.cotationAjustee}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  disabled={!progressEntryRouteId}
+                  onClick={() => openRealisationModal(progressEntryRouteId)}
+                >
+                  Nouvelle réalisation
+                </button>
+              </div>
+            </div>
+
+            {state.selectedParticipantProgress && (
+              <div className="stats-grid" style={{ marginTop: 12 }}>
+                <div className="stat"><div className="label">Voies réalisées</div><div className="value">{participantProgressStats.count}</div></div>
+                <div className="stat"><div className="label">Meilleure cotation</div><div className="value">{participantProgressStats.bestAll || "-"}</div></div>
+                <div className="stat"><div className="label">Meilleure cotation propre</div><div className="value">{participantProgressStats.bestClean || "-"}</div></div>
+                <div className="stat"><div className="label">CPR actuel</div><div className="value">{participantProgressStats.cpr.currentGrade || "-"}</div></div>
+                <div className="stat"><div className="label">Réalisations prises en compte</div><div className="value">{participantProgressStats.cpr.timeline.length}</div></div>
+              </div>
+            )}
+
+            <div className="card" style={{ marginTop: 12 }}>
+              <div className="card-header">
+                <h3>
+                  {state.selectedParticipantProgress
+                    ? "Réalisations du grimpeur"
+                    : selectedRouteProgress
+                      ? "Grimpeurs ayant réalisé la voie"
+                      : "Réalisations"}
+                </h3>
+                {(state.selectedParticipantProgress || selectedRouteProgress) && (
+                  <span className="badge">{progressViewRealisations.length}</span>
+                )}
+              </div>
+
               <div className="stack">
-                {!state.selectedParticipantProgress ? (
-                  <div className="muted-box">Choisis un grimpeur pour afficher sa timeline CPR.</div>
-                ) : cprTimelineRealisations.length === 0 ? (
-                  <div className="muted-box">Aucune réalisation enregistrée pour ce grimpeur.</div>
+                {!state.selectedParticipantProgress && !selectedRouteProgress ? (
+                  <div className="muted-box">Choisis un grimpeur ou une voie pour afficher les réalisations.</div>
+                ) : progressViewRealisations.length === 0 ? (
+                  <div className="muted-box">Aucune réalisation enregistrée pour cette sélection.</div>
                 ) : (
-                  cprTimelineRealisations.map((realisation) => {
+                  progressViewRealisations.map((realisation) => {
+                    const participant = participantsById[realisation.participantId];
                     const route = routesById[realisation.voieId];
                     const session = sessionsById[realisation.sessionId];
                     const availableSessionsForRealisation = getParticipantSessions(realisation.participantId);
-                    const isOpen = openTimelineRealisationId === realisation.id;
 
                     return (
-                      <div className="subcard timeline-realisation-card" key={realisation.id}>
-                        <div className="timeline-realisation-summary">
+                      <div className="subcard editable-realisation-card" key={realisation.id}>
+                        <div className="card-header">
                           <div>
-                            <strong>{formatDateFr(realisation.dateRealisation.slice(0, 10))}</strong>
+                            <strong>{fullName(participant)} — {route ? formatRouteName(route) : "Voie inconnue"}</strong>
                             <div className="small">
-                              {route ? formatRouteName(route) : "Voie inconnue"}
-                              {" · "}
-                              {route?.cotationAjustee || realisation.cotationProposee || "-"}
+                              {formatDateShortFr(realisation.dateRealisation?.slice(0, 10))}
                               {" · "}
                               {STYLE_LABELS[realisation.styleRealisation] || realisation.styleRealisation}
                             </div>
                           </div>
                           <div className="group">
-                            <button
-                              className="secondary"
-                              onClick={() => setOpenTimelineRealisationId(isOpen ? null : realisation.id)}
-                            >
-                              {isOpen ? "Masquer" : "Détails"}
-                            </button>
-                            <button className="danger" onClick={() => deleteRealisation(realisation)}>
-                              Supprimer
-                            </button>
+                            <span className="badge">{session?.slot || "-"}</span>
+                            <button className="danger" onClick={() => deleteRealisation(realisation)}>Supprimer</button>
                           </div>
                         </div>
 
-                        {isOpen && (
-                          <div className="timeline-details-panel">
-                            <div className="small" style={{ marginBottom: 10 }}>
-                              Participant : {fullName(participantsById[realisation.participantId])}
-                            </div>
-
-                            <div className="grid three">
-                              <div>
-                                <label>Séance</label>
-                                <select
-                                  value={realisation.sessionId}
-                                  onChange={(e) => updateRealisation(realisation.id, { sessionId: e.target.value })}
-                                >
-                                  {availableSessionsForRealisation.length === 0 ? (
-                                    <option value="">Aucune séance inscrite</option>
-                                  ) : (
-                                    availableSessionsForRealisation.map((s) => <option key={s.id} value={s.id}>{formatDateShortFr(s.date)} · {s.slot}</option>)
-                                  )}
-                                </select>
-                              </div>
-
-                              <div>
-                                <label>Voie</label>
-                                <select
-                                  value={realisation.voieId}
-                                  onChange={(e) => updateRealisation(realisation.id, { voieId: e.target.value })}
-                                >
-                                  {state.routes.map((r) => (
-                                    <option key={r.id} value={r.id}>
-                                      {formatRouteName(r)} · corde {r.numeroCorde} · {r.cotationAjustee}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-
-                              <div>
-                                <label>Style</label>
-                                <select
-                                  value={realisation.styleRealisation}
-                                  onChange={(e) => updateRealisation(realisation.id, { styleRealisation: e.target.value })}
-                                >
-                                  {Object.entries(STYLE_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-                                </select>
-                              </div>
-
-                              <div>
-                                <label>Cotation proposée</label>
-                                <select
-                                  value={realisation.cotationProposee || ""}
-                                  onChange={(e) => updateRealisation(realisation.id, { cotationProposee: e.target.value })}
-                                >
-                                  <option value="">Aucune</option>
-                                  {GRADES.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
-                                </select>
-                              </div>
-
-                              <div>
-                                <label>Essais</label>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  value={realisation.nbEssais || ""}
-                                  onChange={(e) => updateRealisation(realisation.id, { nbEssais: e.target.value })}
-                                />
-                              </div>
-
-                              <div>
-                                <label>Statut CPR</label>
-                                <input
-                                  value={`${STYLE_LABELS[realisation.styleRealisation] || realisation.styleRealisation} · ${route?.cotationAjustee || "-"}`}
-                                  readOnly
-                                />
-                              </div>
-                            </div>
-
-                            <div style={{ marginTop: 12 }}>
-                              <label>Commentaire</label>
-                              <input
-                                value={realisation.commentaire || ""}
-                                onChange={(e) => updateRealisation(realisation.id, { commentaire: e.target.value })}
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-            <div className="card" style={{ marginTop: 16 }}>
-              <div className="card-header"><h3>Historique des réalisations</h3></div>
-              <div className="stack">
-                {!state.selectedParticipantProgress ? (
-                  <div className="muted-box">Choisis un grimpeur pour afficher son historique.</div>
-                ) : selectedParticipantRealisations.length === 0 ? (
-                  <div className="muted-box">Aucune réalisation enregistrée pour ce grimpeur.</div>
-                ) : (
-                  [...selectedParticipantRealisations]
-                    .sort((a, b) => b.dateRealisation.localeCompare(a.dateRealisation))
-                    .map((realisation) => {
-                      const participant = participantsById[realisation.participantId];
-                      const route = routesById[realisation.voieId];
-                      const session = sessionsById[realisation.sessionId];
-
-                      const availableSessionsForRealisation = getParticipantSessions(realisation.participantId);
-
-                      return (
-                        <div className="subcard editable-realisation-card" key={realisation.id}>
-                          <div className="card-header">
-                            <strong>{fullName(participant)} — {route?.nomVoie || `#${route?.numeroVoieUnique}`}</strong>
-                            <span className="badge">{session?.date || "-"} · {session?.slot || "-"}</span>
+                        <div className="grid three">
+                          <div>
+                            <label>Participant</label>
+                            <select
+                              value={realisation.participantId}
+                              onChange={(event) => {
+                                const participantId = event.target.value;
+                                const firstSession = getParticipantSessions(participantId)[0];
+                                updateRealisation(realisation.id, {
+                                  participantId,
+                                  sessionId: firstSession?.id || "",
+                                  dateRealisation: firstSession ? `${firstSession.date}T12:00:00` : realisation.dateRealisation,
+                                });
+                              }}
+                            >
+                              {alphabeticalParticipants.map((participantOption) => (
+                                <option key={participantOption.id} value={participantOption.id}>{fullName(participantOption)}</option>
+                              ))}
+                            </select>
                           </div>
 
-                          <div className="grid three">
-                            <div>
-                              <label>Participant</label>
-                              <select
-                                value={realisation.participantId}
-                                onChange={(e) => {
-                                  const participantId = e.target.value;
-                                  const firstSession = getParticipantSessions(participantId)[0];
-
-                                  updateRealisation(realisation.id, {
-                                    participantId,
-                                    sessionId: firstSession?.id || "",
-                                    dateRealisation: firstSession ? `${firstSession.date}T12:00:00` : realisation.dateRealisation,
-                                  });
-                                }}
-                              >
-                                {alphabeticalParticipants.map((p) => <option key={p.id} value={p.id}>{fullName(p)}</option>)}
-                              </select>
-                            </div>
-
-                            <div>
-                              <label>Séance</label>
-                              <select
-                                value={realisation.sessionId}
-                                onChange={(e) => updateRealisation(realisation.id, { sessionId: e.target.value })}
-                              >
-                                {availableSessionsForRealisation.length === 0 ? (
-                                  <option value="">Aucune séance inscrite</option>
-                                ) : (
-                                  availableSessionsForRealisation.map((s) => <option key={s.id} value={s.id}>{formatDateShortFr(s.date)} · {s.slot}</option>)
-                                )}
-                              </select>
-                            </div>
-
-                            <div>
-                              <label>Voie</label>
-                              <select
-                                value={realisation.voieId}
-                                onChange={(e) => updateRealisation(realisation.id, { voieId: e.target.value })}
-                              >
-                                {state.routes.map((r) => (
-                                  <option key={r.id} value={r.id}>
-                                    {r.nomVoie || `#${r.numeroVoieUnique}`} · corde {r.numeroCorde} · {r.cotationAjustee}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-
-                            <div>
-                              <label>Style</label>
-                              <select
-                                value={realisation.styleRealisation}
-                                onChange={(e) => updateRealisation(realisation.id, { styleRealisation: e.target.value })}
-                              >
-                                {Object.entries(STYLE_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-                              </select>
-                            </div>
-
-                            <div>
-                              <label>Cotation proposée</label>
-                              <select
-                                value={realisation.cotationProposee || ""}
-                                onChange={(e) => updateRealisation(realisation.id, { cotationProposee: e.target.value })}
-                              >
-                                <option value="">Aucune</option>
-                                {GRADES.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
-                              </select>
-                            </div>
-
-                            <div>
-                              <label>Essais</label>
-                              <input
-                                type="number"
-                                min="1"
-                                value={realisation.nbEssais || ""}
-                                onChange={(e) => updateRealisation(realisation.id, { nbEssais: e.target.value })}
-                              />
-                            </div>
+                          <div>
+                            <label>Séance</label>
+                            <select
+                              value={realisation.sessionId}
+                              onChange={(event) => updateRealisation(realisation.id, { sessionId: event.target.value })}
+                            >
+                              {availableSessionsForRealisation.length === 0 ? (
+                                <option value="">Aucune séance inscrite</option>
+                              ) : (
+                                availableSessionsForRealisation.map((sessionOption) => (
+                                  <option key={sessionOption.id} value={sessionOption.id}>{formatDateShortFr(sessionOption.date)} · {sessionOption.slot}</option>
+                                ))
+                              )}
+                            </select>
                           </div>
 
-                          <div style={{ marginTop: 12 }}>
-                            <label>Commentaire</label>
+                          <div>
+                            <label>Voie</label>
+                            <select
+                              value={realisation.voieId}
+                              onChange={(event) => updateRealisation(realisation.id, { voieId: event.target.value })}
+                            >
+                              {state.routes.map((routeOption) => (
+                                <option key={routeOption.id} value={routeOption.id}>
+                                  {formatRouteName(routeOption)} · corde {routeOption.numeroCorde} · {routeOption.cotationAjustee}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label>Style</label>
+                            <select
+                              value={realisation.styleRealisation}
+                              onChange={(event) => updateRealisation(realisation.id, { styleRealisation: event.target.value })}
+                            >
+                              {Object.entries(STYLE_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label>Cotation proposée</label>
+                            <select
+                              value={realisation.cotationProposee || ""}
+                              onChange={(event) => updateRealisation(realisation.id, { cotationProposee: event.target.value })}
+                            >
+                              <option value="">Aucune</option>
+                              {GRADES.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label>Essais</label>
                             <input
-                              value={realisation.commentaire || ""}
-                              onChange={(e) => updateRealisation(realisation.id, { commentaire: e.target.value })}
+                              type="number"
+                              min="1"
+                              value={realisation.nbEssais || ""}
+                              onChange={(event) => updateRealisation(realisation.id, { nbEssais: event.target.value })}
                             />
                           </div>
                         </div>
-                      );
-                    })
+
+                        <div style={{ marginTop: 8 }}>
+                          <label>Commentaire</label>
+                          <input
+                            value={realisation.commentaire || ""}
+                            onChange={(event) => updateRealisation(realisation.id, { commentaire: event.target.value })}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </div>
