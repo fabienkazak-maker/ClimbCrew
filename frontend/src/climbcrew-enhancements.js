@@ -10,10 +10,19 @@
 const STYLE_ID = "climbcrew-ui-enhancements";
 const THEME_SELECTOR_ID = "climbcrew-look-selector";
 const SLOT_ORDER = ["midi", "soir", "matin"];
-const SUPPORTED_THEMES = new Set(["light", "dark"]);
+const SUPPORTED_THEMES = new Set(["auto", "craie_ardoise", "ocean_mineral", "foret_mousse", "terre_cuite", "aurore_alpine", "lavande_nocturne", "sable_corde", "bloc_neon", "glacier", "cristal"]);
 const THEME_LABELS = {
-  light: "Craie du matin",
-  dark: "Grès du soir",
+  "auto": "Automatique",
+  "craie_ardoise": "Craie & Ardoise",
+  "ocean_mineral": "Océan minéral",
+  "foret_mousse": "Forêt mousse",
+  "terre_cuite": "Terre cuite",
+  "aurore_alpine": "Aurore alpine",
+  "lavande_nocturne": "Lavande nocturne",
+  "sable_corde": "Sable & Corde",
+  "bloc_neon": "Bloc néon",
+  "glacier": "Glacier",
+  "cristal": "Cristal"
 };
 
 let scheduled = false;
@@ -50,48 +59,8 @@ function injectStyles() {
       --cotis-paid:#22c55e; --cotis-unpaid:#ef4444;
     }
 
-    /* Grès du soir — ambiance sombre. */
-    :root,
-    :root[data-theme="dark"],
-    :root[data-look="dusk"] {
-      --cc-bg:#0b0d10;
-      --cc-surface:#171b1f;
-      --cc-surface-2:#20262b;
-      --cc-ink:#f2ede1;
-      --cc-muted:#97a1a8;
-      --cc-accent:#c9a6ff;
-      --cc-accent-strong:#a873f0;
-      --cc-accent-text:#20132e;
-      --cc-hairline:rgba(242,237,225,.12);
-      --cc-topo-opacity:.16;
-      --theme-page-bg:var(--cc-bg)!important;
-      --theme-app-bg:var(--cc-bg)!important;
-      --theme-card-bg:var(--cc-surface)!important;
-      --theme-card-soft:var(--cc-surface-2)!important;
-      --theme-card-border:var(--cc-hairline)!important;
-      --theme-text:var(--cc-ink)!important;
-      --theme-text-muted:var(--cc-muted)!important;
-      --theme-input-bg:var(--cc-surface-2)!important;
-      --theme-input-border:var(--cc-hairline)!important;
-      --theme-sidebar-bg:var(--cc-surface)!important;
-      --theme-accent:var(--cc-accent)!important;
-      --theme-accent-text:var(--cc-accent-text)!important;
-      --theme-stat-bg:var(--cc-surface-2)!important;
-    }
-
-    /* Craie du matin — ambiance claire. */
-    :root[data-theme="light"],
-    :root[data-look="chalk"] {
-      --cc-bg:#ece9e1;
-      --cc-surface:#fffdf9;
-      --cc-surface-2:#dfd9c9;
-      --cc-ink:#201f1c;
-      --cc-muted:#6f6a60;
-      --cc-accent:#5b2e99;
-      --cc-accent-strong:#3f1f70;
-      --cc-accent-text:#ffffff;
-      --cc-hairline:rgba(32,31,28,.14);
-      --cc-topo-opacity:.22;
+    /* Les composants consomment les mêmes jetons, quelle que soit l'ambiance. */
+    :root {
       --theme-page-bg:var(--cc-bg)!important;
       --theme-app-bg:var(--cc-bg)!important;
       --theme-card-bg:var(--cc-surface)!important;
@@ -105,6 +74,88 @@ function injectStyles() {
       --theme-accent:var(--cc-accent)!important;
       --theme-accent-text:var(--cc-accent-text)!important;
       --theme-stat-bg:var(--cc-surface-2)!important;
+    }
+
+    /* 1. Craie & Ardoise */
+    :root, :root[data-theme="craie_ardoise"] {
+      --cc-bg:#F4F1EA; --cc-surface:#FFFFFB; --cc-surface-2:#E8E3D9;
+      --cc-ink:#252A2E; --cc-muted:#676B6D; --cc-accent:#C56A3D;
+      --cc-accent-strong:#A94F28; --cc-accent-text:#FFFFFF;
+      --cc-hairline:rgba(37,42,46,.16); --cc-topo-opacity:.18;
+    }
+
+    /* 2. Océan minéral */
+    :root[data-theme="ocean_mineral"] {
+      --cc-bg:#EAF4F4; --cc-surface:#F8FFFF; --cc-surface-2:#D5EBEA;
+      --cc-ink:#102A43; --cc-muted:#536C78; --cc-accent:#1F7A8C;
+      --cc-accent-strong:#155E6D; --cc-accent-text:#FFFFFF;
+      --cc-hairline:rgba(16,42,67,.15); --cc-topo-opacity:.17;
+    }
+
+    /* 3. Forêt mousse */
+    :root[data-theme="foret_mousse"] {
+      --cc-bg:#E9EFE7; --cc-surface:#F7FAF4; --cc-surface-2:#D5E1D0;
+      --cc-ink:#1F2D22; --cc-muted:#5E6C60; --cc-accent:#557A46;
+      --cc-accent-strong:#3F6234; --cc-accent-text:#FFFFFF;
+      --cc-hairline:rgba(31,45,34,.16); --cc-topo-opacity:.19;
+    }
+
+    /* 4. Terre cuite */
+    :root[data-theme="terre_cuite"] {
+      --cc-bg:#F7EDE5; --cc-surface:#FFFAF6; --cc-surface-2:#EED8C9;
+      --cc-ink:#3A2620; --cc-muted:#7C6258; --cc-accent:#C65D3B;
+      --cc-accent-strong:#A84327; --cc-accent-text:#FFFFFF;
+      --cc-hairline:rgba(58,38,32,.16); --cc-topo-opacity:.18;
+    }
+
+    /* 5. Aurore alpine */
+    :root[data-theme="aurore_alpine"] {
+      --cc-bg:#EAF0F7; --cc-surface:#F9FBFD; --cc-surface-2:#D9E4EF;
+      --cc-ink:#162B3A; --cc-muted:#587080; --cc-accent:#315D7D;
+      --cc-accent-strong:#244861; --cc-accent-text:#FFFFFF;
+      --cc-hairline:rgba(22,43,58,.16); --cc-topo-opacity:.17;
+    }
+
+    /* 6. Lavande nocturne */
+    :root[data-theme="lavande_nocturne"] {
+      --cc-bg:#171525; --cc-surface:#242039; --cc-surface-2:#302A4A;
+      --cc-ink:#F3EFFF; --cc-muted:#B9B1CC; --cc-accent:#B8A1FF;
+      --cc-accent-strong:#9477F0; --cc-accent-text:#201A30;
+      --cc-hairline:rgba(243,239,255,.16); --cc-topo-opacity:.14;
+      --theme-input-bg:var(--cc-surface-2)!important;
+    }
+
+    /* 7. Sable & Corde */
+    :root[data-theme="sable_corde"] {
+      --cc-bg:#F2E7D5; --cc-surface:#FCF8F1; --cc-surface-2:#E5D2B7;
+      --cc-ink:#352820; --cc-muted:#75665B; --cc-accent:#A56A3F;
+      --cc-accent-strong:#85512D; --cc-accent-text:#FFFFFF;
+      --cc-hairline:rgba(53,40,32,.16); --cc-topo-opacity:.20;
+    }
+
+    /* 8. Bloc néon */
+    :root[data-theme="bloc_neon"] {
+      --cc-bg:#111318; --cc-surface:#1C2028; --cc-surface-2:#282E39;
+      --cc-ink:#F5F7FA; --cc-muted:#AAB2BF; --cc-accent:#C7FF4A;
+      --cc-accent-strong:#A8E522; --cc-accent-text:#162000;
+      --cc-hairline:rgba(245,247,250,.15); --cc-topo-opacity:.13;
+      --theme-input-bg:var(--cc-surface-2)!important;
+    }
+
+    /* 9. Glacier */
+    :root[data-theme="glacier"] {
+      --cc-bg:#EAF7FA; --cc-surface:#FFFFFF; --cc-surface-2:#D8EFF4;
+      --cc-ink:#173B4D; --cc-muted:#607985; --cc-accent:#3AAFC4;
+      --cc-accent-strong:#23899D; --cc-accent-text:#082F38;
+      --cc-hairline:rgba(23,59,77,.15); --cc-topo-opacity:.16;
+    }
+
+    /* 10. Cristal */
+    :root[data-theme="cristal"] {
+      --cc-bg:#F4F0EB; --cc-surface:#FFFFFF; --cc-surface-2:#E8E0D6;
+      --cc-ink:#241F20; --cc-muted:#6C6264; --cc-accent:#9E2A2B;
+      --cc-accent-strong:#7E2021; --cc-accent-text:#FFFFFF;
+      --cc-hairline:rgba(36,31,32,.16); --cc-topo-opacity:.18;
     }
 
     html,body,.app {
@@ -403,7 +454,7 @@ function configureThemeSelector() {
   const rootTheme = SUPPORTED_THEMES.has(root.dataset.theme) ? root.dataset.theme : preferredSystemTheme();
   const selectedTheme = SUPPORTED_THEMES.has(originalSelector?.value) ? originalSelector.value : rootTheme;
 
-  root.dataset.look = selectedTheme === "dark" ? "dusk" : "chalk";
+  root.dataset.look = rootTheme;
 
   if (!originalSelector) return;
 
