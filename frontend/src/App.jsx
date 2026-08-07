@@ -705,6 +705,7 @@ function App() {
   }, [state.sessions]);
 
   function isManagedSession(session) {
+    if (["passeport", "challenge", "renouvellement"].includes(session.status)) return true;
     return (session.status === "encadree" && Boolean(session.encadrantId))
       || (session.status === "libre" && Boolean(session.referentId));
   }
@@ -1706,6 +1707,9 @@ async function handleThemePreferenceChange(nextTheme) {
               <option value="fermee">Fermée</option>
               <option value="libre">Libre</option>
               <option value="encadree">Encadrée</option>
+              <option value="passeport">Passeport</option>
+              <option value="challenge">Challenge</option>
+              <option value="renouvellement">Renouvellement</option>
             </select>
           </div>
 
@@ -3371,7 +3375,7 @@ button:not(.danger):not(.secondary):not(.ghost),
             <details className="faq-item">
               <summary><strong>À quoi sert ClimbClubCristal ?</strong></summary>
               <div className="small">
-                ClimbClubCristal permet de gérer les séances en vues Jour et Semaine, les inscriptions, les participants, les voies et la progression des grimpeurs du site SAE de Cristal. Le bandeau supérieur indique toujours la page active.
+                ClimbClubCristal permet de gérer les séances en vues Jour et Semaine, les inscriptions, les participants, les voies et la progression des grimpeurs du site SAE de Cristal. Une séance peut être Libre, Encadrée, Passeport, Challenge, Renouvellement ou Fermée. Le bandeau supérieur indique toujours la page active.
               </div>
             </details>
 
