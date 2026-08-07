@@ -277,6 +277,7 @@ function injectStyles() {
     .participant-identity { display:inline-flex!important; align-items:center!important; gap:6px!important; min-width:0!important; }
     .passport-dot { width:14px!important; min-width:14px!important; height:14px!important; border-radius:999px!important; }
     .participant-name { display:block!important; margin:0!important; padding:0!important; line-height:1.05!important; }
+    .session-participant-list .participant-name { font-weight:400!important; }
     .session-participant-list { display:grid!important; grid-template-columns:minmax(0,1fr)!important; gap:2px!important; }
     .session-participant-list .participant-row { min-height:28px!important; padding:2px 3px 2px 6px!important; }
     .session-participant-list .remove-button {
