@@ -1,6 +1,6 @@
 {
-  "name": "ClimbClub",
-  "short_name": "ClimbClub",
+  "name": "ClimbClubCristal",
+  "short_name": "ClimbClubCristal",
   "description": "Gestion des séances et de la progression du club d’escalade",
   "start_url": "/",
   "display": "standalone",
