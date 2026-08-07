@@ -1065,6 +1065,13 @@ app.post("/auth/request-access", authRateLimit, async (req, res) => {
       [participantId, email, prenom, nom, passwordHash]
     );
 
+    if (participantId) {
+      await pool.query(
+        `update participants set email = $2 where id = $1 and coalesce(email, '') = ''`,
+        [participantId, email]
+      );
+    }
+
     await logAccess({
       userId: result.rows[0].id,
       eventType: "request_access",
