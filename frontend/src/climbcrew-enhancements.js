@@ -224,26 +224,8 @@ function injectStyles() {
 
     a { color:var(--cc-accent)!important; }
 
-    /* Signature commune : ligne topo sous le bandeau. */
-    .hero::after {
-      content:"";
-      display:block;
-      height:12px;
-      margin-top:10px;
-      opacity:var(--cc-topo-opacity);
-      background-repeat:repeat-x;
-      background-position:center;
-      background-size:190px 12px;
-    }
-
-    :root[data-theme="dark"] .hero::after,
-    :root:not([data-theme]) .hero::after {
-      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='190' height='12' viewBox='0 0 190 12'%3E%3Cpath d='M0 7 C18 1 30 11 49 6 S82 2 99 7 S130 11 148 5 S174 2 190 7' fill='none' stroke='%23c9a6ff' stroke-width='2'/%3E%3C/svg%3E");
-    }
-
-    :root[data-theme="light"] .hero::after {
-      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='190' height='12' viewBox='0 0 190 12'%3E%3Cpath d='M0 7 C18 1 30 11 49 6 S82 2 99 7 S130 11 148 5 S174 2 190 7' fill='none' stroke='%235b2e99' stroke-width='2'/%3E%3C/svg%3E");
-    }
+    /* Le bandeau épouse directement son contenu, sans ligne décorative supplémentaire. */
+    .hero::after { content:none!important; display:none!important; }
 
     /* Le choix d'ambiance est visible uniquement dans le menu de gauche. */
     .theme-selector-inline,#header-theme-selector { display:none!important; }
@@ -281,7 +263,7 @@ function injectStyles() {
     .app :where(button,input,select,textarea,.card,.toolbar,.subcard,.stat,.muted-box,.participant-row,.route-card,.badge,.pill,.modal-panel,.week-day-card) {
       border-radius:14px!important;
     }
-    .hero { padding:8px 10px!important; border-radius:18px!important; }
+    .hero { padding:6px 8px!important; border-radius:14px!important; }
     .toolbar,.card { margin-top:6px!important; padding:7px!important; }
     .subcard,.stat,.modal-panel { padding:6px!important; }
     .app button { padding:7px 10px!important; }
