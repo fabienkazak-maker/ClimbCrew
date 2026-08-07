@@ -197,6 +197,8 @@ const PASSPORT_STYLES = {
 };
 
 const GRADES = ["4a","4b","4c","5a","5b","5c","6a","6a+","6b","6b+","6c","6c+","7a","7a+","7b"];
+const ROPE_NUMBERS = Array.from({ length: 22 }, (_, index) => index);
+const ROUTE_COLORS = ["Blanc", "Bleu", "Gris", "Jaune", "Marron", "Noir", "Ocre", "Orange", "Rose", "Rouge", "Vert", "Violet"];
 const STYLE_LABELS = {
   a_vue: "À vue",
   flash: "Flash",
@@ -228,7 +230,7 @@ function formatRouteName(route) {
   const opener = String(route?.nomOuvreur || "").trim();
   const name = String(route?.nomVoie || "").trim();
   const label = [opener, name].filter(Boolean).join(" · ");
-  return label || (route?.numeroVoieUnique ? `#${route.numeroVoieUnique}` : "Voie");
+  return label || "Voie";
 }
 
 function toLocalIso(date) {
@@ -512,9 +514,8 @@ function App() {
     canAdmin: false,
   });
   const [newRoute, setNewRoute] = useState({
-    numeroVoieUnique: "",
     numeroCorde: "1",
-    couleurPrises: "",
+    couleurPrises: "Blanc",
     cotationReference: "5c",
     nomVoie: "",
     nomOuvreur: "",
@@ -1185,11 +1186,9 @@ function App() {
   }
 
   function addRoute() {
-    const numeroVoieUnique = newRoute.numeroVoieUnique.trim();
+    const numeroVoieUnique = `voie-${Date.now()}`;
     const couleurPrises = newRoute.couleurPrises.trim();
     const nomOuvreur = newRoute.nomOuvreur.trim();
-    if (!numeroVoieUnique) return setRouteError("Le numéro de voie est obligatoire.");
-    if (state.routes.some((r) => r.numeroVoieUnique === numeroVoieUnique)) return setRouteError("Ce numéro de voie existe déjà.");
     if (!couleurPrises || !nomOuvreur) return setRouteError("Renseigne au moins la couleur et l’ouvreur.");
 
     const route = {
@@ -1209,15 +1208,8 @@ function App() {
     setState((prev) => ({ ...prev, routes: [...prev.routes, route] }));
     setRouteError("");
     setNewRoute({
-      numeroVoieUnique: "", numeroCorde: "1", couleurPrises: "", cotationReference: "5c", nomVoie: "", nomOuvreur: "", moulinetteOnly: false,
+      numeroCorde: "1", couleurPrises: "Blanc", cotationReference: "5c", nomVoie: "", nomOuvreur: "", moulinetteOnly: false,
     });
-  }
-
-  function toggleRouteActive(routeId) {
-    setState((prev) => ({
-      ...prev,
-      routes: prev.routes.map((r) => (r.id === routeId ? { ...r, active: !r.active } : r)),
-    }));
   }
 
   function applyAdjustedGrade(routeId) {
@@ -2820,9 +2812,8 @@ button:not(.danger):not(.secondary):not(.ghost),
               <div className="card">
                 <div className="card-header"><h2>Ajouter une voie</h2></div>
                 <div className="grid four">
-                  <div><label>Numéro unique</label><input value={newRoute.numeroVoieUnique} onChange={(e) => setNewRoute((p) => ({ ...p, numeroVoieUnique: e.target.value }))} /></div>
-                  <div><label>Corde</label><select value={newRoute.numeroCorde} onChange={(e) => setNewRoute((p) => ({ ...p, numeroCorde: e.target.value }))}>{state.ropes.map((rope) => <option key={rope.numeroCorde} value={String(rope.numeroCorde)}>Corde {rope.numeroCorde} · {rope.couleurCorde}</option>)}</select></div>
-                  <div><label>Couleur voie</label><input value={newRoute.couleurPrises} onChange={(e) => setNewRoute((p) => ({ ...p, couleurPrises: e.target.value }))} /></div>
+                  <div><label>Corde</label><select value={newRoute.numeroCorde} onChange={(e) => setNewRoute((p) => ({ ...p, numeroCorde: e.target.value }))}>{ROPE_NUMBERS.map((numero) => <option key={numero} value={String(numero)}>Corde {numero}</option>)}</select></div>
+                  <div><label>Couleur voie</label><select value={newRoute.couleurPrises} onChange={(e) => setNewRoute((p) => ({ ...p, couleurPrises: e.target.value }))}>{ROUTE_COLORS.map((couleur) => <option key={couleur} value={couleur}>{couleur}</option>)}</select></div>
                   <div><label>Cotation</label><select value={newRoute.cotationReference} onChange={(e) => setNewRoute((p) => ({ ...p, cotationReference: e.target.value }))}>{GRADES.map((g) => <option key={g} value={g}>{g}</option>)}</select></div>
                   <div><label>Nom de la voie</label><input value={newRoute.nomVoie} onChange={(e) => setNewRoute((p) => ({ ...p, nomVoie: e.target.value }))} /></div>
                   <div><label>Ouvreur</label><input value={newRoute.nomOuvreur} onChange={(e) => setNewRoute((p) => ({ ...p, nomOuvreur: e.target.value }))} /></div>
@@ -2836,12 +2827,13 @@ button:not(.danger):not(.secondary):not(.ghost),
             <div className="card">
               <div className="card-header"><h2>Tableau des voies</h2></div>
               <div className="stack">
-                {state.ropes.filter((rope) => state.routes.some((route) => route.numeroCorde === rope.numeroCorde)).map((rope) => {
-                  const ropeRoutes = state.routes.filter((route) => route.numeroCorde === rope.numeroCorde);
+                {[...new Set(state.routes.map((route) => Number(route.numeroCorde)))].sort((a, b) => a - b).map((numeroCorde) => {
+                  const rope = state.ropes.find((item) => Number(item.numeroCorde) === numeroCorde);
+                  const ropeRoutes = state.routes.filter((route) => Number(route.numeroCorde) === numeroCorde);
                   return (
-                    <div className="subcard" key={rope.numeroCorde}>
+                    <div className="subcard" key={numeroCorde}>
                       <div className="card-header">
-                        <strong>Corde {rope.numeroCorde} · {rope.couleurCorde}</strong>
+                        <strong>Corde {numeroCorde}{rope?.couleurCorde ? ` · ${rope.couleurCorde}` : ""}</strong>
                         <span className="badge">{ropeRoutes.length} voie(s)</span>
                       </div>
                       {ropeRoutes.length === 0 ? (
@@ -2857,10 +2849,9 @@ button:not(.danger):not(.secondary):not(.ghost),
                                   <div className="group">
                                     {route.moulinetteOnly && <span className="pill">Moulinette uniquement</span>}
                                     {route.active && <button className="secondary" onClick={() => openRealisationModal(route.id)}>Réalisation</button>}
-                                    {adminUnlocked && <>
-                                      <button className="secondary" onClick={() => toggleRouteActive(route.id)}>{route.active ? "Archiver" : "Réactiver"}</button>
+                                    {adminUnlocked && (
                                       <button className="secondary" disabled={!agg?.weightedMedianGrade} onClick={() => applyAdjustedGrade(route.id)}>Appliquer cotation ajustée</button>
-                                    </>}
+                                    )}
                                   </div>
                                 </div>
                                 {/* Détails de référence retirés de l’affichage. */}
@@ -3400,7 +3391,7 @@ button:not(.danger):not(.secondary):not(.ghost),
     <div className="faq-item">
       <strong>Que signifient les couleurs des participants et des voies ?</strong>
       <div className="small">
-        Dans les inscriptions, le fond correspond au passeport. La couleur du cadre indique la cotisation (vert si réglée, rouge sinon). Le cadre est plein avec une licence FFME et alterne la couleur significative avec du noir en l’absence de licence. Lorsqu’une séance encadrée devient libre, les personnes déjà inscrites sans passeport requis restent affichées avec un fond hachuré. Dans les voies, le fond reprend la couleur des prises ; le texte des voies blanches et jaunes est noir et un cadre rouge signale une voie uniquement en moulinette.
+        Dans les inscriptions, la bille à gauche du nom correspond au passeport. La couleur du cadre indique la cotisation (vert si réglée, rouge sinon). Le cadre est plein avec une licence FFME et alterne la couleur significative avec du noir en l’absence de licence. Lorsqu’une séance encadrée devient libre, les personnes déjà inscrites sans passeport requis restent affichées avec un fond hachuré. Dans les voies, le fond reprend la couleur des prises ; le texte des voies blanches et jaunes est noir et un cadre rouge signale une voie uniquement en moulinette.
       </div>
     </div>
 
