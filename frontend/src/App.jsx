@@ -540,7 +540,6 @@ function App() {
     styleRealisation: "a_vue",
     commentaire: "",
     cotationProposee: "",
-    nbEssais: "",
   });
 
   // Route sélectionnée pour le popup "Enregistrer une réalisation"
@@ -1286,19 +1285,25 @@ function App() {
     }));
   }
 
-  function openRealisationModal(routeId) {
+  function openRealisationModal(routeId, requestedParticipantId = "") {
     const route = routesById[routeId];
+    const requestedParticipant = participantsById[requestedParticipantId];
+    const latestRegisteredDay = requestedParticipant?.cotisation
+      ? getParticipantSessionDays(requestedParticipantId)[0] || ""
+      : "";
+    const defaultParticipantId = latestRegisteredDay ? requestedParticipantId : "";
 
     setNewRealisation((prev) => ({
       ...prev,
-      participantId: "",
-      selectedDay: "",
-      sessionId: "",
+      participantId: defaultParticipantId,
+      selectedDay: latestRegisteredDay,
+      sessionId: defaultParticipantId && latestRegisteredDay
+        ? resolveSessionIdForRealisation(defaultParticipantId, latestRegisteredDay) || ""
+        : "",
       voieId: routeId,
       styleRealisation: route?.moulinetteOnly ? "moulinette" : (prev.styleRealisation || "a_vue"),
       cotationProposee: route?.cotationAjustee || route?.cotationReference || "",
       commentaire: "",
-      nbEssais: "",
     }));
 
     setRealisationModalRouteId(routeId);
@@ -1384,7 +1389,6 @@ async function deleteRealisation(realisation) {
       styleRealisation: newRealisation.styleRealisation,
       commentaire: newRealisation.commentaire,
       cotationProposee: newRealisation.cotationProposee,
-      nbEssais: newRealisation.nbEssais,
     };
 
     try {
@@ -1397,7 +1401,6 @@ async function deleteRealisation(realisation) {
         sessionId: "",
         commentaire: "",
         cotationProposee: "",
-        nbEssais: "",
       }));
       setRealisationModalRouteId(null);
     } catch (error) {
@@ -2715,10 +2718,6 @@ button:not(.danger):not(.secondary):not(.ghost),
                 </select>
               </div>
 
-              <div>
-                <label>Essais</label>
-                <input type="number" min="1" value={newRealisation.nbEssais} onChange={(e) => setNewRealisation((p) => ({ ...p, nbEssais: e.target.value }))} />
-              </div>
             </div>
 
             <div style={{ marginTop: 12 }}>
@@ -2870,7 +2869,7 @@ button:not(.danger):not(.secondary):not(.ghost),
                                   <strong>Corde {route.numeroCorde} · {route.cotationAjustee} · {formatRouteName(route)}</strong>
                                   <div className="group">
                                     {route.moulinetteOnly && <span className="pill">Moulinette uniquement</span>}
-                                    <button className="secondary" onClick={() => openRealisationModal(route.id)}>Réalisation</button>
+                                    <button className="secondary" onClick={() => openRealisationModal(route.id, state.selectedParticipantProgress)}>Réalisation</button>
                                   </div>
                                 </div>
                                 {/* Détails de référence retirés de l’affichage. */}
@@ -2947,7 +2946,7 @@ button:not(.danger):not(.secondary):not(.ghost),
                 </select>
                 <button
                   disabled={!progressEntryRouteId}
-                  onClick={() => openRealisationModal(progressEntryRouteId)}
+                  onClick={() => openRealisationModal(progressEntryRouteId, state.selectedParticipantProgress)}
                 >
                   Nouvelle réalisation
                 </button>
@@ -3079,15 +3078,6 @@ button:not(.danger):not(.secondary):not(.ghost),
                             </select>
                           </div>
 
-                          <div>
-                            <label>Essais</label>
-                            <input
-                              type="number"
-                              min="1"
-                              value={realisation.nbEssais || ""}
-                              onChange={(event) => updateRealisation(realisation.id, { nbEssais: event.target.value })}
-                            />
-                          </div>
                         </div>
 
                         <div style={{ marginTop: 8 }}>
