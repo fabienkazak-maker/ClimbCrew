@@ -1949,8 +1949,8 @@ async function handleThemePreferenceChange(nextTheme) {
         .side-tab.active { background: #22d3ee; color: #082f49; }
         .sidebar-account { margin-top: 4px; padding-top: 10px; border-top: 1px solid rgba(148,163,184,.2); display: grid; gap: 8px; }
         .sidebar-account .secondary { width: 100%; }
-        .date-nav { flex: 1 1 440px; justify-content: center; }
-        .date-input { max-width: 220px; text-align: center; font-weight: 800; text-transform: capitalize; }
+        .date-nav { display: grid; grid-template-columns: 48px minmax(180px, 220px) 48px; flex: 1 1 440px; align-items: center; justify-content: center; flex-wrap: nowrap; }
+        .date-input { width: 100%; max-width: 220px; min-width: 0; text-align: center; font-weight: 800; text-transform: capitalize; }
         .date-display { cursor: default; }
         .nav-symbol { min-width: 48px; padding: 10px 12px; font-size: 20px; line-height: 1; }
         .session-form-row { display: grid; grid-template-columns: minmax(180px,.7fr) minmax(220px,1fr) minmax(280px,1.4fr); gap: 12px; align-items: end; margin-bottom: 14px; }
@@ -3380,14 +3380,14 @@ button:not(.danger):not(.secondary):not(.ghost),
             <details className="faq-item">
               <summary><strong>Comment sont présentés les participants et les voies ?</strong></summary>
               <div className="small">
-                Pour un participant, la bille placée à gauche du nom indique la couleur du passeport. Le cadre est vert si la cotisation est réglée et rouge sinon ; il est plein avec une licence FFME et en pointillés sans licence. En séance Libre, un fond hachuré signale une personne déjà inscrite sans passeport requis. Pour une voie, le fond reprend la couleur choisie dans la liste alphabétique et un cadre rouge indique une voie uniquement en moulinette. Les cordes proposées vont de 0 à 21.
+                Pour un participant, la bille placée à gauche du nom indique la couleur du passeport. Le cadre est vert si la cotisation est réglée et rouge sinon ; il est plein avec une licence FFME et en pointillés sans licence. En séance Libre, un fond hachuré signale une personne déjà inscrite sans passeport requis. Pour une voie, le fond reprend la couleur des prises ; le texte reste lisible selon la couleur du fond et un cadre rouge indique une voie uniquement en moulinette.
               </div>
             </details>
 
             <details className="faq-item">
               <summary><strong>Que signifie CPR ?</strong></summary>
               <div className="small">
-                Le CPR représente le niveau récent. Il retient les réalisations des 90 derniers jours, pondère la cotation selon le style et conserve les 10 meilleures performances. Une voie facile d’échauffement ne réduit donc pas le CPR si elle ne fait pas partie de ces 10 performances.
+                Le CPR représente le niveau récent du grimpeur. Le calcul examine les réalisations des 90 derniers jours et convertit chaque cotation en indice, de 4a à 7b. Cet indice est multiplié par le coefficient du style : à vue 1,25 ; flash 1,20 ; en tête 1,00 ; moulinette 0,85 ; travaillée 0,75 ; avec repos 0,60 ; projet 0,30 ; non enchaînée 0,20 ; essai ou test 0,10. Les performances sont ensuite classées par indice pondéré et seules les 10 meilleures sont conservées. La moyenne de leurs indices pondérés est arrondie à l’indice de cotation le plus proche, puis reconvertie en cotation. S’il existe moins de 10 réalisations valides, le calcul utilise uniquement celles disponibles. Une voie facile d’échauffement ne réduit donc pas le CPR si elle ne figure pas parmi les 10 meilleures performances récentes.
               </div>
             </details>
 
