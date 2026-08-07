@@ -12,6 +12,6 @@ certs
 *.pem
 *.key
 *.crt
-*.txy
+*.txt
 .DS_Store
 Thumbs.db
