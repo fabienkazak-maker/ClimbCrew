@@ -266,6 +266,29 @@ function injectStyles() {
     }
     .shell { touch-action:pan-y; overscroll-behavior-x:contain; }
 
+    /* Les flèches et la date forment un seul bloc insécable sur toutes les largeurs. */
+    .date-nav {
+      display:grid!important;
+      grid-template-columns:44px minmax(0,1fr) 44px!important;
+      align-items:center!important;
+      flex-wrap:nowrap!important;
+      width:min(100%,440px)!important;
+      min-width:0!important;
+    }
+    .date-nav .date-input {
+      grid-column:2!important;
+      width:100%!important;
+      min-width:0!important;
+      max-width:none!important;
+    }
+    .date-nav .nav-symbol:first-child { grid-column:1!important; }
+    .date-nav .nav-symbol:last-child { grid-column:3!important; }
+    .date-nav .nav-symbol {
+      width:44px!important;
+      min-width:44px!important;
+      margin:0!important;
+    }
+
     /* Les couleurs de voies et de passeports restent fonctionnelles. */
     .route-card {
       border:2px solid rgba(15,23,42,.38)!important;
