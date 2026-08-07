@@ -309,6 +309,7 @@ async function ensureSchema() {
       id bigserial primary key,
       nom text not null,
       prenom text not null,
+      email text not null default '',
       passport text not null default 'sans',
       cotisation boolean not null default false,
       ffme boolean not null default false,
@@ -337,6 +338,7 @@ async function ensureSchema() {
     );
 
     alter table participants add column if not exists can_admin boolean not null default false;
+    alter table participants add column if not exists email text not null default '';
 
     alter table sessions drop constraint if exists sessions_slot_check;
     alter table sessions add constraint sessions_slot_check check (slot in ('midi', 'matin', 'soir'));
@@ -360,6 +362,12 @@ async function ensureSchema() {
       revoked_reason text,
       last_login_at timestamptz
     );
+
+    update participants p
+    set email = u.email
+    from users u
+    where u.participant_id = p.id
+      and coalesce(p.email, '') = '';
 
     create index if not exists idx_users_email on users(lower(email));
     create index if not exists idx_users_status on users(status);
@@ -681,6 +689,7 @@ function participantDbToApi(row) {
     id: String(row.id),
     nom: row.nom,
     prenom: row.prenom,
+    email: row.email || "",
     passport: row.passport,
     cotisation: row.cotisation,
     ffme: row.ffme,
@@ -1390,7 +1399,7 @@ app.post("/admin/auth/users/:id/reset-token", requireAuth, requireAdmin, async (
 app.get("/participants", requireAuth, async (_req, res) => {
   try {
     const result = await pool.query(`
-      select id, nom, prenom, passport, cotisation, ffme, can_encadrer, can_referer, can_admin
+      select id, nom, prenom, email, passport, cotisation, ffme, can_encadrer, can_referer, can_admin
       from participants
       order by prenom asc, nom asc
     `);
@@ -1405,6 +1414,7 @@ app.post("/participants", requireAuth, requireAdmin, async (req, res) => {
     const {
       nom = "",
       prenom = "",
+      email = "",
       passport = "sans",
       cotisation = false,
       ffme = false,
@@ -1420,11 +1430,11 @@ app.post("/participants", requireAuth, requireAdmin, async (req, res) => {
     const result = await pool.query(
       `
         insert into participants
-        (nom, prenom, passport, cotisation, ffme, can_encadrer, can_referer, can_admin)
-        values ($1,$2,$3,$4,$5,$6,$7,$8)
-        returning id, nom, prenom, passport, cotisation, ffme, can_encadrer, can_referer, can_admin
+        (nom, prenom, email, passport, cotisation, ffme, can_encadrer, can_referer, can_admin)
+        values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+        returning id, nom, prenom, email, passport, cotisation, ffme, can_encadrer, can_referer, can_admin
       `,
-      [nom, prenom, passport, cotisation, ffme, canEncadrer, canReferer, canAdmin]
+      [nom, prenom, String(email || "").trim().toLowerCase(), passport, cotisation, ffme, canEncadrer, canReferer, canAdmin]
     );
 
     res.status(201).json(participantDbToApi(result.rows[0]));
@@ -1439,6 +1449,7 @@ app.put("/participants/:id", requireAuth, requireAdmin, async (req, res) => {
     const {
       nom = "",
       prenom = "",
+      email = "",
       passport = "sans",
       cotisation = false,
       ffme = false,
@@ -1452,16 +1463,17 @@ app.put("/participants/:id", requireAuth, requireAdmin, async (req, res) => {
         update participants
         set nom = $2,
             prenom = $3,
-            passport = $4,
-            cotisation = $5,
-            ffme = $6,
-            can_encadrer = $7,
-            can_referer = $8,
-            can_admin = $9
+            email = $4,
+            passport = $5,
+            cotisation = $6,
+            ffme = $7,
+            can_encadrer = $8,
+            can_referer = $9,
+            can_admin = $10
         where id = $1
-        returning id, nom, prenom, passport, cotisation, ffme, can_encadrer, can_referer, can_admin
+        returning id, nom, prenom, email, passport, cotisation, ffme, can_encadrer, can_referer, can_admin
       `,
-      [id, nom, prenom, passport, cotisation, ffme, canEncadrer, canReferer, canAdmin]
+      [id, nom, prenom, String(email || "").trim().toLowerCase(), passport, cotisation, ffme, canEncadrer, canReferer, canAdmin]
     );
 
     if (!result.rowCount) {
@@ -1675,13 +1687,14 @@ async function importLegacyPayload(inputPayload) {
       const result = await client.query(
         `
           insert into participants
-          (nom, prenom, passport, cotisation, ffme, can_encadrer, can_referer, can_admin)
-          values ($1,$2,$3,$4,$5,$6,$7,$8)
+          (nom, prenom, email, passport, cotisation, ffme, can_encadrer, can_referer, can_admin)
+          values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
           returning id
         `,
         [
           String(participant.nom || "").trim() || "?",
           String(participant.prenom || "").trim() || "?",
+          String(participant.email || "").trim().toLowerCase(),
           String(participant.passport || "sans").trim() || "sans",
           Boolean(participant.cotisation),
           Boolean(participant.ffme),
@@ -1958,13 +1971,14 @@ app.post("/import-data", requireSetupAccess, async (req, res) => {
       const result = await client.query(
         `
           insert into participants
-          (nom, prenom, passport, cotisation, ffme, can_encadrer, can_referer, can_admin)
-          values ($1,$2,$3,$4,$5,$6,$7,$8)
+          (nom, prenom, email, passport, cotisation, ffme, can_encadrer, can_referer, can_admin)
+          values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
           returning id
         `,
         [
           participant.nom,
           participant.prenom,
+          String(participant.email || "").trim().toLowerCase(),
           participant.passport || "sans",
           Boolean(participant.cotisation),
           Boolean(participant.ffme),
