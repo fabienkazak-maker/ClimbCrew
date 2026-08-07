@@ -2,7 +2,7 @@
  * Ajustements d'interface ClimbCrew.
  *
  * Ce module complète le composant React sans modifier les données métier :
- * - applique les deux ambiances visuelles validées ;
+ * - applique les dix ambiances visuelles proposées ;
  * - conserve les couleurs fonctionnelles des passeports et des voies ;
  * - garantit que les séances de la vue semaine restent dans leur jour ;
  * - expose le choix d'ambiance uniquement dans le menu latéral.
@@ -440,13 +440,13 @@ function preserveFunctionalRouteColors() {
 }
 
 function preferredSystemTheme() {
-  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "lavande_nocturne" : "craie_ardoise";
 }
 
 /**
  * Le select React d'origine reste la source de vérité pour la sauvegarde API.
- * Il est masqué et piloté par un select dédié contenant uniquement les deux
- * ambiances validées, afin de ne pas modifier directement les options React.
+ * Il est masqué et piloté par un select dédié contenant les dix ambiances
+ * et le mode automatique, tout en conservant la sauvegarde React.
  */
 function configureThemeSelector() {
   const root = document.documentElement;
