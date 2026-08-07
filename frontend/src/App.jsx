@@ -2587,7 +2587,6 @@ button:not(.danger):not(.secondary):not(.ghost),
             <svg className="sidebar-logout-icon" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M10 5H5v14h5M14 8l4 4-4 4M8 12h10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            <span>Déconnexion</span>
           </button>
         </div>
         {visibleTabs.map((item) => (
