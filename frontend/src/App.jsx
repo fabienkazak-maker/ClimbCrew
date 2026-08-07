@@ -1406,7 +1406,7 @@ async function deleteRealisation(realisation) {
       ]);
 
       setAdminAuthUsers(usersResponse.users || []);
-      setAdminAccessLogs(logsResponse.logs || []);
+      setAdminAccessLogs((logsResponse.logs || []).filter((log) => log.event_type !== "theme_changed"));
     } catch (error) {
       console.error(error);
       setAuthError("Impossible de charger les accès et les logs.");
@@ -2004,6 +2004,11 @@ async function handleThemePreferenceChange(nextTheme) {
         .error { color: #fca5a5; }
         .pill { padding: 4px 8px; border-radius: 999px; background: rgba(255,255,255,.35); font-size: 12px; display: inline-flex; align-items: center; }
         .faq-item { padding: 12px 0; border-bottom: 1px solid rgba(148,163,184,.2); }
+        .faq-item summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; list-style: none; }
+        .faq-item summary::-webkit-details-marker { display: none; }
+        .faq-item summary::after { content: "›"; flex: 0 0 auto; font-size: 22px; line-height: 1; transition: transform .18s ease; }
+        .faq-item[open] summary::after { transform: rotate(90deg); }
+        .faq-item > .small { margin-top: 7px !important; }
         .week-grid { display: grid; grid-template-columns: repeat(5, minmax(240px, 1fr)); gap: 12px; align-items: start; overflow-x: auto; padding-bottom: 8px; }
         .week-day-card { min-width: 0; padding: 12px; border-radius: 18px; background: var(--theme-card-soft); border: 1px solid var(--theme-card-border); }
         .week-day-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
@@ -3355,54 +3360,56 @@ button:not(.danger):not(.secondary):not(.ghost),
         )}
 
         {tab === "faq" && (
-  <div className="card">
-    <div className="card-header"><h2>FAQ – fonctionnement de ClimbClubCristal</h2></div>
+          <div className="card">
+            <div className="card-header"><h2>FAQ – fonctionnement de ClimbClubCristal</h2></div>
 
-    {/* La version n’est plus affichée dans la FAQ. */}
+            <details className="faq-item">
+              <summary><strong>À quoi sert ClimbClubCristal ?</strong></summary>
+              <div className="small">
+                ClimbClubCristal permet de gérer les séances en vues Jour et Semaine, les inscriptions, les participants, les voies et la progression des grimpeurs du site SAE de Cristal. Le bandeau supérieur indique toujours la page active.
+              </div>
+            </details>
 
-    <div className="faq-item">
-      <strong>À quoi sert ClimbClubCristal ?</strong>
-      <div className="small">
-        ClimbClubCristal sert à gérer les séances, les inscriptions, les participants, les voies et le suivi de progression des grimpeurs du site SAE de Cristal.
-      </div>
-    </div>
+            <details className="faq-item">
+              <summary><strong>Comment enregistrer une voie réalisée ?</strong></summary>
+              <div className="small">
+                Dans l’onglet Voies, le bouton « Réalisation » ouvre la saisie. Si un jour est choisi, seuls les participants cotisants inscrits ce jour-là sont proposés. Si un participant est choisi, seuls ses jours d’inscription sont proposés. La saisie ne distingue pas les créneaux midi et soir.
+              </div>
+            </details>
 
-    <div className="faq-item">
-      <strong>Comment enregistrer une voie réalisée ?</strong>
-      <div className="small">
-        Depuis l’onglet Voies, le bouton “Réalisation” ouvre une fenêtre de saisie sans jour ni participant préremplis. Si un jour est choisi, l’application propose uniquement les participants cotisants inscrits ce jour-là. Si un participant est choisi, l’application propose uniquement les jours où il est inscrit. La saisie ne distingue pas midi et soir. Si aucun participant n’est éligible, l’application affiche “Aucun participant éligible”.
-      </div>
-    </div>
+            <details className="faq-item">
+              <summary><strong>Comment sont présentés les participants et les voies ?</strong></summary>
+              <div className="small">
+                Pour un participant, la bille placée à gauche du nom indique la couleur du passeport. Le cadre est vert si la cotisation est réglée et rouge sinon ; il est plein avec une licence FFME et en pointillés sans licence. En séance Libre, un fond hachuré signale une personne déjà inscrite sans passeport requis. Pour une voie, le fond reprend la couleur choisie dans la liste alphabétique et un cadre rouge indique une voie uniquement en moulinette. Les cordes proposées vont de 0 à 21.
+              </div>
+            </details>
 
-    <div className="faq-item">
-      <strong>Que signifient les couleurs des participants et des voies ?</strong>
-      <div className="small">
-        Dans les inscriptions, la bille à gauche du nom correspond au passeport. La couleur du cadre indique la cotisation (vert si réglée, rouge sinon). Le cadre est plein avec une licence FFME et alterne la couleur significative avec du noir en l’absence de licence. Lorsqu’une séance encadrée devient libre, les personnes déjà inscrites sans passeport requis restent affichées avec un fond hachuré. Dans les voies, le fond reprend la couleur des prises ; le texte des voies blanches et jaunes est noir et un cadre rouge signale une voie uniquement en moulinette.
-      </div>
-    </div>
+            <details className="faq-item">
+              <summary><strong>Que signifie CPR ?</strong></summary>
+              <div className="small">
+                Le CPR représente le niveau récent. Il retient les réalisations des 90 derniers jours, pondère la cotation selon le style et conserve les 10 meilleures performances. Une voie facile d’échauffement ne réduit donc pas le CPR si elle ne fait pas partie de ces 10 performances.
+              </div>
+            </details>
 
-    <div className="faq-item">
-      <strong>Qui peut accéder aux onglets Administration, Gestion des comptes et Log ?</strong>
-      <div className="small">
-        Ces onglets sont réservés aux administrateurs. Les utilisateurs standards ne voient pas ces onglets dans la navigation.
-      </div>
-    </div>
+            {canAccessAdminTabs && (
+              <>
+                <details className="faq-item">
+                  <summary><strong>Qui peut accéder à Administration, Gestion des comptes et Log ?</strong></summary>
+                  <div className="small">
+                    Ces pages sont réservées aux administrateurs et ne sont pas affichées dans la navigation des utilisateurs standards.
+                  </div>
+                </details>
 
-    <div className="faq-item">
-      <strong>À quoi servent les onglets Gestion des comptes et Log ?</strong>
-      <div className="small">
-        Gestion des comptes permet d’approuver, révoquer, réactiver et réinitialiser les accès. Log permet de consulter l’historique des connexions et des événements d’authentification.
-      </div>
-    </div>
-
-    <div className="faq-item">
-      <strong>Que signifie CPR ?</strong>
-      <div className="small">
-        Le CPR de ClimbClubCristal représente le niveau récent. Il utilise les réalisations des 90 derniers jours, pondère la cotation selon le style, conserve les 10 meilleures performances, puis convertit leur moyenne pondérée en cotation. Une voie facile d’échauffement ne réduit donc pas le CPR si elle ne fait pas partie des 10 meilleures performances récentes.
-      </div>
-    </div>
-  </div>
-)}
+                <details className="faq-item">
+                  <summary><strong>À quoi servent Gestion des comptes et Log ?</strong></summary>
+                  <div className="small">
+                    Gestion des comptes permet d’approuver, révoquer, réactiver et réinitialiser les accès. Log présente les événements utiles de connexion et d’authentification ; les changements d’ambiance n’y sont pas enregistrés.
+                  </div>
+                </details>
+              </>
+            )}
+          </div>
+        )}
 
       </div>
     </div>
