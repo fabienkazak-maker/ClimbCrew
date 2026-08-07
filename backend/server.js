@@ -995,14 +995,6 @@ app.put("/auth/theme", requireAuth, async (req, res) => {
 
     const user = serializeUser(result.rows[0]);
 
-    await logAccess({
-      userId: req.auth.user.id,
-      eventType: "theme_changed",
-      success: true,
-      req,
-      details: { theme_preference: nextTheme },
-    });
-
     res.json({ ok: true, user });
   } catch (error) {
     res.status(500).json({ error: String(error) });
