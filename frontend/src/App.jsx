@@ -283,16 +283,21 @@ function getPassportStyle(participant) {
   const borderColor = isCotisant ? "#22c55e" : "#ef4444";
 
   return {
-    ...baseStyle,
-    color: getContrastingTextColor(baseStyle.backgroundColor),
-    border: hasFfmeLicence ? `2px solid ${borderColor}` : "2px solid transparent",
-    borderImage: hasFfmeLicence
-      ? "none"
-      : `repeating-linear-gradient(90deg, ${borderColor} 0 8px, #111827 8px 16px) 1`,
+    color: "inherit",
+    background: "transparent",
+    border: `2px ${hasFfmeLicence ? "solid" : "dashed"} ${borderColor}`,
     boxShadow: isCotisant
-      ? "0 0 0 1px rgba(34,197,94,.25)"
-      : "0 0 0 1px rgba(239,68,68,.25)",
+      ? "0 0 0 1px rgba(34,197,94,.18)"
+      : "0 0 0 1px rgba(239,68,68,.18)",
   };
+}
+
+function getPassportDotStyle(participant) {
+  const baseStyle = isDiscoveryPassport(participant?.passport)
+    ? PASSPORT_STYLES.decouverte
+    : PASSPORT_STYLES[participant?.passport] || PASSPORT_STYLES.sans;
+
+  return { backgroundColor: baseStyle.backgroundColor };
 }
 function gradeToIndex(grade) {
   return GRADES.indexOf(grade);
@@ -1772,8 +1777,12 @@ async function handleThemePreferenceChange(nextTheme) {
                 className={`participant-row passport-row ${session.status === "libre" && normalizePassport(p.passport) === "sans" ? "passport-warning-hatched" : ""}`}
                 key={p.id}
                 style={getPassportStyle(p)}
+                data-passport={normalizePassport(p.passport)}
               >
-                <span className="participant-name">{fullName(p)}</span>
+                <span className="participant-identity">
+                  <span className="passport-dot" style={getPassportDotStyle(p)} aria-hidden="true" />
+                  <span className="participant-name">{fullName(p)}</span>
+                </span>
                 <button className="remove-button" onClick={() => removeParticipantFromSession(session.id, p.id)} aria-label="Retirer">×</button>
               </div>
             ))
@@ -1955,10 +1964,12 @@ async function handleThemePreferenceChange(nextTheme) {
         .inline-field { display: grid; grid-template-columns: auto minmax(160px, 1fr); gap: 10px; align-items: center; }
         .inline-field label { margin-bottom: 0; white-space: nowrap; }
         .add-participant-field { grid-column: span 1; }
-        .passport-row { color: #111827; border: 1px solid rgba(255,255,255,.28); }
+        .passport-row { color: inherit; background: transparent; }
+        .participant-identity { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
+        .passport-dot { width: 14px; height: 14px; flex: 0 0 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.72); box-shadow: 0 0 0 1px rgba(15,23,42,.35); }
         .participant-name { font-weight: 800; }
-        .remove-button { background: transparent; color: #000000; border: 0; border-radius: 0; padding: 0 4px; font-size: 20px; line-height: 1; box-shadow: none; }
-        .remove-button:hover { background: transparent; color: #000000; }
+        .remove-button { display: inline-flex; align-items: center; justify-content: center; width: 26px; min-width: 26px; height: 26px; min-height: 26px; background: rgba(148,163,184,.28); color: inherit; border: 1px solid rgba(148,163,184,.45); border-radius: 999px; padding: 0; font-size: 20px; line-height: 1; box-shadow: none; }
+        .remove-button:hover { background: rgba(148,163,184,.45); color: inherit; }
         .hero { background: rgba(15,23,42,.88); border: 1px solid rgba(148,163,184,.25); border-radius: 24px; padding: 22px; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
         .hero h1 { margin: 0; font-size: 32px; }
         .hero p { margin: 8px 0 0; color: #94a3b8; }
@@ -2792,16 +2803,6 @@ button:not(.danger):not(.secondary):not(.ghost),
                   <section className="week-day-card" key={day.date}>
                     <div className="week-day-header">
                       <h3>{formatDateFr(day.date)}</h3>
-                      <button
-                        className="secondary week-day-open"
-                        onClick={() => {
-                          setSelectedDate(day.date);
-                          ensureSessionsForDate(day.date);
-                          setViewMode("jour");
-                        }}
-                      >
-                        Ouvrir le jour
-                      </button>
                     </div>
                     <div className="week-day-sessions">
                       {day.sessions.map((session) => renderSessionCard(session, true))}
@@ -3363,8 +3364,11 @@ button:not(.danger):not(.secondary):not(.ghost),
               </div>
               <div className="stack">
                 {sortedStatsParticipants.map((participant) => (
-                  <div className="participant-row passport-row" key={participant.id} style={getPassportStyle(participant)}>
-                    <span className="participant-name">{fullName(participant)}</span>
+                  <div className="participant-row passport-row" key={participant.id} style={getPassportStyle(participant)} data-passport={normalizePassport(participant.passport)}>
+                    <span className="participant-identity">
+                      <span className="passport-dot" style={getPassportDotStyle(participant)} aria-hidden="true" />
+                      <span className="participant-name">{fullName(participant)}</span>
+                    </span>
                     <span className="small" style={{ color: "inherit" }}>Cotisation : {participant.cotisation ? "Oui" : "Non"} · FFME : {participant.ffme ? "Oui" : "Non"} · CPR : {cprByParticipantId[participant.id]?.currentGrade || "Non calculé"} · Participations : {sessionStats.participationCount[participant.id] || 0} · Passeport : {participant.passport}</span>
                   </div>
                 ))}
