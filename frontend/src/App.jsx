@@ -523,6 +523,7 @@ function App() {
   const [newParticipant, setNewParticipant] = useState({
     nom: "",
     prenom: "",
+    email: "",
     passport: "sans",
     cotisation: false,
     ffme: false,
@@ -1191,7 +1192,7 @@ function App() {
         ]);
       }
       setNewParticipant({
-        nom: "", prenom: "", passport: "sans", cotisation: false, ffme: false, canEncadrer: false, canReferer: false, canAdmin: false,
+        nom: "", prenom: "", email: "", passport: "sans", cotisation: false, ffme: false, canEncadrer: false, canReferer: false, canAdmin: false,
       });
     } catch (e) {
       setSyncMessage(`Erreur ajout participant`);
@@ -3179,6 +3180,7 @@ button:not(.danger):not(.secondary):not(.ghost),
                   <div className="grid four">
                     <div><label>Nom</label><input value={newParticipant.nom} onChange={(e) => setNewParticipant((p) => ({ ...p, nom: e.target.value }))} /></div>
                     <div><label>Prénom</label><input value={newParticipant.prenom} onChange={(e) => setNewParticipant((p) => ({ ...p, prenom: e.target.value }))} /></div>
+                    <div><label>Adresse e-mail</label><input type="email" value={newParticipant.email} onChange={(e) => setNewParticipant((p) => ({ ...p, email: e.target.value }))} /></div>
                     <div><label>Passeport</label><select value={newParticipant.passport} onChange={(e) => setNewParticipant((p) => ({ ...p, passport: e.target.value }))}><option value="sans">Sans</option><option value="jaune">Jaune</option><option value="orange">Orange</option><option value="vert">Vert</option><option value="bleu">Bleu</option><option value="decouverte">Découverte</option></select></div>
                     <div style={{ display: "flex", alignItems: "end" }}><button onClick={addParticipant}>Ajouter</button></div>
                   </div>
@@ -3199,6 +3201,7 @@ button:not(.danger):not(.secondary):not(.ghost),
                         <div className="grid four">
                           <div><label>Nom</label><input value={p.nom} onChange={(e) => updateParticipant(p.id, { nom: e.target.value })} /></div>
                           <div><label>Prénom</label><input value={p.prenom} onChange={(e) => updateParticipant(p.id, { prenom: e.target.value })} /></div>
+                          <div><label>Adresse e-mail</label><input type="email" value={p.email || ""} onChange={(e) => updateParticipant(p.id, { email: e.target.value })} /></div>
                           <div><label>Passeport</label><select value={p.passport} onChange={(e) => updateParticipant(p.id, { passport: e.target.value })}><option value="sans">Sans</option><option value="jaune">Jaune</option><option value="orange">Orange</option><option value="vert">Vert</option><option value="bleu">Bleu</option><option value="decouverte">Découverte</option></select></div>
                           <div style={{ display: "flex", alignItems: "end" }}><button className="danger" onClick={() => deleteParticipant(p.id)}>Supprimer</button></div>
                         </div>
