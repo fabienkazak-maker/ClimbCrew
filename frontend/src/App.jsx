@@ -1224,15 +1224,6 @@ function App() {
     });
   }
 
-  function applyAdjustedGrade(routeId) {
-    const aggregate = routeAggregatesById[routeId];
-    if (!aggregate?.weightedMedianGrade) return;
-    setState((prev) => ({
-      ...prev,
-      routes: prev.routes.map((r) => (r.id === routeId ? { ...r, cotationAjustee: aggregate.weightedMedianGrade } : r)),
-    }));
-  }
-
   function getParticipantSessions(participantId) {
     if (!participantId) return [];
 
@@ -1947,7 +1938,7 @@ async function handleThemePreferenceChange(nextTheme) {
         .shell { max-width: 1400px; margin: 0 auto; }
         .topbar { display: flex; align-items: center; justify-content: flex-start; gap: 16px; }
         .brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
-        .app-logo { width: 72px; height: 72px; object-fit: contain; border-radius: 18px; background: #fff; padding: 6px; box-shadow: 0 10px 30px rgba(0,0,0,.22); }
+        .app-logo { width: 48px; height: 48px; object-fit: contain; border-radius: 14px; background: #fff; padding: 4px; box-shadow: 0 8px 22px rgba(0,0,0,.18); }
         .menu-button { background: #020617; color: #e2e8f0; border: 1px solid rgba(148,163,184,.45); min-width: 48px; padding: 10px 12px; }
         .sidebar-backdrop { position: fixed; inset: 0; background: rgba(2,6,23,.62); z-index: 40; }
         .sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: min(310px, 86vw); z-index: 50; transform: translateX(-110%); transition: transform .22s ease; background: rgba(15,23,42,.98); border-right: 1px solid rgba(148,163,184,.25); padding: 18px; box-shadow: 20px 0 60px rgba(0,0,0,.4); display: flex; flex-direction: column; gap: 14px; }
@@ -1976,9 +1967,8 @@ async function handleThemePreferenceChange(nextTheme) {
         .participant-name { font-weight: 800; }
         .remove-button { display: inline-flex; align-items: center; justify-content: center; width: 26px; min-width: 26px; height: 26px; min-height: 26px; background: rgba(148,163,184,.28); color: inherit; border: 1px solid rgba(148,163,184,.45); border-radius: 999px; padding: 0; font-size: 20px; line-height: 1; box-shadow: none; }
         .remove-button:hover { background: rgba(148,163,184,.45); color: inherit; }
-        .hero { background: rgba(15,23,42,.88); border: 1px solid rgba(148,163,184,.25); border-radius: 24px; padding: 22px; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
-        .hero h1 { margin: 0; font-size: 32px; }
-        .current-page-title { font-weight: 600; color: #cbd5e1; }
+        .hero { background: rgba(15,23,42,.88); border: 1px solid rgba(148,163,184,.25); border-radius: 18px; padding: 10px; box-shadow: 0 14px 36px rgba(0,0,0,.25); }
+        .hero h1 { margin: 0; font-size: 24px; line-height: 1.05; }
         .hero p { margin: 8px 0 0; color: #94a3b8; }
         .tabs { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 8px; margin-top: 20px; }
         .tab { border: 0; border-radius: 14px; padding: 12px 10px; background: #1e293b; color: #cbd5e1; font-weight: 700; cursor: pointer; }
@@ -2043,7 +2033,7 @@ async function handleThemePreferenceChange(nextTheme) {
           .tabs { grid-template-columns: repeat(3,minmax(0,1fr)); }
           .stats-grid, .grid.five, .grid.four, .grid.three, .grid.two { grid-template-columns: 1fr; }
           .topbar { align-items: flex-start; }
-          .app-logo { width: 58px; height: 58px; }
+          .app-logo { width: 44px; height: 44px; }
           .date-nav { width: 100%; }
           .date-input { flex: 1 1 auto; max-width: none; }
           .session-form-row { grid-template-columns: 1fr; }
@@ -2060,11 +2050,11 @@ async function handleThemePreferenceChange(nextTheme) {
           .shell { width: 100%; max-width: 100%; }
 
           /* Header compact : plus de hauteur utile en salle et sur smartphone. */
-          .hero { position: sticky; top: 0; z-index: 30; padding: 10px 12px; border-radius: 16px; backdrop-filter: blur(10px); }
+          .hero { position: sticky; top: 0; z-index: 30; padding: 7px 9px; border-radius: 14px; backdrop-filter: blur(10px); }
           .topbar { gap: 10px; align-items: center; }
           .brand { gap: 10px; }
-          .app-logo { width: 40px; height: 40px; border-radius: 10px; padding: 4px; }
-          .hero h1 { font-size: 22px; line-height: 1; }
+          .app-logo { width: 34px; height: 34px; border-radius: 9px; padding: 3px; }
+          .hero h1 { font-size: 20px; line-height: 1; }
           .hero .small { font-size: 11px; margin-top: 4px; }
           .menu-button { min-width: 42px; min-height: 42px; padding: 8px; border-radius: 12px; }
 
@@ -2154,8 +2144,8 @@ async function handleThemePreferenceChange(nextTheme) {
         @media (max-width: 420px) {
           .stats-grid { grid-template-columns: 1fr; }
           .bottom-tab { min-width: 84px; font-size: 11px; }
-          .hero h1 { font-size: 20px; }
-          .app-logo { width: 36px; height: 36px; }
+          .hero h1 { font-size: 18px; }
+          .app-logo { width: 32px; height: 32px; }
           .inline-field { grid-template-columns: 1fr; }
         }
 
@@ -2756,7 +2746,7 @@ button:not(.danger):not(.secondary):not(.ghost),
             <div className="brand">
               <img src="/logo-climbcrew.png" alt="Logo ClimbClubCristal" className="app-logo" />
               <div>
-                <h1>ClimbClubCristal <span className="current-page-title">— {currentPageLabel}</span></h1>
+                <h1>{currentPageLabel}</h1>
               </div>
             </div>
 
@@ -2864,7 +2854,6 @@ button:not(.danger):not(.secondary):not(.ghost),
                       ) : (
                         <div className="stack">
                           {ropeRoutes.map((route) => {
-                            const agg = routeAggregatesById[route.id];
                             return (
                               <div className={`route-card ${route.moulinetteOnly ? "moulinette-only" : ""}`} key={route.id} style={getRouteCardStyle(route.couleurPrises)}>
                                 <div className="card-header">
@@ -2872,9 +2861,6 @@ button:not(.danger):not(.secondary):not(.ghost),
                                   <div className="group">
                                     {route.moulinetteOnly && <span className="pill">Moulinette uniquement</span>}
                                     <button className="secondary" onClick={() => openRealisationModal(route.id)}>Réalisation</button>
-                                    {adminUnlocked && (
-                                      <button className="secondary" disabled={!agg?.weightedMedianGrade} onClick={() => applyAdjustedGrade(route.id)}>Appliquer cotation ajustée</button>
-                                    )}
                                   </div>
                                 </div>
                                 {/* Détails de référence retirés de l’affichage. */}
