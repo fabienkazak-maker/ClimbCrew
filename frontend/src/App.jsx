@@ -657,6 +657,7 @@ function App() {
     () => TABS.filter((item) => !item.adminOnly || canAccessAdminTabs),
     [canAccessAdminTabs]
   );
+  const currentPageLabel = TABS.find((item) => item.key === tab)?.label || "";
 
   useEffect(() => {
     if (visibleTabs.some((item) => item.key === tab)) return;
@@ -1964,6 +1965,7 @@ async function handleThemePreferenceChange(nextTheme) {
         .remove-button:hover { background: rgba(148,163,184,.45); color: inherit; }
         .hero { background: rgba(15,23,42,.88); border: 1px solid rgba(148,163,184,.25); border-radius: 24px; padding: 22px; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
         .hero h1 { margin: 0; font-size: 32px; }
+        .current-page-title { font-weight: 600; color: #cbd5e1; }
         .hero p { margin: 8px 0 0; color: #94a3b8; }
         .tabs { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 8px; margin-top: 20px; }
         .tab { border: 0; border-radius: 14px; padding: 12px 10px; background: #1e293b; color: #cbd5e1; font-weight: 700; cursor: pointer; }
@@ -2733,7 +2735,7 @@ button:not(.danger):not(.secondary):not(.ghost),
             <div className="brand">
               <img src="/logo-climbcrew.png" alt="Logo ClimbClubCristal" className="app-logo" />
               <div>
-                <h1>ClimbClubCristal</h1>
+                <h1>ClimbClubCristal <span className="current-page-title">— {currentPageLabel}</span></h1>
               </div>
             </div>
 
