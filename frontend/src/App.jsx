@@ -3324,8 +3324,11 @@ button:not(.danger):not(.secondary):not(.ghost),
               <div className="card-header">
                 <h2>Liste des inscrits</h2>
                 <div className="group">
-                  <div style={{ minWidth: 210 }}>
-                    <label>Trier par</label>
+                  <div
+                    className="stats-sort-field"
+                    style={{ display: "grid", gridTemplateColumns: "auto minmax(160px, 1fr)", gap: 8, alignItems: "center", minWidth: 250 }}
+                  >
+                    <label style={{ margin: 0 }}>Trier par</label>
                     <select value={statsSortField} onChange={(e) => setStatsSortField(e.target.value)}>
                       <option value="name">Nom</option>
                       <option value="passport">Passeport</option>
@@ -3380,7 +3383,7 @@ button:not(.danger):not(.secondary):not(.ghost),
             <details className="faq-item">
               <summary><strong>Comment sont présentés les participants et les voies ?</strong></summary>
               <div className="small">
-                Pour un participant, la bille placée à gauche du nom indique la couleur du passeport. Le cadre est vert si la cotisation est réglée et rouge sinon ; il est plein avec une licence FFME et en pointillés sans licence. En séance Libre, un fond hachuré signale une personne déjà inscrite sans passeport requis. Pour une voie, le fond reprend la couleur des prises ; le texte reste lisible selon la couleur du fond et un cadre rouge indique une voie uniquement en moulinette.
+                Pour un participant, la bille placée à gauche du nom indique la couleur du passeport. Le cadre est vert si la cotisation est réglée et rouge sinon ; il est plein avec une licence FFME et en pointillés sans licence. En séance Libre, un fond hachuré signale une personne déjà inscrite sans passeport requis. Pour une voie, le fond reprend la couleur des prises et un cadre rouge indique une voie uniquement en moulinette.
               </div>
             </details>
 
