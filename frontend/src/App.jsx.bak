@@ -2674,23 +2674,10 @@ button:not(.danger):not(.secondary):not(.ghost),
       </nav>
 
       <div className="shell">
-  <div className="hero">
-    <div className="topbar">
-      <button className="menu-button" onClick={() => setSidebarOpen(true)} aria-label="Afficher le menu">
-        ?
-      </button>
-      <div className="brand">
-        <img src="/logo-climbcrew.png" alt="Logo ClimbClubCristal" className="app-logo" />
-        <div>
-          <h1>ClimbClubCristal</h1>
-          <p>{visibleTabs.find((item) => item.key === tab)?.label || "ClimbClubCristal"}</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-</div>
-  );
-}
-
-export default App;
+        <div className="hero">
+          <div className="topbar">
+            <button className="menu-button" onClick={() => setSidebarOpen(true)} aria-label="Afficher le menu">
+              ☰
+            </button>
+            <div className="brand">
+              <img src="/logo-climbcre
