@@ -1,4 +1,39 @@
 import React, { useEffect, useMemo, useState } from "react";
+<<<<<<< Updated upstream
+=======
+import { normalizeRopeNumber } from "./route-utils.js";
+import WallOfFameSection from "./sections/WallOfFameSection.jsx";
+import StatisticsSection from "./sections/StatisticsSection.jsx";
+import FaqSection from "./sections/FaqSection.jsx";
+import { APP_VERSION } from "./version.js";
+import { normalizeAppData } from "./data-normalization.js";
+import { buildCsv, csvFileSlug } from "./csv-utils.js";
+import {
+  GRADES,
+  calculateLeadPoints,
+  calculateLeadRealisationStats,
+  calculateRouteAggregates,
+  calculateSimpleCpr,
+  calculateWallOfFameCategories,
+  gradeToIndex,
+} from "./climbing-calculations.js";
+import { TABS } from "./app-shell-config.js";
+import {
+  AUTH_LOGIN_INLINE_STYLE,
+  THEME_OPTIONS,
+  THEME_PREFERENCE_KEY,
+  resolveThemePreference,
+} from "./theme-config.js";
+import {
+  PASSPORT_STYLES,
+  ROPE_NUMBERS,
+  ROUTE_COLORS,
+  ROUTE_TAGS,
+  STYLE_LABELS,
+  THECRAG_STYLE_BY_CLIMBCREW,
+  fullName,
+} from "./climbing-ui-config.js";
+>>>>>>> Stashed changes
 
 // Données de repli volontairement vides : les données legacy sont importées côté backend/PostgreSQL.
 // Cela évite d'exposer les participants dans le bundle JavaScript public.
@@ -23,154 +58,6 @@ const USE_API = Boolean(API_BASE);
 const APP_VERSION_LABEL = "Version 2026-07-23.1";
 const PASSWORD_RULE_TEXT = "Minimum 12 caractères avec majuscule, minuscule, chiffre et caractère spécial.";
 
-const AUTH_LOGIN_INLINE_STYLE = `
-  .auth-page {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px 14px;
-    background: linear-gradient(180deg, #f6f8fc 0%, #eef2f7 100%);
-  }
-
-  .auth-card {
-    width: min(460px, 100%);
-    padding: 18px;
-    border-radius: 20px;
-    background: rgba(255,255,255,.96);
-    border: 1px solid rgba(148,163,184,.18);
-    box-shadow: 0 18px 50px rgba(15,23,42,.10);
-    color: #0f172a;
-  }
-
-  .auth-brand {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    gap: 10px;
-  }
-
-  .auth-page .app-logo {
-    width: 72px;
-    height: 72px;
-    object-fit: contain;
-    border-radius: 18px;
-    background: #ffffff;
-    padding: 6px;
-    box-shadow: 0 10px 30px rgba(15,23,42,.10);
-  }
-
-  .auth-brand h1,
-  .auth-brand p {
-    margin: 0;
-    text-align: center;
-  }
-
-  .auth-switcher {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-top: 14px;
-  }
-
-  .auth-switcher button {
-    min-height: 40px;
-    padding: 8px 10px;
-    border-radius: 12px;
-  }
-
-  .auth-card .grid.two {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .auth-card label {
-    display: block;
-    margin-bottom: 6px;
-    font-size: 12px;
-    font-weight: 700;
-    color: #64748b;
-    text-transform: none;
-    letter-spacing: 0;
-  }
-
-  .auth-card input,
-  .auth-card select {
-    width: 100%;
-    min-height: 44px;
-    padding: 10px 12px;
-    border-radius: 12px;
-    border: 1px solid rgba(148,163,184,.25);
-    background: #ffffff;
-    color: #0f172a;
-    box-sizing: border-box;
-  }
-
-  .auth-submit-row {
-    grid-column: 1 / -1;
-    display: flex;
-    justify-content: flex-start;
-  }
-
-  .auth-submit-row button {
-    min-width: 160px;
-  }
-
-  @media (max-width: 480px) {
-    .auth-card {
-      width: min(100%, 380px);
-      padding: 14px;
-    }
-
-    .auth-page .app-logo {
-      width: 64px;
-      height: 64px;
-    }
-
-    .auth-switcher {
-      grid-template-columns: 1fr;
-    }
-
-    .auth-submit-row button {
-      width: 100%;
-      min-width: 0;
-    }
-  }
-`;
-
-
-const THEME_PREFERENCE_KEY = "climbcrew-theme-preference";
-const THEME_OPTIONS = [
-  { value: "auto", label: "Automatique" },
-  { value: "craie_ardoise", label: "Craie & Ardoise" },
-  { value: "ocean_mineral", label: "Océan minéral" },
-  { value: "foret_mousse", label: "Forêt mousse" },
-  { value: "terre_cuite", label: "Terre cuite" },
-  { value: "aurore_alpine", label: "Aurore alpine" },
-  { value: "lavande_nocturne", label: "Lavande nocturne" },
-  { value: "sable_corde", label: "Sable & Corde" },
-  { value: "bloc_neon", label: "Bloc néon" },
-  { value: "glacier", label: "Glacier" },
-  { value: "cristal", label: "Cristal" },
-];
-const THEME_VALUES = THEME_OPTIONS.filter((option) => option.value !== "auto").map((option) => option.value);
-
-function getSystemTheme() {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return "craie_ardoise";
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "lavande_nocturne" : "craie_ardoise";
-}
-
-function resolveThemePreference(value) {
-  if (THEME_VALUES.includes(value)) return value;
-  if (value === "light") return "craie_ardoise";
-  if (value === "dark") return "lavande_nocturne";
-  if (value === "fun") return "bloc_neon";
-  return getSystemTheme();
-}
-
-
 function isStrongPassword(value) {
   return typeof value === "string"
     && value.length >= 12
@@ -180,6 +67,7 @@ function isStrongPassword(value) {
     && /[^A-Za-z0-9]/.test(value);
 }
 
+<<<<<<< Updated upstream
 
 const TABS = [
   { key: "inscriptions", label: "Inscriptions" },
@@ -237,6 +125,8 @@ function fullName(p) {
   return p ? `${p.nom} ${p.prenom}`.trim() : "";
 }
 
+=======
+>>>>>>> Stashed changes
 function formatRouteName(route) {
   const opener = String(route?.nomOuvreur || "").trim();
   const name = String(route?.nomVoie || "").trim();
@@ -3321,6 +3211,7 @@ button:not(.danger):not(.secondary):not(.ghost),
           </>
         )}
 
+<<<<<<< Updated upstream
         {tab === "statistiques" && (
           <>
             <div className="stats-grid">
@@ -3438,6 +3329,42 @@ button:not(.danger):not(.secondary):not(.ghost),
               </>
             )}
           </div>
+=======
+        {tab === "wall_of_fame" && (
+          <WallOfFameSection
+            wallOfFameCategories={wallOfFameCategories}
+            getPassportStyle={getPassportStyle}
+            getPassportDotStyle={getPassportDotStyle}
+            normalizePassport={normalizePassport}
+          />
+        )}
+
+        {tab === "statistiques" && (
+          <StatisticsSection
+            sessionStats={sessionStats}
+            topRouteRankings={topRouteRankings}
+            leadRealisationStats={leadRealisationStats}
+            formatRouteName={formatRouteName}
+            statsSortField={statsSortField}
+            setStatsSortField={setStatsSortField}
+            statsSortDirection={statsSortDirection}
+            setStatsSortDirection={setStatsSortDirection}
+            sortedStatsParticipants={sortedStatsParticipants}
+            getPassportStyle={getPassportStyle}
+            normalizePassport={normalizePassport}
+            getPassportDotStyle={getPassportDotStyle}
+            cprByParticipantId={cprByParticipantId}
+            formatPoints={formatPoints}
+            pointsByParticipantId={pointsByParticipantId}
+          />
+        )}
+
+        {tab === "faq" && (
+          <FaqSection
+            APP_VERSION={APP_VERSION}
+            canAccessAdminTabs={canAccessAdminTabs}
+          />
+>>>>>>> Stashed changes
         )}
 
       </div>
