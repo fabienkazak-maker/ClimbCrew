@@ -1817,7 +1817,7 @@ async function handleThemePreferenceChange(nextTheme) {
                 La demande sera journalisée. Un administrateur pourra générer un code de réinitialisation.
               </div>
               <div className="auth-submit-row">
-                <button onClick={handleForgotPassword}>Signaler la perte du mot de passe</button>
+                <button onClick={handleForgotPassword}>Signaler la perte du mot de passsse</button>
               </div>
             </div>
           )}
