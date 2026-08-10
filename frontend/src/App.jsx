@@ -1759,7 +1759,7 @@ async function handleThemePreferenceChange(nextTheme) {
           {authView === "login" && (
             <div className="grid two" style={{ marginTop: 14 }}>
               <div>
-                <label>Email</label>
+                <label>Emails</label>
                 <input value={loginForm.email} onChange={(e) => setLoginForm((p) => ({ ...p, email: e.target.value }))} />
               </div>
               <div>
