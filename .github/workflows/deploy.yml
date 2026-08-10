@@ -5,6 +5,12 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to deploy'
+        required: true
+        default: 'refactor/ui-maintainability'
+        type: string
 
 permissions:
   contents: read
@@ -22,31 +28,27 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
 
       - name: Check production environment file
         shell: bash
         run: |
           set -euo pipefail
-
           if [ ! -f "/opt/climbcrew/.env.production" ]; then
             echo "ERROR: /opt/climbcrew/.env.production not found."
             echo "Please create it manually before deploying."
             exit 1
           fi
-
           echo ".env.production found"
 
       - name: Deploy to production
         shell: bash
         run: |
           set -euo pipefail
-
           cd /opt/climbcrew
-
           echo "=== Pulling latest code ==="
-          git pull --ff-only origin main
-
+          git pull --ff-only origin ${{ github.event.inputs.branch }}
           echo "=== Building and starting containers ==="
           docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
-
           echo "=== Deployment completed ==="
