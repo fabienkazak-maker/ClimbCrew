@@ -1,13 +1,10 @@
 name: Deploy to Production
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       branch:
-        description: 'Branch to deploy'
+        description: 'Branch to deploy (test only)'
         required: true
         default: 'refactor/ui-maintainability'
         type: string
@@ -26,7 +23,7 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: Checkout repository
+      - name: Checkout repository (test branch)
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs.branch }}
@@ -37,18 +34,19 @@ jobs:
           set -euo pipefail
           if [ ! -f "/opt/climbcrew/.env.production" ]; then
             echo "ERROR: /opt/climbcrew/.env.production not found."
-            echo "Please create it manually before deploying."
             exit 1
           fi
           echo ".env.production found"
 
-      - name: Deploy to production
+      - name: Deploy to production (test branch)
         shell: bash
         run: |
           set -euo pipefail
           cd /opt/climbcrew
-          echo "=== Pulling latest code ==="
-          git pull --ff-only origin ${{ github.event.inputs.branch }}
+          echo "=== Pulling latest code from ${{ github.event.inputs.branch }} ==="
+          git fetch origin ${{ github.event.inputs.branch }}
+          git reset --hard origin/${{ github.event.inputs.branch }}  # Force reset to test branch
           echo "=== Building and starting containers ==="
           docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
-          echo "=== Deployment completed ==="
+          echo "=== Deployment completed (TEST MODE) ==="
+          echo "To revert, run: git reset --hard origin/main && docker compose up -d --build"
