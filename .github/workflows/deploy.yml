@@ -38,6 +38,41 @@ jobs:
           fi
           echo ".env.production found"
 
+      - name: Sync SMTP credentials into .env.production
+        shell: bash
+        env:
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SMTP_USER:-}" ] || [ -z "${SMTP_PASSWORD:-}" ]; then
+            echo "SMTP_USER/SMTP_PASSWORD secrets not set, leaving .env.production untouched."
+            exit 0
+          fi
+
+          ENV_FILE="/opt/climbcrew/.env.production"
+
+          set_env_var() {
+            local key="$1"
+            local value="$2"
+            if grep -q "^${key}=" "$ENV_FILE"; then
+              sed -i "s|^${key}=.*|${key}=${value}|" "$ENV_FILE"
+            else
+              echo "${key}=${value}" >> "$ENV_FILE"
+            fi
+          }
+
+          set_env_var "EMAIL_ENABLED" "true"
+          set_env_var "SMTP_HOST" "smtp.gmail.com"
+          set_env_var "SMTP_PORT" "587"
+          set_env_var "SMTP_SECURE" "false"
+          set_env_var "SMTP_REQUIRE_TLS" "true"
+          set_env_var "SMTP_USER" "${SMTP_USER}"
+          set_env_var "SMTP_PASSWORD" "${SMTP_PASSWORD}"
+          set_env_var "EMAIL_FROM_NAME" "ClimbClubCristal"
+          set_env_var "EMAIL_FROM_ADDRESS" "${SMTP_USER}"
+          echo "SMTP credentials synced into .env.production"
+
       - name: Deploy to production (test branch)
         shell: bash
         run: |
