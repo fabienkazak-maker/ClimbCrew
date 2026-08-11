@@ -1,5 +1,5 @@
 import React from "react";
-import { fullName } from "../climbing-ui-config.js";
+import { fullName } from "../lib/domain.js";
 
 export default function WallOfFameSection({
   wallOfFameCategories,

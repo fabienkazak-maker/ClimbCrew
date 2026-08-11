@@ -1,24 +1,38 @@
 import React, { useEffect, useMemo, useState } from "react";
 
-
-
 import WallOfFameSection from "./sections/WallOfFameSection.jsx";
 import StatisticsSection from "./sections/StatisticsSection.jsx";
 import FaqSection from "./sections/FaqSection.jsx";
-
-
-
-
 
 import {
   AUTH_LOGIN_INLINE_STYLE,
   THEME_OPTIONS,
   THEME_PREFERENCE_KEY,
   resolveThemePreference,
-} from "./theme-config.js";
-import { ROUTE_TAGS, THECRAG_STYLE_BY_CLIMBCREW } from "./climbing-ui-config.js";
-
-
+} from "./lib/theme.js";
+import { ROPE_NUMBERS, ROUTE_COLORS, STYLE_LABELS, TABS } from "./lib/ui-config.js";
+import {
+  GRADES,
+  STYLE_WEIGHTS,
+  MAX_PARTICIPANTS,
+  fullName,
+  formatRouteName,
+  todayIso,
+  defaultSessionStatus,
+  normalizePassport,
+  getPassportStyle,
+  getPassportDotStyle,
+  gradeToIndex,
+  indexToGrade,
+  getRouteCardStyle,
+  formatDateFr,
+  formatDateShortFr,
+  formatPoints,
+  nextBusinessDay,
+  calculateSimpleCpr,
+  weightedMedian,
+} from "./lib/domain.js";
+import { USE_API, apiFetch, authApiFetch, downloadFile } from "./lib/api.js";
 
 // Données de repli volontairement vides : les données legacy sont importées côté backend/PostgreSQL.
 // Cela évite d'exposer les participants dans le bundle JavaScript public.
@@ -35,9 +49,6 @@ const IMPORTED_DATA = {
 };
 const STORAGE_KEY = "climbcrew_local_data_v2";
 const ADMIN_CODE = import.meta.env.VITE_LEGACY_ADMIN_CODE || "";
-const MAX_PARTICIPANTS = 18;
-const API_BASE = (import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
-const USE_API = Boolean(API_BASE);
 
 // La session est conservée uniquement dans un cookie HttpOnly côté backend.
 const APP_VERSION_LABEL = "Version 2026-07-23.1";
@@ -52,292 +63,6 @@ function isStrongPassword(value) {
     && /[^A-Za-z0-9]/.test(value);
 }
 
-
-
-const TABS = [
-  { key: "inscriptions", label: "Inscriptions" },
-  { key: "voies", label: "Voies" },
-  { key: "progression", label: "Progression" },
-  { key: "administration", label: "Administration", adminOnly: true },
-  { key: "gestion_comptes", label: "Gestion des comptes", adminOnly: true },
-  { key: "logs", label: "Log", adminOnly: true },
-  { key: "statistiques", label: "Statistiques" },
-  { key: "faq", label: "FAQ" },
-];
-
-const PASSPORT_STYLES = {
-  sans: { backgroundColor: "#334155", color: "#f8fafc" },
-  jaune: { backgroundColor: "#fde047", color: "#111827" },
-  orange: { backgroundColor: "#fb923c", color: "#111827" },
-  vert: { backgroundColor: "#22c55e", color: "#052e16" },
-  bleu: { backgroundColor: "#60a5fa", color: "#0f172a" },
-
-  // Passeport découverte : fond gris.
-  // Le cadre dépend ensuite du statut cotisation.
-  decouverte: { backgroundColor: "#64748b", color: "#ffffff" },
-  "découverte": { backgroundColor: "#64748b", color: "#ffffff" },
-  decouvertes: { backgroundColor: "#64748b", color: "#ffffff" },
-  "découvertes": { backgroundColor: "#64748b", color: "#ffffff" },
-};
-
-const GRADES = ["4a","4b","4c","5a","5b","5c","6a","6a+","6b","6b+","6c","6c+","7a","7a+","7b"];
-const ROPE_NUMBERS = Array.from({ length: 22 }, (_, index) => index);
-const ROUTE_COLORS = ["Blanc", "Bleu", "Gris", "Jaune", "Marron", "Noir", "Ocre", "Orange", "Rose", "Rouge", "Vert", "Violet"];
-const STYLE_LABELS = {
-  a_vue: "À vue",
-  flash: "Flash",
-  en_tete: "En tête",
-  moulinette: "En moulinette",
-  avec_repos: "Avec repos",
-  travaillee: "Travaillée",
-  projet: "Projet",
-  non_enchainee: "Non enchaînée",
-  test: "Essai / test",
-};
-const STYLE_WEIGHTS = {
-  a_vue: 1.25,
-  flash: 1.2,
-  en_tete: 1,
-  moulinette: 0.85,
-  avec_repos: 0.6,
-  travaillee: 0.75,
-  projet: 0.3,
-  non_enchainee: 0.2,
-  test: 0.1,
-};
-
-function fullName(p) {
-  return p ? `${p.nom} ${p.prenom}`.trim() : "";
-}
-
-
-
-function formatRouteName(route) {
-  const opener = String(route?.nomOuvreur || "").trim();
-  const name = String(route?.nomVoie || "").trim();
-  const label = [opener, name].filter(Boolean).join(" · ");
-  return label || "Voie";
-}
-
-function toLocalIso(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function todayIso() {
-  const date = new Date();
-  const day = date.getDay();
-
-  // Si l'application est ouverte le week-end, on positionne directement
-  // la vue sur le prochain lundi, car les séances sont en semaine.
-  if (day === 6) date.setDate(date.getDate() + 2);
-  if (day === 0) date.setDate(date.getDate() + 1);
-
-  return toLocalIso(date);
-}
-
-/**
- * Règle de création automatique des séances :
- * - toutes les séances sont libres par défaut ;
- * - les séances du mardi midi et du jeudi midi sont encadrées.
- */
-function defaultSessionStatus(dateStr, slot) {
-  const day = new Date(`${dateStr}T12:00:00`).getDay();
-  return slot === "midi" && (day === 2 || day === 4) ? "encadree" : "libre";
-}
-
-function normalizePassport(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-function isDiscoveryPassport(passport) {
-  const normalized = normalizePassport(passport);
-  return normalized === "decouverte" || normalized === "decouvertes";
-}
-
-function getPassportStyle(participant) {
-  const baseStyle = isDiscoveryPassport(participant?.passport)
-    ? PASSPORT_STYLES.decouverte
-    : PASSPORT_STYLES[participant?.passport] || PASSPORT_STYLES.sans;
-
-  const isCotisant = Boolean(participant?.cotisation);
-  const hasFfmeLicence = Boolean(participant?.ffme);
-  const borderColor = isCotisant ? "#22c55e" : "#ef4444";
-
-  return {
-    color: "inherit",
-    background: "transparent",
-    border: `2px ${hasFfmeLicence ? "solid" : "dashed"} ${borderColor}`,
-    boxShadow: isCotisant
-      ? "0 0 0 1px rgba(34,197,94,.18)"
-      : "0 0 0 1px rgba(239,68,68,.18)",
-  };
-}
-
-function getPassportDotStyle(participant) {
-  const baseStyle = isDiscoveryPassport(participant?.passport)
-    ? PASSPORT_STYLES.decouverte
-    : PASSPORT_STYLES[participant?.passport] || PASSPORT_STYLES.sans;
-
-  return { backgroundColor: baseStyle.backgroundColor };
-}
-function gradeToIndex(grade) {
-  return GRADES.indexOf(grade);
-}
-function indexToGrade(index) {
-  const i = Math.max(0, Math.min(GRADES.length - 1, index));
-  return GRADES[i];
-}
-function getRouteBackgroundColor(color) {
-  const normalized = String(color || "").trim().toLowerCase();
-  const map = {
-    bleu: "#60a5fa", blue: "#60a5fa", rouge: "#f87171", red: "#f87171",
-    vert: "#4ade80", green: "#4ade80", jaune: "#facc15", yellow: "#facc15",
-    orange: "#fb923c", violet: "#a78bfa", purple: "#a78bfa", rose: "#f472b6",
-    pink: "#f472b6", noir: "#94a3b8", black: "#94a3b8", blanc: "#f8fafc",
-    white: "#f8fafc", ocre: "#8b5a2b", ochre: "#8b5a2b", marron: "#8b5a2b", brown: "#8b5a2b",
-    gris: "#cbd5e1", gray: "#cbd5e1", grey: "#cbd5e1",
-  };
-  return map[normalized] || "#f8fafc";
-}
-function getContrastingTextColor(backgroundColor) {
-  const hex = String(backgroundColor || "").trim().replace("#", "");
-  if (!/^[0-9a-fA-F]{6}$/.test(hex)) return "#0f172a";
-  const r = parseInt(hex.slice(0, 2), 16);
-  const g = parseInt(hex.slice(2, 4), 16);
-  const b = parseInt(hex.slice(4, 6), 16);
-  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
-  return yiq >= 160 ? "#0f172a" : "#f8fafc";
-}
-function getRouteCardStyle(color) {
-  const backgroundColor = getRouteBackgroundColor(color);
-  const normalizedColor = normalizePassport(color);
-  return {
-    backgroundColor,
-    color: ["blanc", "white"].includes(normalizedColor)
-      ? "#0f172a"
-      : getContrastingTextColor(backgroundColor),
-  };
-}
-function formatDateFr(dateStr) {
-  const formatted = new Date(`${dateStr}T12:00:00`).toLocaleDateString("fr-FR", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-  });
-  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
-}
-
-function formatDateShortFr(dateStr) {
-  const [year, month, day] = String(dateStr || "").slice(0, 10).split("-");
-  return year && month && day ? `${day}-${month}-${year}` : String(dateStr || "");
-}
-
-function formatPoints(value) {
-  return Number(value || 0).toLocaleString("fr-FR", { maximumFractionDigits: 1 });
-}
-
-function isWeekend(dateStr) {
-  const d = new Date(`${dateStr}T12:00:00`);
-  const day = d.getDay();
-  return day === 0 || day === 6;
-}
-function nextBusinessDay(dateStr, delta) {
-  const d = new Date(`${dateStr}T12:00:00`);
-  do { d.setDate(d.getDate() + delta); } while (d.getDay() === 0 || d.getDay() === 6);
-  return d.toISOString().slice(0, 10);
-}
-function calculateSimpleCpr(realisations, routesById) {
-  const now = Date.now();
-  const cutoff = now - (90 * 24 * 60 * 60 * 1000);
-
-  const bestRecent = realisations
-    .map((r) => {
-      const route = routesById[r.voieId];
-      const dateTimestamp = new Date(r.dateRealisation).getTime();
-      if (!route || !Number.isFinite(dateTimestamp) || dateTimestamp < cutoff || dateTimestamp > now) return null;
-
-      return {
-        id: r.id,
-        date: r.dateRealisation,
-        grade: route.cotationAjustee,
-        weightedIndex: gradeToIndex(route.cotationAjustee) * (STYLE_WEIGHTS[r.styleRealisation] || 1),
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => b.weightedIndex - a.weightedIndex || b.date.localeCompare(a.date))
-    .slice(0, 10);
-
-  if (!bestRecent.length) return { currentGrade: null, averageIndex: null, timeline: [] };
-
-  const averageIndex = bestRecent.reduce((sum, item) => sum + item.weightedIndex, 0) / bestRecent.length;
-  return { currentGrade: indexToGrade(Math.round(averageIndex)), averageIndex, timeline: bestRecent };
-}
-function weightedMedian(values) {
-  if (!values.length) return null;
-  const sorted = [...values].sort((a, b) => gradeToIndex(a.grade) - gradeToIndex(b.grade));
-  const total = sorted.reduce((sum, item) => sum + item.weight, 0);
-  let cumulative = 0;
-  for (const item of sorted) {
-    cumulative += item.weight;
-    if (cumulative >= total / 2) return item.grade;
-  }
-  return sorted[sorted.length - 1].grade;
-}
-function downloadFile(filename, content, type = "application/json;charset=utf-8;") {
-  const blob = new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function readCookie(name) {
-  return document.cookie
-    .split(";")
-    .map((part) => part.trim())
-    .find((part) => part.startsWith(`${name}=`))
-    ?.slice(name.length + 1) || "";
-}
-
-function csrfHeaders(method = "GET") {
-  const upperMethod = String(method || "GET").toUpperCase();
-  if (["GET", "HEAD", "OPTIONS"].includes(upperMethod)) return {};
-  const csrfToken = readCookie("climbcrew_csrf");
-  return csrfToken ? { "X-CSRF-Token": csrfToken } : {};
-}
-
-async function apiFetch(path, options = {}) {
-  const method = options.method || "GET";
-  const response = await fetch(`${API_BASE}${path}`, {
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...csrfHeaders(method),
-      ...(options.headers || {})
-    },
-    ...options,
-  });
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || `Erreur API ${response.status}`);
-  }
-  if (response.status === 204) return null;
-  return response.json();
-}
-
-async function authApiFetch(path, _token, options = {}) {
-  // Authentification par cookie HttpOnly uniquement : aucun jeton n'est stocké dans localStorage.
-  return apiFetch(path, options);
-}
 
 function App() {
   const [tab, setTab] = useState("inscriptions");

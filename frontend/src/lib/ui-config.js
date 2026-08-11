@@ -50,6 +50,13 @@ export const ROUTE_TAGS = [
   { value: "engagee", label: "Engagée" },
 ];
 
-export function fullName(p) {
-  return p ? `${p.nom} ${p.prenom}`.trim() : "";
-}
+export const TABS = [
+  { key: "inscriptions", label: "Inscriptions" },
+  { key: "voies", label: "Voies" },
+  { key: "progression", label: "Progression" },
+  { key: "administration", label: "Administration", adminOnly: true },
+  { key: "gestion_comptes", label: "Gestion des comptes", adminOnly: true },
+  { key: "logs", label: "Log", adminOnly: true },
+  { key: "statistiques", label: "Statistiques" },
+  { key: "faq", label: "FAQ" },
+];
