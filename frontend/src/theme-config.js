@@ -120,13 +120,13 @@ export const THEME_PREFERENCE_KEY = "climbcrew-theme-preference";
 export const THEME_OPTIONS = [
   { value: "auto", label: "Automatique" },
   { value: "craie_ardoise", label: "Craie & Ardoise" },
-  { value: "ocean_mineral", label: "OcAcan minAcral" },
-  { value: "foret_mousse", label: "ForA mousse" },
+  { value: "ocean_mineral", label: "Océan minéral" },
+  { value: "foret_mousse", label: "Forêt mousse" },
   { value: "terre_cuite", label: "Terre cuite" },
   { value: "aurore_alpine", label: "Aurore alpine" },
   { value: "lavande_nocturne", label: "Lavande nocturne" },
   { value: "sable_corde", label: "Sable & Corde" },
-  { value: "bloc_neon", label: "Bloc nAcon" },
+  { value: "bloc_neon", label: "Bloc néon" },
   { value: "glacier", label: "Glacier" },
   { value: "cristal", label: "Cristal" },
 ];

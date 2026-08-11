@@ -25,6 +25,7 @@ export default function StatisticsSection({
         <div className="stat"><div className="label">Cotisations</div><div className="value">{sessionStats.nombreCotisations}</div></div>
         <div className="stat"><div className="label">FFME</div><div className="value">{sessionStats.nombreFFME}</div></div>
         <div className="stat"><div className="label">Voies actives</div><div className="value">{sessionStats.nombreVoiesActives}</div></div>
+        <div className="stat"><div className="label">Réalisations</div><div className="value">{sessionStats.nombreRealisations}</div></div>
       </div>
 
       <div className="card">

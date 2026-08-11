@@ -894,6 +894,168 @@ function App() {
     );
   }, [state.routes, state.realisations, cprByParticipantId]);
 
+  const leadRealisationStats = useMemo(() => {
+    const routesByGrade = Object.fromEntries(GRADES.map((grade) => [grade, 0]));
+    const leadsByGrade = Object.fromEntries(GRADES.map((grade) => [grade, 0]));
+
+    state.routes.forEach((route) => {
+      const routeGrade = route.cotationAjustee || route.cotationReference;
+      if (Object.hasOwn(routesByGrade, routeGrade)) routesByGrade[routeGrade] += 1;
+    });
+
+    state.realisations
+      .filter((realisation) => realisation.styleRealisation === "en_tete")
+      .forEach((realisation) => {
+        const route = routesById[realisation.voieId];
+        const routeGrade = route?.cotationAjustee || route?.cotationReference;
+        if (Object.hasOwn(leadsByGrade, routeGrade)) leadsByGrade[routeGrade] += 1;
+      });
+
+    return {
+      total: state.realisations.filter((realisation) => realisation.styleRealisation === "en_tete").length,
+      byGrade: GRADES.map((grade) => {
+        const routeCount = routesByGrade[grade];
+        const leadCount = leadsByGrade[grade];
+        return {
+          grade,
+          routeCount,
+          leadCount,
+          ratio: routeCount > 0 ? leadCount / routeCount : null,
+        };
+      }),
+    };
+  }, [state.routes, state.realisations, routesById]);
+
+  const topRouteRankings = useMemo(() => {
+    const entries = state.routes.map((route) => {
+      const routeRealisations = state.realisations.filter((item) => item.voieId === route.id);
+      return {
+        route,
+        realisationCount: routeRealisations.length,
+        leadCount: routeRealisations.filter((item) => item.styleRealisation === "en_tete").length,
+      };
+    });
+    const takeFive = (items, compare) => [...items].sort(compare).slice(0, 5);
+    return [
+      {
+        title: "Voies les plus réalisées",
+        entries: takeFive(entries.filter((item) => item.realisationCount > 0), (a, b) => b.realisationCount - a.realisationCount),
+        value: (item) => `${item.realisationCount} réalisation${item.realisationCount > 1 ? "s" : ""}`,
+      },
+      {
+        title: "Voies les plus réalisées en tête",
+        entries: takeFive(entries.filter((item) => item.leadCount > 0), (a, b) => b.leadCount - a.leadCount),
+        value: (item) => `${item.leadCount} en tête`,
+      },
+    ];
+  }, [state.routes, state.realisations]);
+
+  const wallOfFameCategories = useMemo(() => {
+    const successfulStyles = new Set(["a_vue", "flash", "en_tete", "moulinette", "travaillee"]);
+
+    const successfulRealisationsFor = (participantId) => state.realisations
+      .filter((realisation) => String(realisation.participantId) === String(participantId))
+      .filter((realisation) => successfulStyles.has(realisation.styleRealisation));
+
+    const distinctRoutesFor = (participantId, predicate) => new Set(
+      state.realisations
+        .filter((realisation) => String(realisation.participantId) === String(participantId))
+        .filter(predicate)
+        .map((realisation) => String(realisation.voieId))
+    ).size;
+
+    const sessionRouteSetsFor = (participantId) => {
+      const groups = new Map();
+      successfulRealisationsFor(participantId).forEach((realisation) => {
+        const sessionKey = realisation.sessionId || String(realisation.dateRealisation || "").slice(0, 10);
+        if (!sessionKey) return;
+        if (!groups.has(sessionKey)) groups.set(sessionKey, new Set());
+        groups.get(sessionKey).add(String(realisation.voieId));
+      });
+      return [...groups.values()];
+    };
+
+    const maxRoutesInSessionFor = (participantId) => {
+      const routeSets = sessionRouteSetsFor(participantId);
+      return routeSets.length ? Math.max(...routeSets.map((routeIds) => routeIds.size)) : 0;
+    };
+
+    const maxDifficultyInSessionFor = (participantId) => sessionRouteSetsFor(participantId).reduce((record, routeIds) => {
+      const total = [...routeIds].reduce((sum, routeId) => {
+        const route = routesById[routeId];
+        const routeGrade = route?.cotationAjustee || route?.cotationReference;
+        const gradeIndex = gradeToIndex(routeGrade);
+        return sum + (gradeIndex >= 0 ? gradeIndex + 1 : 0);
+      }, 0);
+      return Math.max(record, total);
+    }, 0);
+
+    const buildRanking = ({ title, getValue, formatValue, isEligible = (value) => value > 0 }) => {
+      const sorted = state.participants
+        .map((participant) => ({ participant, value: getValue(participant) }))
+        .filter((entry) => Number.isFinite(entry.value) && isEligible(entry.value, entry.participant))
+        .sort((a, b) => b.value - a.value || fullName(a.participant).localeCompare(fullName(b.participant), "fr"))
+        .slice(0, 3);
+
+      let previousValue = null;
+      let previousRank = 0;
+
+      return {
+        title,
+        entries: sorted.map((entry, index) => {
+          const rank = previousValue !== null && entry.value === previousValue ? previousRank : index + 1;
+          previousValue = entry.value;
+          previousRank = rank;
+          return { ...entry, rank, displayValue: formatValue(entry.value, entry.participant) };
+        }),
+      };
+    };
+
+    return [
+      buildRanking({
+        title: "Meilleurs CPR",
+        getValue: (participant) => cprByParticipantId[participant.id]?.averageIndex,
+        formatValue: (_value, participant) => cprByParticipantId[participant.id]?.currentGrade || "nc",
+        isEligible: (_value, participant) => Boolean(cprByParticipantId[participant.id]?.currentGrade),
+      }),
+      buildRanking({
+        title: "Plus de points",
+        getValue: (participant) => pointsByParticipantId[participant.id] || 0,
+        formatValue: (value) => `${formatPoints(value)} points`,
+      }),
+      buildRanking({
+        title: "Plus de participations",
+        getValue: (participant) => sessionStats.participationCount[participant.id] || 0,
+        formatValue: (value) => `${value} séance${value > 1 ? "s" : ""}`,
+      }),
+      buildRanking({
+        title: "Nombre total de voies",
+        getValue: (participant) => successfulRealisationsFor(participant.id).length,
+        formatValue: (value) => `${value} voie${value > 1 ? "s" : ""}`,
+      }),
+      buildRanking({
+        title: "Maximum de voies en une séance",
+        getValue: (participant) => maxRoutesInSessionFor(participant.id),
+        formatValue: (value) => `${value} voie${value > 1 ? "s" : ""}`,
+      }),
+      buildRanking({
+        title: "Difficulté cumulée en une séance",
+        getValue: (participant) => maxDifficultyInSessionFor(participant.id),
+        formatValue: (value) => `${value} point${value > 1 ? "s" : ""}`,
+      }),
+      buildRanking({
+        title: "Voies distinctes réalisées",
+        getValue: (participant) => distinctRoutesFor(participant.id, (realisation) => successfulStyles.has(realisation.styleRealisation)),
+        formatValue: (value) => `${value} voie${value > 1 ? "s" : ""}`,
+      }),
+      buildRanking({
+        title: "Voies réalisées en tête",
+        getValue: (participant) => distinctRoutesFor(participant.id, (realisation) => realisation.styleRealisation === "en_tete"),
+        formatValue: (value) => `${value} voie${value > 1 ? "s" : ""}`,
+      }),
+    ];
+  }, [state.participants, state.realisations, routesById, cprByParticipantId, pointsByParticipantId, sessionStats.participationCount]);
+
   function setSelectedDate(date) {
     setState((prev) => ({ ...prev, selectedDate: date }));
   }
@@ -2688,6 +2850,533 @@ button:not(.danger):not(.secondary):not(.ghost),
       </div>
     </div>
   </div>
+
+        {tab === "inscriptions" && (
+          <>
+            <div className="toolbar">
+              <div className="toolbar-row">
+                <div className="group date-nav">
+                  <button className="secondary nav-symbol" title={viewMode === "jour" ? "Jour précédent" : "Semaine précédente"} onClick={() => {
+                    const d = viewMode === "jour" ? nextBusinessDay(selectedDate, -1) : nextBusinessDay(nextBusinessDay(nextBusinessDay(nextBusinessDay(nextBusinessDay(selectedDate,-1),-1),-1),-1),-1);
+                    setSelectedDate(d); ensureSessionsForDate(d);
+                  }}>
+                    &lt;
+                  </button>
+
+                  <input
+                    className="date-input date-display"
+                    type="text"
+                    value={formatDateFr(selectedDate)}
+                    readOnly
+                    aria-label="Date sélectionnée"
+                  />
+
+                  <button className="secondary nav-symbol" title={viewMode === "jour" ? "Jour suivant" : "Semaine suivante"} onClick={() => {
+                    const d = viewMode === "jour" ? nextBusinessDay(selectedDate, 1) : nextBusinessDay(nextBusinessDay(nextBusinessDay(nextBusinessDay(nextBusinessDay(selectedDate,1),1),1),1),1);
+                    setSelectedDate(d); ensureSessionsForDate(d);
+                  }}>
+                    &gt;
+                  </button>
+                </div>
+
+                <div className="group view-toggle">
+                  <button className={viewMode === "jour" ? "" : "secondary"} onClick={() => setViewMode("jour")}>Jour</button>
+                  <button className={viewMode === "semaine" ? "" : "secondary"} onClick={() => setViewMode("semaine")}>Semaine</button>
+                </div>
+              </div>
+            </div>
+
+            {viewMode === "jour" ? (
+              <div className="stack">{daySessions.map((session) => renderSessionCard(session))}</div>
+            ) : (
+              <div className="week-grid" aria-label="Semaine interactive">
+                {weekSessions.map((day) => (
+                  <section className="week-day-card" key={day.date}>
+                    <div className="week-day-header">
+                      <h3>{formatDateFr(day.date)}</h3>
+                    </div>
+                    <div className="week-day-sessions">
+                      {day.sessions.map((session) => renderSessionCard(session, true))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {tab === "voies" && (
+          <>
+            {adminUnlocked && (
+              <div className="card">
+                <div className="card-header"><h2>Ajouter une voie</h2></div>
+                <div className="grid four">
+                  <div><label>Corde</label><select value={newRoute.numeroCorde} onChange={(e) => setNewRoute((p) => ({ ...p, numeroCorde: e.target.value }))}>{ROPE_NUMBERS.map((numero) => <option key={numero} value={String(numero)}>Corde {numero}</option>)}</select></div>
+                  <div><label>Couleur voie</label><select value={newRoute.couleurPrises} onChange={(e) => setNewRoute((p) => ({ ...p, couleurPrises: e.target.value }))}>{ROUTE_COLORS.map((couleur) => <option key={couleur} value={couleur}>{couleur}</option>)}</select></div>
+                  <div><label>Cotation</label><select value={newRoute.cotationReference} onChange={(e) => setNewRoute((p) => ({ ...p, cotationReference: e.target.value }))}>{GRADES.map((g) => <option key={g} value={g}>{g}</option>)}</select></div>
+                  <div><label>Nom de la voie</label><input value={newRoute.nomVoie} onChange={(e) => setNewRoute((p) => ({ ...p, nomVoie: e.target.value }))} /></div>
+                  <div><label>Ouvreur</label><input value={newRoute.nomOuvreur} onChange={(e) => setNewRoute((p) => ({ ...p, nomOuvreur: e.target.value }))} /></div>
+                  <div><label>Moulinette uniquement</label><select value={newRoute.moulinetteOnly ? "oui" : "non"} onChange={(e) => setNewRoute((p) => ({ ...p, moulinetteOnly: e.target.value === "oui" }))}><option value="non">Non</option><option value="oui">Oui</option></select></div>
+                  <div style={{ display: "flex", alignItems: "end" }}><button onClick={addRoute}>Ajouter</button></div>
+                </div>
+                {routeError && <div className="error" style={{ marginTop: 10 }}>{routeError}</div>}
+              </div>
+            )}
+
+            <div className="card">
+              <div className="card-header"><h2>Tableau des voies</h2></div>
+              <div className="stack">
+                {[...new Set(state.routes.map((route) => Number(route.numeroCorde)))].sort((a, b) => a - b).map((numeroCorde) => {
+                  const rope = state.ropes.find((item) => Number(item.numeroCorde) === numeroCorde);
+                  const ropeRoutes = state.routes.filter((route) => Number(route.numeroCorde) === numeroCorde);
+                  return (
+                    <div className="subcard" key={numeroCorde}>
+                      <div className="card-header">
+                        <strong>Corde {numeroCorde}{rope?.couleurCorde ? ` · ${rope.couleurCorde}` : ""}</strong>
+                        <span className="badge">{ropeRoutes.length} voie(s)</span>
+                      </div>
+                      {ropeRoutes.length === 0 ? (
+                        <div className="small">Aucune voie sur cette corde.</div>
+                      ) : (
+                        <div className="stack">
+                          {ropeRoutes.map((route) => {
+                            return (
+                              <div className={`route-card ${route.moulinetteOnly ? "moulinette-only" : ""}`} key={route.id} style={getRouteCardStyle(route.couleurPrises)}>
+                                <div className="card-header">
+                                  <strong>
+                                    Corde {route.numeroCorde} · {route.cotationAjustee} · {formatRouteName(route)}
+                                    {" · "}Consensus {routeAggregatesById[route.id]?.consensusGrade || "non calculé"}
+                                  </strong>
+                                  <div className="group">
+                                    {route.moulinetteOnly && <span className="pill">Moulinette uniquement</span>}
+                                    <button className="secondary" onClick={() => openRealisationModal(route.id, state.selectedParticipantProgress)}>Réalisation</button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
+
+        {tab === "progression" && (
+          <div className="card">
+            <div className="grid two progression-filters">
+              <div>
+                <label>Consulter par grimpeur</label>
+                <select
+                  value={state.selectedParticipantProgress || ""}
+                  onChange={(event) => {
+                    const participantId = event.target.value;
+                    setState((prev) => ({ ...prev, selectedParticipantProgress: participantId }));
+                    if (participantId) setSelectedRouteProgress("");
+                  }}
+                >
+                  <option value="">Choisir un grimpeur</option>
+                  {alphabeticalParticipants.map((participant) => (
+                    <option key={participant.id} value={participant.id}>{fullName(participant)}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label>Consulter par voie</label>
+                <select
+                  value={selectedRouteProgress}
+                  onChange={(event) => {
+                    const routeId = event.target.value;
+                    setSelectedRouteProgress(routeId);
+                    if (routeId) {
+                      setState((prev) => ({ ...prev, selectedParticipantProgress: "" }));
+                    }
+                  }}
+                >
+                  <option value="">Choisir une voie</option>
+                  {state.routes.map((route) => (
+                    <option key={route.id} value={route.id}>
+                      {formatRouteName(route)} · corde {route.numeroCorde} · {route.cotationAjustee}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="card" style={{ marginTop: 12 }}>
+              <div className="card-header"><h3>Saisir une réalisation</h3></div>
+              <div className="group">
+                <select
+                  aria-label="Choisir la voie à réaliser"
+                  value={progressEntryRouteId}
+                  onChange={(event) => setProgressEntryRouteId(event.target.value)}
+                  style={{ flex: "1 1 260px" }}
+                >
+                  <option value="">Choisir une voie</option>
+                  {state.routes.map((route) => (
+                    <option key={route.id} value={route.id}>
+                      {formatRouteName(route)} · corde {route.numeroCorde} · {route.cotationAjustee}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  disabled={!progressEntryRouteId}
+                  onClick={() => openRealisationModal(progressEntryRouteId, state.selectedParticipantProgress)}
+                >
+                  Nouvelle réalisation
+                </button>
+              </div>
+            </div>
+
+            {state.selectedParticipantProgress && (
+              <div className="stats-grid" style={{ marginTop: 12 }}>
+                <div className="stat"><div className="label">Voies réalisées</div><div className="value">{participantProgressStats.count}</div></div>
+                <div className="stat"><div className="label">Meilleure cotation</div><div className="value">{participantProgressStats.bestAll || "-"}</div></div>
+                <div className="stat"><div className="label">CPR actuel</div><div className="value">{participantProgressStats.cpr.currentGrade || "-"}</div></div>
+                <div className="stat"><div className="label">Points</div><div className="value">{formatPoints(pointsByParticipantId[state.selectedParticipantProgress])}</div></div>
+              </div>
+            )}
+
+            <div className="card" style={{ marginTop: 12 }}>
+              <div className="card-header">
+                <h3>
+                  {state.selectedParticipantProgress
+                    ? "Réalisations du grimpeur"
+                    : selectedRouteProgress
+                      ? "Grimpeurs ayant réalisé la voie"
+                      : "Réalisations"}
+                </h3>
+                {(state.selectedParticipantProgress || selectedRouteProgress) && (
+                  <span className="badge">{progressViewRealisations.length}</span>
+                )}
+              </div>
+
+              <div className="stack">
+                {!state.selectedParticipantProgress && !selectedRouteProgress ? (
+                  <div className="muted-box">Choisis un grimpeur ou une voie pour afficher les réalisations.</div>
+                ) : progressViewRealisations.length === 0 ? (
+                  <div className="muted-box">Aucune réalisation enregistrée pour cette sélection.</div>
+                ) : (
+                  progressViewRealisations.map((realisation) => {
+                    const participant = participantsById[realisation.participantId];
+                    const route = routesById[realisation.voieId];
+                    const availableSessionsForRealisation = getParticipantSessions(realisation.participantId);
+                    const isIncludedInCpr = Boolean(
+                      cprByParticipantId[realisation.participantId]?.timeline.some(
+                        (performance) => String(performance.id) === String(realisation.id)
+                      )
+                    );
+
+                    return (
+                      <div className="subcard editable-realisation-card" key={realisation.id}>
+                        <div className="card-header">
+                          <div>
+                            <strong>{fullName(participant)} — {route ? formatRouteName(route) : "Voie inconnue"}</strong>
+                            <div className="small">
+                              {formatDateShortFr(realisation.dateRealisation?.slice(0, 10))}
+                              {" · "}
+                              {STYLE_LABELS[realisation.styleRealisation] || realisation.styleRealisation}
+                            </div>
+                          </div>
+                          <div className="group">
+                            {isIncludedInCpr && <span className="pill">Prise en compte dans le CPR</span>}
+                            <button className="danger" onClick={() => deleteRealisation(realisation)}>Supprimer</button>
+                          </div>
+                        </div>
+
+                        <div className="grid three">
+                          <div>
+                            <label>Participant</label>
+                            <select
+                              value={realisation.participantId}
+                              onChange={(event) => {
+                                const participantId = event.target.value;
+                                const firstSession = getParticipantSessions(participantId)[0];
+                                updateRealisation(realisation.id, {
+                                  participantId,
+                                  sessionId: firstSession?.id || "",
+                                  dateRealisation: firstSession ? `${firstSession.date}T12:00:00` : realisation.dateRealisation,
+                                });
+                              }}
+                            >
+                              {alphabeticalParticipants.map((participantOption) => (
+                                <option key={participantOption.id} value={participantOption.id}>{fullName(participantOption)}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label>Séance</label>
+                            <select
+                              value={realisation.sessionId}
+                              onChange={(event) => updateRealisation(realisation.id, { sessionId: event.target.value })}
+                            >
+                              {availableSessionsForRealisation.length === 0 ? (
+                                <option value="">Aucune séance inscrite</option>
+                              ) : (
+                                availableSessionsForRealisation.map((sessionOption) => (
+                                  <option key={sessionOption.id} value={sessionOption.id}>{formatDateShortFr(sessionOption.date)} · {sessionOption.slot}</option>
+                                ))
+                              )}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label>Voie</label>
+                            <select
+                              value={realisation.voieId}
+                              onChange={(event) => updateRealisation(realisation.id, { voieId: event.target.value })}
+                            >
+                              {state.routes.map((routeOption) => (
+                                <option key={routeOption.id} value={routeOption.id}>
+                                  {formatRouteName(routeOption)} · corde {routeOption.numeroCorde} · {routeOption.cotationAjustee}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label>Style</label>
+                            <select
+                              value={realisation.styleRealisation}
+                              onChange={(event) => updateRealisation(realisation.id, { styleRealisation: event.target.value })}
+                            >
+                              {Object.entries(STYLE_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label>Cotation proposée</label>
+                            <select
+                              value={realisation.cotationProposee || ""}
+                              onChange={(event) => updateRealisation(realisation.id, { cotationProposee: event.target.value })}
+                            >
+                              <option value="">Aucune</option>
+                              {GRADES.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label>Cotation consensus</label>
+                            <input value={routeAggregatesById[realisation.voieId]?.consensusGrade || "Non calculée"} readOnly />
+                          </div>
+
+                        </div>
+
+                        <div style={{ marginTop: 8 }}>
+                          <label>Commentaire</label>
+                          <input
+                            value={realisation.commentaire || ""}
+                            onChange={(event) => updateRealisation(realisation.id, { commentaire: event.target.value })}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === "administration" && (
+          <>
+            {!adminUnlocked ? (
+              <div className="card">
+                <div className="card-header"><h2>Accès administration</h2></div>
+                <div className="grid two">
+                  <div>
+                    <label>Code administrateur</label>
+                    <input type="password" maxLength={8} value={adminInput} onChange={(e) => setAdminInput(e.target.value.replace(/\D/g, "").slice(0, 8))} />
+                  </div>
+                  <div style={{ display: "flex", alignItems: "end" }}><button onClick={unlockAdmin}>Déverrouiller</button></div>
+                </div>
+                {adminError && <div className="error" style={{ marginTop: 10 }}>{adminError}</div>}
+              </div>
+            ) : (
+              <>
+                <div className="card">
+                  <div className="card-header"><h2>Ajouter un participant</h2></div>
+                  <div className="grid four">
+                    <div><label>Nom</label><input value={newParticipant.nom} onChange={(e) => setNewParticipant((p) => ({ ...p, nom: e.target.value }))} /></div>
+                    <div><label>Prénom</label><input value={newParticipant.prenom} onChange={(e) => setNewParticipant((p) => ({ ...p, prenom: e.target.value }))} /></div>
+                    <div><label>Adresse e-mail</label><input type="email" value={newParticipant.email} onChange={(e) => setNewParticipant((p) => ({ ...p, email: e.target.value }))} /></div>
+                    <div><label>Passeport</label><select value={newParticipant.passport} onChange={(e) => setNewParticipant((p) => ({ ...p, passport: e.target.value }))}><option value="sans">Sans</option><option value="jaune">Jaune</option><option value="orange">Orange</option><option value="vert">Vert</option><option value="bleu">Bleu</option><option value="decouverte">Découverte</option></select></div>
+                    <div style={{ display: "flex", alignItems: "end" }}><button onClick={addParticipant}>Ajouter</button></div>
+                  </div>
+                  <div className="group" style={{ marginTop: 12 }}>
+                    <label><input type="checkbox" checked={newParticipant.cotisation} onChange={(e) => setNewParticipant((p) => ({ ...p, cotisation: e.target.checked }))} /> Cotisation</label>
+                    <label><input type="checkbox" checked={newParticipant.ffme} onChange={(e) => setNewParticipant((p) => ({ ...p, ffme: e.target.checked }))} /> FFME</label>
+                    <label><input type="checkbox" checked={newParticipant.canEncadrer} onChange={(e) => setNewParticipant((p) => ({ ...p, canEncadrer: e.target.checked }))} /> Encadrant</label>
+                    <label><input type="checkbox" checked={newParticipant.canReferer} onChange={(e) => setNewParticipant((p) => ({ ...p, canReferer: e.target.checked }))} /> Référent</label>
+                    <label><input type="checkbox" checked={newParticipant.canAdmin} onChange={(e) => setNewParticipant((p) => ({ ...p, canAdmin: e.target.checked }))} /> Administrateur</label>
+                  </div>
+                </div>
+
+                <div className="card">
+                  <div className="card-header"><h2>Gestion des participants</h2></div>
+                  <div className="stack">
+                    {adminParticipants.map((p) => (
+                      <div className="subcard" key={p.id}>
+                        <div className="grid four">
+                          <div><label>Nom</label><input value={p.nom} onChange={(e) => updateParticipant(p.id, { nom: e.target.value })} /></div>
+                          <div><label>Prénom</label><input value={p.prenom} onChange={(e) => updateParticipant(p.id, { prenom: e.target.value })} /></div>
+                          <div><label>Adresse e-mail</label><input type="email" value={p.email || ""} onChange={(e) => updateParticipant(p.id, { email: e.target.value })} /></div>
+                          <div><label>Passeport</label><select value={p.passport} onChange={(e) => updateParticipant(p.id, { passport: e.target.value })}><option value="sans">Sans</option><option value="jaune">Jaune</option><option value="orange">Orange</option><option value="vert">Vert</option><option value="bleu">Bleu</option><option value="decouverte">Découverte</option></select></div>
+                          <div style={{ display: "flex", alignItems: "end" }}><button className="danger" onClick={() => deleteParticipant(p.id)}>Supprimer</button></div>
+                        </div>
+                        <div className="group" style={{ marginTop: 12 }}>
+                          <label><input type="checkbox" checked={p.cotisation} onChange={(e) => updateParticipant(p.id, { cotisation: e.target.checked })} /> Cotisation</label>
+                          <label><input type="checkbox" checked={p.ffme} onChange={(e) => updateParticipant(p.id, { ffme: e.target.checked })} /> FFME</label>
+                          <label><input type="checkbox" checked={p.canEncadrer} onChange={(e) => updateParticipant(p.id, { canEncadrer: e.target.checked })} /> Encadrant</label>
+                          <label><input type="checkbox" checked={p.canReferer} onChange={(e) => updateParticipant(p.id, { canReferer: e.target.checked })} /> Référent</label>
+                          <label><input type="checkbox" checked={Boolean(p.canAdmin)} onChange={(e) => updateParticipant(p.id, { canAdmin: e.target.checked })} /> Administrateur</label>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="card">
+                  <div className="card-header"><h2>Import / export</h2></div>
+                  <div className="group">
+                    <button className="secondary" onClick={exportAllData}>Export JSON</button>
+                    <label className="pill" style={{ cursor: "pointer" }}>
+                      Import JSON
+                      <input type="file" accept=".json,application/json" style={{ display: "none" }} onChange={importJsonFile} />
+                    </label>
+                  </div>
+                  {importMessage && <div className="success" style={{ marginTop: 10 }}>{importMessage}</div>}
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {tab === "gestion_comptes" && (
+          <>
+            {!USE_API ? (
+              <div className="card"><div className="muted-box">La gestion des comptes est disponible avec le backend API.</div></div>
+            ) : !canManageAccountsAndLogs ? (
+              <div className="card"><div className="muted-box">Cette section est réservée aux administrateurs authentifiés.</div></div>
+            ) : (
+              <div className="card">
+                <div className="card-header">
+                  <h2>Gestion des comptes</h2>
+                  <button className="secondary" onClick={loadAdminAccessData}>Actualiser</button>
+                </div>
+                <div className="small" style={{ marginBottom: 10 }}>
+                  L’administrateur peut approuver une demande, répudier un compte, réactiver un accès et générer un code de réinitialisation.
+                </div>
+                {generatedResetToken && <div className="success" style={{ marginBottom: 12 }}>{generatedResetToken}</div>}
+                <div className="stack">
+                  {adminAuthUsers.length === 0 ? (
+                    <div className="muted-box">Aucun compte utilisateur chargé.</div>
+                  ) : (
+                    adminAuthUsers.map((user) => (
+                      <div className="subcard" key={user.id}>
+                        <div className="card-header">
+                          <div>
+                            <strong>{user.prenom} {user.nom}</strong>
+                            <div className="small">{user.email} · rôle {user.role} · statut {user.status}</div>
+                          </div>
+                          <div className="group">
+                            {user.status === "pending" && <button onClick={() => approveAccessRequest(user.id)}>Approuver</button>}
+                            {user.status !== "revoked" ? (
+                              <button className="danger" onClick={() => revokeUserAccess(user.id)}>Répudier</button>
+                            ) : (
+                              <button onClick={() => reactivateUserAccess(user.id)}>Réactiver</button>
+                            )}
+                            <button className="secondary" onClick={() => generatePasswordResetToken(user.id)}>Code reset</button>
+                          </div>
+                        </div>
+                        <div className="small">
+                          Créé le {user.created_at ? formatDateFr(user.created_at.slice(0, 10)) : "-"}
+                          {user.last_login_at ? ` · dernière connexion le ${formatDateFr(user.last_login_at.slice(0, 10))}` : " · aucune connexion"}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {tab === "logs" && (
+          <>
+            {!USE_API ? (
+              <div className="card"><div className="muted-box">Les logs de connexion sont disponibles avec le backend API.</div></div>
+            ) : !canManageAccountsAndLogs ? (
+              <div className="card"><div className="muted-box">Cette section est réservée aux administrateurs authentifiés.</div></div>
+            ) : (
+              <div className="card">
+                <div className="card-header">
+                  <h2>Logs de connexion</h2>
+                  <span className="badge">{adminAccessLogs.length}</span>
+                </div>
+                <div className="stack">
+                  {adminAccessLogs.length === 0 ? (
+                    <div className="muted-box">Aucun log disponible.</div>
+                  ) : (
+                    adminAccessLogs.map((log) => (
+                      <div className="subcard" key={log.id}>
+                        <div className="card-header">
+                          <strong>{log.event_type}</strong>
+                          <span className={`badge ${log.success ? "" : "danger"}`}>{log.success ? "OK" : "Échec"}</span>
+                        </div>
+                        <div className="small">
+                          {log.email || "utilisateur inconnu"} · {log.created_at ? log.created_at.replace("T", " ").slice(0, 19) : "-"}
+                        </div>
+                        <div className="small">
+                          {log.ip_address || "IP inconnue"} · {log.user_agent || "navigateur inconnu"}
+                        </div>
+                        {log.details_text && <div className="small">Détails : {log.details_text}</div>}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {tab === "statistiques" && (
+          <>
+            <WallOfFameSection
+              wallOfFameCategories={wallOfFameCategories}
+              getPassportStyle={getPassportStyle}
+              getPassportDotStyle={getPassportDotStyle}
+              normalizePassport={normalizePassport}
+            />
+            <StatisticsSection
+              sessionStats={sessionStats}
+              topRouteRankings={topRouteRankings}
+              leadRealisationStats={leadRealisationStats}
+              formatRouteName={formatRouteName}
+              statsSortField={statsSortField}
+              setStatsSortField={setStatsSortField}
+              statsSortDirection={statsSortDirection}
+              setStatsSortDirection={setStatsSortDirection}
+              sortedStatsParticipants={sortedStatsParticipants}
+              getPassportStyle={getPassportStyle}
+              normalizePassport={normalizePassport}
+              getPassportDotStyle={getPassportDotStyle}
+              cprByParticipantId={cprByParticipantId}
+              formatPoints={formatPoints}
+              pointsByParticipantId={pointsByParticipantId}
+            />
+          </>
+        )}
+
+        {tab === "faq" && (
+          <FaqSection APP_VERSION={APP_VERSION_LABEL} canAccessAdminTabs={canAccessAdminTabs} />
+        )}
+
 </div>
 </div>
   );

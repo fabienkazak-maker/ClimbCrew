@@ -6,9 +6,9 @@ export const PASSPORT_STYLES = {
   bleu: { backgroundColor: "#60a5fa", color: "#0f172a" },
 
   decouverte: { backgroundColor: "#64748b", color: "#ffffff" },
-  "dAccouverte": { backgroundColor: "#64748b", color: "#ffffff" },
+  "découverte": { backgroundColor: "#64748b", color: "#ffffff" },
   decouvertes: { backgroundColor: "#64748b", color: "#ffffff" },
-  "dAccouvertes": { backgroundColor: "#64748b", color: "#ffffff" },
+  "découvertes": { backgroundColor: "#64748b", color: "#ffffff" },
 };
 
 export const ROPE_NUMBERS = Array.from({ length: 22 }, (_, index) => index);
@@ -16,14 +16,14 @@ export const ROPE_NUMBERS = Array.from({ length: 22 }, (_, index) => index);
 export const ROUTE_COLORS = ["Blanc", "Bleu", "Gris", "Jaune", "Marron", "Noir", "Ocre", "Orange", "Rose", "Rouge", "Vert", "Violet"];
 
 export const STYLE_LABELS = {
-  a_vue: "A? vue",
+  a_vue: "À vue",
   flash: "Flash",
-  en_tete: "En tAe",
+  en_tete: "En tête",
   moulinette: "En moulinette",
   avec_repos: "Avec repos",
-  travaillee: "TravaillAce",
+  travaillee: "Travaillée",
   projet: "Projet",
-  non_enchainee: "Non enchaArnAce",
+  non_enchainee: "Non enchaînée",
   test: "Essai / test",
 };
 
@@ -41,13 +41,13 @@ export const THECRAG_STYLE_BY_CLIMBCREW = {
 
 export const ROUTE_TAGS = [
   { value: "dalle", label: "Dalle" },
-  { value: "devers", label: "DAcvers" },
+  { value: "devers", label: "Dévers" },
   { value: "physique", label: "Physique" },
   { value: "technique", label: "Technique" },
-  { value: "a_doigts", label: "A? doigts" },
-  { value: "continuite", label: "ContinuitAc" },
+  { value: "a_doigts", label: "À doigts" },
+  { value: "continuite", label: "Continuité" },
   { value: "morphologique", label: "Morphologique" },
-  { value: "engagee", label: "EngagAce" },
+  { value: "engagee", label: "Engagée" },
 ];
 
 export function fullName(p) {
