@@ -1,6 +1,7 @@
 import React from "react";
-import { GRADES, fullName, formatRouteName, formatPoints, formatDateShortFr } from "../lib/domain.js";
+import { GRADES, fullName, formatRouteForRealisation, formatPoints, formatDateShortFr } from "../lib/domain.js";
 import { STYLE_LABELS } from "../lib/ui-config.js";
+import CprEvolutionChart from "../sections/CprEvolutionChart.jsx";
 
 export default function Progression({
   selectedParticipantProgress,
@@ -9,19 +10,23 @@ export default function Progression({
   setSelectedRouteProgress,
   alphabeticalParticipants,
   routes,
-  progressEntryRouteId,
-  setProgressEntryRouteId,
+  routesById,
   openRealisationModal,
   participantProgressStats,
   pointsByParticipantId,
+  selectedParticipantRealisations,
   progressViewRealisations,
   participantsById,
-  routesById,
   getParticipantSessions,
   cprByParticipantId,
   deleteRealisation,
   updateRealisation,
   routeAggregatesById,
+  expandedRealisationIds,
+  setRealisationExpanded,
+  allProgressRealisationsExpanded,
+  toggleAllProgressRealisations,
+  exportSelectedParticipantRealisationsCsv,
 }) {
   return (
     <div className="card">
@@ -58,7 +63,7 @@ export default function Progression({
             <option value="">Choisir une voie</option>
             {routes.map((route) => (
               <option key={route.id} value={route.id}>
-                {formatRouteName(route)} · corde {route.numeroCorde} · {route.cotationAjustee}
+                {formatRouteForRealisation(route)}
               </option>
             ))}
           </select>
@@ -66,25 +71,9 @@ export default function Progression({
       </div>
 
       <div className="card" style={{ marginTop: 12 }}>
-        <div className="card-header"><h3>Saisir une réalisation</h3></div>
-        <div className="group">
-          <select
-            aria-label="Choisir la voie à réaliser"
-            value={progressEntryRouteId}
-            onChange={(event) => setProgressEntryRouteId(event.target.value)}
-            style={{ flex: "1 1 260px" }}
-          >
-            <option value="">Choisir une voie</option>
-            {routes.map((route) => (
-              <option key={route.id} value={route.id}>
-                {formatRouteName(route)} · corde {route.numeroCorde} · {route.cotationAjustee}
-              </option>
-            ))}
-          </select>
-          <button
-            disabled={!progressEntryRouteId}
-            onClick={() => openRealisationModal(progressEntryRouteId, selectedParticipantProgress)}
-          >
+        <div className="card-header">
+          <h3>Saisir une réalisation</h3>
+          <button onClick={() => openRealisationModal("", selectedParticipantProgress)}>
             Nouvelle réalisation
           </button>
         </div>
@@ -99,7 +88,13 @@ export default function Progression({
         </div>
       )}
 
-      <div className="card" style={{ marginTop: 12 }}>
+      {selectedParticipantProgress && (
+        <div className="card" style={{ marginTop: 12 }}>
+          <CprEvolutionChart realisations={selectedParticipantRealisations} routesById={routesById} />
+        </div>
+      )}
+
+      {(selectedParticipantProgress || selectedRouteProgress) && <div className="card" style={{ marginTop: 12 }}>
         <div className="card-header">
           <h3>
             {selectedParticipantProgress
@@ -108,15 +103,33 @@ export default function Progression({
                 ? "Grimpeurs ayant réalisé la voie"
                 : "Réalisations"}
           </h3>
-          {(selectedParticipantProgress || selectedRouteProgress) && (
-            <span className="badge">{progressViewRealisations.length}</span>
-          )}
+          <div className="group">
+            {selectedParticipantProgress && (
+              <button
+                className="secondary"
+                onClick={exportSelectedParticipantRealisationsCsv}
+                disabled={selectedParticipantRealisations.length === 0}
+              >
+                Exporter pour theCrag
+              </button>
+            )}
+            {progressViewRealisations.length > 1 && (
+              <button
+                className="secondary"
+                onClick={toggleAllProgressRealisations}
+                aria-expanded={allProgressRealisationsExpanded}
+              >
+                {allProgressRealisationsExpanded ? "Tout replier" : "Tout déployer"}
+              </button>
+            )}
+            {(selectedParticipantProgress || selectedRouteProgress) && (
+              <span className="badge">{progressViewRealisations.length}</span>
+            )}
+          </div>
         </div>
 
         <div className="stack">
-          {!selectedParticipantProgress && !selectedRouteProgress ? (
-            <div className="muted-box">Choisis un grimpeur ou une voie pour afficher les réalisations.</div>
-          ) : progressViewRealisations.length === 0 ? (
+          {progressViewRealisations.length === 0 ? (
             <div className="muted-box">Aucune réalisation enregistrée pour cette sélection.</div>
           ) : (
             progressViewRealisations.map((realisation) => {
@@ -130,10 +143,14 @@ export default function Progression({
               );
 
               return (
-                <div className="subcard editable-realisation-card" key={realisation.id}>
-                  <div className="card-header">
+                <details className="subcard editable-realisation-card"
+                  key={realisation.id}
+                  open={expandedRealisationIds.includes(realisation.id)}
+                  onToggle={(event) => setRealisationExpanded(realisation.id, event.currentTarget.open)}
+                >
+                  <summary className="card-header realisation-summary">
                     <div>
-                      <strong>{fullName(participant)} — {route ? formatRouteName(route) : "Voie inconnue"}</strong>
+                      <strong>{!selectedParticipantProgress && `${fullName(participant)} — `}{route ? formatRouteForRealisation(route) : "Voie inconnue"}</strong>
                       <div className="small">
                         {formatDateShortFr(realisation.dateRealisation?.slice(0, 10))}
                         {" · "}
@@ -142,12 +159,12 @@ export default function Progression({
                     </div>
                     <div className="group">
                       {isIncludedInCpr && <span className="pill">Prise en compte dans le CPR</span>}
-                      <button className="danger" onClick={() => deleteRealisation(realisation)}>Supprimer</button>
+                      <button className="danger realisation-delete-button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); deleteRealisation(realisation); }}>Supprimer</button>
                     </div>
-                  </div>
+                  </summary>
 
                   <div className="grid three">
-                    <div>
+                    {!selectedParticipantProgress && <div>
                       <label>Participant</label>
                       <select
                         value={realisation.participantId}
@@ -165,7 +182,7 @@ export default function Progression({
                           <option key={participantOption.id} value={participantOption.id}>{fullName(participantOption)}</option>
                         ))}
                       </select>
-                    </div>
+                    </div>}
 
                     <div>
                       <label>Séance</label>
@@ -191,7 +208,7 @@ export default function Progression({
                       >
                         {routes.map((routeOption) => (
                           <option key={routeOption.id} value={routeOption.id}>
-                            {formatRouteName(routeOption)} · corde {routeOption.numeroCorde} · {routeOption.cotationAjustee}
+                            {formatRouteForRealisation(routeOption)}
                           </option>
                         ))}
                       </select>
@@ -232,12 +249,12 @@ export default function Progression({
                       onChange={(event) => updateRealisation(realisation.id, { commentaire: event.target.value })}
                     />
                   </div>
-                </div>
+                </details>
               );
             })
           )}
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

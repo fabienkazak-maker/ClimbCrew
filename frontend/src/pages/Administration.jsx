@@ -1,4 +1,5 @@
 import React from "react";
+import { fullName } from "../lib/domain.js";
 
 export default function Administration({
   adminUnlocked,
@@ -41,6 +42,7 @@ export default function Administration({
           <div><label>Prénom</label><input value={newParticipant.prenom} onChange={(e) => setNewParticipant((p) => ({ ...p, prenom: e.target.value }))} /></div>
           <div><label>Adresse e-mail</label><input type="email" value={newParticipant.email} onChange={(e) => setNewParticipant((p) => ({ ...p, email: e.target.value }))} /></div>
           <div><label>Passeport</label><select value={newParticipant.passport} onChange={(e) => setNewParticipant((p) => ({ ...p, passport: e.target.value }))}><option value="sans">Sans</option><option value="jaune">Jaune</option><option value="orange">Orange</option><option value="vert">Vert</option><option value="bleu">Bleu</option><option value="decouverte">Découverte</option></select></div>
+          <div><label>Sexe</label><div className="group"><label><input type="radio" name="new-participant-sexe" checked={newParticipant.sexe === "h"} onChange={() => setNewParticipant((p) => ({ ...p, sexe: "h" }))} /> H</label><label><input type="radio" name="new-participant-sexe" checked={newParticipant.sexe === "f"} onChange={() => setNewParticipant((p) => ({ ...p, sexe: "f" }))} /> F</label></div></div>
           <div style={{ display: "flex", alignItems: "end" }}><button onClick={addParticipant}>Ajouter</button></div>
         </div>
         <div className="group" style={{ marginTop: 12 }}>
@@ -56,12 +58,16 @@ export default function Administration({
         <div className="card-header"><h2>Gestion des participants</h2></div>
         <div className="stack">
           {adminParticipants.map((p) => (
-            <div className="subcard" key={p.id}>
-              <div className="grid four">
+            <details className="subcard participant-admin-details" key={p.id}>
+              <summary style={{ cursor: "pointer", fontWeight: 700 }}>
+                {fullName(p)}
+              </summary>
+              <div className="grid four" style={{ marginTop: 10 }}>
                 <div><label>Nom</label><input value={p.nom} onChange={(e) => updateParticipant(p.id, { nom: e.target.value })} /></div>
                 <div><label>Prénom</label><input value={p.prenom} onChange={(e) => updateParticipant(p.id, { prenom: e.target.value })} /></div>
                 <div><label>Adresse e-mail</label><input type="email" value={p.email || ""} onChange={(e) => updateParticipant(p.id, { email: e.target.value })} /></div>
                 <div><label>Passeport</label><select value={p.passport} onChange={(e) => updateParticipant(p.id, { passport: e.target.value })}><option value="sans">Sans</option><option value="jaune">Jaune</option><option value="orange">Orange</option><option value="vert">Vert</option><option value="bleu">Bleu</option><option value="decouverte">Découverte</option></select></div>
+                <div><label>Sexe</label><div className="group"><label><input type="radio" name={`participant-sexe-${p.id}`} checked={p.sexe === "h"} onChange={() => updateParticipant(p.id, { sexe: "h" })} /> H</label><label><input type="radio" name={`participant-sexe-${p.id}`} checked={p.sexe === "f"} onChange={() => updateParticipant(p.id, { sexe: "f" })} /> F</label></div></div>
                 <div style={{ display: "flex", alignItems: "end" }}><button className="danger" onClick={() => deleteParticipant(p.id)}>Supprimer</button></div>
               </div>
               <div className="group" style={{ marginTop: 12 }}>
@@ -71,7 +77,7 @@ export default function Administration({
                 <label><input type="checkbox" checked={p.canReferer} onChange={(e) => updateParticipant(p.id, { canReferer: e.target.checked })} /> Référent</label>
                 <label><input type="checkbox" checked={Boolean(p.canAdmin)} onChange={(e) => updateParticipant(p.id, { canAdmin: e.target.checked })} /> Administrateur</label>
               </div>
-            </div>
+            </details>
           ))}
         </div>
       </div>

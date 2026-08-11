@@ -27,6 +27,28 @@ export function formatRouteName(route) {
   return label || "Voie";
 }
 
+/**
+ * Normalise le numéro de corde reçu de l'API ou des anciennes données.
+ *
+ * Les valeurs vides correspondent historiquement à la corde 0.
+ * Toute valeur invalide ou hors de la plage 0 à 21 revient également à 0,
+ * afin que l'affichage, le tri et le regroupement utilisent la même règle.
+ */
+export function normalizeRopeNumber(value) {
+  const ropeNumber = Number(value);
+  return Number.isInteger(ropeNumber) && ropeNumber >= 0 && ropeNumber <= 21
+    ? ropeNumber
+    : 0;
+}
+
+export function formatRouteForRealisation(route) {
+  const rope = `Corde ${normalizeRopeNumber(route?.numeroCorde)}`;
+  const grade = String(route?.cotationAjustee || route?.cotationReference || "nc").trim();
+  const opener = String(route?.nomOuvreur || "").trim();
+  const name = String(route?.nomVoie || "").trim();
+  return [rope, grade, opener, name].filter(Boolean).join(" · ");
+}
+
 export function toLocalIso(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -165,8 +187,7 @@ export function nextBusinessDay(dateStr, delta) {
   return d.toISOString().slice(0, 10);
 }
 
-export function calculateSimpleCpr(realisations, routesById) {
-  const now = Date.now();
+export function calculateSimpleCpr(realisations, routesById, now = Date.now()) {
   const cutoff = now - (90 * 24 * 60 * 60 * 1000);
 
   const bestRecent = realisations
@@ -190,6 +211,38 @@ export function calculateSimpleCpr(realisations, routesById) {
 
   const averageIndex = bestRecent.reduce((sum, item) => sum + item.weightedIndex, 0) / bestRecent.length;
   return { currentGrade: indexToGrade(Math.round(averageIndex)), averageIndex, timeline: bestRecent };
+}
+
+/**
+ * Reconstitue le CPR Club après chaque journée comportant une réalisation.
+ * La formule reste strictement celle de calculateSimpleCpr : seule la date
+ * d'observation change afin de produire une courbe historique cohérente.
+ */
+export function calculateCprHistory(realisations, routesById, now = Date.now()) {
+  const validRealisations = realisations
+    .filter((realisation) => Number.isFinite(new Date(realisation.dateRealisation).getTime()))
+    .filter((realisation) => new Date(realisation.dateRealisation).getTime() <= now);
+
+  const dates = [...new Set(validRealisations.map((realisation) => (
+    String(realisation.dateRealisation).slice(0, 10)
+  )))].sort();
+
+  return dates.map((date) => {
+    const observationTime = new Date(`${date}T23:59:59`).getTime();
+    const cpr = calculateSimpleCpr(validRealisations, routesById, observationTime);
+    const dayRealisations = validRealisations.filter((realisation) => (
+      String(realisation.dateRealisation).slice(0, 10) === date
+    ));
+
+    return {
+      date,
+      timestamp: observationTime,
+      currentGrade: cpr.currentGrade,
+      averageIndex: cpr.averageIndex,
+      includedIds: cpr.timeline.map((item) => String(item.id)),
+      realisationIds: dayRealisations.map((item) => String(item.id)),
+    };
+  }).filter((point) => point.currentGrade && Number.isFinite(point.averageIndex));
 }
 
 export function weightedMedian(values) {

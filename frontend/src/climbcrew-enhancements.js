@@ -199,13 +199,13 @@ function injectStyles() {
       outline-offset:2px;
     }
 
-    button:not(.danger):not(.remove-button):not(.secondary):not(.ghost),
+    button:not(.danger):not(.remove-button):not(.secondary):not(.ghost):not(.rating-star),
     .side-tab.active,.bottom-tab.active,.tab.active {
       background:var(--cc-accent)!important;
       color:var(--cc-accent-text)!important;
     }
 
-    button:not(.danger):not(.remove-button):not(.secondary):not(.ghost):hover,
+    button:not(.danger):not(.remove-button):not(.secondary):not(.ghost):not(.rating-star):hover,
     .side-tab.active:hover,.bottom-tab.active:hover,.tab.active:hover {
       background:var(--cc-accent-strong)!important;
     }
@@ -268,6 +268,30 @@ function injectStyles() {
     .subcard,.stat,.modal-panel { padding:6px!important; }
     .app button { padding:7px 10px!important; }
     .app input,.app select,.app textarea { padding:7px 8px!important; }
+
+    /* Les cases restent compactes quelle que soit l'orientation du téléphone. */
+    .app input[type="checkbox"] {
+      appearance:auto!important;
+      width:18px!important;
+      min-width:18px!important;
+      max-width:18px!important;
+      height:18px!important;
+      min-height:18px!important;
+      max-height:18px!important;
+      padding:0!important;
+      margin:0!important;
+      flex:0 0 18px!important;
+      border-radius:4px!important;
+    }
+    .app label:has(> input[type="checkbox"]) {
+      display:inline-flex!important;
+      align-items:center!important;
+      gap:5px!important;
+      width:auto!important;
+      min-height:24px!important;
+      white-space:nowrap!important;
+    }
+
     .grid { gap:6px!important; }
     .stack { gap:4px!important; }
     .card-header { gap:4px!important; margin-bottom:4px!important; }
@@ -277,9 +301,20 @@ function injectStyles() {
     .participant-identity { display:inline-flex!important; align-items:center!important; gap:6px!important; min-width:0!important; }
     .passport-dot { width:14px!important; min-width:14px!important; height:14px!important; border-radius:999px!important; }
     .participant-name { display:block!important; margin:0!important; padding:0!important; line-height:1.05!important; }
-    .session-participant-list .participant-name { font-weight:400!important; }
+    .session-participant-list .participant-name {
+      min-width:0!important;
+      overflow:hidden!important;
+      text-overflow:ellipsis!important;
+      white-space:nowrap!important;
+      font-weight:400!important;
+    }
     .session-participant-list { display:grid!important; grid-template-columns:minmax(0,1fr)!important; gap:2px!important; }
     .session-participant-list .participant-row { min-height:28px!important; padding:2px 3px 2px 6px!important; }
+    .session-participant-list .participant-identity {
+      min-width:0!important;
+      overflow:hidden!important;
+      white-space:nowrap!important;
+    }
     .session-participant-list .remove-button {
       display:inline-flex!important; align-items:center!important; justify-content:center!important;
       width:24px!important; min-width:24px!important; height:24px!important; min-height:24px!important;
@@ -299,6 +334,30 @@ function injectStyles() {
       background:transparent!important; border-radius:999px!important;
     }
     .shell { touch-action:pan-y; overscroll-behavior-x:contain; }
+
+    /* La liste s'adapte à la largeur disponible tout en conservant chaque
+       inscrit sur une seule ligne. */
+    @media (min-width:720px) {
+      .session-participant-list {
+        grid-template-columns:repeat(2,minmax(0,1fr))!important;
+        gap:4px 6px!important;
+      }
+    }
+    @media (min-width:1100px) {
+      .session-participant-list {
+        grid-template-columns:repeat(3,minmax(0,1fr))!important;
+      }
+    }
+    @media (min-width:1500px) {
+      .session-participant-list {
+        grid-template-columns:repeat(4,minmax(0,1fr))!important;
+      }
+    }
+    /* En vue semaine, chaque séance reste étroite : les inscrits sont donc
+       toujours présentés verticalement sur une seule colonne. */
+    .app .session-card-compact .session-participant-list {
+      grid-template-columns:minmax(0,1fr)!important;
+    }
 
     /* Les flèches et la date forment un seul bloc insécable sur toutes les largeurs. */
     .date-nav {
@@ -340,8 +399,179 @@ function injectStyles() {
       font-weight:800!important;
     }
     .route-card.moulinette-only {
-      border:3px solid #ef4444!important;
-      box-shadow:0 0 0 2px rgba(239,68,68,.22)!important;
+      border:2px solid #ef4444!important;
+      box-shadow:inset 0 0 0 1px rgba(239,68,68,.18)!important;
+    }
+    .route-summary {
+      display:flex;
+      min-width:0;
+      flex-direction:column;
+      align-items:flex-start;
+      gap:2px;
+    }
+    .route-primary-line {
+      line-height:1.2!important;
+    }
+    .route-secondary-line {
+      display:flex;
+      align-items:center;
+      flex-wrap:wrap;
+      gap:4px 7px;
+      font-size:11px;
+      line-height:1.1;
+      opacity:.9;
+    }
+    .route-characteristics {
+      display:flex;
+      align-items:center;
+      flex-wrap:wrap;
+      gap:3px;
+      margin-top:2px;
+    }
+    .route-characteristics-label,
+    .route-characteristics-empty {
+      font-size:9px;
+      line-height:1.15;
+    }
+    .route-characteristics-label {
+      font-weight:700;
+    }
+    .route-characteristics-empty {
+      font-style:italic;
+      opacity:.8;
+    }
+    .route-characteristic {
+      padding:2px 6px;
+      border:1px solid currentColor;
+      border-radius:999px;
+      background:rgba(255,255,255,.42);
+      color:inherit;
+      font-size:9px;
+      font-weight:700;
+      line-height:1.15;
+    }
+    .route-rating {
+      display:flex;
+      align-items:center;
+      flex-wrap:wrap;
+      gap:3px 7px;
+      margin-top:1px;
+    }
+    .rating-average {
+      min-width:72px;
+      font-size:10px;
+      line-height:1.1;
+    }
+    .rating-stars {
+      display:inline-flex;
+      gap:1px;
+    }
+    .rating-stars .rating-star {
+      min-width:22px!important;
+      min-height:22px!important;
+      width:22px!important;
+      height:22px!important;
+      padding:0!important;
+      border-radius:50%!important;
+      background:rgba(255,255,255,.55)!important;
+      color:#eab308!important;
+      border:1px solid rgba(234,179,8,.55)!important;
+      font-size:15px!important;
+      line-height:1!important;
+    }
+    .rating-stars .rating-star.selected {
+      background:rgba(15,23,42,.82)!important;
+      color:#facc15!important;
+      border-color:#eab308!important;
+      box-shadow:0 0 0 1px rgba(250,204,21,.22)!important;
+    }
+    .realisation-rating .rating-stars {
+      min-height:44px;
+      align-items:center;
+    }
+    .realisation-rating .rating-star {
+      min-width:38px!important;
+      width:38px!important;
+      height:38px!important;
+      font-size:24px!important;
+    }
+    .tag-selector {
+      display:flex;
+      flex-wrap:wrap;
+      gap:5px;
+      margin-top:5px;
+    }
+    .tag-selector .tag-option {
+      min-height:34px!important;
+      padding:5px 9px!important;
+      border:1px solid var(--cc-hairline)!important;
+      background:var(--cc-surface-2)!important;
+      color:var(--cc-ink)!important;
+      font-size:12px!important;
+    }
+    .tag-selector .tag-option.selected {
+      border:2px solid #a16207!important;
+      background:#facc15!important;
+      color:#111827!important;
+      font-weight:800!important;
+      box-shadow:0 0 0 2px rgba(250,204,21,.28)!important;
+    }
+    .checkbox-field {
+      display:flex!important;
+      align-items:center;
+      gap:8px;
+      min-height:44px;
+      margin:0!important;
+      cursor:pointer;
+    }
+    .checkbox-field input[type="checkbox"] {
+      width:22px!important;
+      height:22px!important;
+      min-width:22px!important;
+      margin:0!important;
+      accent-color:var(--cc-accent);
+    }
+    .route-ranking-row {
+      gap:8px!important;
+      background:#334155!important;
+      color:#f8fafc!important;
+    }
+    .route-ranking-row > span {
+      min-width:0;
+      overflow-wrap:anywhere;
+      color:#f8fafc!important;
+    }
+    .route-ranking-row > strong {
+      flex:0 0 auto;
+      white-space:nowrap;
+      color:#ffffff!important;
+    }
+    /* Contraste explicite des statistiques par cotation sur ordinateur.
+       text-fill neutralise les styles de thème propres à certains navigateurs. */
+    .app .card .lead-grade-row {
+      background:#334155!important;
+      color:#ffffff!important;
+      opacity:1!important;
+    }
+    .app .card .lead-grade-row > strong,
+    .app .card .lead-grade-row > span,
+    .app .card .lead-grade-row .small {
+      color:#ffffff!important;
+      -webkit-text-fill-color:#ffffff!important;
+      opacity:1!important;
+      text-shadow:none!important;
+    }
+    .app .card .lead-grade-row > strong {
+      font-weight:800!important;
+    }
+    .app .card .lead-grade-row > span {
+      font-size:13px!important;
+      font-weight:600!important;
+    }
+    .route-card .moulinette-badge {
+      background:#fee2e2!important;
+      border-color:#ef4444!important;
+      color:#991b1b!important;
     }
     .demo-badge {
       display:inline-flex;
@@ -353,6 +583,218 @@ function injectStyles() {
     .passport-warning-hatched {
       background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.32) 0,rgba(255,255,255,.32) 7px,rgba(15,23,42,.18) 7px,rgba(15,23,42,.18) 14px)!important;
       background-blend-mode:overlay;
+    }
+
+    /* Sur téléphone, tout le bandeau de commande précédant les inscrits
+       utilise une échelle typographique homogène et moins de hauteur. */
+    @media (max-width:700px) {
+      .hero {
+        padding:5px 7px!important;
+      }
+      .hero h1 {
+        font-size:18px!important;
+        line-height:1.1!important;
+      }
+      .toolbar {
+        gap:5px!important;
+        padding:5px!important;
+        margin-top:5px!important;
+      }
+      .date-nav {
+        grid-template-columns:38px minmax(0,1fr) 38px!important;
+      }
+      .date-nav .nav-symbol,
+      .date-nav .date-input {
+        min-height:38px!important;
+        height:38px!important;
+        font-size:14px!important;
+        padding:4px 8px!important;
+      }
+      .date-nav .nav-symbol {
+        width:38px!important;
+        min-width:38px!important;
+      }
+      .view-toggle {
+        gap:4px!important;
+        padding:4px!important;
+      }
+      .view-toggle button {
+        min-height:38px!important;
+        padding:5px 8px!important;
+        font-size:14px!important;
+      }
+      /* Tableau des voies : cartes plus denses, sans réduire les informations. */
+      .route-card {
+        min-height:0!important;
+        padding:4px 6px!important;
+        margin:0!important;
+      }
+      .route-card > .card-header {
+        display:grid!important;
+        grid-template-columns:minmax(0,1fr) auto!important;
+        align-items:center!important;
+        gap:5px!important;
+        margin:0!important;
+      }
+      .route-card > .card-header > .route-summary {
+        min-width:0!important;
+        font-size:13px!important;
+        line-height:1.2!important;
+        overflow-wrap:anywhere;
+      }
+      .route-card.moulinette-only > .card-header {
+        grid-template-columns:minmax(0,1fr)!important;
+      }
+      .route-card.moulinette-only > .card-header > .group {
+        width:100%!important;
+        flex-wrap:nowrap!important;
+      }
+      .route-card.moulinette-only > .card-header > .group button {
+        flex:1 1 0!important;
+      }
+      .route-card > .card-header > .group {
+        display:flex!important;
+        justify-content:flex-end!important;
+        align-items:center!important;
+        flex-wrap:wrap!important;
+        gap:3px!important;
+      }
+      .route-card .pill {
+        padding:2px 5px!important;
+        font-size:10px!important;
+        line-height:1.1!important;
+      }
+      .route-card button {
+        min-height:32px!important;
+        padding:3px 7px!important;
+        font-size:12px!important;
+        line-height:1.1!important;
+      }
+
+      .session-card {
+        padding:8px!important;
+      }
+      .session-card > .card-header {
+        margin-bottom:3px!important;
+      }
+      .session-card > .card-header h3 {
+        font-size:16px!important;
+        line-height:1.1!important;
+      }
+      .session-card > .card-header .badge {
+        font-size:13px!important;
+      }
+      .session-card .session-form-row {
+        gap:4px!important;
+        margin-bottom:5px!important;
+      }
+      .session-card .inline-field {
+        grid-template-columns:82px minmax(0,1fr)!important;
+        gap:6px!important;
+      }
+      .session-card .inline-field label {
+        font-size:13px!important;
+        font-weight:700!important;
+        line-height:1.1!important;
+      }
+      .session-card .inline-field select {
+        min-height:38px!important;
+        height:38px!important;
+        padding:4px 9px!important;
+        font-size:14px!important;
+        line-height:1.1!important;
+      }
+    }
+
+    /* Accessibilité : le focus reste clairement visible au clavier sans
+       modifier l'apparence lors d'un appui tactile ou d'un clic classique. */
+    :where(button, a, input, select, textarea, summary):focus-visible {
+      outline:3px solid #f59e0b!important;
+      outline-offset:0!important;
+      box-shadow:0 0 0 2px #ffffff!important;
+    }
+    .progression-filters > div > label {
+      display:block!important;
+      position:relative;
+      z-index:1;
+      margin-bottom:6px!important;
+    }
+    .editable-realisation-card {
+      padding:0!important;
+      overflow:hidden;
+    }
+    .editable-realisation-card > .realisation-summary {
+      padding:7px 10px!important;
+      margin:0!important;
+      cursor:pointer;
+      list-style-position:inside;
+    }
+    .editable-realisation-card[open] > .realisation-summary {
+      margin-bottom:7px!important;
+      border-bottom:1px solid var(--cc-hairline);
+    }
+    .editable-realisation-card > :not(summary) {
+      margin-left:10px!important;
+      margin-right:10px!important;
+    }
+    .editable-realisation-card > :last-child {
+      margin-bottom:10px!important;
+    }
+    .cpr-chart-card h3 { margin:0; }
+    .cpr-chart-scroll { width:100%; max-width:100%; overflow:hidden; }
+    .cpr-chart { display:block; width:100%; max-width:100%; min-width:0; height:auto; }
+    .cpr-grid-line { stroke:rgba(100,116,139,.26); stroke-width:1; }
+    .cpr-axis-label { fill:var(--cc-text); font-size:13px; }
+    .cpr-evolution-line { fill:none; stroke:#0891b2; stroke-width:4; stroke-linejoin:round; stroke-linecap:round; }
+    .cpr-best-line { stroke:#eab308; stroke-width:2; stroke-dasharray:8 6; }
+    .cpr-point { fill:#facc15; stroke:#713f12; stroke-width:2; cursor:pointer; }
+    .cpr-point.selected { fill:#ffffff; stroke:#0891b2; stroke-width:4; }
+    .cpr-point:focus-visible { outline:none; stroke:#ffffff; stroke-width:5; }
+    .cpr-chart-detail { display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:8px; padding:10px 12px; border-radius:12px; background:var(--cc-surface-soft); }
+    .cpr-range-selector button { min-height:36px!important; padding:6px 10px!important; }
+    .realisation-delete-button {
+      min-width:0!important;
+      min-height:34px!important;
+      padding:5px 10px!important;
+      border-radius:10px!important;
+      font-size:13px!important;
+      line-height:1.1!important;
+    }
+    @media (max-width:700px) {
+      .cpr-chart-card > .card-header { align-items:flex-start; }
+      .cpr-range-selector { width:100%; display:grid!important; grid-template-columns:repeat(4,1fr); }
+      .cpr-range-selector button { min-width:0!important; }
+      .cpr-axis-label { font-size:20px; }
+      .cpr-evolution-line { stroke-width:6; }
+      .cpr-point { r:8px; }
+    }
+
+    /* Les commandes composées uniquement d'une icône disposent d'une zone
+       tactile suffisante sur téléphone. */
+    @media (max-width:700px) {
+      .menu-button,
+      .nav-symbol,
+      .remove-button,
+      .modal-close {
+        min-width:44px!important;
+        min-height:44px!important;
+      }
+    }
+
+    /* Renforcement non intrusif pour les appareils demandant plus de contraste. */
+    @media (prefers-contrast:more) {
+      button,
+      input,
+      select,
+      textarea,
+      summary {
+        border-width:2px!important;
+      }
+      .small,
+      .muted,
+      .muted-box {
+        opacity:1!important;
+      }
     }
 
     @media (prefers-reduced-motion:reduce) {

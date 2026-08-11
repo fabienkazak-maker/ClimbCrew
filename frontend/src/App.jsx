@@ -8,15 +8,18 @@ import Administration from "./pages/Administration.jsx";
 import GestionComptes from "./pages/GestionComptes.jsx";
 import Logs from "./pages/Logs.jsx";
 import Statistiques from "./pages/Statistiques.jsx";
+import WallOfFame from "./pages/WallOfFame.jsx";
 
 import { THEME_OPTIONS, THEME_PREFERENCE_KEY, resolveThemePreference } from "./lib/theme.js";
-import { ROPE_NUMBERS, ROUTE_COLORS, STYLE_LABELS, TABS } from "./lib/ui-config.js";
+import { ROPE_NUMBERS, ROUTE_COLORS, STYLE_LABELS, ROUTE_TAGS, THECRAG_STYLE_BY_CLIMBCREW, TABS } from "./lib/ui-config.js";
 import {
   GRADES,
   STYLE_WEIGHTS,
   MAX_PARTICIPANTS,
   fullName,
   formatRouteName,
+  formatRouteForRealisation,
+  normalizeRopeNumber,
   todayIso,
   defaultSessionStatus,
   normalizePassport,
@@ -33,6 +36,9 @@ import {
   weightedMedian,
 } from "./lib/domain.js";
 import { USE_API, apiFetch, authApiFetch, downloadFile } from "./lib/api.js";
+import { normalizeAppData } from "./lib/normalize.js";
+import { APP_VERSION } from "./lib/version.js";
+import { buildCsv, csvFileSlug } from "./lib/csv.js";
 
 // Données de repli volontairement vides : les données legacy sont importées côté backend/PostgreSQL.
 // Cela évite d'exposer les participants dans le bundle JavaScript public.
@@ -51,7 +57,6 @@ const STORAGE_KEY = "climbcrew_local_data_v2";
 const ADMIN_CODE = import.meta.env.VITE_LEGACY_ADMIN_CODE || "";
 
 // La session est conservée uniquement dans un cookie HttpOnly côté backend.
-const APP_VERSION_LABEL = "Version 2026-07-23.1";
 const PASSWORD_RULE_TEXT = "Minimum 12 caractères avec majuscule, minuscule, chiffre et caractère spécial.";
 
 function isStrongPassword(value) {
@@ -70,14 +75,23 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [statsSortField, setStatsSortField] = useState("name");
   const [statsSortDirection, setStatsSortDirection] = useState("asc");
+  const [wallOfFameSexFilter, setWallOfFameSexFilter] = useState("all");
   const [recentlyAddedParticipantIds, setRecentlyAddedParticipantIds] = useState([]);
   const [state, setState] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       const base = saved ? JSON.parse(saved) : IMPORTED_DATA;
-      return { ...base, selectedDate: todayIso(), selectedParticipantProgress: "" };
+      return normalizeAppData({
+        ...base,
+        selectedDate: todayIso(),
+        selectedParticipantProgress: "",
+      }, IMPORTED_DATA);
     } catch {
-      return { ...IMPORTED_DATA, selectedDate: todayIso(), selectedParticipantProgress: "" };
+      return normalizeAppData({
+        ...IMPORTED_DATA,
+        selectedDate: todayIso(),
+        selectedParticipantProgress: "",
+      }, IMPORTED_DATA);
     }
   });
   const [adminInput, setAdminInput] = useState("");
@@ -86,6 +100,7 @@ function App() {
   const [routeError, setRouteError] = useState("");
   const [importMessage, setImportMessage] = useState("");
   const [, setSyncMessage] = useState(USE_API ? "API activée" : "Mode local");
+  const [confirmationMessage, setConfirmationMessage] = useState("");
   const [isSyncing, setIsSyncing] = useState(false);
 
   const [authToken, setAuthToken] = useState(() => (USE_API ? "cookie" : ""));
@@ -125,6 +140,7 @@ function App() {
     prenom: "",
     email: "",
     passport: "sans",
+    sexe: "",
     cotisation: false,
     ffme: false,
     canEncadrer: false,
@@ -132,13 +148,19 @@ function App() {
     canAdmin: false,
   });
   const [newRoute, setNewRoute] = useState({
-    numeroCorde: "1",
-    couleurPrises: "Blanc",
-    cotationReference: "5c",
+    numeroCorde: "",
+    couleurPrises: "",
+    cotationReference: "",
     nomVoie: "",
     nomOuvreur: "",
     moulinetteOnly: false,
+    tags: [],
   });
+  const [editingRouteId, setEditingRouteId] = useState("");
+  const [routeEditDraft, setRouteEditDraft] = useState(null);
+  const [savingRouteId, setSavingRouteId] = useState("");
+  // Le tableau peut être regroupé soit par numéro de corde, soit par niveau de cotation.
+  const [routeSortMode, setRouteSortMode] = useState("corde");
   const [newRealisation, setNewRealisation] = useState({
     participantId: "",
     selectedDay: "",
@@ -147,19 +169,26 @@ function App() {
     styleRealisation: "a_vue",
     commentaire: "",
     cotationProposee: "",
+    rating: 0,
   });
 
   // Route sélectionnée pour le popup "Enregistrer une réalisation"
   // depuis l'onglet Voies.
   const [realisationModalRouteId, setRealisationModalRouteId] = useState(null);
 
-  // Filtres de consultation et voie choisie pour une nouvelle réalisation depuis Progression.
+  // Filtres de consultation de la progression.
   const [selectedRouteProgress, setSelectedRouteProgress] = useState("");
-  const [progressEntryRouteId, setProgressEntryRouteId] = useState("");
+  const [expandedRealisationIds, setExpandedRealisationIds] = useState([]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
+
+  useEffect(() => {
+    if (!confirmationMessage) return undefined;
+    const timeoutId = window.setTimeout(() => setConfirmationMessage(""), 3000);
+    return () => window.clearTimeout(timeoutId);
+  }, [confirmationMessage]);
 
   useEffect(() => {
     const applyTheme = () => {
@@ -296,6 +325,38 @@ function App() {
     () => Object.fromEntries(state.routes.map((r) => [r.id, r])),
     [state.routes]
   );
+
+  // Prépare les groupes du tableau des voies. L'ordre des cotations suit GRADES
+  // afin que 6a+ soit placé entre 6a et 6b.
+  const routeDisplayGroups = useMemo(() => {
+    if (routeSortMode === "cotation") {
+      const gradeRank = new Map(GRADES.map((grade, index) => [grade, index]));
+      const grades = [...new Set(state.routes.map((route) => route.cotationAjustee || route.cotationReference || "nc"))]
+        .sort((gradeA, gradeB) => {
+          const rankA = gradeRank.has(gradeA) ? gradeRank.get(gradeA) : Number.MAX_SAFE_INTEGER;
+          const rankB = gradeRank.has(gradeB) ? gradeRank.get(gradeB) : Number.MAX_SAFE_INTEGER;
+          return rankA - rankB || String(gradeA).localeCompare(String(gradeB), "fr");
+        });
+
+      return grades.map((grade) => ({
+        key: `cotation-${grade}`,
+        label: `Cotation ${grade}`,
+        routes: state.routes.filter((route) => (route.cotationAjustee || route.cotationReference || "nc") === grade),
+      }));
+    }
+
+    return [...new Set(state.routes.map((route) => normalizeRopeNumber(route.numeroCorde)))]
+      .sort((numeroA, numeroB) => numeroA - numeroB)
+      .map((numeroCorde) => {
+        const rope = state.ropes.find((item) => normalizeRopeNumber(item.numeroCorde) === numeroCorde);
+        return {
+          key: `corde-${numeroCorde}`,
+          label: `Corde ${numeroCorde}${rope?.couleurCorde ? ` · ${rope.couleurCorde}` : ""}`,
+          routes: state.routes.filter((route) => normalizeRopeNumber(route.numeroCorde) === numeroCorde),
+        };
+      });
+  }, [routeSortMode, state.routes, state.ropes]);
+
   const sessionsById = useMemo(
     () => Object.fromEntries(state.sessions.map((s) => [s.id, s])),
     [state.sessions]
@@ -438,6 +499,25 @@ function App() {
   const progressViewRealisations = state.selectedParticipantProgress
     ? [...selectedParticipantRealisations].sort((a, b) => b.dateRealisation.localeCompare(a.dateRealisation))
     : selectedRouteRealisations;
+
+  const allProgressRealisationsExpanded = progressViewRealisations.length > 0
+    && progressViewRealisations.every((realisation) => expandedRealisationIds.includes(realisation.id));
+
+  function toggleAllProgressRealisations() {
+    const visibleIds = progressViewRealisations.map((realisation) => realisation.id);
+    setExpandedRealisationIds((currentIds) => {
+      if (visibleIds.every((id) => currentIds.includes(id))) {
+        return currentIds.filter((id) => !visibleIds.includes(id));
+      }
+      return [...new Set([...currentIds, ...visibleIds])];
+    });
+  }
+
+  function setRealisationExpanded(realisationId, expanded) {
+    setExpandedRealisationIds((currentIds) => expanded
+      ? [...new Set([...currentIds, realisationId])]
+      : currentIds.filter((id) => id !== realisationId));
+  }
 
   const sessionStats = useMemo(() => {
     const unique = new Set(state.sessions.flatMap((s) => s.participantIds));
@@ -651,17 +731,39 @@ function App() {
     };
   }, [state.routes, state.realisations, routesById]);
 
+  const routeRatingsById = useMemo(() => {
+    const ratings = {};
+    state.realisations.forEach((realisation) => {
+      const rating = Number(realisation.rating);
+      if (!Number.isInteger(rating) || rating < 1 || rating > 5) return;
+      const current = ratings[realisation.voieId] || { total: 0, count: 0, average: 0 };
+      current.total += rating;
+      current.count += 1;
+      current.average = current.total / current.count;
+      ratings[realisation.voieId] = current;
+    });
+    return ratings;
+  }, [state.realisations]);
+
   const topRouteRankings = useMemo(() => {
     const entries = state.routes.map((route) => {
       const routeRealisations = state.realisations.filter((item) => item.voieId === route.id);
+      const rating = routeRatingsById[route.id] || { average: 0, count: 0 };
       return {
         route,
+        ratingAverage: rating.average,
+        ratingCount: rating.count,
         realisationCount: routeRealisations.length,
         leadCount: routeRealisations.filter((item) => item.styleRealisation === "en_tete").length,
       };
     });
     const takeFive = (items, compare) => [...items].sort(compare).slice(0, 5);
     return [
+      {
+        title: "Voies les mieux notées",
+        entries: takeFive(entries.filter((item) => item.ratingCount > 0), (a, b) => b.ratingAverage - a.ratingAverage || b.ratingCount - a.ratingCount),
+        value: (item) => `★ ${item.ratingAverage.toFixed(1)} (${item.ratingCount})`,
+      },
       {
         title: "Voies les plus réalisées",
         entries: takeFive(entries.filter((item) => item.realisationCount > 0), (a, b) => b.realisationCount - a.realisationCount),
@@ -672,8 +774,13 @@ function App() {
         entries: takeFive(entries.filter((item) => item.leadCount > 0), (a, b) => b.leadCount - a.leadCount),
         value: (item) => `${item.leadCount} en tête`,
       },
+      {
+        title: "Mieux notées avec au moins 3 avis",
+        entries: takeFive(entries.filter((item) => item.ratingCount >= 3), (a, b) => b.ratingAverage - a.ratingAverage || b.ratingCount - a.ratingCount),
+        value: (item) => `★ ${item.ratingAverage.toFixed(1)} (${item.ratingCount})`,
+      },
     ];
-  }, [state.routes, state.realisations]);
+  }, [state.routes, state.realisations, routeRatingsById]);
 
   const wallOfFameCategories = useMemo(() => {
     const successfulStyles = new Set(["a_vue", "flash", "en_tete", "moulinette", "travaillee"]);
@@ -715,8 +822,12 @@ function App() {
       return Math.max(record, total);
     }, 0);
 
+    const wallOfFameParticipants = state.participants.filter((participant) => (
+      wallOfFameSexFilter === "all" || participant.sexe === wallOfFameSexFilter
+    ));
+
     const buildRanking = ({ title, getValue, formatValue, isEligible = (value) => value > 0 }) => {
-      const sorted = state.participants
+      const sorted = wallOfFameParticipants
         .map((participant) => ({ participant, value: getValue(participant) }))
         .filter((entry) => Number.isFinite(entry.value) && isEligible(entry.value, entry.participant))
         .sort((a, b) => b.value - a.value || fullName(a.participant).localeCompare(fullName(b.participant), "fr"))
@@ -779,7 +890,7 @@ function App() {
         formatValue: (value) => `${value} voie${value > 1 ? "s" : ""}`,
       }),
     ];
-  }, [state.participants, state.realisations, routesById, cprByParticipantId, pointsByParticipantId, sessionStats.participationCount]);
+  }, [state.participants, state.realisations, routesById, cprByParticipantId, pointsByParticipantId, sessionStats.participationCount, wallOfFameSexFilter]);
 
   function setSelectedDate(date) {
     setState((prev) => ({ ...prev, selectedDate: date }));
@@ -808,6 +919,7 @@ function App() {
         body: JSON.stringify(session),
       });
       setSyncMessage("Séance synchronisée via l’API");
+      setConfirmationMessage("Séance enregistrée.");
     } catch (e) {
       setSyncMessage("Erreur synchronisation séance");
       console.error(e);
@@ -954,8 +1066,9 @@ function App() {
         ]);
       }
       setNewParticipant({
-        nom: "", prenom: "", email: "", passport: "sans", cotisation: false, ffme: false, canEncadrer: false, canReferer: false, canAdmin: false,
+        nom: "", prenom: "", email: "", passport: "sans", sexe: "", cotisation: false, ffme: false, canEncadrer: false, canReferer: false, canAdmin: false,
       });
+      setConfirmationMessage("Participant ajouté.");
     } catch (e) {
       setSyncMessage(`Erreur ajout participant`);
       console.error(e);
@@ -988,6 +1101,22 @@ function App() {
   }
 
   async function deleteParticipant(id) {
+    const participant = state.participants.find((item) => String(item.id) === String(id));
+    if (!participant) return;
+    const relatedRealisations = state.realisations.filter(
+      (item) => String(item.participantId) === String(id)
+    ).length;
+    const relatedInscriptions = state.sessions.reduce(
+      (count, session) => count + session.participantIds.filter(
+        (participantId) => String(participantId) === String(id)
+      ).length,
+      0
+    );
+    const warning = relatedInscriptions || relatedRealisations
+      ? ` Cette action supprimera aussi ${relatedInscriptions} inscription(s) et ${relatedRealisations} réalisation(s).`
+      : "";
+    if (!window.confirm(`Supprimer définitivement le grimpeur ${fullName(participant)} ?${warning}`)) return;
+
     const previousParticipants = state.participants;
     setState((prev) => ({
       ...prev,
@@ -1002,10 +1131,14 @@ function App() {
     }));
     setRecentlyAddedParticipantIds((prev) => prev.filter((pid) => String(pid) !== String(id)));
 
-    if (!USE_API) return;
+    if (!USE_API) {
+      setConfirmationMessage("Grimpeur supprimé.");
+      return;
+    }
     try {
       await apiFetch(`/participants/${id}`, { method: "DELETE" });
       setSyncMessage("Participant supprimé via l’API");
+      setConfirmationMessage("Grimpeur supprimé.");
     } catch (e) {
       setState((prev) => ({ ...prev, participants: previousParticipants }));
       setSyncMessage("Erreur suppression participant");
@@ -1013,11 +1146,13 @@ function App() {
     }
   }
 
-  function addRoute() {
+  async function addRoute() {
     const numeroVoieUnique = `voie-${Date.now()}`;
     const couleurPrises = newRoute.couleurPrises.trim();
     const nomOuvreur = newRoute.nomOuvreur.trim();
-    if (!couleurPrises || !nomOuvreur) return setRouteError("Renseigne au moins la couleur et l’ouvreur.");
+    if (!newRoute.numeroCorde || !couleurPrises || !newRoute.cotationReference || !nomOuvreur) {
+      return setRouteError("Renseigne la corde, la couleur, la cotation et l’ouvreur.");
+    }
 
     const route = {
       id: `route-${Date.now()}`,
@@ -1031,13 +1166,112 @@ function App() {
       moulinetteOnly: newRoute.moulinetteOnly,
       active: true,
       dateCreation: selectedDate,
+      tags: newRoute.tags,
     };
 
-    setState((prev) => ({ ...prev, routes: [...prev.routes, route] }));
-    setRouteError("");
-    setNewRoute({
-      numeroCorde: "1", couleurPrises: "Blanc", cotationReference: "5c", nomVoie: "", nomOuvreur: "", moulinetteOnly: false,
+    try {
+      const savedRoute = USE_API
+        ? await apiFetch("/routes", { method: "POST", body: JSON.stringify(route) })
+        : route;
+      setState((prev) => ({ ...prev, routes: [...prev.routes, savedRoute] }));
+      setRouteError("");
+      setNewRoute({
+        numeroCorde: "", couleurPrises: "", cotationReference: "", nomVoie: "", nomOuvreur: "", moulinetteOnly: false, tags: [],
+      });
+      setConfirmationMessage("Voie ajoutée.");
+    } catch (error) {
+      setRouteError(error.message || "Création de la voie impossible.");
+    }
+  }
+
+  function startRouteEdition(route) {
+    setEditingRouteId(route.id);
+    setRouteEditDraft({
+      numeroCorde: String(route.numeroCorde ?? 0),
+      couleurPrises: route.couleurPrises || "Blanc",
+      cotationReference: route.cotationReference || route.cotationAjustee || "5c",
+      nomVoie: route.nomVoie || "",
+      nomOuvreur: route.nomOuvreur || "",
+      moulinetteOnly: Boolean(route.moulinetteOnly),
+      tags: route.tags || [],
     });
+    setRouteError("");
+  }
+
+  function cancelRouteEdition() {
+    setEditingRouteId("");
+    setRouteEditDraft(null);
+  }
+
+  async function deleteRoute(route) {
+    if (!route?.id) return;
+    const relatedRealisations = state.realisations.filter(
+      (item) => String(item.voieId) === String(route.id)
+    ).length;
+    const routeLabel = formatRouteName(route);
+    const warning = relatedRealisations
+      ? ` Cette action supprimera aussi ${relatedRealisations} réalisation(s).`
+      : "";
+    if (!window.confirm(`Supprimer définitivement la voie « ${routeLabel} » ?${warning}`)) return;
+
+    try {
+      if (USE_API) {
+        await apiFetch(`/routes/${encodeURIComponent(route.id)}`, { method: "DELETE" });
+      }
+      setState((prev) => ({
+        ...prev,
+        routes: prev.routes.filter((item) => item.id !== route.id),
+        realisations: prev.realisations.filter((item) => item.voieId !== route.id),
+      }));
+      cancelRouteEdition();
+      setConfirmationMessage("Voie supprimée.");
+    } catch (error) {
+      setRouteError(error.message || "Suppression de la voie impossible.");
+    }
+  }
+
+  async function saveRouteEdition(route) {
+    if (!routeEditDraft) return;
+    setRouteError("");
+    const couleurPrises = routeEditDraft.couleurPrises.trim();
+    const nomOuvreur = routeEditDraft.nomOuvreur.trim();
+    if (!couleurPrises || !nomOuvreur) {
+      setRouteError("Renseigne au moins la couleur et l’ouvreur.");
+      return;
+    }
+
+    const routePatch = {
+      numeroCorde: Number(routeEditDraft.numeroCorde),
+      couleurPrises,
+      cotationReference: routeEditDraft.cotationReference,
+      cotationAjustee: routeEditDraft.cotationReference,
+      nomVoie: routeEditDraft.nomVoie.trim(),
+      nomOuvreur,
+      moulinetteOnly: routeEditDraft.moulinetteOnly,
+      tags: routeEditDraft.tags,
+    };
+    const updatedRoute = { ...route, ...routePatch };
+
+    setSavingRouteId(route.id);
+    try {
+      const savedRoute = USE_API
+        ? await apiFetch(`/routes/${encodeURIComponent(route.id)}`, {
+            method: "PUT",
+            body: JSON.stringify(routePatch),
+          })
+        : updatedRoute;
+      setState((prev) => ({
+        ...prev,
+        routes: prev.routes.map((item) => (item.id === route.id ? savedRoute : item)),
+      }));
+      cancelRouteEdition();
+      setSyncMessage("Voie mise à jour.");
+      setConfirmationMessage("Voie modifiée.");
+    } catch (error) {
+      setRouteError(error.message || "Modification de la voie impossible.");
+    } finally {
+      setSavingRouteId("");
+    }
   }
 
   function getParticipantSessions(participantId) {
@@ -1109,13 +1343,14 @@ function App() {
       sessionId: defaultParticipantId && latestRegisteredDay
         ? resolveSessionIdForRealisation(defaultParticipantId, latestRegisteredDay) || ""
         : "",
-      voieId: routeId,
+      voieId: routeId || "",
       styleRealisation: route?.moulinetteOnly ? "moulinette" : (prev.styleRealisation || "a_vue"),
       cotationProposee: route?.cotationAjustee || route?.cotationReference || "",
       commentaire: "",
+      rating: 0,
     }));
 
-    setRealisationModalRouteId(routeId);
+    setRealisationModalRouteId(routeId || "");
   }
 
   function closeRealisationModal() {
@@ -1165,6 +1400,7 @@ async function deleteRealisation(realisation) {
         method: "DELETE",
       });
     }
+    setConfirmationMessage("Réalisation supprimée.");
   } catch (error) {
     setState((prev) => ({ ...prev, realisations: previousRealisations }));
     alert(`Suppression impossible : ${error.message || error}`);
@@ -1172,8 +1408,8 @@ async function deleteRealisation(realisation) {
 }
 
   async function addRealisation() {
-    if (!newRealisation.participantId || !newRealisation.selectedDay || !newRealisation.voieId) {
-      alert("Sélectionne au minimum un jour, un participant et une voie.");
+    if (!newRealisation.participantId || !newRealisation.selectedDay || !newRealisation.voieId || !newRealisation.rating) {
+      alert("Sélectionne un jour, un participant, une voie et une note de 1 à 5 étoiles.");
       return;
     }
 
@@ -1198,6 +1434,7 @@ async function deleteRealisation(realisation) {
       styleRealisation: newRealisation.styleRealisation,
       commentaire: newRealisation.commentaire,
       cotationProposee: newRealisation.cotationProposee,
+      rating: newRealisation.rating,
     };
 
     try {
@@ -1210,8 +1447,10 @@ async function deleteRealisation(realisation) {
         sessionId: "",
         commentaire: "",
         cotationProposee: "",
+        rating: 0,
       }));
       setRealisationModalRouteId(null);
+      setConfirmationMessage("Réalisation enregistrée.");
     } catch (error) {
       alert(String(error.message || error));
     }
@@ -1416,6 +1655,21 @@ async function handleThemePreferenceChange(nextTheme) {
     }
   }
 
+  async function deleteUserAccount(user) {
+    if (!user?.id) return;
+    if (!window.confirm(
+      `Supprimer définitivement le compte de ${user.prenom} ${user.nom} (${user.email}) ? Le grimpeur associé sera conservé.`
+    )) return;
+
+    try {
+      await authApiFetch(`/admin/auth/users/${user.id}`, authToken, { method: "DELETE" });
+      await loadAdminAccessData();
+      setConfirmationMessage("Compte supprimé.");
+    } catch (error) {
+      setAuthError(String(error.message || error));
+    }
+  }
+
   async function reactivateUserAccess(userId) {
     try {
       await authApiFetch(`/admin/auth/users/${userId}/reactivate`, authToken, { method: "POST" });
@@ -1466,6 +1720,38 @@ async function handleThemePreferenceChange(nextTheme) {
     downloadFile("climbcrew_export.json", JSON.stringify(state, null, 2));
   }
 
+  function exportSelectedParticipantRealisationsCsv() {
+    const participant = participantsById[state.selectedParticipantProgress];
+    if (!participant) return;
+
+    const headers = ["country", "crag", "sector", "route", "grade", "date", "style", "comment"];
+    const rows = selectedParticipantRealisations.map((realisation) => {
+      const route = routesById[realisation.voieId];
+      const ropeNumber = route ? normalizeRopeNumber(route.numeroCorde) : 0;
+      const routeName = route?.nomVoie?.trim() || `Voie corde ${ropeNumber}`;
+      const details = [
+        route?.nomOuvreur ? `Ouvreur : ${route.nomOuvreur}` : "",
+        route?.couleurPrises ? `Couleur : ${route.couleurPrises}` : "",
+        realisation.cotationProposee ? `Cotation proposée : ${realisation.cotationProposee}` : "",
+        route?.tags?.length ? `Caractéristiques : ${route.tags.map((tag) => ROUTE_TAGS.find((item) => item.value === tag)?.label || tag).join(", ")}` : "",
+        realisation.commentaire || "",
+      ].filter(Boolean).join(" · ");
+      return [
+        "France",
+        "ASTC",
+        `Corde ${ropeNumber}`,
+        routeName,
+        route?.cotationAjustee || route?.cotationReference || "",
+        realisation.dateRealisation?.slice(0, 10) || "",
+        THECRAG_STYLE_BY_CLIMBCREW[realisation.styleRealisation] || "Attempt",
+        details,
+      ];
+    });
+    const filename = `thecrag-${csvFileSlug(fullName(participant))}.csv`;
+    downloadFile(filename, buildCsv(headers, rows), "text/csv;charset=utf-8;");
+    setConfirmationMessage("Export theCrag téléchargé.");
+  }
+
   async function importJsonFile(event) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -1482,7 +1768,7 @@ async function handleThemePreferenceChange(nextTheme) {
           `Import API réussi : ${result.participantsImported || 0} participants, ${result.sessionsImported || 0} séances, ${result.routesImported || 0} voies.`
         );
       } else {
-        setState(parsed);
+        setState((prev) => normalizeAppData(parsed, prev));
         setImportMessage("Import JSON local réussi.");
       }
     } catch (error) {
@@ -1741,7 +2027,7 @@ async function handleThemePreferenceChange(nextTheme) {
           </div>
 
           <div className="small" style={{ marginTop: 10, textAlign: "center", color: "#475569" }}>
-            {APP_VERSION_LABEL}
+            Version : {APP_VERSION}
           </div>
         </div>
       </div>
@@ -1751,6 +2037,11 @@ async function handleThemePreferenceChange(nextTheme) {
 
   return (
     <div className="app">
+      {confirmationMessage && (
+        <div className="confirmation-toast" role="status" aria-live="polite">
+          {confirmationMessage}
+        </div>
+      )}
 
       {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
 
@@ -1805,14 +2096,14 @@ async function handleThemePreferenceChange(nextTheme) {
         )}
       </aside>
 
-      {realisationModalRoute && (
+      {realisationModalRouteId !== null && (
         <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="Enregistrer une voie réalisée">
           <div className="modal-panel">
             <div className="card-header">
               <div>
                 <h2 className="modal-title">Enregistrer une voie réalisée</h2>
                 <div className="small">
-                  {formatRouteName(realisationModalRoute)} · Corde {realisationModalRoute.numeroCorde} · {realisationModalRoute.cotationAjustee}
+                  {realisationModalRoute ? formatRouteForRealisation(realisationModalRoute) : "Choisir une voie"}
                 </div>
               </div>
               <button className="danger ghost modal-close" onClick={closeRealisationModal} aria-label="Fermer">×</button>
@@ -1871,7 +2162,25 @@ async function handleThemePreferenceChange(nextTheme) {
 
               <div>
                 <label>Voie</label>
-                <input value={`${formatRouteName(realisationModalRoute)} · Corde ${realisationModalRoute.numeroCorde} · ${realisationModalRoute.cotationAjustee}`} readOnly />
+                <select
+                  value={newRealisation.voieId}
+                  onChange={(event) => {
+                    const voieId = event.target.value;
+                    const route = routesById[voieId];
+                    setRealisationModalRouteId(voieId);
+                    setNewRealisation((prev) => ({
+                      ...prev,
+                      voieId,
+                      styleRealisation: route?.moulinetteOnly ? "moulinette" : prev.styleRealisation,
+                      cotationProposee: route?.cotationAjustee || route?.cotationReference || "",
+                    }));
+                  }}
+                >
+                  <option value="">Choisir une voie</option>
+                  {state.routes.map((route) => (
+                    <option key={route.id} value={route.id}>{formatRouteForRealisation(route)}</option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -1891,7 +2200,24 @@ async function handleThemePreferenceChange(nextTheme) {
 
               <div>
                 <label>Cotation consensus</label>
-                <input value={routeAggregatesById[realisationModalRoute.id]?.consensusGrade || "Non calculée"} readOnly />
+                <input value={realisationModalRoute ? routeAggregatesById[realisationModalRoute.id]?.consensusGrade || "Non calculée" : "Choisir une voie"} readOnly />
+              </div>
+
+              <div className="realisation-rating">
+                <label>Évaluation de la voie</label>
+                <div className="rating-stars" role="radiogroup" aria-label="Évaluation de la voie de 1 à 5 étoiles">
+                  {[1, 2, 3, 4, 5].map((rating) => (
+                    <button
+                      type="button"
+                      className={rating <= newRealisation.rating ? "rating-star selected" : "rating-star"}
+                      key={rating}
+                      onClick={() => setNewRealisation((prev) => ({ ...prev, rating }))}
+                      role="radio"
+                      aria-checked={newRealisation.rating === rating}
+                      aria-label={`${rating} étoile${rating > 1 ? "s" : ""}`}
+                    >{rating <= newRealisation.rating ? "★" : "☆"}</button>
+                  ))}
+                </div>
               </div>
 
             </div>
@@ -1903,7 +2229,7 @@ async function handleThemePreferenceChange(nextTheme) {
 
             <div className="modal-actions">
               <button className="secondary" onClick={closeRealisationModal}>Annuler</button>
-              <button onClick={addRealisation} disabled={!newRealisation.selectedDay || !newRealisation.participantId || modalEligibleParticipants.length === 0}>Enregistrer</button>
+              <button onClick={addRealisation} disabled={!newRealisation.selectedDay || !newRealisation.participantId || !newRealisation.voieId || !newRealisation.rating || modalEligibleParticipants.length === 0}>Enregistrer</button>
             </div>
           </div>
         </div>
@@ -1958,11 +2284,21 @@ async function handleThemePreferenceChange(nextTheme) {
             setNewRoute={setNewRoute}
             addRoute={addRoute}
             routeError={routeError}
-            routes={state.routes}
-            ropes={state.ropes}
+            routeDisplayGroups={routeDisplayGroups}
+            routeSortMode={routeSortMode}
+            setRouteSortMode={setRouteSortMode}
+            routeRatingsById={routeRatingsById}
             routeAggregatesById={routeAggregatesById}
             openRealisationModal={openRealisationModal}
             selectedParticipantProgress={state.selectedParticipantProgress}
+            editingRouteId={editingRouteId}
+            routeEditDraft={routeEditDraft}
+            setRouteEditDraft={setRouteEditDraft}
+            startRouteEdition={startRouteEdition}
+            saveRouteEdition={saveRouteEdition}
+            cancelRouteEdition={cancelRouteEdition}
+            deleteRoute={deleteRoute}
+            savingRouteId={savingRouteId}
           />
         )}
 
@@ -1974,19 +2310,23 @@ async function handleThemePreferenceChange(nextTheme) {
             setSelectedRouteProgress={setSelectedRouteProgress}
             alphabeticalParticipants={alphabeticalParticipants}
             routes={state.routes}
-            progressEntryRouteId={progressEntryRouteId}
-            setProgressEntryRouteId={setProgressEntryRouteId}
+            routesById={routesById}
             openRealisationModal={openRealisationModal}
             participantProgressStats={participantProgressStats}
             pointsByParticipantId={pointsByParticipantId}
+            selectedParticipantRealisations={selectedParticipantRealisations}
             progressViewRealisations={progressViewRealisations}
             participantsById={participantsById}
-            routesById={routesById}
             getParticipantSessions={getParticipantSessions}
             cprByParticipantId={cprByParticipantId}
             deleteRealisation={deleteRealisation}
             updateRealisation={updateRealisation}
             routeAggregatesById={routeAggregatesById}
+            expandedRealisationIds={expandedRealisationIds}
+            setRealisationExpanded={setRealisationExpanded}
+            allProgressRealisationsExpanded={allProgressRealisationsExpanded}
+            toggleAllProgressRealisations={toggleAllProgressRealisations}
+            exportSelectedParticipantRealisationsCsv={exportSelectedParticipantRealisationsCsv}
           />
         )}
 
@@ -2020,6 +2360,8 @@ async function handleThemePreferenceChange(nextTheme) {
             revokeUserAccess={revokeUserAccess}
             reactivateUserAccess={reactivateUserAccess}
             generatePasswordResetToken={generatePasswordResetToken}
+            deleteUserAccount={deleteUserAccount}
+            authUser={authUser}
           />
         )}
 
@@ -2033,10 +2375,6 @@ async function handleThemePreferenceChange(nextTheme) {
 
         {tab === "statistiques" && (
           <Statistiques
-            wallOfFameCategories={wallOfFameCategories}
-            getPassportStyle={getPassportStyle}
-            getPassportDotStyle={getPassportDotStyle}
-            normalizePassport={normalizePassport}
             sessionStats={sessionStats}
             topRouteRankings={topRouteRankings}
             leadRealisationStats={leadRealisationStats}
@@ -2046,14 +2384,28 @@ async function handleThemePreferenceChange(nextTheme) {
             statsSortDirection={statsSortDirection}
             setStatsSortDirection={setStatsSortDirection}
             sortedStatsParticipants={sortedStatsParticipants}
+            getPassportStyle={getPassportStyle}
+            getPassportDotStyle={getPassportDotStyle}
+            normalizePassport={normalizePassport}
             cprByParticipantId={cprByParticipantId}
             formatPoints={formatPoints}
             pointsByParticipantId={pointsByParticipantId}
           />
         )}
 
+        {tab === "wall_of_fame" && (
+          <WallOfFame
+            wallOfFameCategories={wallOfFameCategories}
+            getPassportStyle={getPassportStyle}
+            getPassportDotStyle={getPassportDotStyle}
+            normalizePassport={normalizePassport}
+            wallOfFameSexFilter={wallOfFameSexFilter}
+            setWallOfFameSexFilter={setWallOfFameSexFilter}
+          />
+        )}
+
         {tab === "faq" && (
-          <FaqSection APP_VERSION={APP_VERSION_LABEL} canAccessAdminTabs={canAccessAdminTabs} />
+          <FaqSection APP_VERSION={APP_VERSION} canAccessAdminTabs={canAccessAdminTabs} />
         )}
 
 

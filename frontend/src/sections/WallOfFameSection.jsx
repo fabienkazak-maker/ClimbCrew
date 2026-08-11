@@ -6,13 +6,22 @@ export default function WallOfFameSection({
   getPassportStyle,
   getPassportDotStyle,
   normalizePassport,
+  wallOfFameSexFilter,
+  setWallOfFameSexFilter,
 }) {
   return (
     <>
       <div className="card">
         <div className="card-header">
           <h2>Wall of Fame</h2>
-          <span className="small">Les trois meilleurs de chaque classement</span>
+          <div className="group">
+            <label htmlFor="wall-of-fame-sex-filter" style={{ margin: 0 }}>Afficher</label>
+            <select id="wall-of-fame-sex-filter" value={wallOfFameSexFilter} onChange={(event) => setWallOfFameSexFilter(event.target.value)}>
+              <option value="all">Tous</option>
+              <option value="h">H</option>
+              <option value="f">F</option>
+            </select>
+          </div>
         </div>
         <div className="grid three">
           {wallOfFameCategories.map((category) => (
