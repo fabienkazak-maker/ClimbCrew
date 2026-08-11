@@ -1759,7 +1759,7 @@ async function handleThemePreferenceChange(nextTheme) {
           {authView === "login" && (
             <div className="grid two" style={{ marginTop: 14 }}>
               <div>
-                <label>Email</label>
+                <label>Emails</label>
                 <input value={loginForm.email} onChange={(e) => setLoginForm((p) => ({ ...p, email: e.target.value }))} />
               </div>
               <div>
@@ -1817,7 +1817,7 @@ async function handleThemePreferenceChange(nextTheme) {
                 La demande sera journalisée. Un administrateur pourra générer un code de réinitialisation.
               </div>
               <div className="auth-submit-row">
-                <button onClick={handleForgotPassword}>Signaler la perte du mot de passe</button>
+                <button onClick={handleForgotPassword}>Signaler la perte du mot de passsse</button>
               </div>
             </div>
           )}
