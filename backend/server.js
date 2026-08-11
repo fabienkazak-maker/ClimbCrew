@@ -6,6 +6,14 @@ import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import { readFile } from "node:fs/promises";
+import {
+  ValidationError,
+  validateLegacyImportPayload,
+  validateParticipantPayload,
+  validateRealisationPayload,
+  validateRoutePayload,
+  validateSessionPayload,
+} from "./validation.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -311,6 +319,7 @@ async function ensureSchema() {
       prenom text not null,
       email text not null default '',
       passport text not null default 'sans',
+      sexe text not null default '' check (sexe in ('', 'h', 'f')),
       cotisation boolean not null default false,
       ffme boolean not null default false,
       can_encadrer boolean not null default false,
@@ -339,6 +348,7 @@ async function ensureSchema() {
 
     alter table participants add column if not exists can_admin boolean not null default false;
     alter table participants add column if not exists email text not null default '';
+    alter table participants add column if not exists sexe text not null default '';
 
     alter table sessions drop constraint if exists sessions_slot_check;
     alter table sessions add constraint sessions_slot_check check (slot in ('midi', 'matin', 'soir'));
@@ -432,6 +442,7 @@ async function ensureSchema() {
       nom_voie text not null default '',
       nom_ouvreur text not null default '',
       moulinette_only boolean not null default false,
+      tags text[] not null default '{}',
       active boolean not null default true,
       date_creation text not null default '',
       created_at timestamptz not null default now(),
@@ -440,7 +451,19 @@ async function ensureSchema() {
 
     create index if not exists idx_routes_numero_corde on routes(numero_corde);
     create index if not exists idx_routes_active on routes(active);
+
+    create table if not exists route_ratings (
+      route_id text not null references routes(id) on delete cascade,
+      user_id bigint not null references users(id) on delete cascade,
+      rating integer not null check (rating between 1 and 5),
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now(),
+      primary key (route_id, user_id)
+    );
+
+    create index if not exists idx_route_ratings_route on route_ratings(route_id);
   `);
+  await pool.query(`alter table routes add column if not exists tags text[] not null default '{}'`);
 
   await pool.query(`
     create table if not exists realisations (
@@ -453,16 +476,24 @@ async function ensureSchema() {
       commentaire text,
       cotation_proposee text,
       nb_essais text,
+      rating integer check (rating between 1 and 5),
+      tags text[] not null default '{}',
       created_at timestamptz not null default now(),
       updated_at timestamptz not null default now()
     )
   `);
+
+  await pool.query(`alter table realisations add column if not exists rating integer check (rating between 1 and 5)`);
+  await pool.query(`alter table realisations add column if not exists tags text[] not null default '{}'`);
 
   await pool.query(`create index if not exists idx_realisations_participant on realisations(participant_id)`);
   await pool.query(`create index if not exists idx_realisations_session on realisations(session_id)`);
   await pool.query(`create index if not exists idx_realisations_voie on realisations(voie_id)`);
 
   await pool.query(`alter table users add column if not exists theme_preference text not null default 'auto'`);
+
+  // Les migrations de données restent séparées du démarrage de l'API.
+  // Une donnée historique inattendue ne doit jamais empêcher le serveur de répondre.
 }
 
 async function ensureDefaultAdmin() {
@@ -600,25 +631,26 @@ app.get("/realisations", requireAuth, async (_req, res) => {
         style_realisation as "styleRealisation",
         commentaire,
         cotation_proposee as "cotationProposee",
-        nb_essais as "nbEssais"
+        nb_essais as "nbEssais",
+        rating
       from realisations
       order by date_realisation desc, created_at desc
     `);
     res.json(result.rows);
   } catch (error) {
-    res.status(500).json({ error: String(error) });
+    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
   }
 });
 
 app.post("/realisations", requireAuth, async (req, res) => {
-  const realisation = req.body || {};
   try {
+    const realisation = validateRealisationPayload(req.body || {});
     await pool.query(
       `
         insert into realisations (
           id, participant_id, session_id, voie_id, date_realisation, style_realisation,
-          commentaire, cotation_proposee, nb_essais
-        ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+          commentaire, cotation_proposee, nb_essais, rating
+        ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
       `,
       [
         realisation.id,
@@ -630,17 +662,18 @@ app.post("/realisations", requireAuth, async (req, res) => {
         realisation.commentaire || "",
         realisation.cotationProposee || "",
         realisation.nbEssais || "",
+        realisation.rating ?? null,
       ]
     );
     res.json(realisation);
   } catch (error) {
-    res.status(500).json({ error: String(error) });
+    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
   }
 });
 
 app.put("/realisations/:id", requireAuth, async (req, res) => {
-  const patch = req.body || {};
   try {
+    const patch = validateRealisationPayload(req.body || {}, { partial: true });
     await pool.query(
       `
         update realisations
@@ -653,6 +686,7 @@ app.put("/realisations/:id", requireAuth, async (req, res) => {
           commentaire = coalesce($7, commentaire),
           cotation_proposee = coalesce($8, cotation_proposee),
           nb_essais = coalesce($9, nb_essais),
+          rating = coalesce($10, rating),
           updated_at = now()
         where id = $1
       `,
@@ -666,11 +700,12 @@ app.put("/realisations/:id", requireAuth, async (req, res) => {
         patch.commentaire ?? null,
         patch.cotationProposee ?? null,
         patch.nbEssais ?? null,
+        patch.rating ?? null,
       ]
     );
     res.json({ ok: true });
   } catch (error) {
-    res.status(500).json({ error: String(error) });
+    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
   }
 });
 
@@ -679,7 +714,7 @@ app.delete("/realisations/:id", requireAuth, async (req, res) => {
     await pool.query(`delete from realisations where id = $1`, [req.params.id]);
     res.json({ ok: true });
   } catch (error) {
-    res.status(500).json({ error: String(error) });
+    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
   }
 });
 
@@ -691,6 +726,7 @@ function participantDbToApi(row) {
     prenom: row.prenom,
     email: row.email || "",
     passport: row.passport,
+    sexe: row.sexe || "",
     cotisation: row.cotisation,
     ffme: row.ffme,
     canEncadrer: row.can_encadrer,
@@ -730,8 +766,11 @@ function routeDbToApi(row) {
     nomVoie: row.nom_voie || "",
     nomOuvreur: row.nom_ouvreur || "",
     moulinetteOnly: Boolean(row.moulinette_only),
+    tags: Array.isArray(row.tags) ? row.tags : [],
     active: Boolean(row.active),
     dateCreation: row.date_creation || "",
+    ratingAverage: Number(row.rating_average || 0),
+    ratingCount: Number(row.rating_count || 0),
   };
 }
 
@@ -751,11 +790,18 @@ app.get("/ropes", requireAuth, async (_req, res) => {
 
 app.get("/routes", requireAuth, async (_req, res) => {
   try {
-    const result = await pool.query(`
-      select *
-      from routes
-      order by numero_corde asc nulls last, numero_voie_unique asc
-    `);
+    const result = await pool.query(
+      `
+        select
+          r.*,
+          coalesce(avg(re.rating), 0)::float as rating_average,
+          count(re.rating)::integer as rating_count
+        from routes r
+        left join realisations re on re.voie_id = r.id
+        group by r.id
+        order by r.numero_corde asc nulls last, r.numero_voie_unique asc
+      `,
+    );
     res.json(result.rows.map(routeDbToApi));
   } catch (error) {
     console.error("GET /routes", error);
@@ -764,21 +810,28 @@ app.get("/routes", requireAuth, async (_req, res) => {
 });
 
 app.post("/routes", requireAuth, requireAdmin, async (req, res) => {
-  const route = req.body || {};
-  const id = route.id || `route-${Date.now()}`;
   try {
+    const requestedRoute = req.body || {};
+    const id = requestedRoute.id || `route-${Date.now()}`;
+    const route = validateRoutePayload({
+      ...requestedRoute,
+      id,
+      numeroVoieUnique: requestedRoute.numeroVoieUnique || id,
+    });
     const result = await pool.query(
       `
         insert into routes (
           id, numero_voie_unique, numero_corde, couleur_prises, cotation_reference,
-          cotation_ajustee, nom_voie, nom_ouvreur, moulinette_only, active, date_creation
-        ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+          cotation_ajustee, nom_voie, nom_ouvreur, moulinette_only, active, date_creation, tags
+        ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
         returning *
       `,
       [
         id,
         String(route.numeroVoieUnique || "").trim(),
-        Number(route.numeroCorde) || null,
+        route.numeroCorde === undefined || route.numeroCorde === null || route.numeroCorde === ""
+          ? null
+          : Number(route.numeroCorde),
         String(route.couleurPrises || "").trim(),
         String(route.cotationReference || "").trim(),
         String(route.cotationAjustee || route.cotationReference || "").trim(),
@@ -787,18 +840,19 @@ app.post("/routes", requireAuth, requireAdmin, async (req, res) => {
         Boolean(route.moulinetteOnly),
         route.active !== false,
         String(route.dateCreation || "").trim(),
+        route.tags || [],
       ]
     );
     res.status(201).json(routeDbToApi(result.rows[0]));
   } catch (error) {
     console.error("POST /routes", error);
-    res.status(500).json({ error: "Erreur création voie" });
+    res.status(error.status || 500).json({ error: error.message || "Erreur création voie", fields: error.fields || undefined });
   }
 });
 
 app.put("/routes/:id", requireAuth, requireAdmin, async (req, res) => {
-  const route = req.body || {};
   try {
+    const route = validateRoutePayload(req.body || {}, { partial: true });
     const result = await pool.query(
       `
         update routes
@@ -813,6 +867,7 @@ app.put("/routes/:id", requireAuth, requireAdmin, async (req, res) => {
           moulinette_only = coalesce($9, moulinette_only),
           active = coalesce($10, active),
           date_creation = coalesce($11, date_creation),
+          tags = coalesce($12, tags),
           updated_at = now()
         where id = $1
         returning *
@@ -829,13 +884,43 @@ app.put("/routes/:id", requireAuth, requireAdmin, async (req, res) => {
         route.moulinetteOnly ?? null,
         route.active ?? null,
         route.dateCreation ?? null,
+        route.tags ?? null,
       ]
     );
     if (result.rowCount === 0) return res.status(404).json({ error: "Voie introuvable" });
     res.json(routeDbToApi(result.rows[0]));
   } catch (error) {
     console.error("PUT /routes/:id", error);
-    res.status(500).json({ error: "Erreur mise à jour voie" });
+    res.status(error.status || 500).json({ error: error.message || "Erreur mise à jour voie", fields: error.fields || undefined });
+  }
+});
+
+app.delete("/routes/:id", requireAuth, requireAdmin, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query("begin");
+    const routeResult = await client.query(
+      "select id from routes where id = $1 for update",
+      [req.params.id],
+    );
+    if (!routeResult.rowCount) {
+      await client.query("rollback");
+      return res.status(404).json({ error: "Voie introuvable" });
+    }
+
+    const realisationsResult = await client.query(
+      "delete from realisations where voie_id = $1",
+      [req.params.id],
+    );
+    await client.query("delete from routes where id = $1", [req.params.id]);
+    await client.query("commit");
+
+    res.json({ ok: true, deletedRealisations: realisationsResult.rowCount });
+  } catch (error) {
+    await client.query("rollback");
+    res.status(500).json({ error: error.message || "Suppression de la voie impossible" });
+  } finally {
+    client.release();
   }
 });
 
@@ -967,7 +1052,7 @@ app.post("/auth/login", authRateLimit, async (req, res) => {
       user: serializeUser(updatedUserResult.rows[0]),
     });
   } catch (error) {
-    res.status(500).json({ error: String(error) });
+    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
   }
 });
 
@@ -1006,7 +1091,7 @@ app.put("/auth/theme", requireAuth, async (req, res) => {
 
     res.json({ ok: true, user });
   } catch (error) {
-    res.status(500).json({ error: String(error) });
+    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
   }
 });
 
@@ -1086,7 +1171,7 @@ app.post("/auth/request-access", authRateLimit, async (req, res) => {
       user: serializeUser(result.rows[0]),
     });
   } catch (error) {
-    res.status(500).json({ error: String(error) });
+    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
   }
 });
 
@@ -1110,7 +1195,7 @@ app.post("/auth/forgot-password", resetRateLimit, async (req, res) => {
       message: "La demande a été enregistrée. Un administrateur peut désormais générer un code de réinitialisation.",
     });
   } catch (error) {
-    res.status(500).json({ error: String(error) });
+    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
   }
 });
 
@@ -1196,7 +1281,7 @@ app.post("/auth/reset-password", resetRateLimit, async (req, res) => {
     });
   } catch (error) {
     await client.query("rollback");
-    res.status(500).json({ error: String(error) });
+    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
   } finally {
     client.release();
   }
@@ -1225,7 +1310,7 @@ app.get("/admin/auth/users", requireAuth, requireAdmin, async (_req, res) => {
 
     res.json({ ok: true, users: result.rows.map(serializeUser) });
   } catch (error) {
-    res.status(500).json({ error: String(error) });
+    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
   }
 });
 
@@ -1254,7 +1339,7 @@ app.get("/admin/auth/logs", requireAuth, requireAdmin, async (req, res) => {
 
     res.json({ ok: true, logs: result.rows });
   } catch (error) {
-    res.status(500).json({ error: String(error) });
+    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
   }
 });
 
@@ -1288,7 +1373,7 @@ app.post("/admin/auth/users/:id/approve", requireAuth, requireAdmin, async (req,
 
     res.json({ ok: true, user: serializeUser(result.rows[0]) });
   } catch (error) {
-    res.status(500).json({ error: String(error) });
+    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
   }
 });
 
@@ -1325,7 +1410,58 @@ app.post("/admin/auth/users/:id/revoke", requireAuth, requireAdmin, async (req, 
 
     res.json({ ok: true, user: serializeUser(result.rows[0]) });
   } catch (error) {
-    res.status(500).json({ error: String(error) });
+    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
+  }
+});
+
+app.delete("/admin/auth/users/:id", requireAuth, requireAdmin, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const userId = Number(req.params.id);
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(400).json({ error: "Identifiant du compte invalide" });
+    }
+    if (Number(req.auth.user.id) === userId) {
+      return res.status(409).json({ error: "Vous ne pouvez pas supprimer votre propre compte." });
+    }
+
+    await client.query("begin");
+    const userResult = await client.query(
+      "select id, email, role, status from users where id = $1 for update",
+      [userId],
+    );
+    if (!userResult.rowCount) {
+      await client.query("rollback");
+      return res.status(404).json({ error: "Compte introuvable" });
+    }
+
+    const user = userResult.rows[0];
+    if (user.role === "admin" && user.status === "active") {
+      const adminsResult = await client.query(
+        "select count(*)::integer as count from users where role = 'admin' and status = 'active'",
+      );
+      if (adminsResult.rows[0].count <= 1) {
+        await client.query("rollback");
+        return res.status(409).json({ error: "Le dernier compte administrateur actif ne peut pas être supprimé." });
+      }
+    }
+
+    await client.query("delete from users where id = $1", [userId]);
+    await client.query("commit");
+
+    await logAccess({
+      userId: req.auth.user.id,
+      eventType: "account_deleted",
+      success: true,
+      req,
+      details: { deletedUserId: userId, deletedEmail: user.email },
+    });
+    res.json({ ok: true });
+  } catch (error) {
+    await client.query("rollback");
+    res.status(500).json({ error: error.message || "Suppression du compte impossible" });
+  } finally {
+    client.release();
   }
 });
 
@@ -1358,7 +1494,7 @@ app.post("/admin/auth/users/:id/reactivate", requireAuth, requireAdmin, async (r
 
     res.json({ ok: true, user: serializeUser(result.rows[0]) });
   } catch (error) {
-    res.status(500).json({ error: String(error) });
+    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
   }
 });
 
@@ -1396,7 +1532,7 @@ app.post("/admin/auth/users/:id/reset-token", requireAuth, requireAdmin, async (
       expiresAt,
     });
   } catch (error) {
-    res.status(500).json({ error: String(error) });
+    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
   }
 });
 
@@ -1406,64 +1542,67 @@ app.post("/admin/auth/users/:id/reset-token", requireAuth, requireAdmin, async (
 app.get("/participants", requireAuth, async (_req, res) => {
   try {
     const result = await pool.query(`
-      select id, nom, prenom, email, passport, cotisation, ffme, can_encadrer, can_referer, can_admin
+      select id, nom, prenom, email, passport, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin
       from participants
       order by prenom asc, nom asc
     `);
     res.json(result.rows.map(participantDbToApi));
   } catch (error) {
-    res.status(500).json({ error: String(error) });
+    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
   }
 });
 
 app.post("/participants", requireAuth, requireAdmin, async (req, res) => {
   try {
     const {
-      nom = "",
-      prenom = "",
-      email = "",
-      passport = "sans",
-      cotisation = false,
-      ffme = false,
-      canEncadrer = false,
-      canReferer = false,
-      canAdmin = false,
-    } = req.body || {};
-
-    if (!nom || !prenom) {
-      return res.status(400).json({ error: "nom and prenom are required" });
-    }
+      nom,
+      prenom,
+      email,
+      passport,
+      sexe,
+      cotisation,
+      ffme,
+      canEncadrer,
+      canReferer,
+      canAdmin,
+    } = validateParticipantPayload(req.body || {});
 
     const result = await pool.query(
       `
         insert into participants
-        (nom, prenom, email, passport, cotisation, ffme, can_encadrer, can_referer, can_admin)
-        values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-        returning id, nom, prenom, email, passport, cotisation, ffme, can_encadrer, can_referer, can_admin
+        (nom, prenom, email, passport, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin)
+        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+        returning id, nom, prenom, email, passport, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin
       `,
-      [nom, prenom, String(email || "").trim().toLowerCase(), passport, cotisation, ffme, canEncadrer, canReferer, canAdmin]
+      [nom, prenom, String(email || "").trim().toLowerCase(), passport, sexe, cotisation, ffme, canEncadrer, canReferer, canAdmin]
     );
 
     res.status(201).json(participantDbToApi(result.rows[0]));
   } catch (error) {
-    res.status(500).json({ error: String(error) });
+    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
   }
 });
 
 app.put("/participants/:id", requireAuth, requireAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      throw new ValidationError("L'identifiant du participant est invalide.", {
+        id: "invalid_identifier",
+      });
+    }
     const {
-      nom = "",
-      prenom = "",
-      email = "",
-      passport = "sans",
-      cotisation = false,
-      ffme = false,
-      canEncadrer = false,
-      canReferer = false,
-      canAdmin = false,
-    } = req.body || {};
+      nom,
+      prenom,
+      email,
+      passport,
+      sexe,
+      cotisation,
+      ffme,
+      canEncadrer,
+      canReferer,
+      canAdmin,
+    } = validateParticipantPayload(req.body || {});
 
     const result = await pool.query(
       `
@@ -1472,15 +1611,16 @@ app.put("/participants/:id", requireAuth, requireAdmin, async (req, res) => {
             prenom = $3,
             email = $4,
             passport = $5,
-            cotisation = $6,
-            ffme = $7,
-            can_encadrer = $8,
-            can_referer = $9,
-            can_admin = $10
+            sexe = $6,
+            cotisation = $7,
+            ffme = $8,
+            can_encadrer = $9,
+            can_referer = $10,
+            can_admin = $11
         where id = $1
-        returning id, nom, prenom, email, passport, cotisation, ffme, can_encadrer, can_referer, can_admin
+        returning id, nom, prenom, email, passport, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin
       `,
-      [id, nom, prenom, String(email || "").trim().toLowerCase(), passport, cotisation, ffme, canEncadrer, canReferer, canAdmin]
+      [id, nom, prenom, String(email || "").trim().toLowerCase(), passport, sexe, cotisation, ffme, canEncadrer, canReferer, canAdmin]
     );
 
     if (!result.rowCount) {
@@ -1489,22 +1629,58 @@ app.put("/participants/:id", requireAuth, requireAdmin, async (req, res) => {
 
     res.json(participantDbToApi(result.rows[0]));
   } catch (error) {
-    res.status(500).json({ error: String(error) });
+    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
   }
 });
 
 app.delete("/participants/:id", requireAuth, requireAdmin, async (req, res) => {
+  const client = await pool.connect();
   try {
     const id = Number(req.params.id);
-    const result = await pool.query("delete from participants where id = $1", [id]);
-
-    if (!result.rowCount) {
-      return res.status(404).json({ error: "participant not found" });
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ error: "Identifiant du grimpeur invalide" });
     }
 
-    res.status(204).send();
+    await client.query("begin");
+    const participantResult = await client.query(
+      "select id from participants where id = $1 for update",
+      [id],
+    );
+    if (!participantResult.rowCount) {
+      await client.query("rollback");
+      return res.status(404).json({ error: "Grimpeur introuvable" });
+    }
+
+    await client.query("update users set participant_id = null where participant_id = $1", [id]);
+    const inscriptionsResult = await client.query(
+      "delete from session_participants where participant_id = $1",
+      [String(id)],
+    );
+    await client.query(
+      "update sessions set encadrant_id = null where encadrant_id = $1",
+      [String(id)],
+    );
+    await client.query(
+      "update sessions set referent_id = null where referent_id = $1",
+      [String(id)],
+    );
+    const realisationsResult = await client.query(
+      "delete from realisations where participant_id = $1",
+      [String(id)],
+    );
+    await client.query("delete from participants where id = $1", [id]);
+    await client.query("commit");
+
+    res.json({
+      ok: true,
+      deletedInscriptions: inscriptionsResult.rowCount,
+      deletedRealisations: realisationsResult.rowCount,
+    });
   } catch (error) {
-    res.status(500).json({ error: String(error) });
+    await client.query("rollback");
+    res.status(500).json({ error: error.message || "Suppression du grimpeur impossible" });
+  } finally {
+    client.release();
   }
 });
 
@@ -1539,7 +1715,7 @@ app.get("/sessions", requireAuth, async (_req, res) => {
 
     res.json(sessions);
   } catch (error) {
-    res.status(500).json({ error: String(error) });
+    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
   }
 });
 
@@ -1547,19 +1723,15 @@ app.put("/sessions/:id", requireAuth, async (req, res) => {
   const client = await pool.connect();
 
   try {
-    const { id } = req.params;
     const {
+      id,
       date,
       slot,
-      status = null,
-      encadrantId = null,
-      referentId = null,
-      participantIds = [],
-    } = req.body || {};
-
-    if (!id || !date || !slot) {
-      return res.status(400).json({ error: "id, date and slot are required" });
-    }
+      status,
+      encadrantId,
+      referentId,
+      participantIds,
+    } = validateSessionPayload(req.body || {}, req.params.id);
 
     const resolvedStatus = status || defaultSessionStatus(date, slot);
 
@@ -1627,7 +1799,7 @@ app.put("/sessions/:id", requireAuth, async (req, res) => {
     res.json(sessionDbToApi(sessionResult.rows[0], uniqueParticipantIds));
   } catch (error) {
     await client.query("rollback");
-    res.status(500).json({ error: String(error) });
+    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
   } finally {
     client.release();
   }
@@ -1639,7 +1811,7 @@ app.delete("/sessions/:id", requireAuth, requireAdmin, async (req, res) => {
     await pool.query("delete from sessions where id = $1", [id]);
     res.status(204).send();
   } catch (error) {
-    res.status(500).json({ error: String(error) });
+    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
   }
 });
 
@@ -1656,13 +1828,7 @@ app.delete("/sessions/:id", requireAuth, requireAdmin, async (req, res) => {
  * PostgreSQL tout en conservant les liens sessions/réalisations.
  */
 async function importLegacyPayload(inputPayload) {
-  const payload = inputPayload?.data || inputPayload || {};
-
-  if (!Array.isArray(payload.participants)) {
-    const error = new Error("Fichier legacy invalide : le tableau participants est obligatoire.");
-    error.status = 400;
-    throw error;
-  }
+  const payload = validateLegacyImportPayload(inputPayload);
 
   const client = await pool.connect();
   try {
@@ -1694,8 +1860,8 @@ async function importLegacyPayload(inputPayload) {
       const result = await client.query(
         `
           insert into participants
-          (nom, prenom, email, passport, cotisation, ffme, can_encadrer, can_referer, can_admin)
-          values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+          (nom, prenom, email, passport, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin)
+          values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
           returning id
         `,
         [
@@ -1703,6 +1869,7 @@ async function importLegacyPayload(inputPayload) {
           String(participant.prenom || "").trim() || "?",
           String(participant.email || "").trim().toLowerCase(),
           String(participant.passport || "sans").trim() || "sans",
+          String(participant.sexe || "").trim().toLowerCase(),
           Boolean(participant.cotisation),
           Boolean(participant.ffme),
           Boolean(participant.canEncadrer),
@@ -1713,13 +1880,39 @@ async function importLegacyPayload(inputPayload) {
       participantIdMap.set(String(participant.id), String(result.rows[0].id));
     }
 
+    // La suppression des participants met temporairement users.participant_id à null.
+    // Rattacher chaque compte seulement lorsqu'un unique participant importé correspond
+    // à son email ou, à défaut, à son couple nom/prénom.
+    await client.query(`
+      with candidate_matches as (
+        select distinct u.id as user_id, p.id as participant_id
+        from users u
+        join participants p on (
+          trim(coalesce(p.email, '')) <> ''
+          and lower(trim(p.email)) = lower(trim(u.email))
+        ) or (
+          lower(trim(p.nom)) = lower(trim(u.nom))
+          and lower(trim(p.prenom)) = lower(trim(u.prenom))
+        )
+      ), unique_matches as (
+        select user_id, min(participant_id) as participant_id
+        from candidate_matches
+        group by user_id
+        having count(*) = 1
+      )
+      update users u
+      set participant_id = matches.participant_id
+      from unique_matches matches
+      where u.id = matches.user_id
+    `);
+
     for (const route of payload.routes || []) {
       await client.query(
         `
           insert into routes (
             id, numero_voie_unique, numero_corde, couleur_prises, cotation_reference,
-            cotation_ajustee, nom_voie, nom_ouvreur, moulinette_only, active, date_creation
-          ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+            cotation_ajustee, nom_voie, nom_ouvreur, moulinette_only, active, date_creation, tags
+          ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
           on conflict (id) do update set
             numero_voie_unique = excluded.numero_voie_unique,
             numero_corde = excluded.numero_corde,
@@ -1731,12 +1924,13 @@ async function importLegacyPayload(inputPayload) {
             moulinette_only = excluded.moulinette_only,
             active = excluded.active,
             date_creation = excluded.date_creation,
+            tags = excluded.tags,
             updated_at = now()
         `,
         [
           String(route.id || `route-${route.numeroVoieUnique || Date.now()}`),
           String(route.numeroVoieUnique || route.id || ""),
-          Number(route.numeroCorde) || null,
+          Number(route.numeroCorde),
           String(route.couleurPrises || ""),
           String(route.cotationReference || ""),
           String(route.cotationAjustee || route.cotationReference || ""),
@@ -1745,6 +1939,7 @@ async function importLegacyPayload(inputPayload) {
           Boolean(route.moulinetteOnly),
           route.active !== false,
           String(route.dateCreation || ""),
+          route.tags || [],
         ]
       );
     }
@@ -1799,8 +1994,8 @@ async function importLegacyPayload(inputPayload) {
         `
           insert into realisations (
             id, participant_id, session_id, voie_id, date_realisation, style_realisation,
-            commentaire, cotation_proposee, nb_essais
-          ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+            commentaire, cotation_proposee, nb_essais, rating
+          ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
           on conflict (id) do update set
             participant_id = excluded.participant_id,
             session_id = excluded.session_id,
@@ -1810,6 +2005,7 @@ async function importLegacyPayload(inputPayload) {
             commentaire = excluded.commentaire,
             cotation_proposee = excluded.cotation_proposee,
             nb_essais = excluded.nb_essais,
+            rating = excluded.rating,
             updated_at = now()
         `,
         [
@@ -1822,6 +2018,7 @@ async function importLegacyPayload(inputPayload) {
           realisation.commentaire || "",
           realisation.cotationProposee || "",
           realisation.nbEssais || "",
+          realisation.rating || null,
         ]
       );
     }
@@ -1864,6 +2061,7 @@ async function exportLegacyPayload() {
       nom: row.nom,
       prenom: row.prenom,
       passport: row.passport,
+      sexe: row.sexe || "",
       cotisation: row.cotisation,
       ffme: row.ffme,
       canEncadrer: row.can_encadrer,
@@ -1978,8 +2176,8 @@ app.post("/import-data", requireSetupAccess, async (req, res) => {
       const result = await client.query(
         `
           insert into participants
-          (nom, prenom, email, passport, cotisation, ffme, can_encadrer, can_referer, can_admin)
-          values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+          (nom, prenom, email, passport, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin)
+          values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
           returning id
         `,
         [
@@ -1987,6 +2185,7 @@ app.post("/import-data", requireSetupAccess, async (req, res) => {
           participant.prenom,
           String(participant.email || "").trim().toLowerCase(),
           participant.passport || "sans",
+          String(participant.sexe || "").trim().toLowerCase(),
           Boolean(participant.cotisation),
           Boolean(participant.ffme),
           Boolean(participant.canEncadrer),
@@ -2021,7 +2220,7 @@ app.post("/import-data", requireSetupAccess, async (req, res) => {
         [
           route.id,
           route.numeroVoieUnique,
-          Number(route.numeroCorde) || null,
+          Number(route.numeroCorde),
           route.couleurPrises || "",
           route.cotationReference || "",
           route.cotationAjustee || route.cotationReference || "",
@@ -2086,7 +2285,7 @@ app.post("/import-data", requireSetupAccess, async (req, res) => {
     });
   } catch (error) {
     await client.query("rollback");
-    res.status(500).json({ error: String(error) });
+    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
   } finally {
     client.release();
   }
