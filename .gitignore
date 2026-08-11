@@ -36,3 +36,6 @@ npm-debug.log*
 Thumbs.db
 .vscode/
 .idea/
+
+# Claude Code : préférences locales personnelles, pas partagées avec l'équipe.
+.claude/settings.local.json
