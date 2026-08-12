@@ -428,8 +428,10 @@ export async function listUsers(_req, res) {
     const result = await getPool().query(`
       select id, participant_id, email, prenom, nom, role, is_admin, status,
              must_reset_password, created_at, approved_at, revoked_at,
-             revoked_reason, last_login_at, theme_preference
+             revoked_reason, last_login_at, theme_preference, email_verified_at
       from users
+      where status <> 'pending'
+         or email_verified_at is not null
       order by case status when 'pending' then 0 when 'active' then 1 when 'revoked' then 2 else 3 end,
                created_at desc, email asc
     `);
