@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import { readFile } from "node:fs/promises";
+import { sendApprovalNotificationEmail } from "./admin-users/account-service.js";
 import {
   ValidationError,
   validateLegacyImportPayload,
@@ -1370,6 +1371,8 @@ app.post("/admin/auth/users/:id/approve", requireAuth, requireAdmin, async (req,
       req,
       details: { by: req.auth.user.email },
     });
+
+    await sendApprovalNotificationEmail({ user: result.rows[0], req });
 
     res.json({ ok: true, user: serializeUser(result.rows[0]) });
   } catch (error) {

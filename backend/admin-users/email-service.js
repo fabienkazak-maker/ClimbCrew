@@ -1,6 +1,8 @@
 import nodemailer from "nodemailer";
 import {
+  buildAccountApprovedEmail,
   buildAccountRequestConfirmation,
+  buildAdminAccountRequestReadyEmail,
   buildPasswordResetCodeEmail,
 } from "./email-templates.js";
 
@@ -87,10 +89,24 @@ export function isEmailEnabled() {
   return EMAIL_ENABLED;
 }
 
-export async function sendAccountRequestConfirmation({ email, prenom, nom }) {
+export async function sendAccountRequestConfirmation({ email, prenom, nom, verificationUrl }) {
   return sendEmail({
     to: email,
-    ...buildAccountRequestConfirmation({ prenom, nom, publicUrl: PUBLIC_URL }),
+    ...buildAccountRequestConfirmation({ prenom, nom, publicUrl: PUBLIC_URL, verificationUrl }),
+  });
+}
+
+export async function sendAccountApprovedEmail({ email, prenom, nom }) {
+  return sendEmail({
+    to: email,
+    ...buildAccountApprovedEmail({ prenom, nom, publicUrl: PUBLIC_URL }),
+  });
+}
+
+export async function sendAdminAccountRequestReadyEmail({ email, prenom, nom, applicantEmail }) {
+  return sendEmail({
+    to: email,
+    ...buildAdminAccountRequestReadyEmail({ prenom, nom, email: applicantEmail, publicUrl: PUBLIC_URL }),
   });
 }
 

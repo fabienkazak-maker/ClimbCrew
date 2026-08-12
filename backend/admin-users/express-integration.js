@@ -10,6 +10,7 @@ import {
   listUsers,
   requestAccess,
   updateAdminRight,
+  verifyEmailRequest,
 } from "./account-service.js";
 import { exportAllData } from "./export-service.js";
 import { requireAdmin } from "./security.js";
@@ -91,6 +92,9 @@ export function installExpressIntegration() {
     if (path === "/admin/export-data" && handlers.length) {
       return replaceLastHandler(originalGet, this, path, handlers, exportAllData);
     }
+    if (path === "/auth/verify-email" && handlers.length) {
+      return replaceLastHandler(originalGet, this, path, handlers, verifyEmailRequest);
+    }
     return originalGet.call(this, path, ...handlers);
   };
 
@@ -108,6 +112,7 @@ export function installExpressIntegration() {
 
       if (!app[INSTALL_FLAG]) {
         app.post("/admin/auth/users/:id/admin", requireAdmin, updateAdminRight);
+        app.get("/auth/verify-email", verifyEmailRequest);
         app[INSTALL_FLAG] = true;
       }
 

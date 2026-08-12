@@ -38,7 +38,21 @@ export async function ensureAdminUserSchema() {
   const pool = getPool();
 
   await pool.query(`alter table users add column if not exists is_admin boolean not null default false`);
+  await pool.query(`alter table users add column if not exists email_verified_at timestamptz`);
   await pool.query(`alter table participants add column if not exists login_email text`);
+
+  await pool.query(`
+    create table if not exists email_verification_tokens (
+      id bigserial primary key,
+      user_id bigint not null references users(id) on delete cascade,
+      token_hash text not null,
+      created_at timestamptz not null default now(),
+      expires_at timestamptz not null,
+      used_at timestamptz
+    )
+  `);
+  await pool.query(`create index if not exists idx_email_verification_tokens_user on email_verification_tokens(user_id)`);
+  await pool.query(`create index if not exists idx_email_verification_tokens_hash on email_verification_tokens(token_hash)`);
 
   await pool.query(`update users set is_admin = true where role = 'admin' and is_admin = false`);
   await pool.query(`update users set role = 'admin' where is_admin = true and role <> 'admin'`);

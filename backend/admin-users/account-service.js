@@ -1,12 +1,16 @@
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { BCRYPT_ROUNDS, RESET_TOKEN_DURATION_MS } from "./config.js";
+
+const EMAIL_VERIFICATION_DURATION_MS = 1000 * 60 * 60 * 24 * 7;
 import { getPool } from "./database.js";
 import { writeAccessLog } from "./access-log-service.js";
 import { cleanEmail, hashToken, isStrongPassword } from "./security.js";
 import { serializeUser } from "./user-serializer.js";
 import {
+  sendAccountApprovedEmail,
   sendAccountRequestConfirmation,
+  sendAdminAccountRequestReadyEmail,
   sendPasswordResetCode,
 } from "./email-service.js";
 
@@ -18,6 +22,66 @@ function emailLogDetails(result, email) {
     reason: result?.reason || null,
     messageId: result?.messageId || null,
   };
+}
+
+function getPublicUrl() {
+  return String(
+    process.env.PUBLIC_URL || process.env.FRONTEND_ORIGIN || process.env.CORS_ORIGIN || ""
+  ).split(",")[0].trim().replace(/\/$/, "");
+}
+
+function buildEmailVerificationUrl(rawToken) {
+  const publicUrl = getPublicUrl();
+  return publicUrl ? `${publicUrl}/api/auth/verify-email?token=${encodeURIComponent(rawToken)}` : "";
+}
+
+async function notifyActiveAdminsOfConfirmedRequest({ user, req }) {
+  const adminResult = await getPool().query(
+    `
+      select email
+      from users
+      where status = 'active'
+        and (role = 'admin' or is_admin = true)
+        and lower(email) <> lower($1)
+    `,
+    [user.email]
+  );
+
+  for (const admin of adminResult.rows) {
+    try {
+      const emailResult = await sendAdminAccountRequestReadyEmail({
+        email: admin.email,
+        prenom: user.prenom,
+        nom: user.nom,
+        applicantEmail: user.email,
+      });
+      await writeAccessLog({
+        userId: user.id,
+        eventType: emailResult.sent
+          ? "account_request_ready_admin_email_sent"
+          : "account_request_ready_admin_email_skipped",
+        success: Boolean(emailResult.sent || emailResult.skipped),
+        req,
+        details: {
+          ...emailLogDetails(emailResult, admin.email),
+          applicantEmail: user.email,
+        },
+      });
+    } catch (error) {
+      console.error("Notification admin après confirmation e-mail impossible :", error);
+      await writeAccessLog({
+        userId: user.id,
+        eventType: "account_request_ready_admin_email_failed",
+        success: false,
+        req,
+        details: {
+          adminEmail: admin.email,
+          applicantEmail: user.email,
+          error: String(error.message || error),
+        },
+      });
+    }
+  }
 }
 
 /**
@@ -78,6 +142,9 @@ export async function requestAccess(req, res) {
     }
 
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+    const verificationToken = crypto.randomBytes(24).toString("hex");
+    const verificationTokenHash = hashToken(verificationToken);
+    const verificationExpiresAt = new Date(Date.now() + EMAIL_VERIFICATION_DURATION_MS).toISOString();
     const userResult = await client.query(
       `
         insert into users (
@@ -89,9 +156,16 @@ export async function requestAccess(req, res) {
       [participantId, email, prenom, nom, passwordHash]
     );
 
-    await client.query("commit");
-
     const user = userResult.rows[0];
+    await client.query(
+      `
+        insert into email_verification_tokens (user_id, token_hash, expires_at)
+        values ($1, $2, $3)
+      `,
+      [user.id, verificationTokenHash, verificationExpiresAt]
+    );
+
+    await client.query("commit");
     await writeAccessLog({
       userId: user.id,
       eventType: "request_access",
@@ -101,7 +175,12 @@ export async function requestAccess(req, res) {
 
     let emailSent = false;
     try {
-      const emailResult = await sendAccountRequestConfirmation({ email, prenom, nom });
+      const emailResult = await sendAccountRequestConfirmation({
+        email,
+        prenom,
+        nom,
+        verificationUrl: buildEmailVerificationUrl(verificationToken),
+      });
       emailSent = Boolean(emailResult.sent);
       await writeAccessLog({
         userId: user.id,
@@ -110,7 +189,10 @@ export async function requestAccess(req, res) {
           : "account_request_confirmation_email_skipped",
         success: Boolean(emailResult.sent || emailResult.skipped),
         req,
-        details: emailLogDetails(emailResult, email),
+        details: {
+          ...emailLogDetails(emailResult, email),
+          verificationExpiresAt,
+        },
       });
     } catch (error) {
       console.error("Envoi de la confirmation de création de compte impossible :", error);
@@ -126,7 +208,7 @@ export async function requestAccess(req, res) {
     res.json({
       ok: true,
       message: emailSent
-        ? "Demande d’accès enregistrée. Un e-mail de confirmation a été envoyé. Un administrateur doit maintenant approuver le compte."
+        ? "Demande d’accès enregistrée. Un e-mail de confirmation a été envoyé pour vérifier l’adresse du demandeur. Un administrateur doit ensuite approuver le compte."
         : "Demande d’accès enregistrée. Un administrateur doit l’approuver. La confirmation par e-mail n’a pas pu être envoyée.",
       user: serializeUser(user),
       participantCreated,
@@ -144,6 +226,103 @@ export async function requestAccess(req, res) {
  * Génère un code temporaire et l'envoie par e-mail lorsque le compte est actif.
  * La réponse reste volontairement générique afin de ne pas révéler si une adresse existe.
  */
+export async function verifyEmailRequest(req, res) {
+  const rawToken = String(req.query?.token || req.body?.token || "").trim();
+  if (!rawToken) return res.status(400).send("Lien de confirmation invalide.");
+
+  const tokenHash = hashToken(rawToken);
+  const client = await getPool().connect();
+  try {
+    await client.query("begin");
+    const tokenResult = await client.query(
+      `
+        select evt.id, evt.user_id, evt.expires_at, evt.used_at, u.email, u.prenom, u.nom
+        from email_verification_tokens evt
+        join users u on u.id = evt.user_id
+        where evt.token_hash = $1
+        limit 1
+      `,
+      [tokenHash]
+    );
+
+    const tokenRow = tokenResult.rows[0];
+    if (!tokenRow) {
+      await client.query("rollback");
+      return res.status(404).send("Ce lien de confirmation est introuvable ou a déjà été supprimé.");
+    }
+    if (tokenRow.used_at) {
+      await client.query("rollback");
+      return res.status(200).send("Cette adresse e-mail a déjà été confirmée.");
+    }
+    if (new Date(tokenRow.expires_at).getTime() <= Date.now()) {
+      await client.query("rollback");
+      return res.status(410).send("Ce lien de confirmation a expiré.");
+    }
+
+    await client.query(
+      `update email_verification_tokens set used_at = now() where id = $1`,
+      [tokenRow.id]
+    );
+    await client.query(
+      `update users set email_verified_at = coalesce(email_verified_at, now()) where id = $1`,
+      [tokenRow.user_id]
+    );
+    await client.query("commit");
+
+    await writeAccessLog({
+      userId: tokenRow.user_id,
+      eventType: "account_request_email_verified",
+      req,
+      details: { email: tokenRow.email },
+    });
+
+    await notifyActiveAdminsOfConfirmedRequest({
+      user: {
+        id: tokenRow.user_id,
+        email: tokenRow.email,
+        prenom: tokenRow.prenom,
+        nom: tokenRow.nom,
+      },
+      req,
+    });
+
+    return res.status(200).send("Adresse e-mail confirmée. La demande a été transmise aux administrateurs pour examen.");
+  } catch (error) {
+    await client.query("rollback");
+    return res.status(500).send("La confirmation de l’adresse e-mail a échoué.");
+  } finally {
+    client.release();
+  }
+}
+
+export async function sendApprovalNotificationEmail({ user, req }) {
+  try {
+    const emailResult = await sendAccountApprovedEmail({
+      email: user.email,
+      prenom: user.prenom,
+      nom: user.nom,
+    });
+    await writeAccessLog({
+      userId: user.id,
+      eventType: emailResult.sent
+        ? "account_approved_email_sent"
+        : "account_approved_email_skipped",
+      success: Boolean(emailResult.sent || emailResult.skipped),
+      req,
+      details: emailLogDetails(emailResult, user.email),
+    });
+  } catch (error) {
+    console.error("Envoi du mail d’autorisation de compte impossible :", error);
+    await writeAccessLog({
+      userId: user.id,
+      eventType: "account_approved_email_failed",
+      success: false,
+      req,
+      details: { email: user.email, error: String(error.message || error) },
+    });
+  }
+}
+
 export async function forgotPassword(req, res) {
   const email = cleanEmail(req.body?.email);
   const genericMessage = "Si un compte actif correspond à cette adresse, un code de réinitialisation valable une heure a été envoyé par e-mail. Vérifie également les courriers indésirables.";

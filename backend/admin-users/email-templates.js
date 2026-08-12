@@ -56,32 +56,104 @@ function layout({ title, preview, content }) {
 </html>`;
 }
 
-export function buildAccountRequestConfirmation({ prenom, nom, publicUrl }) {
+export function buildAccountRequestConfirmation({ prenom, nom, publicUrl, verificationUrl }) {
   const displayName = [prenom, nom].filter(Boolean).join(" ").trim() || "grimpeur";
   const safeName = escapeHtml(displayName);
   const normalizedUrl = String(publicUrl || "").replace(/\/$/, "");
+  const normalizedVerificationUrl = String(verificationUrl || "").trim();
   const loginLink = normalizedUrl
     ? `<p style="margin:22px 0 0;"><a href="${escapeHtml(normalizedUrl)}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#0891b2;color:#ffffff;text-decoration:none;font-weight:700;">Ouvrir ClimbCrew</a></p>`
     : "";
+  const verifyLink = normalizedVerificationUrl
+    ? `<p style="margin:22px 0 0;"><a href="${escapeHtml(normalizedVerificationUrl)}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#16a34a;color:#ffffff;text-decoration:none;font-weight:700;">Je confirme ma demande</a></p>`
+    : "";
 
-  const subject = "ClimbCrew – demande de création de compte reçue";
+  const subject = "ClimbCrew – confirme ta demande de création de compte";
   const text = [
     `Bonjour ${displayName},`,
     "",
     "Ta demande de création de compte ClimbCrew a bien été enregistrée.",
-    "Un administrateur doit maintenant l'approuver avant ta première connexion.",
-    "Tu pourras te connecter dès que cette approbation aura été effectuée.",
+    normalizedVerificationUrl
+      ? "Pour confirmer que tu es bien propriétaire de cette adresse, clique sur le lien de confirmation reçu dans ce message."
+      : "Pour confirmer que tu es bien propriétaire de cette adresse, réponds à ce message ou contacte un administrateur du club.",
+    "Un administrateur doit ensuite approuver ton compte avant ta première connexion.",
+    normalizedVerificationUrl ? `Confirmer ma demande : ${normalizedVerificationUrl}` : "",
     normalizedUrl ? `ClimbCrew : ${normalizedUrl}` : "",
   ].filter(Boolean).join("\n");
 
   const html = layout({
-    title: "Demande de compte enregistrée",
-    preview: "Ta demande ClimbCrew a bien été reçue.",
+    title: "Confirme ta demande de compte",
+    preview: "Ta demande ClimbCrew a bien été reçue : confirme ton adresse e-mail.",
     content: `
       <p style="margin:0 0 16px;">Bonjour <strong>${safeName}</strong>,</p>
       <p style="margin:0 0 14px;">Ta demande de création de compte ClimbCrew a bien été enregistrée.</p>
-      <p style="margin:0 0 14px;">Un administrateur doit maintenant l’approuver avant ta première connexion.</p>
-      <p style="margin:0;">Tu pourras te connecter dès que cette approbation aura été effectuée.</p>
+      <p style="margin:0 0 14px;">Pour confirmer que tu es bien propriétaire de cette adresse e-mail, clique sur le bouton ci-dessous.</p>
+      ${verifyLink}
+      <p style="margin:18px 0 14px;">Un administrateur devra ensuite approuver ton compte avant ta première connexion.</p>
+      <p style="margin:0;">Tu recevras automatiquement un second e-mail lorsque le compte sera autorisé.</p>
+      ${loginLink}
+    `,
+  });
+
+  return { subject, text, html };
+}
+
+export function buildAdminAccountRequestReadyEmail({ prenom, nom, email, publicUrl }) {
+  const displayName = [prenom, nom].filter(Boolean).join(" ").trim() || "demandeur";
+  const safeName = escapeHtml(displayName);
+  const safeEmail = escapeHtml(String(email || "").trim().toLowerCase());
+  const normalizedUrl = String(publicUrl || "").replace(/\/$/, "");
+  const adminLink = normalizedUrl
+    ? `<p style="margin:22px 0 0;"><a href="${escapeHtml(normalizedUrl)}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#0891b2;color:#ffffff;text-decoration:none;font-weight:700;">Ouvrir ClimbCrew</a></p>`
+    : "";
+
+  const subject = "ClimbCrew – demande de compte confirmée par e-mail";
+  const text = [
+    "Bonjour,",
+    "",
+    `La demande de compte de ${displayName} a été confirmée par le propriétaire de l’adresse ${safeEmail}.`,
+    "Vous pouvez maintenant l’examiner et l’approuver dans l’administration.",
+    normalizedUrl ? `ClimbCrew : ${normalizedUrl}` : "",
+  ].filter(Boolean).join("\n");
+
+  const html = layout({
+    title: "Demande prête à être approuvée",
+    preview: "Une demande de compte a été confirmée par e-mail.",
+    content: `
+      <p style="margin:0 0 16px;">Bonjour,</p>
+      <p style="margin:0 0 14px;">La demande de compte de <strong>${safeName}</strong> a été confirmée par le propriétaire de l’adresse <strong>${safeEmail}</strong>.</p>
+      <p style="margin:0;">Vous pouvez maintenant l’examiner et l’approuver dans l’administration.</p>
+      ${adminLink}
+    `,
+  });
+
+  return { subject, text, html };
+}
+
+export function buildAccountApprovedEmail({ prenom, nom, publicUrl }) {
+  const displayName = [prenom, nom].filter(Boolean).join(" ").trim() || "grimpeur";
+  const safeName = escapeHtml(displayName);
+  const normalizedUrl = String(publicUrl || "").replace(/\/$/, "");
+  const loginLink = normalizedUrl
+    ? `<p style="margin:22px 0 0;"><a href="${escapeHtml(normalizedUrl)}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#0891b2;color:#ffffff;text-decoration:none;font-weight:700;">Se connecter à ClimbCrew</a></p>`
+    : "";
+
+  const subject = "ClimbCrew – ton compte a été autorisé";
+  const text = [
+    `Bonjour ${displayName},`,
+    "",
+    "Bonne nouvelle : un administrateur a autorisé ton compte ClimbCrew.",
+    "Tu peux maintenant te connecter à l'application.",
+    normalizedUrl ? `ClimbCrew : ${normalizedUrl}` : "",
+  ].filter(Boolean).join("\n");
+
+  const html = layout({
+    title: "Compte autorisé",
+    preview: "Ton compte ClimbCrew a été approuvé par un administrateur.",
+    content: `
+      <p style="margin:0 0 16px;">Bonjour <strong>${safeName}</strong>,</p>
+      <p style="margin:0 0 14px;">Bonne nouvelle : un administrateur a autorisé ton compte ClimbCrew.</p>
+      <p style="margin:0;">Tu peux maintenant te connecter à l’application.</p>
       ${loginLink}
     `,
   });
