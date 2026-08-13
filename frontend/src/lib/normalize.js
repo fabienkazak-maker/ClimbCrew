@@ -1,4 +1,5 @@
 import { GRADES, normalizeRopeNumber } from "./domain.js";
+import { REALISATION_MODES, getRealisationMode } from "./realisation-mode.js";
 
 const SESSION_STATUSES = new Set([
   "libre", "encadree", "passeport", "challenge", "renouvellement", "fermee",
@@ -112,6 +113,25 @@ export function normalizeRoute(route = {}) {
 }
 
 export function normalizeRealisation(realisation = {}) {
+  const normalizedStyle = normalizedWord(
+    realisation.styleRealisation ?? realisation.style_realisation,
+  );
+  const styleRealisation = REALISATION_STYLES.has(normalizedStyle) ? normalizedStyle : "test";
+
+  const explicitMode = normalizedWord(
+    realisation.modeRealisation
+      ?? realisation.mode_realisation
+      ?? realisation.nbEssais
+      ?? realisation.nb_essais,
+  );
+
+  const candidate = {
+    ...realisation,
+    styleRealisation,
+    modeRealisation: REALISATION_MODES.includes(explicitMode) ? explicitMode : "",
+  };
+  const modeRealisation = getRealisationMode(candidate);
+
   return {
     ...realisation,
     id: identifier(realisation.id),
@@ -119,11 +139,8 @@ export function normalizeRealisation(realisation = {}) {
     voieId: identifier(realisation.voieId ?? realisation.voie_id),
     sessionId: identifier(realisation.sessionId ?? realisation.session_id),
     dateRealisation: isoDate(realisation.dateRealisation ?? realisation.date_realisation),
-    styleRealisation: REALISATION_STYLES.has(
-      normalizedWord(realisation.styleRealisation ?? realisation.style_realisation),
-    )
-      ? normalizedWord(realisation.styleRealisation ?? realisation.style_realisation)
-      : "test",
+    modeRealisation,
+    styleRealisation,
     commentaire: text(realisation.commentaire),
     cotationProposee: grade(
       realisation.cotationProposee ?? realisation.cotation_proposee,

@@ -1,18 +1,23 @@
 import { PASSPORT_STYLES } from "./ui-config.js";
+import { REALISATION_CRITERION_WEIGHTS, getRealisationWeight } from "./realisation-mode.js";
 
 export const GRADES = ["4a","4b","4c","5a","5b","5c","6a","6a+","6b","6b+","6c","6c+","7a","7a+","7b"];
 
+// Conservé pour compatibilité avec les anciens imports/tests.
+// Le coefficient moderne est calculé par getRealisationWeight afin de tenir
+// compte séparément du mode (en tête / moulinette) et du critère.
 export const STYLE_WEIGHTS = {
-  a_vue: 1.25,
-  flash: 1.2,
+  ...REALISATION_CRITERION_WEIGHTS,
   en_tete: 1,
   moulinette: 0.85,
-  avec_repos: 0.6,
-  travaillee: 0.75,
-  projet: 0.3,
-  non_enchainee: 0.2,
-  test: 0.1,
 };
+
+export {
+  isSuccessfulLeadRealisation,
+  isSuccessfulRealisation,
+  getRealisationMode,
+  getRealisationWeight,
+} from "./realisation-mode.js";
 
 export const MAX_PARTICIPANTS = 18;
 
@@ -200,7 +205,7 @@ export function calculateSimpleCpr(realisations, routesById, now = Date.now()) {
         id: r.id,
         date: r.dateRealisation,
         grade: route.cotationAjustee,
-        weightedIndex: gradeToIndex(route.cotationAjustee) * (STYLE_WEIGHTS[r.styleRealisation] || 1),
+        weightedIndex: gradeToIndex(route.cotationAjustee) * getRealisationWeight(r, route),
       };
     })
     .filter(Boolean)

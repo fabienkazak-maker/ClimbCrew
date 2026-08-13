@@ -14,7 +14,6 @@ import { THEME_OPTIONS, THEME_PREFERENCE_KEY, resolveThemePreference } from "./l
 import { ROPE_NUMBERS, ROUTE_COLORS, STYLE_LABELS, ROUTE_TAGS, THECRAG_STYLE_BY_CLIMBCREW, TABS } from "./lib/ui-config.js";
 import {
   GRADES,
-  STYLE_WEIGHTS,
   MAX_PARTICIPANTS,
   fullName,
   formatRouteName,
@@ -34,6 +33,9 @@ import {
   nextBusinessDay,
   calculateSimpleCpr,
   weightedMedian,
+  isSuccessfulLeadRealisation,
+  isSuccessfulRealisation,
+  getRealisationWeight,
 } from "./lib/domain.js";
 import { USE_API, apiFetch, authApiFetch, downloadFile } from "./lib/api.js";
 import { normalizeAppData } from "./lib/normalize.js";
@@ -562,7 +564,7 @@ function App() {
         state.realisations
           .filter((realisation) => (
             String(realisation.voieId) === String(route.id)
-            && realisation.styleRealisation === "en_tete"
+            && isSuccessfulLeadRealisation(realisation, route)
           ))
           .map((realisation) => String(realisation.participantId))
       );
@@ -658,12 +660,12 @@ function App() {
 
             return {
               grade: realisation.cotationProposee,
-              style: realisation.styleRealisation,
+              realisation,
               consensusWeight: 1 + normalizedCpr,
             };
           });
 
-        const weightedProposals = proposals.map((proposal) => ({ grade: proposal.grade, weight: STYLE_WEIGHTS[proposal.style] || 1 }));
+        const weightedProposals = proposals.map((proposal) => ({ grade: proposal.grade, weight: getRealisationWeight(proposal.realisation, route) }));
 
         const distribution = GRADES.filter((g) => proposals.some((p) => p.grade === g)).map((g) => ({
           grade: g,
@@ -708,26 +710,30 @@ function App() {
       if (Object.hasOwn(routesByGrade, routeGrade)) routesByGrade[routeGrade] += 1;
     });
 
-    state.realisations
-      .filter((realisation) => realisation.styleRealisation === "en_tete")
-      .forEach((realisation) => {
-        const route = routesById[realisation.voieId];
-        const routeGrade = route?.cotationAjustee || route?.cotationReference;
-        if (Object.hasOwn(leadsByGrade, routeGrade)) leadsByGrade[routeGrade] += 1;
-      });
+    const successfulLeadRealisations = state.realisations.filter((realisation) => (
+      isSuccessfulLeadRealisation(realisation, routesById[realisation.voieId])
+    ));
+
+    successfulLeadRealisations.forEach((realisation) => {
+      const route = routesById[realisation.voieId];
+      const routeGrade = route?.cotationAjustee || route?.cotationReference;
+      if (Object.hasOwn(leadsByGrade, routeGrade)) leadsByGrade[routeGrade] += 1;
+    });
 
     return {
-      total: state.realisations.filter((realisation) => realisation.styleRealisation === "en_tete").length,
-      byGrade: GRADES.map((grade) => {
-        const routeCount = routesByGrade[grade];
-        const leadCount = leadsByGrade[grade];
-        return {
-          grade,
-          routeCount,
-          leadCount,
-          ratio: routeCount > 0 ? leadCount / routeCount : null,
-        };
-      }),
+      total: successfulLeadRealisations.length,
+      byGrade: GRADES
+        .filter((grade) => routesByGrade[grade] > 0)
+        .map((grade) => {
+          const routeCount = routesByGrade[grade];
+          const leadCount = leadsByGrade[grade];
+          return {
+            grade,
+            routeCount,
+            leadCount,
+            ratio: leadCount / routeCount,
+          };
+        }),
     };
   }, [state.routes, state.realisations, routesById]);
 
@@ -754,7 +760,7 @@ function App() {
         ratingAverage: rating.average,
         ratingCount: rating.count,
         realisationCount: routeRealisations.length,
-        leadCount: routeRealisations.filter((item) => item.styleRealisation === "en_tete").length,
+        leadCount: routeRealisations.filter((item) => isSuccessfulLeadRealisation(item, route)).length,
       };
     });
     const takeFive = (items, compare) => [...items].sort(compare).slice(0, 5);
@@ -783,11 +789,9 @@ function App() {
   }, [state.routes, state.realisations, routeRatingsById]);
 
   const wallOfFameCategories = useMemo(() => {
-    const successfulStyles = new Set(["a_vue", "flash", "en_tete", "moulinette", "travaillee"]);
-
     const successfulRealisationsFor = (participantId) => state.realisations
       .filter((realisation) => String(realisation.participantId) === String(participantId))
-      .filter((realisation) => successfulStyles.has(realisation.styleRealisation));
+      .filter(isSuccessfulRealisation);
 
     const distinctRoutesFor = (participantId, predicate) => new Set(
       state.realisations
@@ -881,12 +885,15 @@ function App() {
       }),
       buildRanking({
         title: "Voies distinctes réalisées",
-        getValue: (participant) => distinctRoutesFor(participant.id, (realisation) => successfulStyles.has(realisation.styleRealisation)),
+        getValue: (participant) => distinctRoutesFor(participant.id, isSuccessfulRealisation),
         formatValue: (value) => `${value} voie${value > 1 ? "s" : ""}`,
       }),
       buildRanking({
         title: "Voies réalisées en tête",
-        getValue: (participant) => distinctRoutesFor(participant.id, (realisation) => realisation.styleRealisation === "en_tete"),
+        getValue: (participant) => distinctRoutesFor(
+          participant.id,
+          (realisation) => isSuccessfulLeadRealisation(realisation, routesById[realisation.voieId])
+        ),
         formatValue: (value) => `${value} voie${value > 1 ? "s" : ""}`,
       }),
     ];
