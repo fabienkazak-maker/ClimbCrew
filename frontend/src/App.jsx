@@ -2259,7 +2259,7 @@ async function handleThemePreferenceChange(nextTheme) {
   <div className="hero">
     <div className="topbar">
       <button className="menu-button" onClick={() => setSidebarOpen(true)} aria-label="Afficher le menu">
-        ?
+        ☰
       </button>
       <div className="brand">
         <img src="/logo-climbcrew.png" alt="Logo ClimbClubCristal" className="app-logo" />
