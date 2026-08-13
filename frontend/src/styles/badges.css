@@ -45,7 +45,7 @@
   height: 68px;
   display: block;
   flex: 0 0 68px;
-  background-image: url('/badges/badges-sprite.webp');
+  background-image: url('/badges/badges-sprite.png');
   background-size: 400% 300%;
   background-repeat: no-repeat;
   filter: drop-shadow(0 7px 10px rgba(0, 0, 0, .32));
