@@ -1,4 +1,5 @@
 import React from "react";
+import Button from "../components/Button.jsx";
 import { GRADES, fullName, formatRouteForRealisation, formatPoints, formatDateShortFr } from "../lib/domain.js";
 import { STYLE_LABELS } from "../lib/ui-config.js";
 import CprEvolutionChart from "../sections/CprEvolutionChart.jsx";
@@ -73,9 +74,9 @@ export default function Progression({
       <div className="card" style={{ marginTop: 12 }}>
         <div className="card-header">
           <h3>Saisir une réalisation</h3>
-          <button onClick={() => openRealisationModal("", selectedParticipantProgress)}>
+          <Button onClick={() => openRealisationModal("", selectedParticipantProgress)}>
             Nouvelle réalisation
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -105,22 +106,22 @@ export default function Progression({
           </h3>
           <div className="group">
             {selectedParticipantProgress && (
-              <button
-                className="secondary"
+              <Button
+                variant="secondary"
                 onClick={exportSelectedParticipantRealisationsCsv}
                 disabled={selectedParticipantRealisations.length === 0}
               >
                 Exporter pour theCrag
-              </button>
+              </Button>
             )}
             {progressViewRealisations.length > 1 && (
-              <button
-                className="secondary"
+              <Button
+                variant="secondary"
                 onClick={toggleAllProgressRealisations}
                 aria-expanded={allProgressRealisationsExpanded}
               >
                 {allProgressRealisationsExpanded ? "Tout replier" : "Tout déployer"}
-              </button>
+              </Button>
             )}
             {(selectedParticipantProgress || selectedRouteProgress) && (
               <span className="badge">{progressViewRealisations.length}</span>
@@ -159,7 +160,7 @@ export default function Progression({
                     </div>
                     <div className="group">
                       {isIncludedInCpr && <span className="pill">Prise en compte dans le CPR</span>}
-                      <button className="danger realisation-delete-button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); deleteRealisation(realisation); }}>Supprimer</button>
+                      <Button variant="danger" className="realisation-delete-button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); deleteRealisation(realisation); }}>Supprimer</Button>
                     </div>
                   </summary>
 

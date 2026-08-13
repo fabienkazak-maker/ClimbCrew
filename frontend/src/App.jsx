@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 
+import Button from "./components/Button.jsx";
 import FaqSection from "./sections/FaqSection.jsx";
 import Inscriptions from "./pages/Inscriptions.jsx";
 import Voies from "./pages/Voies.jsx";
@@ -1893,7 +1894,7 @@ async function handleThemePreferenceChange(nextTheme) {
                   <span className="passport-dot" style={getPassportDotStyle(p)} aria-hidden="true" />
                   <span className="participant-name">{fullName(p)}</span>
                 </span>
-                <button className="remove-button" onClick={() => removeParticipantFromSession(session.id, p.id)} aria-label="Retirer">×</button>
+                <Button variant="remove" onClick={() => removeParticipantFromSession(session.id, p.id)} aria-label="Retirer">×</Button>
               </div>
             ))
           )}
@@ -1945,7 +1946,7 @@ async function handleThemePreferenceChange(nextTheme) {
                 <input type="password" value={loginForm.password} onChange={(e) => setLoginForm((p) => ({ ...p, password: e.target.value }))} />
               </div>
               <div className="auth-submit-row">
-                <button onClick={handleLogin}>Se connecter</button>
+                <Button onClick={handleLogin}>Se connecter</Button>
               </div>
             </div>
           )}
@@ -1980,7 +1981,7 @@ async function handleThemePreferenceChange(nextTheme) {
                 <label><input type="checkbox" checked={requestAccessForm.acceptTerms} onChange={(e) => setRequestAccessForm((p) => ({ ...p, acceptTerms: e.target.checked }))} /> J’accepte les conditions d’utilisation et la journalisation des accès.</label>
               </div>
               <div className="auth-submit-row">
-                <button onClick={handleRequestAccess}>Envoyer la demande</button>
+                <Button onClick={handleRequestAccess}>Envoyer la demande</Button>
               </div>
             </div>
           )}
@@ -1995,7 +1996,7 @@ async function handleThemePreferenceChange(nextTheme) {
                 La demande sera journalisée. Un administrateur pourra générer un code de réinitialisation.
               </div>
               <div className="auth-submit-row">
-                <button onClick={handleForgotPassword}>Signaler la perte du mot de passsse</button>
+                <Button onClick={handleForgotPassword}>Signaler la perte du mot de passsse</Button>
               </div>
             </div>
           )}
@@ -2023,14 +2024,14 @@ async function handleThemePreferenceChange(nextTheme) {
                 <input value={PASSWORD_RULE_TEXT} readOnly />
               </div>
               <div className="auth-submit-row">
-                <button onClick={handleResetPassword}>Mettre à jour le mot de passe</button>
+                <Button onClick={handleResetPassword}>Mettre à jour le mot de passe</Button>
               </div>
             </div>
           )}
 
           <div className="group auth-switcher" style={{ marginTop: 14 }}>
-            <button className={authView === "request" ? "" : "secondary"} onClick={() => { setAuthView("request"); setAuthError(""); setAuthMessage(""); }}>Demander un accès</button>
-            <button className={authView === "forgot" ? "" : "secondary"} onClick={() => { setAuthView("forgot"); setAuthError(""); setAuthMessage(""); }}>Mot de passe perdu</button>
+            <Button variant={authView === "request" ? "primary" : "secondary"} onClick={() => { setAuthView("request"); setAuthError(""); setAuthMessage(""); }}>Demander un accès</Button>
+            <Button variant={authView === "forgot" ? "primary" : "secondary"} onClick={() => { setAuthView("forgot"); setAuthError(""); setAuthMessage(""); }}>Mot de passe perdu</Button>
           </div>
 
           <div className="small" style={{ marginTop: 10, textAlign: "center", color: "#475569" }}>
@@ -2113,7 +2114,7 @@ async function handleThemePreferenceChange(nextTheme) {
                   {realisationModalRoute ? formatRouteForRealisation(realisationModalRoute) : "Choisir une voie"}
                 </div>
               </div>
-              <button className="danger ghost modal-close" onClick={closeRealisationModal} aria-label="Fermer">×</button>
+              <Button variant="dangerGhost" className="modal-close" onClick={closeRealisationModal} aria-label="Fermer">×</Button>
             </div>
 
             <div className="grid three">
@@ -2235,8 +2236,8 @@ async function handleThemePreferenceChange(nextTheme) {
             </div>
 
             <div className="modal-actions">
-              <button className="secondary" onClick={closeRealisationModal}>Annuler</button>
-              <button onClick={addRealisation} disabled={!newRealisation.selectedDay || !newRealisation.participantId || !newRealisation.voieId || !newRealisation.rating || modalEligibleParticipants.length === 0}>Enregistrer</button>
+              <Button variant="secondary" onClick={closeRealisationModal}>Annuler</Button>
+              <Button onClick={addRealisation} disabled={!newRealisation.selectedDay || !newRealisation.participantId || !newRealisation.voieId || !newRealisation.rating || modalEligibleParticipants.length === 0}>Enregistrer</Button>
             </div>
           </div>
         </div>

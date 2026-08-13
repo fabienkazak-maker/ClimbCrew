@@ -1,4 +1,5 @@
 import React from "react";
+import Button from "../components/Button.jsx";
 import { fullName } from "../lib/domain.js";
 
 export default function StatisticsSection({
@@ -96,14 +97,14 @@ export default function StatisticsSection({
                 <option value="participations">Participations</option>
               </select>
             </div>
-            <button
-              className="secondary"
+            <Button
+              variant="secondary"
               onClick={() => setStatsSortDirection((value) => (value === "asc" ? "desc" : "asc"))}
               title="Inverser le tri"
               aria-label={statsSortDirection === "asc" ? "Trier par ordre décroissant" : "Trier par ordre croissant"}
             >
               {statsSortDirection === "asc" ? "↓" : "↑"}
-            </button>
+            </Button>
           </div>
         </div>
         <div className="stack">

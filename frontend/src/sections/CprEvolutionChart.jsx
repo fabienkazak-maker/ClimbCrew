@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import Button from "../components/Button.jsx";
 import { GRADES, calculateCprHistory, formatDateShortFr, formatRouteForRealisation } from "../lib/domain.js";
 import { STYLE_LABELS } from "../lib/ui-config.js";
 
@@ -44,7 +45,7 @@ export default function CprEvolutionChart({ realisations, routesById }) {
         <div><h3>Évolution du CPR Club</h3><div className="small">Meilleur historique : {GRADES[Math.max(0, Math.min(GRADES.length - 1, Math.round(bestIndex)))]}</div></div>
         <div className="group cpr-range-selector" aria-label="Période du graphique CPR">
           {[['3m', '3 mois'], ['6m', '6 mois'], ['1a', '1 an'], ['all', 'Tout']].map(([value, label]) => (
-            <button type="button" className={range === value ? "active" : "secondary"} aria-pressed={range === value} key={value} onClick={() => { setRange(value); setSelectedPointDate(""); }}>{label}</button>
+            <Button type="button" variant={range === value ? "primary" : "secondary"} aria-pressed={range === value} key={value} onClick={() => { setRange(value); setSelectedPointDate(""); }}>{label}</Button>
           ))}
         </div>
       </div>

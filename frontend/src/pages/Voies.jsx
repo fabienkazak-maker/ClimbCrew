@@ -1,4 +1,5 @@
 import React from "react";
+import Button from "../components/Button.jsx";
 import { GRADES, formatRouteName, getRouteCardStyle, normalizeRopeNumber } from "../lib/domain.js";
 import { ROPE_NUMBERS, ROUTE_COLORS, ROUTE_TAGS } from "../lib/ui-config.js";
 
@@ -30,7 +31,7 @@ export default function Voies({
         <div className="card">
           <div className="card-header">
             <h2>Ajouter une voie</h2>
-            <button onClick={addRoute}>Ajouter</button>
+            <Button onClick={addRoute}>Ajouter</Button>
           </div>
           <div className="grid four">
             <div><label>Corde</label><select value={newRoute.numeroCorde} onChange={(e) => setNewRoute((p) => ({ ...p, numeroCorde: e.target.value }))}><option value="" disabled>Choisir une corde</option>{ROPE_NUMBERS.map((numero) => <option key={numero} value={String(numero)}>Corde {numero}</option>)}</select></div>
@@ -139,15 +140,15 @@ export default function Voies({
                               </div>
                               {routeError && <div className="error" style={{ marginTop: 8 }}>{routeError}</div>}
                               <div className="group" style={{ marginTop: 8 }}>
-                                <button
+                                <Button
                                   onClick={() => saveRouteEdition(route)}
                                   disabled={savingRouteId === route.id}
                                   aria-busy={savingRouteId === route.id}
                                 >
                                   {savingRouteId === route.id ? "Enregistrement…" : "Enregistrer"}
-                                </button>
-                                <button className="secondary" onClick={cancelRouteEdition}>Annuler</button>
-                                <button className="danger" onClick={() => deleteRoute(route)}>Supprimer la voie</button>
+                                </Button>
+                                <Button variant="secondary" onClick={cancelRouteEdition}>Annuler</Button>
+                                <Button variant="danger" onClick={() => deleteRoute(route)}>Supprimer la voie</Button>
                               </div>
                             </>
                           ) : (
@@ -176,8 +177,8 @@ export default function Voies({
                                 </div>
                               </div>
                               <div className="group">
-                                <button className="secondary" onClick={() => openRealisationModal(route.id, selectedParticipantProgress)}>Réalisation</button>
-                                {adminUnlocked && <button className="secondary" onClick={() => startRouteEdition(route)}>Modifier</button>}
+                                <Button variant="secondary" onClick={() => openRealisationModal(route.id, selectedParticipantProgress)}>Réalisation</Button>
+                                {adminUnlocked && <Button variant="secondary" onClick={() => startRouteEdition(route)}>Modifier</Button>}
                               </div>
                             </div>
                           )}

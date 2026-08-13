@@ -1,4 +1,5 @@
 import React from "react";
+import Button from "../components/Button.jsx";
 import { formatDateFr } from "../lib/domain.js";
 
 export default function GestionComptes({
@@ -25,7 +26,7 @@ export default function GestionComptes({
     <div className="card">
       <div className="card-header">
         <h2>Gestion des comptes</h2>
-        <button className="secondary" onClick={loadAdminAccessData}>Actualiser</button>
+        <Button variant="secondary" onClick={loadAdminAccessData}>Actualiser</Button>
       </div>
       <div className="small" style={{ marginBottom: 10 }}>
         L’administrateur peut approuver, révoquer, réactiver ou supprimer définitivement un compte.
@@ -44,15 +45,15 @@ export default function GestionComptes({
                 <div className="card-header">
                   <div className="small">{user.email} · rôle {user.role} · statut {user.status}</div>
                   <div className="group">
-                    {user.status === "pending" && <button onClick={() => approveAccessRequest(user.id)}>Approuver</button>}
+                    {user.status === "pending" && <Button onClick={() => approveAccessRequest(user.id)}>Approuver</Button>}
                     {user.status !== "revoked" ? (
-                      <button className="danger" onClick={() => revokeUserAccess(user.id)}>Répudier</button>
+                      <Button variant="danger" onClick={() => revokeUserAccess(user.id)}>Répudier</Button>
                     ) : (
-                      <button onClick={() => reactivateUserAccess(user.id)}>Réactiver</button>
+                      <Button onClick={() => reactivateUserAccess(user.id)}>Réactiver</Button>
                     )}
-                    <button className="secondary" onClick={() => generatePasswordResetToken(user.id)}>Code reset</button>
+                    <Button variant="secondary" onClick={() => generatePasswordResetToken(user.id)}>Code reset</Button>
                     {Number(authUser?.id) !== Number(user.id) && (
-                      <button className="danger" onClick={() => deleteUserAccount(user)}>Supprimer le compte</button>
+                      <Button variant="danger" onClick={() => deleteUserAccount(user)}>Supprimer le compte</Button>
                     )}
                   </div>
                 </div>

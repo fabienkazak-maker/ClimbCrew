@@ -1,4 +1,5 @@
 import React from "react";
+import Button from "../components/Button.jsx";
 import { fullName } from "../lib/domain.js";
 
 export default function Administration({
@@ -26,7 +27,7 @@ export default function Administration({
             <label>Code administrateur</label>
             <input type="password" maxLength={8} value={adminInput} onChange={(e) => setAdminInput(e.target.value.replace(/\D/g, "").slice(0, 8))} />
           </div>
-          <div style={{ display: "flex", alignItems: "end" }}><button onClick={unlockAdmin}>Déverrouiller</button></div>
+          <div style={{ display: "flex", alignItems: "end" }}><Button onClick={unlockAdmin}>Déverrouiller</Button></div>
         </div>
         {adminError && <div className="error" style={{ marginTop: 10 }}>{adminError}</div>}
       </div>
@@ -43,7 +44,7 @@ export default function Administration({
           <div><label>Adresse e-mail</label><input type="email" value={newParticipant.email} onChange={(e) => setNewParticipant((p) => ({ ...p, email: e.target.value }))} /></div>
           <div><label>Passeport</label><select value={newParticipant.passport} onChange={(e) => setNewParticipant((p) => ({ ...p, passport: e.target.value }))}><option value="sans">Sans</option><option value="jaune">Jaune</option><option value="orange">Orange</option><option value="vert">Vert</option><option value="bleu">Bleu</option><option value="decouverte">Découverte</option></select></div>
           <div><label>Sexe</label><div className="group"><label><input type="radio" name="new-participant-sexe" checked={newParticipant.sexe === "h"} onChange={() => setNewParticipant((p) => ({ ...p, sexe: "h" }))} /> H</label><label><input type="radio" name="new-participant-sexe" checked={newParticipant.sexe === "f"} onChange={() => setNewParticipant((p) => ({ ...p, sexe: "f" }))} /> F</label></div></div>
-          <div style={{ display: "flex", alignItems: "end" }}><button onClick={addParticipant}>Ajouter</button></div>
+          <div style={{ display: "flex", alignItems: "end" }}><Button onClick={addParticipant}>Ajouter</Button></div>
         </div>
         <div className="group" style={{ marginTop: 12 }}>
           <label><input type="checkbox" checked={newParticipant.cotisation} onChange={(e) => setNewParticipant((p) => ({ ...p, cotisation: e.target.checked }))} /> Cotisation</label>
@@ -68,7 +69,7 @@ export default function Administration({
                 <div><label>Adresse e-mail</label><input type="email" value={p.email || ""} onChange={(e) => updateParticipant(p.id, { email: e.target.value })} /></div>
                 <div><label>Passeport</label><select value={p.passport} onChange={(e) => updateParticipant(p.id, { passport: e.target.value })}><option value="sans">Sans</option><option value="jaune">Jaune</option><option value="orange">Orange</option><option value="vert">Vert</option><option value="bleu">Bleu</option><option value="decouverte">Découverte</option></select></div>
                 <div><label>Sexe</label><div className="group"><label><input type="radio" name={`participant-sexe-${p.id}`} checked={p.sexe === "h"} onChange={() => updateParticipant(p.id, { sexe: "h" })} /> H</label><label><input type="radio" name={`participant-sexe-${p.id}`} checked={p.sexe === "f"} onChange={() => updateParticipant(p.id, { sexe: "f" })} /> F</label></div></div>
-                <div style={{ display: "flex", alignItems: "end" }}><button className="danger" onClick={() => deleteParticipant(p.id)}>Supprimer</button></div>
+                <div style={{ display: "flex", alignItems: "end" }}><Button variant="danger" onClick={() => deleteParticipant(p.id)}>Supprimer</Button></div>
               </div>
               <div className="group" style={{ marginTop: 12 }}>
                 <label><input type="checkbox" checked={p.cotisation} onChange={(e) => updateParticipant(p.id, { cotisation: e.target.checked })} /> Cotisation</label>
@@ -85,7 +86,7 @@ export default function Administration({
       <div className="card">
         <div className="card-header"><h2>Import / export</h2></div>
         <div className="group">
-          <button className="secondary" onClick={exportAllData}>Export JSON</button>
+          <Button variant="secondary" onClick={exportAllData}>Export JSON</Button>
           <label className="pill" style={{ cursor: "pointer" }}>
             Import JSON
             <input type="file" accept=".json,application/json" style={{ display: "none" }} onChange={importJsonFile} />

@@ -1,4 +1,5 @@
 import React from "react";
+import Button from "../components/Button.jsx";
 import { formatDateFr, nextBusinessDay } from "../lib/domain.js";
 
 export default function Inscriptions({
@@ -16,12 +17,12 @@ export default function Inscriptions({
       <div className="toolbar">
         <div className="toolbar-row">
           <div className="group date-nav">
-            <button className="secondary nav-symbol" title={viewMode === "jour" ? "Jour précédent" : "Semaine précédente"} onClick={() => {
+            <Button variant="navSymbol" title={viewMode === "jour" ? "Jour précédent" : "Semaine précédente"} onClick={() => {
               const d = viewMode === "jour" ? nextBusinessDay(selectedDate, -1) : nextBusinessDay(nextBusinessDay(nextBusinessDay(nextBusinessDay(nextBusinessDay(selectedDate,-1),-1),-1),-1),-1);
               setSelectedDate(d); ensureSessionsForDate(d);
             }}>
               &lt;
-            </button>
+            </Button>
 
             <input
               className="date-input date-display"
@@ -31,17 +32,17 @@ export default function Inscriptions({
               aria-label="Date sélectionnée"
             />
 
-            <button className="secondary nav-symbol" title={viewMode === "jour" ? "Jour suivant" : "Semaine suivante"} onClick={() => {
+            <Button variant="navSymbol" title={viewMode === "jour" ? "Jour suivant" : "Semaine suivante"} onClick={() => {
               const d = viewMode === "jour" ? nextBusinessDay(selectedDate, 1) : nextBusinessDay(nextBusinessDay(nextBusinessDay(nextBusinessDay(nextBusinessDay(selectedDate,1),1),1),1),1);
               setSelectedDate(d); ensureSessionsForDate(d);
             }}>
               &gt;
-            </button>
+            </Button>
           </div>
 
           <div className="group view-toggle">
-            <button className={viewMode === "jour" ? "" : "secondary"} onClick={() => setViewMode("jour")}>Jour</button>
-            <button className={viewMode === "semaine" ? "" : "secondary"} onClick={() => setViewMode("semaine")}>Semaine</button>
+            <Button variant={viewMode === "jour" ? "primary" : "secondary"} onClick={() => setViewMode("jour")}>Jour</Button>
+            <Button variant={viewMode === "semaine" ? "primary" : "secondary"} onClick={() => setViewMode("semaine")}>Semaine</Button>
           </div>
         </div>
       </div>
