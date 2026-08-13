@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 
 const source = "public/badges/badges-sprite.png";
-const target = "dist/badges/badges-sprite.png";
+const target = "dist/badges/badges-sprite-binary.png";
 const encoded = (await readFile(source, "utf8")).replace(/\s+/g, "");
 
 if (!encoded.startsWith("iVBORw0KGgo")) {
