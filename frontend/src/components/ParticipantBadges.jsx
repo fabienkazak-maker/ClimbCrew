@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { BADGE_FAMILY_LABELS, calculateParticipantBadges } from "../lib/badges.js";
 
 const BADGE_ART_POSITIONS = {
@@ -17,7 +17,27 @@ const BADGE_ART_POSITIONS = {
 };
 
 const BADGE_ASSET_BASE = String(import.meta.env.BASE_URL || "/").replace(/\/?$/, "/");
-const BADGE_SPRITE_SRC = `${BADGE_ASSET_BASE}badges/badges-sprite.png?v=260813006`;
+const BADGE_SPRITE_TEXT_SRC = `${BADGE_ASSET_BASE}badges/badges-sprite.png?v=260813007`;
+
+let badgeSpritePromise = null;
+
+function loadBadgeSprite() {
+  if (!badgeSpritePromise) {
+    badgeSpritePromise = fetch(BADGE_SPRITE_TEXT_SRC, { cache: "no-store" })
+      .then((response) => {
+        if (!response.ok) throw new Error(`Badge sprite HTTP ${response.status}`);
+        return response.text();
+      })
+      .then((rawContent) => {
+        const base64 = rawContent.replace(/\s+/g, "");
+        if (!base64.startsWith("iVBORw0KGgo")) {
+          throw new Error("Le sprite des badges n'est pas un PNG encodé en Base64 valide.");
+        }
+        return `data:image/png;base64,${base64}`;
+      });
+  }
+  return badgeSpritePromise;
+}
 
 function BadgeFallback({ badge, pending }) {
   return (
@@ -29,9 +49,27 @@ function BadgeFallback({ badge, pending }) {
 
 function BadgeArtwork({ badge, pending }) {
   const position = BADGE_ART_POSITIONS[badge.id];
+  const [spriteSrc, setSpriteSrc] = useState("");
   const [imageFailed, setImageFailed] = useState(false);
 
-  if (!position || imageFailed) {
+  useEffect(() => {
+    if (!position) return undefined;
+
+    let active = true;
+    loadBadgeSprite()
+      .then((src) => {
+        if (active) setSpriteSrc(src);
+      })
+      .catch(() => {
+        if (active) setImageFailed(true);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [position]);
+
+  if (!position || imageFailed || !spriteSrc) {
     return <BadgeFallback badge={badge} pending={pending} />;
   }
 
@@ -43,7 +81,7 @@ function BadgeArtwork({ badge, pending }) {
   return (
     <span className="participant-badge-artwork" aria-hidden="true">
       <img
-        src={BADGE_SPRITE_SRC}
+        src={spriteSrc}
         alt=""
         style={imageStyle}
         onError={() => setImageFailed(true)}
