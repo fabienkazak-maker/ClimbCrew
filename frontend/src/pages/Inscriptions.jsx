@@ -17,7 +17,7 @@ export default function Inscriptions({
       <div className="toolbar">
         <div className="toolbar-row">
           <div className="group date-nav">
-            <Button variant="navSymbol" title={viewMode === "jour" ? "Jour précédent" : "Semaine précédente"} onClick={() => {
+            <Button variant="navSymbol" title={viewMode === "jour" ? "Jour précédent" : "Semaine précédente"} aria-label={viewMode === "jour" ? "Afficher le jour précédent" : "Afficher la semaine précédente"} onClick={() => {
               const d = viewMode === "jour" ? nextBusinessDay(selectedDate, -1) : nextBusinessDay(nextBusinessDay(nextBusinessDay(nextBusinessDay(nextBusinessDay(selectedDate,-1),-1),-1),-1),-1);
               setSelectedDate(d); ensureSessionsForDate(d);
             }}>
@@ -32,7 +32,7 @@ export default function Inscriptions({
               aria-label="Date sélectionnée"
             />
 
-            <Button variant="navSymbol" title={viewMode === "jour" ? "Jour suivant" : "Semaine suivante"} onClick={() => {
+            <Button variant="navSymbol" title={viewMode === "jour" ? "Jour suivant" : "Semaine suivante"} aria-label={viewMode === "jour" ? "Afficher le jour suivant" : "Afficher la semaine suivante"} onClick={() => {
               const d = viewMode === "jour" ? nextBusinessDay(selectedDate, 1) : nextBusinessDay(nextBusinessDay(nextBusinessDay(nextBusinessDay(nextBusinessDay(selectedDate,1),1),1),1),1);
               setSelectedDate(d); ensureSessionsForDate(d);
             }}>

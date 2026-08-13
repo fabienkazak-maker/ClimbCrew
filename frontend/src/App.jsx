@@ -26,17 +26,19 @@ import {
   getPassportStyle,
   getPassportDotStyle,
   gradeToIndex,
-  indexToGrade,
   getRouteCardStyle,
   formatDateFr,
   formatDateShortFr,
   formatPoints,
   nextBusinessDay,
   calculateSimpleCpr,
-  weightedMedian,
   isSuccessfulLeadRealisation,
   isSuccessfulRealisation,
   getRealisationWeight,
+  calculateLeadRealisationStats,
+  calculateLeadPoints,
+  calculateRouteAggregates,
+  calculateWallOfFameCategories,
 } from "./lib/domain.js";
 import { USE_API, apiFetch, authApiFetch, downloadFile } from "./lib/api.js";
 import { normalizeAppData } from "./lib/normalize.js";
@@ -557,29 +559,10 @@ function App() {
     );
   }, [state.participants, state.realisations, routesById]);
 
-  const pointsByParticipantId = useMemo(() => {
-    const points = Object.fromEntries(state.participants.map((participant) => [participant.id, 0]));
-
-    state.routes.forEach((route) => {
-      const leadClimbers = new Set(
-        state.realisations
-          .filter((realisation) => (
-            String(realisation.voieId) === String(route.id)
-            && isSuccessfulLeadRealisation(realisation, route)
-          ))
-          .map((realisation) => String(realisation.participantId))
-      );
-
-      if (leadClimbers.size === 0) return;
-      const share = 1000 / leadClimbers.size;
-
-      leadClimbers.forEach((participantId) => {
-        points[participantId] = (points[participantId] || 0) + share;
-      });
-    });
-
-    return points;
-  }, [state.participants, state.routes, state.realisations]);
+  const pointsByParticipantId = useMemo(
+    () => calculateLeadPoints(state.participants, state.routes, state.realisations),
+    [state.participants, state.routes, state.realisations],
+  );
 
   const sortedStatsParticipants = useMemo(() => {
     const direction = statsSortDirection === "asc" ? 1 : -1;
@@ -648,95 +631,15 @@ function App() {
     return [...recentParticipants, ...alphabeticalParticipants];
   }, [state.participants, recentlyAddedParticipantIds]);
 
-  const routeAggregatesById = useMemo(() => {
-    return Object.fromEntries(
-      state.routes.map((route) => {
-        const proposals = state.realisations
-          .filter((realisation) => realisation.voieId === route.id && realisation.cotationProposee)
-          .map((realisation) => {
-            const cprIndex = cprByParticipantId[realisation.participantId]?.averageIndex;
-            const normalizedCpr = Number.isFinite(cprIndex)
-              ? Math.max(0, Math.min(GRADES.length - 1, cprIndex)) / (GRADES.length - 1)
-              : 0;
+  const routeAggregatesById = useMemo(
+    () => calculateRouteAggregates(state.routes, state.realisations, cprByParticipantId),
+    [state.routes, state.realisations, cprByParticipantId],
+  );
 
-            return {
-              grade: realisation.cotationProposee,
-              realisation,
-              consensusWeight: 1 + normalizedCpr,
-            };
-          });
-
-        const weightedProposals = proposals.map((proposal) => ({ grade: proposal.grade, weight: getRealisationWeight(proposal.realisation, route) }));
-
-        const distribution = GRADES.filter((g) => proposals.some((p) => p.grade === g)).map((g) => ({
-          grade: g,
-          count: proposals.filter((p) => p.grade === g).length,
-        }));
-
-        const averageIndex = proposals.length
-          ? proposals.reduce((sum, p) => sum + gradeToIndex(p.grade), 0) / proposals.length
-          : null;
-
-        const medianGrade = proposals.length
-          ? indexToGrade([...proposals].map((p) => gradeToIndex(p.grade)).sort((a, b) => a - b)[Math.floor((proposals.length - 1) / 2)])
-          : null;
-
-        const consensusWeightTotal = proposals.reduce((sum, proposal) => sum + proposal.consensusWeight, 0);
-        const consensusIndex = consensusWeightTotal
-          ? proposals.reduce(
-              (sum, proposal) => sum + (gradeToIndex(proposal.grade) * proposal.consensusWeight),
-              0
-            ) / consensusWeightTotal
-          : null;
-
-        return [route.id, {
-          count: proposals.length,
-          averageGrade: averageIndex === null ? null : indexToGrade(Math.round(averageIndex)),
-          medianGrade,
-          weightedMedianGrade: proposals.length >= 5 ? weightedMedian(weightedProposals) : null,
-          consensusGrade: consensusIndex === null ? null : indexToGrade(Math.round(consensusIndex)),
-          consensusIndex,
-          distribution,
-        }];
-      })
-    );
-  }, [state.routes, state.realisations, cprByParticipantId]);
-
-  const leadRealisationStats = useMemo(() => {
-    const routesByGrade = Object.fromEntries(GRADES.map((grade) => [grade, 0]));
-    const leadsByGrade = Object.fromEntries(GRADES.map((grade) => [grade, 0]));
-
-    state.routes.forEach((route) => {
-      const routeGrade = route.cotationAjustee || route.cotationReference;
-      if (Object.hasOwn(routesByGrade, routeGrade)) routesByGrade[routeGrade] += 1;
-    });
-
-    const successfulLeadRealisations = state.realisations.filter((realisation) => (
-      isSuccessfulLeadRealisation(realisation, routesById[realisation.voieId])
-    ));
-
-    successfulLeadRealisations.forEach((realisation) => {
-      const route = routesById[realisation.voieId];
-      const routeGrade = route?.cotationAjustee || route?.cotationReference;
-      if (Object.hasOwn(leadsByGrade, routeGrade)) leadsByGrade[routeGrade] += 1;
-    });
-
-    return {
-      total: successfulLeadRealisations.length,
-      byGrade: GRADES
-        .filter((grade) => routesByGrade[grade] > 0)
-        .map((grade) => {
-          const routeCount = routesByGrade[grade];
-          const leadCount = leadsByGrade[grade];
-          return {
-            grade,
-            routeCount,
-            leadCount,
-            ratio: leadCount / routeCount,
-          };
-        }),
-    };
-  }, [state.routes, state.realisations, routesById]);
+  const leadRealisationStats = useMemo(
+    () => calculateLeadRealisationStats(state.routes, state.realisations, routesById),
+    [state.routes, state.realisations, routesById],
+  );
 
   const routeRatingsById = useMemo(() => {
     const ratings = {};
@@ -789,116 +692,19 @@ function App() {
     ];
   }, [state.routes, state.realisations, routeRatingsById]);
 
-  const wallOfFameCategories = useMemo(() => {
-    const successfulRealisationsFor = (participantId) => state.realisations
-      .filter((realisation) => String(realisation.participantId) === String(participantId))
-      .filter(isSuccessfulRealisation);
-
-    const distinctRoutesFor = (participantId, predicate) => new Set(
-      state.realisations
-        .filter((realisation) => String(realisation.participantId) === String(participantId))
-        .filter(predicate)
-        .map((realisation) => String(realisation.voieId))
-    ).size;
-
-    const sessionRouteSetsFor = (participantId) => {
-      const groups = new Map();
-      successfulRealisationsFor(participantId).forEach((realisation) => {
-        const sessionKey = realisation.sessionId || String(realisation.dateRealisation || "").slice(0, 10);
-        if (!sessionKey) return;
-        if (!groups.has(sessionKey)) groups.set(sessionKey, new Set());
-        groups.get(sessionKey).add(String(realisation.voieId));
-      });
-      return [...groups.values()];
-    };
-
-    const maxRoutesInSessionFor = (participantId) => {
-      const routeSets = sessionRouteSetsFor(participantId);
-      return routeSets.length ? Math.max(...routeSets.map((routeIds) => routeIds.size)) : 0;
-    };
-
-    const maxDifficultyInSessionFor = (participantId) => sessionRouteSetsFor(participantId).reduce((record, routeIds) => {
-      const total = [...routeIds].reduce((sum, routeId) => {
-        const route = routesById[routeId];
-        const routeGrade = route?.cotationAjustee || route?.cotationReference;
-        const gradeIndex = gradeToIndex(routeGrade);
-        return sum + (gradeIndex >= 0 ? gradeIndex + 1 : 0);
-      }, 0);
-      return Math.max(record, total);
-    }, 0);
-
-    const wallOfFameParticipants = state.participants.filter((participant) => (
-      wallOfFameSexFilter === "all" || participant.sexe === wallOfFameSexFilter
-    ));
-
-    const buildRanking = ({ title, getValue, formatValue, isEligible = (value) => value > 0 }) => {
-      const sorted = wallOfFameParticipants
-        .map((participant) => ({ participant, value: getValue(participant) }))
-        .filter((entry) => Number.isFinite(entry.value) && isEligible(entry.value, entry.participant))
-        .sort((a, b) => b.value - a.value || fullName(a.participant).localeCompare(fullName(b.participant), "fr"))
-        .slice(0, 3);
-
-      let previousValue = null;
-      let previousRank = 0;
-
-      return {
-        title,
-        entries: sorted.map((entry, index) => {
-          const rank = previousValue !== null && entry.value === previousValue ? previousRank : index + 1;
-          previousValue = entry.value;
-          previousRank = rank;
-          return { ...entry, rank, displayValue: formatValue(entry.value, entry.participant) };
-        }),
-      };
-    };
-
-    return [
-      buildRanking({
-        title: "Meilleurs CPR",
-        getValue: (participant) => cprByParticipantId[participant.id]?.averageIndex,
-        formatValue: (_value, participant) => cprByParticipantId[participant.id]?.currentGrade || "nc",
-        isEligible: (_value, participant) => Boolean(cprByParticipantId[participant.id]?.currentGrade),
-      }),
-      buildRanking({
-        title: "Plus de points",
-        getValue: (participant) => pointsByParticipantId[participant.id] || 0,
-        formatValue: (value) => `${formatPoints(value)} points`,
-      }),
-      buildRanking({
-        title: "Plus de participations",
-        getValue: (participant) => sessionStats.participationCount[participant.id] || 0,
-        formatValue: (value) => `${value} séance${value > 1 ? "s" : ""}`,
-      }),
-      buildRanking({
-        title: "Nombre total de voies",
-        getValue: (participant) => successfulRealisationsFor(participant.id).length,
-        formatValue: (value) => `${value} voie${value > 1 ? "s" : ""}`,
-      }),
-      buildRanking({
-        title: "Maximum de voies en une séance",
-        getValue: (participant) => maxRoutesInSessionFor(participant.id),
-        formatValue: (value) => `${value} voie${value > 1 ? "s" : ""}`,
-      }),
-      buildRanking({
-        title: "Difficulté cumulée en une séance",
-        getValue: (participant) => maxDifficultyInSessionFor(participant.id),
-        formatValue: (value) => `${value} point${value > 1 ? "s" : ""}`,
-      }),
-      buildRanking({
-        title: "Voies distinctes réalisées",
-        getValue: (participant) => distinctRoutesFor(participant.id, isSuccessfulRealisation),
-        formatValue: (value) => `${value} voie${value > 1 ? "s" : ""}`,
-      }),
-      buildRanking({
-        title: "Voies réalisées en tête",
-        getValue: (participant) => distinctRoutesFor(
-          participant.id,
-          (realisation) => isSuccessfulLeadRealisation(realisation, routesById[realisation.voieId])
-        ),
-        formatValue: (value) => `${value} voie${value > 1 ? "s" : ""}`,
-      }),
-    ];
-  }, [state.participants, state.realisations, routesById, cprByParticipantId, pointsByParticipantId, sessionStats.participationCount, wallOfFameSexFilter]);
+  const wallOfFameCategories = useMemo(
+    () => calculateWallOfFameCategories({
+      participants: state.participants.filter((participant) => (
+        wallOfFameSexFilter === "all" || participant.sexe === wallOfFameSexFilter
+      )),
+      realisations: state.realisations,
+      routesById,
+      cprByParticipantId,
+      pointsByParticipantId,
+      participationCount: sessionStats.participationCount,
+    }),
+    [state.participants, state.realisations, routesById, cprByParticipantId, pointsByParticipantId, sessionStats.participationCount, wallOfFameSexFilter],
+  );
 
   function setSelectedDate(date) {
     setState((prev) => ({ ...prev, selectedDate: date }));

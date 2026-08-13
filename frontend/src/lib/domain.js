@@ -1,5 +1,10 @@
 import { PASSPORT_STYLES } from "./ui-config.js";
-import { REALISATION_CRITERION_WEIGHTS, getRealisationWeight } from "./realisation-mode.js";
+import {
+  REALISATION_CRITERION_WEIGHTS,
+  getRealisationWeight,
+  isSuccessfulLeadRealisation,
+  isSuccessfulRealisation,
+} from "./realisation-mode.js";
 
 export const GRADES = ["4a","4b","4c","5a","5b","5c","6a","6a+","6b","6b+","6c","6c+","7a","7a+","7b"];
 
@@ -260,4 +265,245 @@ export function weightedMedian(values) {
     if (cumulative >= total / 2) return item.grade;
   }
   return sorted[sorted.length - 1].grade;
+}
+
+/**
+ * Statistiques des réalisations en tête par cotation de voie.
+ */
+export function calculateLeadRealisationStats(routes, realisations, routesById) {
+  const routesByGrade = Object.fromEntries(GRADES.map((grade) => [grade, 0]));
+  const leadsByGrade = Object.fromEntries(GRADES.map((grade) => [grade, 0]));
+
+  routes.forEach((route) => {
+    const routeGrade = route.cotationAjustee || route.cotationReference;
+    if (Object.hasOwn(routesByGrade, routeGrade)) routesByGrade[routeGrade] += 1;
+  });
+
+  const successfulLeadRealisations = realisations.filter((realisation) => (
+    isSuccessfulLeadRealisation(realisation, routesById[realisation.voieId])
+  ));
+
+  successfulLeadRealisations.forEach((realisation) => {
+    const route = routesById[realisation.voieId];
+    const routeGrade = route?.cotationAjustee || route?.cotationReference;
+    if (Object.hasOwn(leadsByGrade, routeGrade)) leadsByGrade[routeGrade] += 1;
+  });
+
+  return {
+    total: successfulLeadRealisations.length,
+    byGrade: GRADES
+      .filter((grade) => routesByGrade[grade] > 0)
+      .map((grade) => {
+        const routeCount = routesByGrade[grade];
+        const leadCount = leadsByGrade[grade];
+        return {
+          grade,
+          routeCount,
+          leadCount,
+          ratio: leadCount / routeCount,
+        };
+      }),
+  };
+}
+
+/**
+ * Chaque voie distribue 1000 points entre les grimpeurs qui l'ont réalisée en tête.
+ */
+export function calculateLeadPoints(participants, routes, realisations) {
+  const points = Object.fromEntries(participants.map((participant) => [participant.id, 0]));
+
+  routes.forEach((route) => {
+    const leadClimbers = new Set(
+      realisations
+        .filter((realisation) => (
+          String(realisation.voieId) === String(route.id)
+          && isSuccessfulLeadRealisation(realisation, route)
+        ))
+        .map((realisation) => String(realisation.participantId))
+    );
+
+    if (leadClimbers.size === 0) return;
+    const share = 1000 / leadClimbers.size;
+
+    leadClimbers.forEach((participantId) => {
+      points[participantId] = (points[participantId] || 0) + share;
+    });
+  });
+
+  return points;
+}
+
+/**
+ * Agrège les cotations proposées par voie (moyenne, médiane, consensus pondéré par le CPR).
+ */
+export function calculateRouteAggregates(routes, realisations, cprByParticipantId) {
+  return Object.fromEntries(
+    routes.map((route) => {
+      const proposals = realisations
+        .filter((realisation) => realisation.voieId === route.id && realisation.cotationProposee)
+        .map((realisation) => {
+          const cprIndex = cprByParticipantId[realisation.participantId]?.averageIndex;
+          const normalizedCpr = Number.isFinite(cprIndex)
+            ? Math.max(0, Math.min(GRADES.length - 1, cprIndex)) / (GRADES.length - 1)
+            : 0;
+
+          return {
+            grade: realisation.cotationProposee,
+            realisation,
+            consensusWeight: 1 + normalizedCpr,
+          };
+        });
+
+      const weightedProposals = proposals.map((proposal) => ({ grade: proposal.grade, weight: getRealisationWeight(proposal.realisation, route) }));
+
+      const distribution = GRADES.filter((g) => proposals.some((p) => p.grade === g)).map((g) => ({
+        grade: g,
+        count: proposals.filter((p) => p.grade === g).length,
+      }));
+
+      const averageIndex = proposals.length
+        ? proposals.reduce((sum, p) => sum + gradeToIndex(p.grade), 0) / proposals.length
+        : null;
+
+      const medianGrade = proposals.length
+        ? indexToGrade([...proposals].map((p) => gradeToIndex(p.grade)).sort((a, b) => a - b)[Math.floor((proposals.length - 1) / 2)])
+        : null;
+
+      const consensusWeightTotal = proposals.reduce((sum, proposal) => sum + proposal.consensusWeight, 0);
+      const consensusIndex = consensusWeightTotal
+        ? proposals.reduce(
+            (sum, proposal) => sum + (gradeToIndex(proposal.grade) * proposal.consensusWeight),
+            0
+          ) / consensusWeightTotal
+        : null;
+
+      return [route.id, {
+        count: proposals.length,
+        averageGrade: averageIndex === null ? null : indexToGrade(Math.round(averageIndex)),
+        medianGrade,
+        weightedMedianGrade: proposals.length >= 5 ? weightedMedian(weightedProposals) : null,
+        consensusGrade: consensusIndex === null ? null : indexToGrade(Math.round(consensusIndex)),
+        consensusIndex,
+        distribution,
+      }];
+    })
+  );
+}
+
+/**
+ * Classements publics du Wall of Fame. `participants` doit déjà être filtré
+ * (par exemple par sexe) par l'appelant : cette fonction ne fait que classer.
+ */
+export function calculateWallOfFameCategories({
+  participants,
+  realisations,
+  routesById,
+  cprByParticipantId,
+  pointsByParticipantId,
+  participationCount,
+}) {
+  const successfulRealisationsFor = (participantId) => realisations
+    .filter((realisation) => String(realisation.participantId) === String(participantId))
+    .filter(isSuccessfulRealisation);
+
+  const distinctRoutesFor = (participantId, predicate) => new Set(
+    realisations
+      .filter((realisation) => String(realisation.participantId) === String(participantId))
+      .filter(predicate)
+      .map((realisation) => String(realisation.voieId))
+  ).size;
+
+  const sessionRouteSetsFor = (participantId) => {
+    const groups = new Map();
+    successfulRealisationsFor(participantId).forEach((realisation) => {
+      const sessionKey = realisation.sessionId || String(realisation.dateRealisation || "").slice(0, 10);
+      if (!sessionKey) return;
+      if (!groups.has(sessionKey)) groups.set(sessionKey, new Set());
+      groups.get(sessionKey).add(String(realisation.voieId));
+    });
+    return [...groups.values()];
+  };
+
+  const maxRoutesInSessionFor = (participantId) => {
+    const routeSets = sessionRouteSetsFor(participantId);
+    return routeSets.length ? Math.max(...routeSets.map((routeIds) => routeIds.size)) : 0;
+  };
+
+  const maxDifficultyInSessionFor = (participantId) => sessionRouteSetsFor(participantId).reduce((record, routeIds) => {
+    const total = [...routeIds].reduce((sum, routeId) => {
+      const route = routesById[routeId];
+      const routeGrade = route?.cotationAjustee || route?.cotationReference;
+      const gradeIndex = gradeToIndex(routeGrade);
+      return sum + (gradeIndex >= 0 ? gradeIndex + 1 : 0);
+    }, 0);
+    return Math.max(record, total);
+  }, 0);
+
+  const buildRanking = ({ title, getValue, formatValue, isEligible = (value) => value > 0 }) => {
+    const sorted = participants
+      .map((participant) => ({ participant, value: getValue(participant) }))
+      .filter((entry) => Number.isFinite(entry.value) && isEligible(entry.value, entry.participant))
+      .sort((a, b) => b.value - a.value || fullName(a.participant).localeCompare(fullName(b.participant), "fr"))
+      .slice(0, 3);
+
+    let previousValue = null;
+    let previousRank = 0;
+
+    return {
+      title,
+      entries: sorted.map((entry, index) => {
+        const rank = previousValue !== null && entry.value === previousValue ? previousRank : index + 1;
+        previousValue = entry.value;
+        previousRank = rank;
+        return { ...entry, rank, displayValue: formatValue(entry.value, entry.participant) };
+      }),
+    };
+  };
+
+  return [
+    buildRanking({
+      title: "Meilleurs CPR",
+      getValue: (participant) => cprByParticipantId[participant.id]?.averageIndex,
+      formatValue: (_value, participant) => cprByParticipantId[participant.id]?.currentGrade || "nc",
+      isEligible: (_value, participant) => Boolean(cprByParticipantId[participant.id]?.currentGrade),
+    }),
+    buildRanking({
+      title: "Plus de points",
+      getValue: (participant) => pointsByParticipantId[participant.id] || 0,
+      formatValue: (value) => `${formatPoints(value)} points`,
+    }),
+    buildRanking({
+      title: "Plus de participations",
+      getValue: (participant) => participationCount[participant.id] || 0,
+      formatValue: (value) => `${value} séance${value > 1 ? "s" : ""}`,
+    }),
+    buildRanking({
+      title: "Nombre total de voies",
+      getValue: (participant) => successfulRealisationsFor(participant.id).length,
+      formatValue: (value) => `${value} voie${value > 1 ? "s" : ""}`,
+    }),
+    buildRanking({
+      title: "Maximum de voies en une séance",
+      getValue: (participant) => maxRoutesInSessionFor(participant.id),
+      formatValue: (value) => `${value} voie${value > 1 ? "s" : ""}`,
+    }),
+    buildRanking({
+      title: "Difficulté cumulée en une séance",
+      getValue: (participant) => maxDifficultyInSessionFor(participant.id),
+      formatValue: (value) => `${value} point${value > 1 ? "s" : ""}`,
+    }),
+    buildRanking({
+      title: "Voies distinctes réalisées",
+      getValue: (participant) => distinctRoutesFor(participant.id, isSuccessfulRealisation),
+      formatValue: (value) => `${value} voie${value > 1 ? "s" : ""}`,
+    }),
+    buildRanking({
+      title: "Voies réalisées en tête",
+      getValue: (participant) => distinctRoutesFor(
+        participant.id,
+        (realisation) => isSuccessfulLeadRealisation(realisation, routesById[realisation.voieId])
+      ),
+      formatValue: (value) => `${value} voie${value > 1 ? "s" : ""}`,
+    }),
+  ];
 }
