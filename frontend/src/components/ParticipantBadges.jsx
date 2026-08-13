@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { BADGE_FAMILY_LABELS, calculateParticipantBadges } from "../lib/badges.js";
 
 const BADGE_ART_POSITIONS = {
@@ -16,31 +16,48 @@ const BADGE_ART_POSITIONS = {
   cristal: [3, 2],
 };
 
-function badgeArtworkStyle(badgeId) {
-  const position = BADGE_ART_POSITIONS[badgeId];
-  if (!position) return null;
+const BADGE_ASSET_BASE = String(import.meta.env.BASE_URL || "/").replace(/\/?$/, "/");
+const BADGE_SPRITE_SRC = `${BADGE_ASSET_BASE}badges/badges-sprite.png?v=260813006`;
+
+function BadgeFallback({ badge, pending }) {
+  return (
+    <span className={`participant-badge-emblem participant-badge-emblem--${badge.shape}`} aria-hidden="true">
+      {pending ? "?" : badge.symbol}
+    </span>
+  );
+}
+
+function BadgeArtwork({ badge, pending }) {
+  const position = BADGE_ART_POSITIONS[badge.id];
+  const [imageFailed, setImageFailed] = useState(false);
+
+  if (!position || imageFailed) {
+    return <BadgeFallback badge={badge} pending={pending} />;
+  }
+
   const [column, row] = position;
-  return {
-    backgroundPosition: `${(column / 3) * 100}% ${(row / 2) * 100}%`,
+  const imageStyle = {
+    transform: `translate(${-column * 25}%, ${-row * (100 / 3)}%)`,
   };
+
+  return (
+    <span className="participant-badge-artwork" aria-hidden="true">
+      <img
+        src={BADGE_SPRITE_SRC}
+        alt=""
+        style={imageStyle}
+        onError={() => setImageFailed(true)}
+        draggable="false"
+        decoding="async"
+      />
+    </span>
+  );
 }
 
 function BadgeTile({ badge, pending = false }) {
-  const artworkStyle = badgeArtworkStyle(badge.id);
-
   return (
     <div className={`participant-badge-tile participant-badge-tile--${badge.family}${pending ? " is-pending" : " is-earned"}`} title={`${badge.name} — ${badge.condition}`}>
-      {artworkStyle ? (
-        <span
-          className="participant-badge-artwork"
-          style={artworkStyle}
-          aria-hidden="true"
-        />
-      ) : (
-        <span className={`participant-badge-emblem participant-badge-emblem--${badge.shape}`} aria-hidden="true">
-          {pending ? "?" : badge.symbol}
-        </span>
-      )}
+      <BadgeArtwork badge={badge} pending={pending} />
       <span className="participant-badge-copy">
         <strong>{badge.name}</strong>
         <span>{pending ? badge.condition : BADGE_FAMILY_LABELS[badge.family]}</span>
