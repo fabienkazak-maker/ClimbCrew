@@ -87,17 +87,20 @@ test("valide les statuts, créneaux et dates des séances", () => {
   );
 });
 
-test("valide les styles et cotations proposées des réalisations", () => {
+test("valide séparément le mode et le critère des réalisations", () => {
   const realisation = validateRealisationPayload({
     id: "r1",
     participantId: "1",
     sessionId: "s1",
     voieId: "v1",
     dateRealisation: "2026-08-09",
-    styleRealisation: "en_tete",
+    modeRealisation: "moulinette",
+    styleRealisation: "a_vue",
     cotationProposee: "6b",
   });
-  assert.equal(realisation.styleRealisation, "en_tete");
+  assert.equal(realisation.modeRealisation, "moulinette");
+  assert.equal(realisation.styleRealisation, "a_vue");
+  assert.equal(realisation.nbEssais, "moulinette");
 
   assert.throws(
     () => validateRealisationPayload({
@@ -105,11 +108,33 @@ test("valide les styles et cotations proposées des réalisations", () => {
       participantId: "1",
       sessionId: "s1",
       voieId: "v1",
-      dateRealisation: "09/08/2026",
-      styleRealisation: "inconnu",
+      dateRealisation: "2026-08-09",
+      modeRealisation: "solo",
+      styleRealisation: "a_vue",
     }),
     ValidationError,
   );
+});
+
+test("les anciennes réalisations sans mode explicite restent acceptées", () => {
+  const lead = validateRealisationPayload({
+    id: "r1",
+    participantId: "1",
+    sessionId: "s1",
+    voieId: "v1",
+    dateRealisation: "2026-08-09",
+    styleRealisation: "en_tete",
+  });
+  const topRope = validateRealisationPayload({
+    id: "r2",
+    participantId: "1",
+    sessionId: "s1",
+    voieId: "v1",
+    dateRealisation: "2026-08-09",
+    styleRealisation: "moulinette",
+  });
+  assert.equal(lead.modeRealisation, "en_tete");
+  assert.equal(topRope.modeRealisation, "moulinette");
 });
 
 test("un patch de réalisation ne valide que les champs fournis", () => {
@@ -119,6 +144,13 @@ test("un patch de réalisation ne valide que les champs fournis", () => {
   );
   assert.equal(patch.commentaire, "Mise à jour");
   assert.equal(patch.participantId, undefined);
+
+  const modePatch = validateRealisationPayload(
+    { modeRealisation: "en_tete" },
+    { partial: true },
+  );
+  assert.equal(modePatch.modeRealisation, "en_tete");
+  assert.equal(modePatch.nbEssais, "en_tete");
 });
 
 test("normalise un import legacy avant toute transaction", () => {
@@ -159,6 +191,7 @@ test("normalise un import legacy avant toute transaction", () => {
   assert.deepEqual(payload.routes[0].tags, ["dalle", "technique"]);
   assert.equal(payload.realisations[0].id, "real-import-1");
   assert.equal(payload.realisations[0].rating, 4);
+  assert.equal(payload.realisations[0].modeRealisation, "en_tete");
 });
 
 test("refuse une corde legacy hors de la plage autorisée", () => {

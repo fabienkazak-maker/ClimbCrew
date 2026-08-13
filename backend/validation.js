@@ -15,6 +15,7 @@ export const SESSION_SLOTS = ["matin", "midi", "soir"];
 export const SESSION_STATUSES = [
   "libre", "encadree", "passeport", "challenge", "renouvellement", "fermee",
 ];
+export const REALISATION_MODES = ["en_tete", "moulinette"];
 export const REALISATION_STYLES = [
   "a_vue", "flash", "en_tete", "moulinette", "avec_repos",
   "travaillee", "projet", "non_enchainee", "test",
@@ -274,9 +275,28 @@ export function validateRealisationPayload(payload = {}, { partial = false } = {
       { optional: true },
     );
   }
-  if (!partial || payload.nbEssais !== undefined) {
+
+  // nbEssais n'est plus affiché dans l'application. Il reste lu pour les
+  // imports historiques et sert de stockage de compatibilité au mode explicite
+  // tant que la table legacy n'a pas encore de colonne dédiée.
+  if ((!partial || payload.nbEssais !== undefined) && payload.modeRealisation === undefined) {
     validated.nbEssais = optionalString(payload.nbEssais, "nbEssais", 50);
   }
+
+  if (!partial || payload.modeRealisation !== undefined) {
+    const legacyStyle = validated.styleRealisation || stringValue(payload.styleRealisation).toLowerCase();
+    const fallbackMode = legacyStyle === "moulinette" ? "moulinette" : "en_tete";
+    validated.modeRealisation = enumValue(
+      payload.modeRealisation,
+      "modeRealisation",
+      REALISATION_MODES,
+      fallbackMode,
+    );
+    // server.js persiste déjà nbEssais dans la colonne nb_essais : on conserve
+    // ainsi la compatibilité sans migration risquée de la base en production.
+    validated.nbEssais = validated.modeRealisation;
+  }
+
   if (payload.rating !== undefined && payload.rating !== null && payload.rating !== "") {
     validated.rating = validateRouteRating(payload.rating);
   }
@@ -312,6 +332,8 @@ export function validateLegacyImportPayload(inputPayload = {}) {
       id: realisation.id || `real-import-${index + 1}`,
       styleRealisation: realisation.styleRealisation || "test",
       dateRealisation: realisation.dateRealisation || new Date().toISOString().slice(0, 10),
+      modeRealisation: realisation.modeRealisation
+        || (realisation.styleRealisation === "moulinette" ? "moulinette" : "en_tete"),
     })),
   };
 }
