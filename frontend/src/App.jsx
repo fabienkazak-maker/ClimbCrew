@@ -5,6 +5,7 @@ import FaqSection from "./sections/FaqSection.jsx";
 import Inscriptions from "./pages/Inscriptions.jsx";
 import Voies from "./pages/Voies.jsx";
 import Progression from "./pages/Progression.jsx";
+import Profil from "./pages/Profil.jsx";
 import Administration from "./pages/Administration.jsx";
 import GestionComptes from "./pages/GestionComptes.jsx";
 import Logs from "./pages/Logs.jsx";
@@ -563,6 +564,25 @@ function App() {
     () => calculateLeadPoints(state.participants, state.routes, state.realisations),
     [state.participants, state.routes, state.realisations],
   );
+
+  const myParticipantId = authUser?.participantId ? String(authUser.participantId) : "";
+  const myParticipant = participantsById[myParticipantId] || null;
+
+  const myRealisations = useMemo(() => {
+    if (!myParticipantId) return [];
+    return state.realisations
+      .filter((r) => String(r.participantId) === myParticipantId)
+      .sort((a, b) => b.dateRealisation.localeCompare(a.dateRealisation));
+  }, [state.realisations, myParticipantId]);
+
+  const myProfileStats = useMemo(() => {
+    const gradesAll = myRealisations.map((r) => routesById[r.voieId]?.cotationAjustee).filter(Boolean);
+    const bestAll = gradesAll.length
+      ? gradesAll.reduce((best, current) => (gradeToIndex(current) > gradeToIndex(best) ? current : best))
+      : null;
+
+    return { count: myRealisations.length, bestAll };
+  }, [myRealisations, routesById]);
 
   const sortedStatsParticipants = useMemo(() => {
     const direction = statsSortDirection === "asc" ? 1 : -1;
@@ -2141,6 +2161,25 @@ async function handleThemePreferenceChange(nextTheme) {
             allProgressRealisationsExpanded={allProgressRealisationsExpanded}
             toggleAllProgressRealisations={toggleAllProgressRealisations}
             exportSelectedParticipantRealisationsCsv={exportSelectedParticipantRealisationsCsv}
+          />
+        )}
+
+        {tab === "mon_profil" && (
+          <Profil
+            USE_API={USE_API}
+            authUser={authUser}
+            myParticipant={myParticipant}
+            myParticipantId={myParticipantId}
+            myRealisations={myRealisations}
+            myProfileStats={myProfileStats}
+            cprByParticipantId={cprByParticipantId}
+            pointsByParticipantId={pointsByParticipantId}
+            sessionStats={sessionStats}
+            routesById={routesById}
+            getParticipantSessions={getParticipantSessions}
+            getPassportStyle={getPassportStyle}
+            getPassportDotStyle={getPassportDotStyle}
+            normalizePassport={normalizePassport}
           />
         )}
 

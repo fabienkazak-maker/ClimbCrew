@@ -54,6 +54,7 @@ export const TABS = [
   { key: "inscriptions", label: "Inscriptions" },
   { key: "voies", label: "Voies" },
   { key: "progression", label: "Progression" },
+  { key: "mon_profil", label: "Mon Profil" },
   { key: "statistiques", label: "Statistiques" },
   { key: "wall_of_fame", label: "Wall of Fame" },
   { key: "faq", label: "FAQ" },
