@@ -11,6 +11,14 @@
 .climber-recommendation-number { min-width: 0; width: 34px; height: 34px; padding: 0; }
 .climber-recommendation-copy { min-width: 0; }
 .climber-profile-reference-note { margin-top: 10px; }
+
+/* Les éléments personnels vivent désormais dans Mon Profil, pas dans Progression. */
+.card:has(> .progression-filters) > .climber-profile-card,
+.card:has(> .progression-filters) > .participant-badges-card,
+.card:has(> .progression-filters) > .card:has(> .cpr-chart-card) {
+  display: none;
+}
+
 @media (max-width: 900px) {
   .climber-profile-layout,
   .climber-profile-summary-grid { grid-template-columns: 1fr; }

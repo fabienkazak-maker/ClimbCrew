@@ -1,5 +1,7 @@
 import React from "react";
+import ClimberProfilePanel from "../components/ClimberProfilePanel.jsx";
 import ParticipantBadges from "../components/ParticipantBadges.jsx";
+import CprEvolutionChart from "../sections/CprEvolutionChart.jsx";
 import { fullName, formatPoints } from "../lib/domain.js";
 
 export default function Profil({
@@ -67,11 +69,21 @@ export default function Profil({
         </div>
       </div>
 
+      <ClimberProfilePanel
+        realisations={myRealisations}
+        routesById={routesById}
+        cprGrade={cpr.currentGrade || ""}
+      />
+
       <ParticipantBadges
         realisations={myRealisations}
         routesById={routesById}
         sessions={getParticipantSessions(myParticipantId)}
       />
+
+      <div className="card">
+        <CprEvolutionChart realisations={myRealisations} routesById={routesById} />
+      </div>
     </div>
   );
 }
