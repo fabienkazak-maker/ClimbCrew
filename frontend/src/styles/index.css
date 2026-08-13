@@ -24,6 +24,7 @@
         .side-tab.active { background: #22d3ee; color: #082f49; }
         .sidebar-account { margin-top: 4px; padding-top: 10px; border-top: 1px solid rgba(148,163,184,.2); display: grid; gap: 8px; }
         .sidebar-account .secondary { width: 100%; }
+        .sidebar-settings { margin-top: 4px; padding-top: 10px; border-top: 1px solid rgba(148,163,184,.2); }
         .date-nav { display: grid; grid-template-columns: 48px minmax(180px, 220px) 48px; flex: 1 1 440px; align-items: center; justify-content: center; flex-wrap: nowrap; }
         .date-input { width: 100%; max-width: 220px; min-width: 0; text-align: center; font-weight: 800; text-transform: capitalize; }
         .date-display { cursor: default; }

@@ -69,6 +69,32 @@ export async function loadAuthenticatedUser(req) {
   return result.rows[0] || null;
 }
 
+/**
+ * Middleware d'authentification pour les routes en libre-service (paramètres
+ * du compte) ajoutées par ce module : n'importe quel compte actif, sans
+ * exigence de rôle administrateur.
+ */
+export async function requireAuthUser(req, res, next) {
+  try {
+    const user = await loadAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: "Authentification requise" });
+
+    if (!["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+      const csrfCookie = parseCookies(req)[CSRF_COOKIE_NAME];
+      const csrfHeader = req.headers["x-csrf-token"];
+      if (!csrfCookie || !csrfHeader || !constantTimeEqual(csrfCookie, csrfHeader)) {
+        return res.status(403).json({ error: "Protection CSRF : jeton absent ou invalide" });
+      }
+    }
+
+    req.enhancementAuth = { user };
+    next();
+  } catch (error) {
+    console.error("Vérification de l'authentification :", error);
+    res.status(500).json({ error: "Erreur de vérification de l'authentification" });
+  }
+}
+
 /** Middleware réservé aux routes ajoutées par le module. */
 export async function requireAdmin(req, res, next) {
   try {

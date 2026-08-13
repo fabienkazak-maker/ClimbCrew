@@ -161,6 +161,46 @@ export function buildAccountApprovedEmail({ prenom, nom, publicUrl }) {
   return { subject, text, html };
 }
 
+export function buildEmailChangeConfirmationEmail({ prenom, newEmail, confirmUrl, expiresAt, publicUrl }) {
+  const displayName = String(prenom || "").trim() || "grimpeur";
+  const safeName = escapeHtml(displayName);
+  const safeNewEmail = escapeHtml(String(newEmail || "").trim().toLowerCase());
+  const expirationLabel = formatExpiration(expiresAt);
+  const normalizedUrl = String(publicUrl || "").replace(/\/$/, "");
+  const normalizedConfirmUrl = String(confirmUrl || "").trim();
+  const confirmLink = normalizedConfirmUrl
+    ? `<p style="margin:22px 0 0;"><a href="${escapeHtml(normalizedConfirmUrl)}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#16a34a;color:#ffffff;text-decoration:none;font-weight:700;">Confirmer cette adresse</a></p>`
+    : "";
+
+  const subject = "ClimbCrew – confirme ta nouvelle adresse e-mail";
+  const text = [
+    `Bonjour ${displayName},`,
+    "",
+    "Une demande de changement d'adresse e-mail a été effectuée depuis les paramètres de ton compte ClimbCrew.",
+    `Nouvelle adresse : ${safeNewEmail}`,
+    "Le changement ne sera appliqué qu'après confirmation de cette adresse.",
+    normalizedConfirmUrl ? `Confirmer cette adresse : ${normalizedConfirmUrl}` : "",
+    `Ce lien est valable jusqu'au ${expirationLabel} et ne peut être utilisé qu'une fois.`,
+    "Si tu n'es pas à l'origine de cette demande, ignore ce message : ton adresse actuelle reste inchangée.",
+    normalizedUrl ? `ClimbCrew : ${normalizedUrl}` : "",
+  ].filter(Boolean).join("\n");
+
+  const html = layout({
+    title: "Confirme ta nouvelle adresse e-mail",
+    preview: "Confirme ta nouvelle adresse pour finaliser le changement sur ton compte ClimbCrew.",
+    content: `
+      <p style="margin:0 0 16px;">Bonjour <strong>${safeName}</strong>,</p>
+      <p style="margin:0 0 14px;">Une demande de changement d’adresse e-mail a été effectuée depuis les paramètres de ton compte ClimbCrew, vers <strong>${safeNewEmail}</strong>.</p>
+      <p style="margin:0 0 14px;">Le changement ne sera appliqué qu’après avoir cliqué sur le bouton ci-dessous, afin d’éviter toute perte d’accès à ton compte.</p>
+      ${confirmLink}
+      <p style="margin:18px 0 14px;">Ce lien est valable jusqu’au <strong>${escapeHtml(expirationLabel)}</strong> et ne peut être utilisé qu’une fois.</p>
+      <p style="margin:0;">Si tu n’es pas à l’origine de cette demande, ignore simplement ce message : ton adresse actuelle reste inchangée.</p>
+    `,
+  });
+
+  return { subject, text, html };
+}
+
 export function buildPasswordResetCodeEmail({ prenom, code, expiresAt, publicUrl }) {
   const displayName = String(prenom || "").trim() || "grimpeur";
   const safeName = escapeHtml(displayName);

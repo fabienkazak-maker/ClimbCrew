@@ -6,14 +6,17 @@ import {
 } from "./config.js";
 import { ensureAdminUserSchema } from "./database.js";
 import {
+  changePassword,
+  confirmEmailChange,
   forgotPassword,
   listUsers,
   requestAccess,
+  requestEmailChange,
   updateAdminRight,
   verifyEmailRequest,
 } from "./account-service.js";
 import { exportAllData } from "./export-service.js";
-import { requireAdmin } from "./security.js";
+import { requireAdmin, requireAuthUser } from "./security.js";
 import { createCrossOriginCsrfBridge } from "../deployment-compatibility.js";
 
 /**
@@ -113,6 +116,9 @@ export function installExpressIntegration() {
       if (!app[INSTALL_FLAG]) {
         app.post("/admin/auth/users/:id/admin", requireAdmin, updateAdminRight);
         app.get("/auth/verify-email", verifyEmailRequest);
+        app.post("/auth/change-password", requireAuthUser, changePassword);
+        app.post("/auth/change-email/request", requireAuthUser, requestEmailChange);
+        app.get("/auth/change-email/confirm", confirmEmailChange);
         app[INSTALL_FLAG] = true;
       }
 

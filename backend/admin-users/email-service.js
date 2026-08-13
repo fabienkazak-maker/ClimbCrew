@@ -3,6 +3,7 @@ import {
   buildAccountApprovedEmail,
   buildAccountRequestConfirmation,
   buildAdminAccountRequestReadyEmail,
+  buildEmailChangeConfirmationEmail,
   buildPasswordResetCodeEmail,
 } from "./email-templates.js";
 
@@ -114,5 +115,12 @@ export async function sendPasswordResetCode({ email, prenom, code, expiresAt }) 
   return sendEmail({
     to: email,
     ...buildPasswordResetCodeEmail({ prenom, code, expiresAt, publicUrl: PUBLIC_URL }),
+  });
+}
+
+export async function sendEmailChangeConfirmation({ email, prenom, newEmail, confirmUrl, expiresAt }) {
+  return sendEmail({
+    to: email,
+    ...buildEmailChangeConfirmationEmail({ prenom, newEmail, confirmUrl, expiresAt, publicUrl: PUBLIC_URL }),
   });
 }

@@ -39,6 +39,7 @@ export async function ensureAdminUserSchema() {
 
   await pool.query(`alter table users add column if not exists is_admin boolean not null default false`);
   await pool.query(`alter table users add column if not exists email_verified_at timestamptz`);
+  await pool.query(`alter table users add column if not exists pending_email text`);
   await pool.query(`alter table participants add column if not exists login_email text`);
 
   await pool.query(`
@@ -53,6 +54,20 @@ export async function ensureAdminUserSchema() {
   `);
   await pool.query(`create index if not exists idx_email_verification_tokens_user on email_verification_tokens(user_id)`);
   await pool.query(`create index if not exists idx_email_verification_tokens_hash on email_verification_tokens(token_hash)`);
+
+  await pool.query(`
+    create table if not exists email_change_tokens (
+      id bigserial primary key,
+      user_id bigint not null references users(id) on delete cascade,
+      new_email text not null,
+      token_hash text not null,
+      created_at timestamptz not null default now(),
+      expires_at timestamptz not null,
+      used_at timestamptz
+    )
+  `);
+  await pool.query(`create index if not exists idx_email_change_tokens_user on email_change_tokens(user_id)`);
+  await pool.query(`create index if not exists idx_email_change_tokens_hash on email_change_tokens(token_hash)`);
 
   await pool.query(`update users set is_admin = true where role = 'admin' and is_admin = false`);
   await pool.query(`update users set role = 'admin' where is_admin = true and role <> 'admin'`);

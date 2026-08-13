@@ -6,6 +6,7 @@ import Inscriptions from "./pages/Inscriptions.jsx";
 import Voies from "./pages/Voies.jsx";
 import Progression from "./pages/Progression.jsx";
 import Profil from "./pages/Profil.jsx";
+import Parametres from "./pages/Parametres.jsx";
 import Administration from "./pages/Administration.jsx";
 import GestionComptes from "./pages/GestionComptes.jsx";
 import Logs from "./pages/Logs.jsx";
@@ -1371,6 +1372,20 @@ async function handleThemePreferenceChange(nextTheme) {
     }
   }
 
+  async function changePassword(currentPassword, newPassword) {
+    return authApiFetch("/auth/change-password", authToken, {
+      method: "POST",
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+  }
+
+  async function requestEmailChange(newEmail, currentPassword) {
+    return authApiFetch("/auth/change-email/request", authToken, {
+      method: "POST",
+      body: JSON.stringify({ newEmail, currentPassword }),
+    });
+  }
+
   async function handleRequestAccess() {
     if (!requestAccessForm.prenom || !requestAccessForm.nom || !requestAccessForm.email) {
       return setAuthError("Renseigne prénom, nom et email.");
@@ -1928,6 +1943,19 @@ async function handleThemePreferenceChange(nextTheme) {
             <div className="small">{authUser.email}</div>
           </div>
         )}
+        {authUser && (
+          <div className="sidebar-settings">
+            <button
+              className={`side-tab ${tab === "parametres" ? "active" : ""}`}
+              onClick={() => {
+                setTab("parametres");
+                setSidebarOpen(false);
+              }}
+            >
+              ⚙ Paramètres
+            </button>
+          </div>
+        )}
       </aside>
 
       {realisationModalRouteId !== null && (
@@ -2092,7 +2120,7 @@ async function handleThemePreferenceChange(nextTheme) {
         <img src="/logo-climbcrew.png" alt="Logo ClimbClubCristal" className="app-logo" />
         <div>
           <h1>ClimbClubCristal</h1>
-          <p>{visibleTabs.find((item) => item.key === tab)?.label || "ClimbClubCristal"}</p>
+          <p>{tab === "parametres" ? "Paramètres" : (visibleTabs.find((item) => item.key === tab)?.label || "ClimbClubCristal")}</p>
         </div>
       </div>
     </div>
@@ -2180,6 +2208,15 @@ async function handleThemePreferenceChange(nextTheme) {
             getPassportStyle={getPassportStyle}
             getPassportDotStyle={getPassportDotStyle}
             normalizePassport={normalizePassport}
+          />
+        )}
+
+        {tab === "parametres" && (
+          <Parametres
+            USE_API={USE_API}
+            authUser={authUser}
+            changePassword={changePassword}
+            requestEmailChange={requestEmailChange}
           />
         )}
 
