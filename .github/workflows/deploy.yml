@@ -41,7 +41,15 @@ jobs:
 
       - name: Installer le frontend
         working-directory: frontend
-        run: npm ci --no-audit --no-fund
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            npm ci --no-audit --no-fund && exit 0
+            echo "npm ci a échoué (tentative ${attempt}/3), nouvel essai dans 5s..."
+            sleep 5
+          done
+          exit 1
 
       - name: Tester le frontend
         working-directory: frontend
@@ -53,7 +61,15 @@ jobs:
 
       - name: Installer le backend
         working-directory: backend
-        run: npm ci --no-audit --no-fund
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            npm ci --no-audit --no-fund && exit 0
+            echo "npm ci a échoué (tentative ${attempt}/3), nouvel essai dans 5s..."
+            sleep 5
+          done
+          exit 1
 
       - name: Vérifier la syntaxe du backend
         working-directory: backend

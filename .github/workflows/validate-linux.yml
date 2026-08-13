@@ -39,7 +39,15 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: frontend
-        run: npm ci
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            npm ci && exit 0
+            echo "npm ci failed (attempt ${attempt}/3), retrying in 5s..."
+            sleep 5
+          done
+          exit 1
 
       - name: Build frontend
         working-directory: frontend

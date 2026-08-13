@@ -6,6 +6,7 @@ function fail(message) {
 }
 
 const app = fs.readFileSync("frontend/src/App.jsx", "utf8");
+const domain = fs.readFileSync("frontend/src/lib/domain.js", "utf8");
 const dayStart = app.indexOf("const daySessions = useMemo");
 const weekStart = app.indexOf("const weekDates = useMemo", dayStart);
 const dayBlock = dayStart >= 0 && weekStart > dayStart ? app.slice(dayStart, weekStart) : "";
@@ -32,9 +33,9 @@ if (fs.existsSync("backend/server-runtime.js")) fail("server-runtime.js ne doit 
 
 if (app.includes("multi-signup") || app.includes('name="participantIds"')) fail("la sélection multiple des inscriptions est encore présente");
 if (app.includes("Sans nom") || app.includes("Voie sans nom")) fail("un libellé Sans nom est encore affiché");
-if (!app.includes("function formatRouteName(route)")) fail("formatage ouvreur puis nom de voie absent");
+if (!domain.includes("function formatRouteName(route)")) fail("formatage ouvreur puis nom de voie absent");
 if (!app.includes("async function deleteRealisation(realisation)")) fail("suppression de réalisation absente de la progression");
-if (!app.includes("state.ropes.filter((rope) => state.routes.some")) fail("les cordes vides ne sont pas masquées");
+if (!app.includes("state.routes.map((route) => normalizeRopeNumber(route.numeroCorde))")) fail("les cordes vides ne sont pas masquées");
 
 const enhancements = fs.readFileSync("frontend/src/climbcrew-enhancements.js", "utf8");
 if (enhancements.includes("l’ocre apparaît sur fond marron")) fail("mention ocre sur fond marron encore présente dans la FAQ");
