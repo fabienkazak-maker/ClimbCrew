@@ -8,17 +8,17 @@
 
 .participant-badges-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 10px;
 }
 
 .participant-badge-tile {
   --badge-accent: #38bdf8;
   display: grid;
-  grid-template-columns: 54px minmax(0, 1fr);
+  grid-template-columns: 72px minmax(0, 1fr);
   gap: 10px;
   align-items: center;
-  min-height: 74px;
+  min-height: 92px;
   padding: 10px;
   border: 1px solid color-mix(in srgb, var(--badge-accent) 44%, transparent);
   border-radius: 16px;
@@ -37,17 +37,42 @@
 }
 
 .participant-badge-tile.is-pending {
-  opacity: .58;
-  filter: grayscale(.72);
+  opacity: .62;
+}
+
+.participant-badge-artwork {
+  width: 68px;
+  height: 68px;
+  display: block;
+  flex: 0 0 68px;
+  background-image: url('/badges/badges-sprite.webp');
+  background-size: 400% 300%;
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 7px 10px rgba(0, 0, 0, .32));
+  transform: translateZ(0);
+}
+
+.participant-badge-tile.is-earned .participant-badge-artwork {
+  transition: transform .16s ease, filter .16s ease;
+}
+
+.participant-badge-tile.is-earned:hover .participant-badge-artwork {
+  transform: translateY(-2px) scale(1.04);
+  filter: drop-shadow(0 9px 13px rgba(0, 0, 0, .38));
+}
+
+.participant-badge-tile.is-pending .participant-badge-artwork {
+  filter: grayscale(1) brightness(.48) contrast(.9) drop-shadow(0 5px 8px rgba(0, 0, 0, .26));
 }
 
 .participant-badge-emblem {
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 48px;
+  flex: 0 0 56px;
+  margin-left: 6px;
   background: var(--badge-accent);
   color: #06111d;
   border: 2px solid rgba(255, 255, 255, .72);
@@ -124,15 +149,22 @@
   }
 
   .participant-badge-tile {
-    grid-template-columns: 42px minmax(0, 1fr);
-    min-height: 66px;
+    grid-template-columns: 56px minmax(0, 1fr);
+    min-height: 76px;
     padding: 8px;
   }
 
+  .participant-badge-artwork {
+    width: 54px;
+    height: 54px;
+    flex-basis: 54px;
+  }
+
   .participant-badge-emblem {
-    width: 40px;
-    height: 40px;
-    flex-basis: 40px;
+    width: 46px;
+    height: 46px;
+    flex-basis: 46px;
+    margin-left: 4px;
     font-size: 14px;
   }
 }

@@ -1,12 +1,46 @@
 import React, { useMemo } from "react";
 import { BADGE_FAMILY_LABELS, calculateParticipantBadges } from "../lib/badges.js";
 
+const BADGE_ART_POSITIONS = {
+  premiere_croix: [0, 0],
+  premiere_tete: [1, 0],
+  premier_a_vue: [2, 0],
+  premier_flash: [3, 0],
+  club_6a: [0, 1],
+  club_6b: [1, 1],
+  explorateur: [2, 1],
+  polyvalent: [3, 1],
+  fidele: [0, 2],
+  habitue: [1, 2],
+  centurion: [2, 2],
+  cristal: [3, 2],
+};
+
+function badgeArtworkStyle(badgeId) {
+  const position = BADGE_ART_POSITIONS[badgeId];
+  if (!position) return null;
+  const [column, row] = position;
+  return {
+    backgroundPosition: `${(column / 3) * 100}% ${(row / 2) * 100}%`,
+  };
+}
+
 function BadgeTile({ badge, pending = false }) {
+  const artworkStyle = badgeArtworkStyle(badge.id);
+
   return (
     <div className={`participant-badge-tile participant-badge-tile--${badge.family}${pending ? " is-pending" : " is-earned"}`} title={`${badge.name} — ${badge.condition}`}>
-      <span className={`participant-badge-emblem participant-badge-emblem--${badge.shape}`} aria-hidden="true">
-        {pending ? "?" : badge.symbol}
-      </span>
+      {artworkStyle ? (
+        <span
+          className="participant-badge-artwork"
+          style={artworkStyle}
+          aria-hidden="true"
+        />
+      ) : (
+        <span className={`participant-badge-emblem participant-badge-emblem--${badge.shape}`} aria-hidden="true">
+          {pending ? "?" : badge.symbol}
+        </span>
+      )}
       <span className="participant-badge-copy">
         <strong>{badge.name}</strong>
         <span>{pending ? badge.condition : BADGE_FAMILY_LABELS[badge.family]}</span>
