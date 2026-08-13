@@ -314,6 +314,7 @@ function App() {
   const currentPageLabel = TABS.find((item) => item.key === tab)?.label || "";
 
   useEffect(() => {
+    if (tab === "parametres") return;
     if (visibleTabs.some((item) => item.key === tab)) return;
     setTab("inscriptions");
   }, [tab, visibleTabs]);
