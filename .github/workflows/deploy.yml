@@ -51,11 +51,9 @@ jobs:
         working-directory: frontend
         run: npm run build
 
-      # Le backend ne possède pas encore de package-lock.json.
-      # npm install reste donc nécessaire jusqu'à sa génération contrôlée.
       - name: Installer le backend
         working-directory: backend
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Vérifier la syntaxe du backend
         working-directory: backend
