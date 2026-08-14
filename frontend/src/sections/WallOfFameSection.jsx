@@ -15,8 +15,12 @@ export default function WallOfFameSection({
         <div className="card-header">
           <h2>Wall of Fame</h2>
           <div className="group">
-            <label htmlFor="wall-of-fame-sex-filter" style={{ margin: 0 }}>Afficher</label>
-            <select id="wall-of-fame-sex-filter" value={wallOfFameSexFilter} onChange={(event) => setWallOfFameSexFilter(event.target.value)}>
+            <select
+              id="wall-of-fame-sex-filter"
+              aria-label="Filtrer le Wall of Fame par sexe"
+              value={wallOfFameSexFilter}
+              onChange={(event) => setWallOfFameSexFilter(event.target.value)}
+            >
               <option value="all">Tous</option>
               <option value="h">H</option>
               <option value="f">F</option>
