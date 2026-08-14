@@ -2,17 +2,68 @@ import React, { useMemo, useState } from "react";
 import { BADGE_FAMILY_LABELS, calculateParticipantBadges } from "../lib/badges.js";
 import BadgeIllustration from "./BadgeIllustration.jsx";
 
-const REAL_BADGE_IMAGES = {
-  premiere_tete: "/media/badges/premiere_tete.webp",
-};
+const BADGE_ATLAS = "/media/badges/badge-atlas.webp";
+const BADGE_TILE_SIZE = 160;
+const BADGE_ATLAS_COLUMNS = 5;
+const BADGE_ATLAS_ROWS = 4;
 
-function BadgeVisual({ badge }) {
-  const realImage = REAL_BADGE_IMAGES[badge.id];
-  if (!realImage) return <BadgeIllustration badge={badge} />;
+export const BADGE_IMAGE_INDEX = Object.freeze({
+  premiere_croix: 0,
+  premiere_tete: 1,
+  premiere_moulinette: 2,
+  premier_a_vue: 3,
+  premier_flash: 4,
+  cap_5c: 5,
+  club_6a: 6,
+  club_6b: 7,
+  club_6c: 8,
+  club_7a: 9,
+  explorateur: 10,
+  tour_de_salle: 11,
+  polyvalent: 12,
+  habitue: 13,
+  fidele: 14,
+  oeil_ouvreur: 15,
+  critique_voies: 16,
+  collectionneur: 17,
+  centurion: 18,
+  cristal: 19,
+});
+
+function BadgeRealImage({ badge, index }) {
+  const column = index % BADGE_ATLAS_COLUMNS;
+  const row = Math.floor(index / BADGE_ATLAS_COLUMNS);
+  const x = column * BADGE_TILE_SIZE;
+  const y = row * BADGE_TILE_SIZE;
 
   return (
-    <span className="participant-badge-artwork" aria-hidden="true">
-      <img src={realImage} alt="" width="280" height="280" loading="eager" decoding="async" />
+    <svg
+      viewBox={`${x} ${y} ${BADGE_TILE_SIZE} ${BADGE_TILE_SIZE}`}
+      width="100%"
+      height="100%"
+      role="img"
+      aria-label={`Illustration du badge ${badge.name}`}
+      preserveAspectRatio="xMidYMid meet"
+    >
+      <image
+        href={BADGE_ATLAS}
+        x="0"
+        y="0"
+        width={BADGE_TILE_SIZE * BADGE_ATLAS_COLUMNS}
+        height={BADGE_TILE_SIZE * BADGE_ATLAS_ROWS}
+        preserveAspectRatio="none"
+      />
+    </svg>
+  );
+}
+
+function BadgeVisual({ badge }) {
+  const index = BADGE_IMAGE_INDEX[badge.id];
+  if (!Number.isInteger(index)) return <BadgeIllustration badge={badge} />;
+
+  return (
+    <span className="participant-badge-artwork participant-badge-artwork--real">
+      <BadgeRealImage badge={badge} index={index} />
     </span>
   );
 }
