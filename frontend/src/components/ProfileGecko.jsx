@@ -1,18 +1,43 @@
 import React from "react";
 import { getGeckoLevelInfo } from "../lib/gecko-level.js";
-import GeckoArtwork from "./GeckoArtwork.jsx";
 import "../styles/profile-gecko.css";
 
 const LEVEL_ACCENTS = ["#65a30d", "#4d7c0f", "#0284c7", "#2563eb", "#7c3aed", "#9333ea", "#d97706", "#0ea5e9"];
+const GECKO_ATLAS = "/media/geckos/gecko-atlas.webp";
+const TILE_WIDTH = 260;
+const TILE_HEIGHT = 470;
+const ATLAS_WIDTH = TILE_WIDTH * 8;
+const ATLAS_HEIGHT = TILE_HEIGHT * 2;
 
-const REAL_GECKO_IMAGES = {
-  "neutral:4": "/media/geckos/gecko-neutral-4.webp",
-};
+function GeckoRealImage({ level, label, variant }) {
+  const column = Math.max(0, Math.min(7, Number(level || 1) - 1));
+  const row = variant === "feminine" ? 1 : 0;
+  const x = column * TILE_WIDTH;
+  const y = row * TILE_HEIGHT;
+
+  return (
+    <svg
+      className="profile-gecko-real-image"
+      viewBox={`${x} ${y} ${TILE_WIDTH} ${TILE_HEIGHT}`}
+      role="img"
+      aria-label={`Gecko ${label}, niveau ${level} sur 8`}
+      preserveAspectRatio="xMidYMid meet"
+    >
+      <image
+        href={GECKO_ATLAS}
+        x="0"
+        y="0"
+        width={ATLAS_WIDTH}
+        height={ATLAS_HEIGHT}
+        preserveAspectRatio="none"
+      />
+    </svg>
+  );
+}
 
 export default function ProfileGecko({ grade, sexe }) {
   const { level, label, variant } = getGeckoLevelInfo(grade, sexe);
   const accent = variant === "feminine" ? "#db2777" : LEVEL_ACCENTS[level - 1];
-  const realImage = REAL_GECKO_IMAGES[`${variant}:${level}`] || null;
 
   return (
     <div className="card profile-gecko-card">
@@ -25,18 +50,16 @@ export default function ProfileGecko({ grade, sexe }) {
       </div>
 
       <div className="profile-gecko-stage" style={{ "--gecko-accent": accent }}>
-        {realImage ? (
-          <img
-            className="profile-gecko-real-image"
-            src={realImage}
-            alt={`Gecko ${label}, niveau ${level} sur 8`}
-            loading="eager"
-            decoding="async"
-          />
-        ) : (
-          <GeckoArtwork level={level} label={label} variant={variant} accent={accent} />
-        )}
+        <GeckoRealImage level={level} label={label} variant={variant} />
       </div>
     </div>
   );
 }
+
+export const GECKO_ATLAS_INFO = Object.freeze({
+  src: GECKO_ATLAS,
+  tileWidth: TILE_WIDTH,
+  tileHeight: TILE_HEIGHT,
+  columns: 8,
+  rows: 2,
+});
