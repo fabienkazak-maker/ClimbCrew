@@ -1,6 +1,7 @@
 import React from "react";
 import ClimberProfilePanel from "../components/ClimberProfilePanel.jsx";
 import ParticipantBadges from "../components/ParticipantBadges.jsx";
+import ProfileGecko from "../components/ProfileGecko.jsx";
 import CprEvolutionChart from "../sections/CprEvolutionChart.jsx";
 import { fullName, formatPoints } from "../lib/domain.js";
 
@@ -57,6 +58,8 @@ export default function Profil({
           {myParticipant.sexe && <span className="pill">Sexe : {String(myParticipant.sexe).toUpperCase()}</span>}
         </div>
       </div>
+
+      <ProfileGecko grade={cpr.currentGrade || ""} sexe={myParticipant.sexe} />
 
       <div className="card">
         <div className="card-header"><h3>Mes statistiques</h3></div>
