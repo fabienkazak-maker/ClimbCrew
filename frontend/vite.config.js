@@ -32,6 +32,13 @@ export function makeRealisationRatingOptional(code) {
     }
     transformed = transformed.replace(source, replacement);
   }
+
+  const consensusBlock = /\s*<div>\s*<label>Cotation consensus<\/label>\s*<input value=\{realisationModalRoute \? routeAggregatesById\[realisationModalRoute\.id\]\?\.consensusGrade \|\| "Non calculée" : "Choisir une voie"\} readOnly \/>\s*<\/div>/;
+  if (!consensusBlock.test(transformed)) {
+    throw new Error("Le bloc Cotation consensus de la saisie de réalisation est introuvable.");
+  }
+  transformed = transformed.replace(consensusBlock, "");
+
   return transformed;
 }
 
