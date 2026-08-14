@@ -1,7 +1,15 @@
 import React, { useState } from "react";
 import Button from "../components/Button.jsx";
 
-export default function Parametres({ USE_API, authUser, changePassword, requestEmailChange }) {
+export default function Parametres({
+  USE_API,
+  authUser,
+  changePassword,
+  requestEmailChange,
+  themePreference,
+  onThemePreferenceChange,
+  themeOptions = [],
+}) {
   const [currentPasswordForPassword, setCurrentPasswordForPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
@@ -66,10 +74,19 @@ export default function Parametres({ USE_API, authUser, changePassword, requestE
     <div className="stack">
       <div className="card">
         <div className="card-header">
-          <div>
-            <h2>Paramètres du compte</h2>
-            <div className="small">{authUser?.email}</div>
-          </div>
+          <h2>Paramètres</h2>
+        </div>
+        <div>
+          <label htmlFor="settings-theme-selector">Ambiance</label>
+          <select
+            id="settings-theme-selector"
+            value={themePreference}
+            onChange={(event) => onThemePreferenceChange(event.target.value)}
+          >
+            {themeOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
         </div>
       </div>
 
