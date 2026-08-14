@@ -5,9 +5,14 @@ import "../styles/profile-gecko.css";
 
 const LEVEL_ACCENTS = ["#65a30d", "#4d7c0f", "#0284c7", "#2563eb", "#7c3aed", "#9333ea", "#d97706", "#0ea5e9"];
 
+const REAL_GECKO_IMAGES = {
+  "neutral:4": "/media/geckos/gecko-neutral-4.webp",
+};
+
 export default function ProfileGecko({ grade, sexe }) {
   const { level, label, variant } = getGeckoLevelInfo(grade, sexe);
   const accent = variant === "feminine" ? "#db2777" : LEVEL_ACCENTS[level - 1];
+  const realImage = REAL_GECKO_IMAGES[`${variant}:${level}`] || null;
 
   return (
     <div className="card profile-gecko-card">
@@ -20,7 +25,17 @@ export default function ProfileGecko({ grade, sexe }) {
       </div>
 
       <div className="profile-gecko-stage" style={{ "--gecko-accent": accent }}>
-        <GeckoArtwork level={level} label={label} variant={variant} accent={accent} />
+        {realImage ? (
+          <img
+            className="profile-gecko-real-image"
+            src={realImage}
+            alt={`Gecko ${label}, niveau ${level} sur 8`}
+            loading="eager"
+            decoding="async"
+          />
+        ) : (
+          <GeckoArtwork level={level} label={label} variant={variant} accent={accent} />
+        )}
       </div>
     </div>
   );
