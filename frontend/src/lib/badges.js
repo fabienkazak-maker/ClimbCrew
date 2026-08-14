@@ -30,7 +30,19 @@ export const BADGE_CATALOG = [
   { id: "critique_voies", name: "Critique de voies", family: "contribution", shape: "rosette", symbol: "★", condition: "Noter 20 voies différentes.", qualifies: (m) => m.ratedRouteCount >= 20 },
   { id: "collectionneur", name: "Collectionneur", family: "prestige", shape: "crystal", symbol: "50", condition: "Réussir 50 voies différentes.", qualifies: (m) => m.distinctSuccessfulRouteCount >= 50 },
   { id: "centurion", name: "Centurion", family: "prestige", shape: "crystal", symbol: "100", condition: "Atteindre 100 réalisations réussies.", qualifies: (m) => m.successfulCount >= 100 },
-  { id: "cristal", name: "Cristal", family: "prestige", shape: "crystal", symbol: "◆", condition: "100 voies différentes, 25 séances, une réussite en tête et 6 caractéristiques différentes.", qualifies: (m) => m.distinctSuccessfulRouteCount >= 100 && m.pastSessionCount >= 25 && m.successfulLeadCount >= 1 && m.distinctTagCount >= 6 },
+  {
+    id: "cristal",
+    name: "Cristal",
+    family: "prestige",
+    shape: "crystal",
+    symbol: "◆",
+    condition: "Réussir jusqu'à 100 voies actuelles, 25 séances, une réussite en tête et 6 caractéristiques différentes.",
+    qualifies: (m) => m.cristalTargetRouteCount > 0
+      && m.distinctExistingSuccessfulRouteCount >= m.cristalTargetRouteCount
+      && m.pastSessionCount >= 25
+      && m.successfulLeadCount >= 1
+      && m.distinctTagCount >= 6,
+  },
 ];
 
 function localIsoDay(value) {
@@ -51,6 +63,15 @@ function routeTags(route) {
 export function calculateParticipantBadgeMetrics({ realisations = [], routesById = {}, sessions = [], now = new Date() } = {}) {
   const successfulRealisations = realisations.filter(isSuccessfulRealisation);
   const successfulRouteIds = new Set(successfulRealisations.map((r) => String(r.voieId || "")).filter(Boolean));
+  const existingRouteIds = new Set(
+    Object.values(routesById)
+      .filter((route) => route && route.active !== false)
+      .map((route) => String(route.id || route.numeroVoieUnique || ""))
+      .filter(Boolean),
+  );
+  const successfulExistingRouteIds = new Set(
+    [...successfulRouteIds].filter((routeId) => existingRouteIds.has(routeId)),
+  );
 
   const successfulLeadCount = successfulRealisations.filter((r) => isSuccessfulLeadRealisation(r, routesById[r.voieId])).length;
   const successfulTopropeCount = successfulRealisations.filter((r) => getRealisationMode(r, routesById[r.voieId]) === "moulinette").length;
@@ -80,6 +101,7 @@ export function calculateParticipantBadgeMetrics({ realisations = [], routesById
 
   const proposedGradeRoutes = new Set(realisations.filter((r) => String(r.cotationProposee || "").trim()).map((r) => String(r.voieId || "")).filter(Boolean));
   const ratedRoutes = new Set(realisations.filter((r) => Number(r.rating || 0) > 0).map((r) => String(r.voieId || "")).filter(Boolean));
+  const cristalTargetRouteCount = Math.min(100, existingRouteIds.size);
 
   return {
     successfulCount: successfulRealisations.length,
@@ -88,6 +110,9 @@ export function calculateParticipantBadgeMetrics({ realisations = [], routesById
     onsightCount: successfulRealisations.filter((r) => getRealisationCriterion(r) === "a_vue").length,
     flashCount: successfulRealisations.filter((r) => getRealisationCriterion(r) === "flash").length,
     distinctSuccessfulRouteCount: successfulRouteIds.size,
+    distinctExistingSuccessfulRouteCount: successfulExistingRouteIds.size,
+    existingRouteCount: existingRouteIds.size,
+    cristalTargetRouteCount,
     distinctRopeCount: distinctRopes.size,
     distinctTagCount: distinctTags.size,
     bestGradeIndex,
@@ -100,5 +125,11 @@ export function calculateParticipantBadgeMetrics({ realisations = [], routesById
 
 export function calculateParticipantBadges(input = {}) {
   const metrics = calculateParticipantBadgeMetrics(input);
-  return BADGE_CATALOG.map((definition) => ({ ...definition, earned: Boolean(definition.qualifies(metrics)) }));
+  return BADGE_CATALOG.map((definition) => ({
+    ...definition,
+    condition: definition.id === "cristal"
+      ? `Réussir ${metrics.cristalTargetRouteCount} voie${metrics.cristalTargetRouteCount > 1 ? "s" : ""} actuelle${metrics.cristalTargetRouteCount > 1 ? "s" : ""} (maximum 100), participer à 25 séances, réussir au moins une voie en tête et couvrir 6 caractéristiques différentes.`
+      : definition.condition,
+    earned: Boolean(definition.qualifies(metrics)),
+  }));
 }
