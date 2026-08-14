@@ -17,6 +17,7 @@ import "./styles/index.css";
 import "./styles/badges.css";
 import "./styles/badges-image-fix.css";
 import "./styles/climber-profile.css";
+import "./styles/mobile-bottom-nav.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
