@@ -1,1 +1,46 @@
-/* ==========================================================================\n   Navigation mobile basse\n   Bandeau horizontal défilable : chaque onglet garde sa largeur propre afin\n   que les libellés restent lisibles et ne se chevauchent jamais.\n   ========================================================================== */\n\n@media (max-width: 700px) {\n  .mobile-bottom-nav {\n    display: flex !important;\n    flex-wrap: nowrap !important;\n    overflow-x: auto !important;\n    overflow-y: hidden !important;\n    align-items: center;\n    justify-content: flex-start;\n    gap: 8px;\n    padding: 6px 8px;\n    scroll-snap-type: x proximity;\n    scrollbar-width: none;\n    -ms-overflow-style: none;\n    -webkit-overflow-scrolling: touch;\n  }\n\n  .mobile-bottom-nav::-webkit-scrollbar {\n    display: none;\n  }\n\n  .bottom-tab {\n    flex: 0 0 auto !important;\n    width: max-content;\n    min-width: 96px;\n    max-width: none;\n    min-height: 44px;\n    padding: 8px 12px;\n    font-size: 12px;\n    line-height: 1.2;\n    white-space: nowrap !important;\n    word-break: normal;\n    overflow-wrap: normal;\n    text-align: center;\n    scroll-snap-align: start;\n  }\n\n  .app {\n    padding-bottom: calc(86px + env(safe-area-inset-bottom));\n  }\n}\n
+/* ==========================================================================
+   Navigation mobile basse
+   Bandeau horizontal défilable : chaque onglet garde sa largeur propre afin
+   que les libellés restent lisibles et ne se chevauchent jamais.
+   ========================================================================== */
+
+@media (max-width: 700px) {
+  .mobile-bottom-nav {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 6px 8px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mobile-bottom-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .bottom-tab {
+    flex: 0 0 auto !important;
+    width: max-content;
+    min-width: 96px;
+    max-width: none;
+    min-height: 44px;
+    padding: 8px 12px;
+    font-size: 12px;
+    line-height: 1.2;
+    white-space: nowrap !important;
+    word-break: normal;
+    overflow-wrap: normal;
+    text-align: center;
+    scroll-snap-align: start;
+  }
+
+  .app {
+    padding-bottom: calc(86px + env(safe-area-inset-bottom));
+  }
+}
