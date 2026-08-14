@@ -36,26 +36,32 @@ function assertWebp(buffer) {
   assert.equal(buffer.subarray(8, 12).toString("ascii"), "WEBP");
 }
 
-test("les 16 avatars Gecko utilisent un vrai atlas WebP", () => {
+test("les 16 avatars Gecko utilisent un atlas WebP via un vrai img", () => {
   const source = readFileSync(geckoUrl, "utf8");
   const atlas = readFileSync(geckoAtlasUrl);
 
   assertWebp(atlas);
   assert.match(source, /\/media\/geckos\/gecko-atlas\.webp/);
-  assert.match(source, /columns:\s*8/);
-  assert.match(source, /rows:\s*2/);
+  assert.match(source, /<img/);
+  assert.match(source, /src=\{GECKO_ATLAS\}/);
+  assert.match(source, /columns:\s*GECKO_ATLAS_COLUMNS/);
+  assert.match(source, /rows:\s*GECKO_ATLAS_ROWS/);
   assert.match(source, /variant === "feminine" \? 1 : 0/);
+  assert.doesNotMatch(source, /<image\b/);
   assert.doesNotMatch(source, /GeckoArtwork/);
 });
 
-test("les 20 badges courants utilisent un vrai atlas WebP", () => {
+test("les 20 badges courants utilisent un atlas WebP via un vrai img", () => {
   const source = readFileSync(badgesUrl, "utf8");
   const atlas = readFileSync(badgeAtlasUrl);
 
   assertWebp(atlas);
   assert.match(source, /\/media\/badges\/badge-atlas\.webp/);
+  assert.match(source, /<img/);
+  assert.match(source, /src=\{BADGE_ATLAS\}/);
   assert.match(source, /BADGE_ATLAS_COLUMNS\s*=\s*5/);
   assert.match(source, /BADGE_ATLAS_ROWS\s*=\s*4/);
+  assert.doesNotMatch(source, /<image\b/);
 
   for (const id of CURRENT_BADGE_IDS) {
     assert.match(source, new RegExp(`${id}:\\s*\\d+`), `mapping image manquant pour ${id}`);

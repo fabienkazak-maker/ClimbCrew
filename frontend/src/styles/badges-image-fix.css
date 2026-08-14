@@ -6,12 +6,9 @@
 
 .participant-badge-artwork > img {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 400%;
-  height: 300%;
-  max-width: none;
   display: block;
+  max-width: none;
+  max-height: none;
   pointer-events: none;
   user-select: none;
 }

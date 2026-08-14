@@ -30,30 +30,25 @@ export const BADGE_IMAGE_INDEX = Object.freeze({
   cristal: 19,
 });
 
-function BadgeRealImage({ badge, index }) {
+function BadgeRealImage({ index }) {
   const column = index % BADGE_ATLAS_COLUMNS;
   const row = Math.floor(index / BADGE_ATLAS_COLUMNS);
-  const x = column * BADGE_TILE_SIZE;
-  const y = row * BADGE_TILE_SIZE;
 
   return (
-    <svg
-      viewBox={`${x} ${y} ${BADGE_TILE_SIZE} ${BADGE_TILE_SIZE}`}
-      width="100%"
-      height="100%"
-      role="img"
-      aria-label={`Illustration du badge ${badge.name}`}
-      preserveAspectRatio="xMidYMid meet"
-    >
-      <image
-        href={BADGE_ATLAS}
-        x="0"
-        y="0"
-        width={BADGE_TILE_SIZE * BADGE_ATLAS_COLUMNS}
-        height={BADGE_TILE_SIZE * BADGE_ATLAS_ROWS}
-        preserveAspectRatio="none"
-      />
-    </svg>
+    <img
+      src={BADGE_ATLAS}
+      alt=""
+      aria-hidden="true"
+      loading="eager"
+      decoding="async"
+      draggable="false"
+      style={{
+        width: `${BADGE_ATLAS_COLUMNS * 100}%`,
+        height: `${BADGE_ATLAS_ROWS * 100}%`,
+        left: `${-column * 100}%`,
+        top: `${-row * 100}%`,
+      }}
+    />
   );
 }
 
@@ -62,8 +57,12 @@ function BadgeVisual({ badge }) {
   if (!Number.isInteger(index)) return <BadgeIllustration badge={badge} />;
 
   return (
-    <span className="participant-badge-artwork participant-badge-artwork--real">
-      <BadgeRealImage badge={badge} index={index} />
+    <span
+      className="participant-badge-artwork participant-badge-artwork--real"
+      role="img"
+      aria-label={`Illustration du badge ${badge.name}`}
+    >
+      <BadgeRealImage index={index} />
     </span>
   );
 }

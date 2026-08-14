@@ -6,32 +6,35 @@ const LEVEL_ACCENTS = ["#65a30d", "#4d7c0f", "#0284c7", "#2563eb", "#7c3aed", "#
 const GECKO_ATLAS = "/media/geckos/gecko-atlas.webp";
 const TILE_WIDTH = 260;
 const TILE_HEIGHT = 470;
-const ATLAS_WIDTH = TILE_WIDTH * 8;
-const ATLAS_HEIGHT = TILE_HEIGHT * 2;
+const GECKO_ATLAS_COLUMNS = 8;
+const GECKO_ATLAS_ROWS = 2;
 
 function GeckoRealImage({ level, label, variant }) {
-  const column = Math.max(0, Math.min(7, Number(level || 1) - 1));
+  const column = Math.max(0, Math.min(GECKO_ATLAS_COLUMNS - 1, Number(level || 1) - 1));
   const row = variant === "feminine" ? 1 : 0;
-  const x = column * TILE_WIDTH;
-  const y = row * TILE_HEIGHT;
 
   return (
-    <svg
+    <div
       className="profile-gecko-real-image"
-      viewBox={`${x} ${y} ${TILE_WIDTH} ${TILE_HEIGHT}`}
       role="img"
       aria-label={`Gecko ${label}, niveau ${level} sur 8`}
-      preserveAspectRatio="xMidYMid meet"
     >
-      <image
-        href={GECKO_ATLAS}
-        x="0"
-        y="0"
-        width={ATLAS_WIDTH}
-        height={ATLAS_HEIGHT}
-        preserveAspectRatio="none"
+      <img
+        className="profile-gecko-real-atlas"
+        src={GECKO_ATLAS}
+        alt=""
+        aria-hidden="true"
+        loading="eager"
+        decoding="async"
+        draggable="false"
+        style={{
+          width: `${GECKO_ATLAS_COLUMNS * 100}%`,
+          height: `${GECKO_ATLAS_ROWS * 100}%`,
+          left: `${-column * 100}%`,
+          top: `${-row * 100}%`,
+        }}
       />
-    </svg>
+    </div>
   );
 }
 
@@ -60,6 +63,6 @@ export const GECKO_ATLAS_INFO = Object.freeze({
   src: GECKO_ATLAS,
   tileWidth: TILE_WIDTH,
   tileHeight: TILE_HEIGHT,
-  columns: 8,
-  rows: 2,
+  columns: GECKO_ATLAS_COLUMNS,
+  rows: GECKO_ATLAS_ROWS,
 });
