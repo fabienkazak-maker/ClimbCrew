@@ -5,6 +5,12 @@ import { GRADES, fullName, formatRouteForRealisation, formatPoints, formatDateSh
 import { STYLE_LABELS } from "../lib/ui-config.js";
 import CprEvolutionChart from "../sections/CprEvolutionChart.jsx";
 
+function ratingStars(value) {
+  const rating = Number(value);
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) return "";
+  return `${"★".repeat(rating)}${"☆".repeat(5 - rating)}`;
+}
+
 export default function Progression({
   selectedParticipantProgress,
   setState,
@@ -23,7 +29,6 @@ export default function Progression({
   cprByParticipantId,
   deleteRealisation,
   updateRealisation,
-  routeAggregatesById,
   expandedRealisationIds,
   setRealisationExpanded,
   allProgressRealisationsExpanded,
@@ -146,6 +151,7 @@ export default function Progression({
               const participant = participantsById[realisation.participantId];
               const route = routesById[realisation.voieId];
               const availableSessionsForRealisation = getParticipantSessions(realisation.participantId);
+              const displayedRating = ratingStars(realisation.rating);
               const isIncludedInCpr = Boolean(
                 cprByParticipantId[realisation.participantId]?.timeline.some(
                   (performance) => String(performance.id) === String(realisation.id)
@@ -165,6 +171,7 @@ export default function Progression({
                         {formatDateShortFr(realisation.dateRealisation?.slice(0, 10))}
                         {" · "}
                         {STYLE_LABELS[realisation.styleRealisation] || realisation.styleRealisation}
+                        {displayedRating && <> · <span aria-label={`Évaluation ${Number(realisation.rating)} sur 5`}>{displayedRating}</span></>}
                       </div>
                     </div>
                     <div className="group">
@@ -245,11 +252,12 @@ export default function Progression({
                       </select>
                     </div>
 
-                    <div>
-                      <label>Cotation consensus</label>
-                      <input value={routeAggregatesById[realisation.voieId]?.consensusGrade || "Non calculée"} readOnly />
-                    </div>
-
+                    {displayedRating && (
+                      <div>
+                        <label>Évaluation</label>
+                        <div className="pill" aria-label={`Évaluation ${Number(realisation.rating)} sur 5`}>{displayedRating}</div>
+                      </div>
+                    )}
                   </div>
 
                   <div style={{ marginTop: 8 }}>
