@@ -42,20 +42,47 @@ export function makeRealisationRatingOptional(code) {
   return transformed;
 }
 
-function optionalRealisationRatingPlugin() {
+export function moveThemeSettingsOutOfSidebar(code) {
+  let transformed = code;
+
+  const sidebarThemeBlock = /\s*<div className="sidebar-theme">[\s\S]*?<\/div>\s*(?=\{authUser && \(\s*<div className="sidebar-account">)/;
+  if (!sidebarThemeBlock.test(transformed)) {
+    throw new Error("Le bloc Ambiance du menu latéral est introuvable.");
+  }
+  transformed = transformed.replace(sidebarThemeBlock, "\n");
+
+  const sidebarEmailBlock = /\s*\{authUser && \(\s*<div className="sidebar-account">\s*<div className="small">\{authUser\.email\}<\/div>\s*<\/div>\s*\)\}/;
+  if (!sidebarEmailBlock.test(transformed)) {
+    throw new Error("L'adresse e-mail du menu latéral est introuvable.");
+  }
+  transformed = transformed.replace(sidebarEmailBlock, "");
+
+  const settingsProps = /(<Parametres[\s\S]*?requestEmailChange=\{requestEmailChange\})(\s*\/>)/;
+  if (!settingsProps.test(transformed)) {
+    throw new Error("Les propriétés de la page Paramètres sont introuvables.");
+  }
+  transformed = transformed.replace(
+    settingsProps,
+    `$1\n            themePreference={themePreference}\n            onThemePreferenceChange={handleThemePreferenceChange}\n            themeOptions={THEME_OPTIONS}$2`,
+  );
+
+  return transformed;
+}
+
+function appSourceAdjustmentsPlugin() {
   return {
-    name: "optional-realisation-rating",
+    name: "app-source-adjustments",
     enforce: "pre",
     transform(code, id) {
       const cleanId = String(id || "").split("?")[0];
       if (!cleanId.endsWith("/src/App.jsx")) return null;
-      return makeRealisationRatingOptional(code);
+      return moveThemeSettingsOutOfSidebar(makeRealisationRatingOptional(code));
     },
   };
 }
 
 export default defineConfig({
-  plugins: [optionalRealisationRatingPlugin(), react()],
+  plugins: [appSourceAdjustmentsPlugin(), react()],
   server: {
     host: "0.0.0.0",
     port: 5173,
