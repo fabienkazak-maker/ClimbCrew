@@ -2,27 +2,22 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const componentUrl = new URL("../src/components/ProfileGecko.jsx", import.meta.url);
-const artworkUrl = new URL("../src/components/GeckoArtwork.jsx", import.meta.url);
+const geckoUrl = new URL("../src/components/ProfileGecko.jsx", import.meta.url);
+const badgesUrl = new URL("../src/components/ParticipantBadges.jsx", import.meta.url);
 const cssUrl = new URL("../src/styles/profile-gecko.css", import.meta.url);
 
-test("Mon Profil affiche une illustration Gecko premium sans asset externe", () => {
-  const component = readFileSync(componentUrl, "utf8");
-  const artwork = readFileSync(artworkUrl, "utf8");
+test("avatars et badges peuvent afficher de vrais assets WebP", () => {
+  const gecko = readFileSync(geckoUrl, "utf8");
+  const badges = readFileSync(badgesUrl, "utf8");
   const css = readFileSync(cssUrl, "utf8");
 
-  assert.match(component, /<GeckoArtwork/);
-  assert.doesNotMatch(component, /gecko-evolution\.webp/);
-  assert.doesNotMatch(css, /background-image\s*:/);
-  assert.match(artwork, /<svg/);
-  assert.match(artwork, /linearGradient/);
-  assert.match(artwork, /feDropShadow/);
-  assert.match(artwork, /hasShoes/);
-  assert.match(artwork, /hasHarness/);
-  assert.match(artwork, /hasQuickdraws/);
-  assert.match(artwork, /hasPremiumGear/);
-  assert.match(artwork, /isExpert/);
-  assert.match(artwork, /isMaster/);
-  assert.match(artwork, /isCrystal/);
-  assert.match(artwork, /variant === "feminine"/);
+  assert.match(gecko, /gecko-neutral-4\.webp/);
+  assert.match(gecko, /<img/);
+  assert.match(gecko, /profile-gecko-real-image/);
+  assert.match(css, /object-fit:\s*contain/);
+
+  assert.match(badges, /premiere_tete:\s*"\/media\/badges\/premiere_tete\.webp"/);
+  assert.match(badges, /function BadgeVisual/);
+  assert.match(badges, /<img/);
+  assert.match(badges, /<BadgeIllustration badge=\{badge\} \/>/);
 });
