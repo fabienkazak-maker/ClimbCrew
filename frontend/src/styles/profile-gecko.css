@@ -20,12 +20,19 @@
     rgba(255, 255, 255, 0.42);
 }
 
-.profile-gecko-artwork {
+.profile-gecko-artwork,
+.profile-gecko-real-image {
   display: block;
   width: min(340px, 82vw);
   height: auto;
   max-height: 520px;
+  object-fit: contain;
+  border-radius: 18px;
   filter: drop-shadow(0 16px 24px rgba(15, 23, 42, 0.13));
+}
+
+.profile-gecko-real-image {
+  background: #fff;
 }
 
 @media (max-width: 640px) {
@@ -37,7 +44,8 @@
     padding: 10px;
   }
 
-  .profile-gecko-artwork {
+  .profile-gecko-artwork,
+  .profile-gecko-real-image {
     width: min(292px, 88vw);
     max-height: 460px;
   }
