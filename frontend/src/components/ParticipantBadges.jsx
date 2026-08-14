@@ -2,6 +2,21 @@ import React, { useMemo, useState } from "react";
 import { BADGE_FAMILY_LABELS, calculateParticipantBadges } from "../lib/badges.js";
 import BadgeIllustration from "./BadgeIllustration.jsx";
 
+const REAL_BADGE_IMAGES = {
+  premiere_tete: "/media/badges/premiere_tete.webp",
+};
+
+function BadgeVisual({ badge }) {
+  const realImage = REAL_BADGE_IMAGES[badge.id];
+  if (!realImage) return <BadgeIllustration badge={badge} />;
+
+  return (
+    <span className="participant-badge-artwork" aria-hidden="true">
+      <img src={realImage} alt="" width="280" height="280" loading="eager" decoding="async" />
+    </span>
+  );
+}
+
 function BadgeTile({ badge, pending = false, onOpen }) {
   return (
     <div
@@ -19,7 +34,7 @@ function BadgeTile({ badge, pending = false, onOpen }) {
       }}
       style={{ cursor: "pointer" }}
     >
-      <BadgeIllustration badge={badge} />
+      <BadgeVisual badge={badge} />
       <span className="participant-badge-copy">
         <strong>{badge.name}</strong>
         <span>{pending ? badge.condition : BADGE_FAMILY_LABELS[badge.family]}</span>
@@ -65,7 +80,7 @@ function BadgeDetail({ badge, onClose }) {
       >
         <style>{`.participant-badge-detail-art .participant-badge-artwork{width:220px!important;height:220px!important;max-width:68vw!important;max-height:68vw!important;margin:0 auto;display:block;}`}</style>
         <div className="participant-badge-detail-art" style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
-          <BadgeIllustration badge={badge} />
+          <BadgeVisual badge={badge} />
         </div>
         <h2 id="badge-detail-title" style={{ margin: "4px 0 6px" }}>{badge.name}</h2>
         <div className="small" style={{ marginBottom: 14 }}>{BADGE_FAMILY_LABELS[badge.family]}</div>
