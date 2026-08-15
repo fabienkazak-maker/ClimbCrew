@@ -13,3 +13,52 @@
   .profile-visual-controls { grid-template-columns: 1fr; gap: 7px; }
   .profile-gecko-stage { padding: 8px; }
 }
+
+.profile-avatar-evolution-label {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 2;
+  padding: 4px 8px;
+  border: 1px solid rgba(255,255,255,.72);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--gecko-accent) 86%, #0f172a);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 850;
+  line-height: 1;
+  box-shadow: 0 5px 14px rgba(15,23,42,.2);
+}
+
+.profile-avatar-levels {
+  width: min(300px, 80vw);
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.profile-avatar-levels span {
+  height: 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--gecko-accent) 18%, transparent);
+}
+
+.profile-avatar-levels span.is-reached {
+  background: var(--gecko-accent);
+  box-shadow: 0 2px 7px color-mix(in srgb, var(--gecko-accent) 35%, transparent);
+}
+
+/* L'avatar gagne en présence, en couleur et en lumière à chacun des huit niveaux. */
+.profile-gecko-stage .profile-animal-image {
+  transition: transform .3s ease, filter .3s ease;
+}
+
+.profile-gecko-stage[data-level="1"] .profile-animal-image { transform: scale(.78); filter: saturate(.62) brightness(.92); }
+.profile-gecko-stage[data-level="2"] .profile-animal-image { transform: scale(.82); filter: saturate(.72) brightness(.95); }
+.profile-gecko-stage[data-level="3"] .profile-animal-image { transform: scale(.86); filter: saturate(.82) brightness(.97); }
+.profile-gecko-stage[data-level="4"] .profile-animal-image { transform: scale(.90); filter: saturate(.92); }
+.profile-gecko-stage[data-level="5"] .profile-animal-image { transform: scale(.94); filter: saturate(1.02); }
+.profile-gecko-stage[data-level="6"] .profile-animal-image { transform: scale(.97); filter: saturate(1.08) contrast(1.02); }
+.profile-gecko-stage[data-level="7"] .profile-animal-image { transform: scale(1); filter: saturate(1.14) contrast(1.04) drop-shadow(0 4px 8px color-mix(in srgb, var(--gecko-accent) 24%, transparent)); }
+.profile-gecko-stage[data-level="8"] .profile-animal-image { transform: scale(1.03); filter: saturate(1.2) contrast(1.06) drop-shadow(0 5px 10px color-mix(in srgb, var(--gecko-accent) 38%, transparent)); }
