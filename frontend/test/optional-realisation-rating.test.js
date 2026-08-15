@@ -30,6 +30,6 @@ test("l'évaluation d'une réalisation est facultative et le consensus n'est pas
   );
   assert.match(
     transformed,
-    /disabled=\{!newRealisation\.selectedDay \|\| !newRealisation\.participantId \|\| !newRealisation\.voieId \|\| modalEligibleParticipants\.length === 0\}/,
+    /disabled=\{!newRealisation\.selectedDay \|\| !newRealisation\.participantId \|\| !newRealisation\.voieId \|\| \(newRealisation\.chute && !newRealisation\.assureurId\) \|\| modalEligibleParticipants\.length === 0\}/,
   );
 });

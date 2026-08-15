@@ -20,8 +20,8 @@ export function makeRealisationRatingOptional(code) {
       "<label>Évaluation de la voie (facultative)</label>",
     ],
     [
-      "disabled={!newRealisation.selectedDay || !newRealisation.participantId || !newRealisation.voieId || !newRealisation.rating || modalEligibleParticipants.length === 0}",
-      "disabled={!newRealisation.selectedDay || !newRealisation.participantId || !newRealisation.voieId || modalEligibleParticipants.length === 0}",
+      "disabled={!newRealisation.selectedDay || !newRealisation.participantId || !newRealisation.voieId || !newRealisation.rating || (newRealisation.chute && !newRealisation.assureurId) || modalEligibleParticipants.length === 0}",
+      "disabled={!newRealisation.selectedDay || !newRealisation.participantId || !newRealisation.voieId || (newRealisation.chute && !newRealisation.assureurId) || modalEligibleParticipants.length === 0}",
     ],
   ];
 
