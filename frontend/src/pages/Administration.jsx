@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import Button from "../components/Button.jsx";
 import { fullName } from "../lib/domain.js";
 
@@ -17,7 +17,33 @@ export default function Administration({
   exportAllData,
   importJsonFile,
   importMessage,
+  publishBroadcastMessage,
 }) {
+  const [broadcastDraft, setBroadcastDraft] = useState({ title: "", body: "" });
+  const [broadcastStatus, setBroadcastStatus] = useState("");
+  const [broadcastSending, setBroadcastSending] = useState(false);
+
+  async function sendBroadcastMessage() {
+    const title = broadcastDraft.title.trim();
+    const body = broadcastDraft.body.trim();
+    if (title.length < 3 || body.length < 3) {
+      setBroadcastStatus("Le titre et le message doivent contenir au moins 3 caractères.");
+      return;
+    }
+
+    try {
+      setBroadcastSending(true);
+      setBroadcastStatus("");
+      const result = await publishBroadcastMessage({ title, body });
+      setBroadcastDraft({ title: "", body: "" });
+      setBroadcastStatus(`Message diffusé à ${result.recipientCount || 0} utilisateur${result.recipientCount > 1 ? "s" : ""}.`);
+    } catch (error) {
+      setBroadcastStatus(`Diffusion impossible : ${error.message || error}`);
+    } finally {
+      setBroadcastSending(false);
+    }
+  }
+
   if (!adminUnlocked) {
     return (
       <div className="card">
@@ -36,6 +62,45 @@ export default function Administration({
 
   return (
     <>
+      <div className="card">
+        <div className="card-header">
+          <div>
+            <h2>Diffuser un message</h2>
+            <div className="small">Le message sera présenté une seule fois à chaque utilisateur actif lors de sa prochaine utilisation de l’application.</div>
+          </div>
+        </div>
+        <div className="stack">
+          <div>
+            <label htmlFor="broadcast-title">Titre</label>
+            <input
+              id="broadcast-title"
+              maxLength={120}
+              value={broadcastDraft.title}
+              onChange={(event) => setBroadcastDraft((draft) => ({ ...draft, title: event.target.value }))}
+              placeholder="Ex. Information importante"
+            />
+          </div>
+          <div>
+            <label htmlFor="broadcast-body">Message</label>
+            <textarea
+              id="broadcast-body"
+              rows={5}
+              maxLength={2000}
+              value={broadcastDraft.body}
+              onChange={(event) => setBroadcastDraft((draft) => ({ ...draft, body: event.target.value }))}
+              placeholder="Saisir le message qui sera affiché aux utilisateurs…"
+            />
+            <div className="small">{broadcastDraft.body.length} / 2 000 caractères</div>
+          </div>
+          <div className="group" style={{ justifyContent: "space-between" }}>
+            {broadcastStatus ? <div className="small">{broadcastStatus}</div> : <span />}
+            <Button onClick={sendBroadcastMessage} disabled={broadcastSending}>
+              {broadcastSending ? "Diffusion…" : "Diffuser"}
+            </Button>
+          </div>
+        </div>
+      </div>
+
       <div className="card">
         <div className="card-header"><h2>Ajouter un participant</h2></div>
         <div className="grid four">
