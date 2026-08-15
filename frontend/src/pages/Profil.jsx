@@ -68,9 +68,8 @@ export default function Profil({
         onProfileUpdate={updateMyProfile}
       />
 
-      <div className="card">
-        <div className="card-header"><h3>Mes statistiques</h3></div>
-        <div className="stats-grid">
+      <div className="card profile-stats-card" aria-label="Mes statistiques">
+        <div className="stats-grid profile-stats-grid">
           <div className="stat"><div className="label">Voies réalisées</div><div className="value">{myProfileStats.count}</div></div>
           <div className="stat"><div className="label">Meilleure cotation</div><div className="value">{myProfileStats.bestAll || "-"}</div></div>
           <div className="stat"><div className="label">CPR actuel</div><div className="value">{cpr.currentGrade || "-"}</div></div>
