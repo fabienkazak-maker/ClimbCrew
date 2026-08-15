@@ -1175,3 +1175,27 @@ button:not(.danger):not(.secondary):not(.ghost),
 .progression-realisation-card[open] > div:last-child {
   margin-top: 6px !important;
 }
+
+/* Demandes d'évolution : cartes lisibles et commandes adaptées au mobile. */
+.evolution-page { display: grid; gap: 16px; }
+.evolution-create { display: grid; gap: 8px; }
+.evolution-create .primary-button { justify-self: end; }
+.evolution-list { display: grid; gap: 14px; }
+.evolution-card { display: grid; gap: 12px; }
+.evolution-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.evolution-heading h2, .evolution-comments h3 { margin: 0; }
+.evolution-score { min-width: 48px; padding: 8px; border-radius: 12px; text-align: center; font-size: 1.25rem; font-weight: 800; background: var(--accent-soft, rgba(41, 121, 255, .14)); }
+.evolution-description, .evolution-comment p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.evolution-votes { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.vote-button { min-height: 40px; border: 1px solid currentColor; border-radius: 999px; background: transparent; padding: 7px 14px; }
+.vote-button.positive { color: #16743b; }
+.vote-button.negative { color: #b02727; }
+.vote-button.selected { color: white; }
+.vote-button.positive.selected { background: #16743b; }
+.vote-button.negative.selected { background: #b02727; }
+.opinion-count { font-weight: 700; }
+.evolution-comments { display: grid; gap: 10px; border-top: 1px solid var(--border-color, rgba(127,127,127,.25)); padding-top: 12px; }
+.evolution-comment { padding: 10px 12px; border-radius: 10px; background: var(--surface-muted, rgba(127,127,127,.09)); }
+.evolution-comment p { margin: 5px 0 0; }
+.comment-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+@media (max-width: 620px) { .comment-form { grid-template-columns: 1fr; } .comment-form button { justify-self: end; } }

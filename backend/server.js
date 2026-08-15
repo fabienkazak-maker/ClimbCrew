@@ -493,6 +493,38 @@ async function ensureSchema() {
 
   await pool.query(`alter table users add column if not exists theme_preference text not null default 'auto'`);
 
+  await pool.query(`
+    create table if not exists evolution_requests (
+      id bigserial primary key,
+      author_id bigint not null references users(id) on delete cascade,
+      title text not null check (char_length(title) between 3 and 140),
+      description text not null check (char_length(description) between 3 and 4000),
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    );
+
+    create table if not exists evolution_comments (
+      id bigserial primary key,
+      request_id bigint not null references evolution_requests(id) on delete cascade,
+      author_id bigint not null references users(id) on delete cascade,
+      body text not null check (char_length(body) between 1 and 2000),
+      created_at timestamptz not null default now()
+    );
+
+    create table if not exists evolution_votes (
+      request_id bigint not null references evolution_requests(id) on delete cascade,
+      user_id bigint not null references users(id) on delete cascade,
+      value smallint not null check (value in (-1, 1)),
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now(),
+      primary key (request_id, user_id)
+    );
+
+    create index if not exists idx_evolution_requests_created on evolution_requests(created_at desc);
+    create index if not exists idx_evolution_comments_request on evolution_comments(request_id, created_at);
+    create index if not exists idx_evolution_votes_request on evolution_votes(request_id);
+  `);
+
   // Les migrations de données restent séparées du démarrage de l'API.
   // Une donnée historique inattendue ne doit jamais empêcher le serveur de répondre.
 }
@@ -618,6 +650,104 @@ function requireAdmin(req, res, next) {
   }
   next();
 }
+
+function cleanEvolutionText(value, maxLength) {
+  return String(value || "").trim().slice(0, maxLength);
+}
+
+async function evolutionRequestsForUser(userId) {
+  const result = await pool.query(
+    `select er.id, er.title, er.description, er.created_at as "createdAt",
+            concat(u.prenom, ' ', u.nom) as "authorName",
+            coalesce(sum(ev.value), 0)::integer as score,
+            count(ev.user_id)::integer as "opinionCount",
+            coalesce(max(case when ev.user_id = $1 then ev.value end), 0)::integer as "myVote"
+       from evolution_requests er
+       join users u on u.id = er.author_id
+       left join evolution_votes ev on ev.request_id = er.id
+      group by er.id, u.prenom, u.nom
+      order by score desc, er.created_at desc`,
+    [userId],
+  );
+  return result.rows;
+}
+
+app.get("/evolution-requests", requireAuth, async (req, res) => {
+  try {
+    const requests = await evolutionRequestsForUser(Number(req.auth.user.id));
+    const comments = await pool.query(
+      `select ec.id, ec.request_id as "requestId", ec.body, ec.created_at as "createdAt",
+              concat(u.prenom, ' ', u.nom) as "authorName"
+         from evolution_comments ec join users u on u.id = ec.author_id
+        order by ec.created_at asc`,
+    );
+    const byRequest = new Map();
+    comments.rows.forEach((comment) => {
+      const list = byRequest.get(String(comment.requestId)) || [];
+      list.push(comment);
+      byRequest.set(String(comment.requestId), list);
+    });
+    res.json(requests.map((request) => ({ ...request, comments: byRequest.get(String(request.id)) || [] })));
+  } catch (error) {
+    res.status(500).json({ error: error.message || "Chargement des demandes impossible" });
+  }
+});
+
+app.post("/evolution-requests", requireAuth, async (req, res) => {
+  try {
+    const title = cleanEvolutionText(req.body?.title, 140);
+    const description = cleanEvolutionText(req.body?.description, 4000);
+    if (title.length < 3 || description.length < 3) {
+      return res.status(400).json({ error: "Le titre et la description doivent contenir au moins 3 caractères." });
+    }
+    const result = await pool.query(
+      `insert into evolution_requests (author_id, title, description) values ($1, $2, $3) returning id`,
+      [Number(req.auth.user.id), title, description],
+    );
+    res.status(201).json({ ok: true, id: result.rows[0].id });
+  } catch (error) {
+    res.status(500).json({ error: error.message || "Création de la demande impossible" });
+  }
+});
+
+app.put("/evolution-requests/:id/vote", requireAuth, async (req, res) => {
+  try {
+    const requestId = Number(req.params.id);
+    const value = Number(req.body?.value);
+    if (!Number.isInteger(requestId) || ![-1, 0, 1].includes(value)) {
+      return res.status(400).json({ error: "Vote invalide" });
+    }
+    if (value === 0) {
+      await pool.query(`delete from evolution_votes where request_id = $1 and user_id = $2`, [requestId, Number(req.auth.user.id)]);
+    } else {
+      await pool.query(
+        `insert into evolution_votes (request_id, user_id, value) values ($1, $2, $3)
+         on conflict (request_id, user_id) do update set value = excluded.value, updated_at = now()`,
+        [requestId, Number(req.auth.user.id), value],
+      );
+    }
+    res.json({ ok: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message || "Vote impossible" });
+  }
+});
+
+app.post("/evolution-requests/:id/comments", requireAuth, async (req, res) => {
+  try {
+    const requestId = Number(req.params.id);
+    const body = cleanEvolutionText(req.body?.body, 2000);
+    if (!Number.isInteger(requestId) || !body) return res.status(400).json({ error: "Commentaire invalide" });
+    const exists = await pool.query(`select 1 from evolution_requests where id = $1`, [requestId]);
+    if (!exists.rowCount) return res.status(404).json({ error: "Demande introuvable" });
+    await pool.query(
+      `insert into evolution_comments (request_id, author_id, body) values ($1, $2, $3)`,
+      [requestId, Number(req.auth.user.id), body],
+    );
+    res.status(201).json({ ok: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message || "Ajout du commentaire impossible" });
+  }
+});
 
 
 app.get("/realisations", requireAuth, async (_req, res) => {

@@ -145,3 +145,34 @@ create table if not exists realisations (
 create index if not exists idx_realisations_participant on realisations(participant_id);
 create index if not exists idx_realisations_session on realisations(session_id);
 create index if not exists idx_realisations_voie on realisations(voie_id);
+
+-- Demandes d'évolution proposées et discutées par les membres.
+create table if not exists evolution_requests (
+  id bigserial primary key,
+  author_id bigint not null references users(id) on delete cascade,
+  title text not null check (char_length(title) between 3 and 140),
+  description text not null check (char_length(description) between 3 and 4000),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists evolution_comments (
+  id bigserial primary key,
+  request_id bigint not null references evolution_requests(id) on delete cascade,
+  author_id bigint not null references users(id) on delete cascade,
+  body text not null check (char_length(body) between 1 and 2000),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists evolution_votes (
+  request_id bigint not null references evolution_requests(id) on delete cascade,
+  user_id bigint not null references users(id) on delete cascade,
+  value smallint not null check (value in (-1, 1)),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (request_id, user_id)
+);
+
+create index if not exists idx_evolution_requests_created on evolution_requests(created_at desc);
+create index if not exists idx_evolution_comments_request on evolution_comments(request_id, created_at);
+create index if not exists idx_evolution_votes_request on evolution_votes(request_id);
