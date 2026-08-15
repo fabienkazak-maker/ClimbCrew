@@ -12,7 +12,6 @@ import GestionComptes from "./pages/GestionComptes.jsx";
 import Logs from "./pages/Logs.jsx";
 import Statistiques from "./pages/Statistiques.jsx";
 import WallOfFame from "./pages/WallOfFame.jsx";
-import DemandesEvolution from "./pages/DemandesEvolution.jsx";
 
 import { THEME_OPTIONS, THEME_PREFERENCE_KEY, resolveThemePreference } from "./lib/theme.js";
 import { ROPE_NUMBERS, ROUTE_COLORS, STYLE_LABELS, ROUTE_TAGS, THECRAG_STYLE_BY_CLIMBCREW, TABS } from "./lib/ui-config.js";
@@ -2458,12 +2457,8 @@ async function handleThemePreferenceChange(nextTheme) {
           />
         )}
 
-        {tab === "evolutions" && (
-          <DemandesEvolution USE_API={USE_API} authToken={authToken} authUser={authUser} />
-        )}
-
         {tab === "faq" && (
-          <FaqSection APP_VERSION={APP_VERSION} canAccessAdminTabs={canAccessAdminTabs} />
+          <FaqSection APP_VERSION={APP_VERSION} canAccessAdminTabs={canAccessAdminTabs} USE_API={USE_API} authToken={authToken} authUser={authUser} />
         )}
 
 
