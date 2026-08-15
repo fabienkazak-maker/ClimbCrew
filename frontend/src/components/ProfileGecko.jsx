@@ -10,7 +10,8 @@ import "../styles/profile-gecko.css";
 
 const LEVEL_ACCENTS = ["#65a30d", "#4d7c0f", "#0284c7", "#2563eb", "#7c3aed", "#9333ea", "#d97706", "#0ea5e9"];
 const AVATAR_STORAGE_PREFIX = "climbcrew_profile_animal_";
-const NEW_AVATAR_CREST_ATLAS = "/media/avatars/avatar-crest-atlas-new.png";
+// Le suffixe de version évite qu’un ancien atlas, de dimensions différentes, reste en cache sur mobile.
+const NEW_AVATAR_CREST_ATLAS = "/media/avatars/avatar-crest-atlas-new.png?v=20260815-2";
 const EXISTING_AVATAR_CREST_ATLAS = "/media/avatars/avatar-crest-atlas-existing.png";
 
 export const ANIMAL_OPTIONS = Object.freeze([
