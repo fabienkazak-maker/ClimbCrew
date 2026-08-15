@@ -57,7 +57,7 @@ export function moveThemeSettingsOutOfSidebar(code) {
   }
   transformed = transformed.replace(sidebarEmailBlock, "");
 
-  const settingsProps = /(<Parametres[\s\S]*?requestEmailChange=\{requestEmailChange\})(\s*\/>)/;
+  const settingsProps = /(<Parametres\b[\s\S]*?)(\s*\/>)/;
   if (!settingsProps.test(transformed)) {
     throw new Error("Les propriétés de la page Paramètres sont introuvables.");
   }
