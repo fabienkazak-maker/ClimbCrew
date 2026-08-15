@@ -141,6 +141,8 @@ function App() {
   const [adminAuthUsers, setAdminAuthUsers] = useState([]);
   const [adminAccessLogs, setAdminAccessLogs] = useState([]);
   const [generatedResetToken, setGeneratedResetToken] = useState("");
+  const [pendingBroadcastMessages, setPendingBroadcastMessages] = useState([]);
+  const [broadcastMessageError, setBroadcastMessageError] = useState("");
   const [themePreference, setThemePreference] = useState(() => localStorage.getItem(THEME_PREFERENCE_KEY) || "auto");
 
   const [newParticipant, setNewParticipant] = useState({
@@ -307,6 +309,24 @@ function App() {
       isMounted = false;
     };
   }, [authToken]);
+
+  useEffect(() => {
+    if (!USE_API || !authUser?.id) {
+      setPendingBroadcastMessages([]);
+      return;
+    }
+
+    let isMounted = true;
+    authApiFetch("/auth/broadcast-messages/pending", authToken)
+      .then((data) => {
+        if (isMounted) setPendingBroadcastMessages(Array.isArray(data.messages) ? data.messages : []);
+      })
+      .catch((error) => {
+        if (isMounted) setBroadcastMessageError(String(error.message || error));
+      });
+
+    return () => { isMounted = false; };
+  }, [authUser?.id, authToken]);
 
   const canAccessAdminTabs = !USE_API || authUser?.role === "admin";
   const canManageAccountsAndLogs = USE_API && authUser?.role === "admin";
@@ -1409,6 +1429,30 @@ async function handleThemePreferenceChange(nextTheme) {
       setGeneratedResetToken("");
       setAdminAuthUsers([]);
       setAdminAccessLogs([]);
+      setPendingBroadcastMessages([]);
+      setBroadcastMessageError("");
+    }
+  }
+
+  async function publishBroadcastMessage({ title, body }) {
+    if (!USE_API || authUser?.role !== "admin") {
+      throw new Error("Connexion administrateur requise.");
+    }
+    return authApiFetch("/admin/broadcast-messages", authToken, {
+      method: "POST",
+      body: JSON.stringify({ title, body }),
+    });
+  }
+
+  async function acknowledgeBroadcastMessage(messageId) {
+    try {
+      setBroadcastMessageError("");
+      await authApiFetch(`/auth/broadcast-messages/${messageId}/read`, authToken, { method: "POST" });
+      setPendingBroadcastMessages((messages) => messages.filter(
+        (message) => String(message.id) !== String(messageId)
+      ));
+    } catch (error) {
+      setBroadcastMessageError(String(error.message || error));
     }
   }
 
@@ -2018,6 +2062,33 @@ async function handleThemePreferenceChange(nextTheme) {
         )}
       </aside>
 
+      {pendingBroadcastMessages.length > 0 && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="broadcast-message-title">
+          <div className="modal-panel" style={{ maxWidth: 560 }}>
+            <div className="card-header">
+              <div>
+                <div className="small">Message du club</div>
+                <h2 id="broadcast-message-title" className="modal-title">
+                  {pendingBroadcastMessages[0].title}
+                </h2>
+              </div>
+            </div>
+            <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.55, margin: "18px 0" }}>
+              {pendingBroadcastMessages[0].body}
+            </div>
+            {pendingBroadcastMessages.length > 1 && (
+              <div className="small" style={{ marginBottom: 12 }}>
+                {pendingBroadcastMessages.length - 1} autre{pendingBroadcastMessages.length > 2 ? "s" : ""} message{pendingBroadcastMessages.length > 2 ? "s" : ""} à lire ensuite.
+              </div>
+            )}
+            {broadcastMessageError && <div className="error" style={{ marginBottom: 12 }}>{broadcastMessageError}</div>}
+            <div className="group" style={{ justifyContent: "flex-end" }}>
+              <Button onClick={() => acknowledgeBroadcastMessage(pendingBroadcastMessages[0].id)}>J’ai lu</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {realisationModalRouteId !== null && (
         <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="Enregistrer une voie réalisée">
           <div className="modal-panel">
@@ -2328,6 +2399,7 @@ async function handleThemePreferenceChange(nextTheme) {
             exportAllData={exportAllData}
             importJsonFile={importJsonFile}
             importMessage={importMessage}
+            publishBroadcastMessage={publishBroadcastMessage}
           />
         )}
 
