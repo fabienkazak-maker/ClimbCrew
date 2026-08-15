@@ -126,7 +126,7 @@ function BadgeDetail({ badge, onClose }) {
           textAlign: "center",
         }}
       >
-        <style>{`.participant-badge-detail-art .participant-badge-artwork{width:220px!important;height:220px!important;max-width:68vw!important;max-height:68vw!important;margin:0 auto;display:block;}`}</style>
+        <style>{`.participant-badge-detail-art .participant-badge-artwork{width:min(160px,46vw)!important;height:min(160px,46vw)!important;max-width:36vh!important;max-height:36vh!important;aspect-ratio:1 / 1!important;margin:0 auto;display:block;flex:0 0 auto!important;background-size:500% 400%;}`}</style>
         <div className="participant-badge-detail-art" style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
           <BadgeVisual badge={badge} />
         </div>
