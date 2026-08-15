@@ -6,6 +6,7 @@ const BADGE_GROUPS = [
   "Blasons — niveau : Cap 5c, Club 6a, Club 6b, Club 6c et Club 7a, dès qu'une voie de la cotation correspondante ou supérieure est réussie.",
   "Écussons — exploration : Explorateur à 5 cordes différentes ; Tour de salle à 15 cordes ; Polyvalent avec au moins 6 caractéristiques de voies différentes.",
   "Rubans — régularité : Habitué après 5 séances passées ; Fidèle après 25 séances passées.",
+  "Badges de créneaux — jours d’inscription : Grimpeur du mardi et Grimpeur du jeudi après 3 séances du midi correspondantes ; Lève-tôt après 3 séances du matin ; Oiseau de nuit après 3 séances du soir.",
   "Rosettes — contribution : Œil d'ouvreur après une cotation proposée sur 10 voies différentes ; Critique de voies après 20 voies différentes notées.",
   "Cristaux — prestige : Collectionneur à 50 voies différentes réussies ; Centurion à 100 réalisations réussies ; Cristal à 100 voies différentes, 25 séances, au moins une réussite en tête et 6 caractéristiques différentes.",
 ];
