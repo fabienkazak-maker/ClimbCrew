@@ -57,7 +57,7 @@ export default function Profil({
           <span className="pill">Passeport : {myParticipant.passport || "-"}</span>
           <span className="pill">Cotisation : {myParticipant.cotisation ? "Oui" : "Non"}</span>
           <span className="pill">Licence FFME : {myParticipant.ffme ? "Oui" : "Non"}</span>
-          {myParticipant.sexe && <span className="pill">Sexe : {String(myParticipant.sexe).toUpperCase()}</span>}
+          <span className="pill">Sexe : {myParticipant.sexe ? String(myParticipant.sexe).toUpperCase() : "Non précisé"}</span>
         </div>
       </div>
 
