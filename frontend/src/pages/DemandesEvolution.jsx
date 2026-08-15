@@ -5,12 +5,21 @@ function formatDate(value) {
   return new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
 
-export default function DemandesEvolution({ USE_API, authToken }) {
+const STATUS_OPTIONS = [
+  { value: "a_voir", label: "À voir" },
+  { value: "approuve", label: "Approuvé" },
+  { value: "integre", label: "Intégré" },
+  { value: "trop_creatif", label: "Trop créatif" },
+];
+
+export default function DemandesEvolution({ USE_API, authToken, authUser }) {
   const [requests, setRequests] = useState([]);
   const [draft, setDraft] = useState({ title: "", description: "" });
   const [commentDrafts, setCommentDrafts] = useState({});
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [sortBy, setSortBy] = useState("date");
+  const [sortDirection, setSortDirection] = useState("desc");
 
   async function loadRequests() {
     if (!USE_API) {
@@ -74,6 +83,22 @@ export default function DemandesEvolution({ USE_API, authToken }) {
     await loadRequests();
   }
 
+  async function updateStatus(requestId, status) {
+    await authApiFetch(`/admin/evolution-requests/${requestId}/status`, authToken, {
+      method: "PUT",
+      body: JSON.stringify({ status }),
+    });
+    await loadRequests();
+  }
+
+  const sortedRequests = [...requests].sort((left, right) => {
+    let comparison = 0;
+    if (sortBy === "author") comparison = left.authorName.localeCompare(right.authorName, "fr", { sensitivity: "base" });
+    if (sortBy === "date") comparison = new Date(left.createdAt) - new Date(right.createdAt);
+    if (sortBy === "opinions") comparison = left.opinionCount - right.opinionCount;
+    return sortDirection === "asc" ? comparison : -comparison;
+  });
+
   if (!USE_API) return <div className="card"><p>Les demandes d’évolution nécessitent une connexion au serveur.</p></div>;
 
   return (
@@ -87,23 +112,49 @@ export default function DemandesEvolution({ USE_API, authToken }) {
         <button className="primary-button" type="submit">Ajouter la demande</button>
       </form>
 
+      <div className="card evolution-toolbar">
+        <label htmlFor="evolution-sort">Trier par</label>
+        <select id="evolution-sort" value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
+          <option value="date">Date</option>
+          <option value="author">Émetteur</option>
+          <option value="opinions">Nombre d’avis</option>
+        </select>
+        <button type="button" className="secondary" onClick={() => setSortDirection((value) => value === "asc" ? "desc" : "asc")}>
+          {sortDirection === "asc" ? "Croissant ↑" : "Décroissant ↓"}
+        </button>
+      </div>
+
       {error && <div className="error-box" role="alert">{error}</div>}
       {loading && <div className="muted-box">Chargement…</div>}
       {!loading && requests.length === 0 && <div className="muted-box">Aucune demande pour le moment.</div>}
 
       <div className="evolution-list">
-        {requests.map((request) => (
-          <article className="card evolution-card" key={request.id}>
-            <div className="evolution-heading">
-              <div><h2>{request.title}</h2><p className="small">{request.authorName} · {formatDate(request.createdAt)}</p></div>
-              <div className="evolution-score" aria-label={`Score ${request.score}`}>{request.score > 0 ? "+" : ""}{request.score}</div>
-            </div>
+        {sortedRequests.map((request) => (
+          <details className="card evolution-card" key={request.id}>
+            <summary className="evolution-summary">
+              <span className={`evolution-status status-${request.status}`}>{STATUS_OPTIONS.find((item) => item.value === request.status)?.label || "À voir"}</span>
+              <span className="evolution-summary-title">{request.title}</span>
+              <span className="evolution-summary-meta">{request.authorName} · {formatDate(request.createdAt)}</span>
+              <span className="opinion-count">{request.opinionCount} avis</span>
+              <span className="evolution-score" aria-label={`Score ${request.score}`}>{request.score > 0 ? "+" : ""}{request.score}</span>
+            </summary>
+            <div className="evolution-content">
             <p className="evolution-description">{request.description}</p>
             <div className="evolution-votes">
               <button type="button" className={request.myVote === 1 ? "vote-button selected positive" : "vote-button positive"} onClick={() => vote(request)} aria-pressed={request.myVote === 1}>＋ Pour</button>
               <button type="button" className={request.myVote === -1 ? "vote-button selected negative" : "vote-button negative"} onClick={() => voteDown(request)} aria-pressed={request.myVote === -1}>− Contre</button>
               <span className="opinion-count">{request.opinionCount} {request.opinionCount > 1 ? "avis" : "avis"}</span>
             </div>
+
+            {authUser?.role === "admin" && (
+              <div className="evolution-admin-status" aria-label="État administratif">
+                {STATUS_OPTIONS.map((option) => (
+                  <button key={option.value} type="button" className={request.status === option.value ? `status-button active status-${option.value}` : "status-button"} onClick={() => updateStatus(request.id, option.value)}>
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div className="evolution-comments">
               <h3>Commentaires ({request.comments.length})</h3>
@@ -118,7 +169,8 @@ export default function DemandesEvolution({ USE_API, authToken }) {
                 <button type="submit">Commenter</button>
               </form>
             </div>
-          </article>
+            </div>
+          </details>
         ))}
       </div>
     </section>

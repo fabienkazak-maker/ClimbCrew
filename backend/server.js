@@ -499,6 +499,7 @@ async function ensureSchema() {
       author_id bigint not null references users(id) on delete cascade,
       title text not null check (char_length(title) between 3 and 140),
       description text not null check (char_length(description) between 3 and 4000),
+      status text not null default 'a_voir' check (status in ('a_voir', 'approuve', 'integre', 'trop_creatif')),
       created_at timestamptz not null default now(),
       updated_at timestamptz not null default now()
     );
@@ -524,6 +525,8 @@ async function ensureSchema() {
     create index if not exists idx_evolution_comments_request on evolution_comments(request_id, created_at);
     create index if not exists idx_evolution_votes_request on evolution_votes(request_id);
   `);
+
+  await pool.query(`alter table evolution_requests add column if not exists status text not null default 'a_voir'`);
 
   // Les migrations de données restent séparées du démarrage de l'API.
   // Une donnée historique inattendue ne doit jamais empêcher le serveur de répondre.
@@ -657,7 +660,7 @@ function cleanEvolutionText(value, maxLength) {
 
 async function evolutionRequestsForUser(userId) {
   const result = await pool.query(
-    `select er.id, er.title, er.description, er.created_at as "createdAt",
+    `select er.id, er.title, er.description, er.status, er.created_at as "createdAt",
             concat(u.prenom, ' ', u.nom) as "authorName",
             coalesce(sum(ev.value), 0)::integer as score,
             count(ev.user_id)::integer as "opinionCount",
@@ -746,6 +749,25 @@ app.post("/evolution-requests/:id/comments", requireAuth, async (req, res) => {
     res.status(201).json({ ok: true });
   } catch (error) {
     res.status(500).json({ error: error.message || "Ajout du commentaire impossible" });
+  }
+});
+
+app.put("/admin/evolution-requests/:id/status", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const requestId = Number(req.params.id);
+    const status = String(req.body?.status || "");
+    const allowedStatuses = new Set(["a_voir", "approuve", "integre", "trop_creatif"]);
+    if (!Number.isInteger(requestId) || !allowedStatuses.has(status)) {
+      return res.status(400).json({ error: "État invalide" });
+    }
+    const result = await pool.query(
+      `update evolution_requests set status = $2, updated_at = now() where id = $1 returning id`,
+      [requestId, status],
+    );
+    if (!result.rowCount) return res.status(404).json({ error: "Demande introuvable" });
+    res.json({ ok: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message || "Mise à jour de l’état impossible" });
   }
 });
 

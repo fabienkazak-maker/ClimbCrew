@@ -152,9 +152,12 @@ create table if not exists evolution_requests (
   author_id bigint not null references users(id) on delete cascade,
   title text not null check (char_length(title) between 3 and 140),
   description text not null check (char_length(description) between 3 and 4000),
+  status text not null default 'a_voir' check (status in ('a_voir', 'approuve', 'integre', 'trop_creatif')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table evolution_requests add column if not exists status text not null default 'a_voir';
 
 create table if not exists evolution_comments (
   id bigserial primary key,
