@@ -5,6 +5,7 @@ export const BADGE_FAMILY_LABELS = {
   achievement: "Accomplissement",
   level: "Niveau",
   consistency: "Régularité",
+  schedule: "Jours d’inscription",
   exploration: "Exploration",
   contribution: "Contribution",
   prestige: "Prestige",
@@ -26,6 +27,10 @@ export const BADGE_CATALOG = [
   { id: "polyvalent", name: "Polyvalent", family: "exploration", shape: "patch", symbol: "◇", condition: "Réussir des voies couvrant au moins 6 caractéristiques différentes.", qualifies: (m) => m.distinctTagCount >= 6 },
   { id: "habitue", name: "Habitué", family: "consistency", shape: "ribbon", symbol: "5×", condition: "Avoir participé à 5 séances passées.", qualifies: (m) => m.pastSessionCount >= 5 },
   { id: "fidele", name: "Fidèle", family: "consistency", shape: "ribbon", symbol: "25×", condition: "Avoir participé à 25 séances passées.", qualifies: (m) => m.pastSessionCount >= 25 },
+  { id: "mardi_midi", name: "Grimpeur du mardi", family: "schedule", shape: "ribbon", symbol: "Ma", condition: "Participer à 3 séances du mardi midi.", qualifies: (m) => m.tuesdayLunchCount >= 3 },
+  { id: "jeudi_midi", name: "Grimpeur du jeudi", family: "schedule", shape: "ribbon", symbol: "Je", condition: "Participer à 3 séances du jeudi midi.", qualifies: (m) => m.thursdayLunchCount >= 3 },
+  { id: "matin", name: "Lève-tôt", family: "schedule", shape: "ribbon", symbol: "AM", condition: "Participer à 3 séances du matin.", qualifies: (m) => m.morningSessionCount >= 3 },
+  { id: "soir", name: "Oiseau de nuit", family: "schedule", shape: "ribbon", symbol: "PM", condition: "Participer à 3 séances du soir.", qualifies: (m) => m.eveningSessionCount >= 3 },
   { id: "oeil_ouvreur", name: "Œil d'ouvreur", family: "contribution", shape: "rosette", symbol: "≋", condition: "Proposer une cotation sur 10 voies différentes.", qualifies: (m) => m.proposedGradeRouteCount >= 10 },
   { id: "critique_voies", name: "Critique de voies", family: "contribution", shape: "rosette", symbol: "★", condition: "Noter 20 voies différentes.", qualifies: (m) => m.ratedRouteCount >= 20 },
   { id: "collectionneur", name: "Collectionneur", family: "prestige", shape: "crystal", symbol: "50", condition: "Réussir 50 voies différentes.", qualifies: (m) => m.distinctSuccessfulRouteCount >= 50 },
@@ -90,14 +95,22 @@ export function calculateParticipantBadgeMetrics({ realisations = [], routesById
   });
 
   const today = localIsoDay(now);
+  const pastSessionList = sessions.filter((session) => {
+    const date = String(session?.date || "").slice(0, 10);
+    return Boolean(date) && date <= today;
+  });
   const pastSessions = new Set(
-    sessions
-      .filter((session) => {
-        const date = String(session?.date || "").slice(0, 10);
-        return Boolean(date) && date <= today;
-      })
-      .map((session) => String(session?.id || `${session?.date || ""}-${session?.slot || ""}`)),
+    pastSessionList.map((session) => String(session?.id || `${session?.date || ""}-${session?.slot || ""}`)),
   );
+  const sessionWeekday = (session) => {
+    const date = String(session?.date || "").slice(0, 10);
+    const parsed = new Date(`${date}T12:00:00`);
+    return Number.isFinite(parsed.getTime()) ? parsed.getDay() : -1;
+  };
+  const tuesdayLunchCount = pastSessionList.filter((session) => sessionWeekday(session) === 2 && session?.slot === "midi").length;
+  const thursdayLunchCount = pastSessionList.filter((session) => sessionWeekday(session) === 4 && session?.slot === "midi").length;
+  const morningSessionCount = pastSessionList.filter((session) => session?.slot === "matin").length;
+  const eveningSessionCount = pastSessionList.filter((session) => session?.slot === "soir").length;
 
   const proposedGradeRoutes = new Set(realisations.filter((r) => String(r.cotationProposee || "").trim()).map((r) => String(r.voieId || "")).filter(Boolean));
   const ratedRoutes = new Set(realisations.filter((r) => Number(r.rating || 0) > 0).map((r) => String(r.voieId || "")).filter(Boolean));
@@ -118,6 +131,10 @@ export function calculateParticipantBadgeMetrics({ realisations = [], routesById
     bestGradeIndex,
     bestGrade: bestGradeIndex >= 0 ? GRADES[bestGradeIndex] : null,
     pastSessionCount: pastSessions.size,
+    tuesdayLunchCount,
+    thursdayLunchCount,
+    morningSessionCount,
+    eveningSessionCount,
     proposedGradeRouteCount: proposedGradeRoutes.size,
     ratedRouteCount: ratedRoutes.size,
   };
