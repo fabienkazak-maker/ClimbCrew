@@ -17,18 +17,19 @@ const NEW_AVATARS = [
 ];
 const CRESTS = ["blason-cristal", "blason-sommet", "blason-corde", "blason-mousqueton", "blason-prise", "blason-etoile"];
 
-test("avatars et blasons utilisent des fichiers indépendants", () => {
+test("les avatars utilisent des fichiers indépendants et le blason est absent du profil", () => {
   const source = readFileSync(componentUrl, "utf8");
 
   EXISTING_AVATARS.forEach((name) => assert.ok(existsSync(new URL(`${name}.webp`, splitRoot)), name));
-  [...NEW_AVATARS, ...CRESTS].forEach((name) => {
+  NEW_AVATARS.forEach((name) => {
     const url = new URL(`${name}.svg`, profileRoot);
     assert.ok(existsSync(url), name);
     assert.match(readFileSync(url, "utf8"), /<svg/);
     assert.ok(source.includes(name), `mapping manquant pour ${name}`);
   });
+  CRESTS.forEach((name) => assert.ok(existsSync(new URL(`${name}.svg`, profileRoot)), name));
 
   assert.match(source, /AVATAR_OPTIONS/);
-  assert.match(source, /CREST_OPTIONS/);
+  assert.doesNotMatch(source, /CREST_OPTIONS|Blason|crestId|profile-avatar-crest/);
   assert.doesNotMatch(source, /gecko-crest|animal\.crest|avatarIndex|crestIndex/);
 });
