@@ -71,6 +71,13 @@ export default function FaqSection({ APP_VERSION, canAccessAdminTabs, USE_API, a
       </details>
 
       <details className="faq-item">
+        <summary><strong>Comment lire le Kiviat des caractéristiques ?</strong></summary>
+        <div className="small">
+          Le Kiviat présente un indice d’aisance de 0 à 100 % pour chaque caractéristique de voie. La valeur de 50 % correspond à une zone neutre : au-dessus, la caractéristique ressort comme plus maîtrisée ; en dessous, elle constitue davantage un axe de progression. Le score se stabilise progressivement avec le nombre de réalisations enregistrées, indiqué à côté de chaque axe. Il reflète uniquement les données saisies dans l’application et non une évaluation générale du grimpeur.
+        </div>
+      </details>
+
+      <details className="faq-item">
         <summary><strong>Que signifie CPR ?</strong></summary>
         <div className="small">
           Le CPR représente le niveau récent du grimpeur. Le calcul examine les réalisations des 90 derniers jours et convertit chaque cotation en indice, de 4a à 7b. Cet indice est multiplié par le coefficient du style : à vue 1,25 ; flash 1,20 ; en tête 1,00 ; moulinette 0,85 ; travaillée 0,75 ; avec repos 0,60 ; projet 0,30 ; non enchaînée 0,20 ; essai ou test 0,10. Les performances sont ensuite classées par indice pondéré et seules les 10 meilleures sont conservées. La moyenne de leurs indices pondérés est arrondie à l'indice de cotation le plus proche, puis reconvertie en cotation. S'il existe moins de 10 réalisations valides, le calcul utilise uniquement celles disponibles. Une voie facile d'échauffement ne réduit donc pas le CPR si elle ne figure pas parmi les 10 meilleures performances récentes.
