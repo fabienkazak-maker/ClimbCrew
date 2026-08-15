@@ -89,16 +89,21 @@ export default function ProfileGecko({ grade, sexe, participant, onProfileUpdate
 
         {showEvolutionHistory && (
           <div id="profile-avatar-evolution-history" className="profile-avatar-evolution-history">
-            <strong>Évolutions atteintes</strong>
-            <div className="profile-avatar-evolution-list">
-              {EVOLUTION_LABELS.slice(0, level).map((evolutionLabel, index) => (
-                <span key={evolutionLabel} className={index === level - 1 ? "is-current" : ""}>
-                  <b>{index + 1}</b>
-                  <span>{evolutionLabel}</span>
-                  {index === level - 1 && <small>Actuel</small>}
-                </span>
-              ))}
-            </div>
+            <strong>Images des évolutions précédentes</strong>
+            {level > 1 ? (
+              <div className="profile-avatar-evolution-gallery">
+                {EVOLUTION_LABELS.slice(0, level - 1).map((evolutionLabel, index) => (
+                  <figure className="profile-avatar-history-item" key={evolutionLabel}>
+                    <span className="profile-gecko-stage profile-avatar-history-stage" data-level={index + 1}>
+                      <img className="profile-animal-image" src={avatar.image} alt={`${avatar.label} au niveau ${index + 1}`} draggable="false" />
+                    </span>
+                    <figcaption>Niveau {index + 1} · {evolutionLabel}</figcaption>
+                  </figure>
+                ))}
+              </div>
+            ) : (
+              <div className="small">Aucune évolution précédente pour le moment.</div>
+            )}
           </div>
         )}
       </div>
