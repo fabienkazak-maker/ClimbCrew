@@ -12,6 +12,8 @@ test("App.jsx ne définit plus sa propre version", async () => {
   const source = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
   assert.doesNotMatch(source, /const\s+APP_VERSION\s*=/);
   assert.match(source, /import\s+\{\s*APP_VERSION\s*\}\s+from\s+"\.\/lib\/version\.js"/);
+  assert.match(source, /applicationVersion:\s*APP_VERSION/);
+  assert.match(source, /climbcrew_export_\$\{APP_VERSION\}\.json/);
 });
 
 test("le script d'amélioration ne réécrit plus la version dans le DOM", async () => {
