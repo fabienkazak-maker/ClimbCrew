@@ -59,7 +59,7 @@ export default function Profil({
         </div>
       </div>
 
-      <ProfileGecko grade={cpr.currentGrade || ""} sexe={myParticipant.sexe} />
+      <ProfileGecko grade={cpr.currentGrade || ""} sexe={myParticipant.sexe} participantId={myParticipantId} />
 
       <div className="card">
         <div className="card-header"><h3>Mes statistiques</h3></div>
