@@ -4,7 +4,14 @@ import test from "node:test";
 
 const geckoUrl = new URL("../src/components/ProfileGecko.jsx", import.meta.url);
 const badgesUrl = new URL("../src/components/ParticipantBadges.jsx", import.meta.url);
-const geckoAtlasUrl = new URL("../src/assets/gecko-avatar-atlas.js", import.meta.url);
+const animalAtlasUrls = [
+  new URL("../src/assets/gecko-avatar-atlas.js", import.meta.url),
+  new URL("../src/assets/avatar-bouquetin-atlas.js", import.meta.url),
+  new URL("../src/assets/avatar-capucin-atlas.js", import.meta.url),
+  new URL("../src/assets/avatar-ecureuil-atlas.js", import.meta.url),
+  new URL("../src/assets/avatar-paresseux-atlas.js", import.meta.url),
+  new URL("../src/assets/avatar-leopard_neiges-atlas.js", import.meta.url),
+];
 const badgeAtlasUrl = new URL("../src/assets/badge-atlas.js", import.meta.url);
 
 const CURRENT_BADGE_IDS = [
@@ -36,28 +43,34 @@ function assertWebp(buffer) {
   assert.equal(buffer.subarray(8, 12).toString("ascii"), "WEBP");
 }
 
-test("les 16 avatars Gecko utilisent un atlas WebP embarqué complet", () => {
+test("les six animaux utilisent des atlas WebP embarqués complets", () => {
   const source = readFileSync(geckoUrl, "utf8");
-  const atlasModule = readFileSync(geckoAtlasUrl, "utf8");
-  const encodedAtlas = atlasModule.match(/base64,([A-Za-z0-9+/=]+)"/)?.[1];
 
-  assert.ok(encodedAtlas, "l'atlas Gecko embarqué doit contenir une image encodée");
-  const atlas = Buffer.from(encodedAtlas, "base64");
-  assertWebp(atlas);
+  for (const atlasUrl of animalAtlasUrls) {
+    const atlasModule = readFileSync(atlasUrl, "utf8");
+    const encodedAtlas = atlasModule.match(/base64,([A-Za-z0-9+/=]+)"/)?.[1];
 
-  const declaredRiffSize = atlas.readUInt32LE(4) + 8;
-  assert.equal(
-    atlas.length,
-    declaredRiffSize,
-    "l'atlas Gecko ne doit pas être tronqué",
-  );
+    assert.ok(encodedAtlas, `atlas embarqué manquant pour ${atlasUrl.pathname}`);
+    const atlas = Buffer.from(encodedAtlas, "base64");
+    assertWebp(atlas);
+    assert.equal(
+      atlas.length,
+      atlas.readUInt32LE(4) + 8,
+      `atlas tronqué pour ${atlasUrl.pathname}`,
+    );
+  }
 
-  assert.match(source, /GECKO_ATLAS_DATA_URI/);
-  assert.match(source, /<img/);
-  assert.match(source, /src=\{GECKO_ATLAS\}/);
-  assert.match(source, /GECKO_ATLAS_COLUMNS\s*=\s*4/);
-  assert.match(source, /GECKO_ATLAS_ROWS\s*=\s*4/);
-  assert.match(source, /variant === "feminine" \? 8 : 0/);
+  for (const animalId of ["gecko", "bouquetin", "capucin", "ecureuil", "paresseux", "leopard_neiges"]) {
+    assert.ok(source.includes(`id: "${animalId}"`), `animal manquant : ${animalId}`);
+  }
+
+  assert.match(source, /ProfileAnimalImage/);
+  assert.match(source, /profile-animal-atlas-tile/);
+  assert.match(source, /backgroundImage/);
+  assert.match(source, /backgroundSize/);
+  assert.match(source, /backgroundPosition/);
+  assert.match(source, /Choisir mon animal/);
+  assert.match(source, /AVATAR_STORAGE_PREFIX/);
   assert.doesNotMatch(source, /\/media\/geckos\/gecko-atlas\.webp/);
 });
 
