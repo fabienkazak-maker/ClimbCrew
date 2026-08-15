@@ -1,23 +1,15 @@
 .profile-gecko-card { overflow: hidden; }
 .profile-gecko-header { align-items: center; gap: 12px; }
 .profile-gecko-stage { display: grid; place-items: center; margin-top: 10px; padding: 12px; min-height: 0; border: 1px solid color-mix(in srgb, var(--gecko-accent) 24%, transparent); border-radius: 16px; background: radial-gradient(circle at 50% 28%, color-mix(in srgb, var(--gecko-accent) 12%, transparent), transparent 52%), rgba(255,255,255,.42); }
-.profile-gecko-real-image, .profile-avatar-crest { display: block; position: relative; overflow: hidden; width: min(260px,70vw); aspect-ratio: 1 / 1; border-radius: 16px; background: #fff; filter: drop-shadow(0 12px 18px rgba(15,23,42,.14)); }
-.profile-avatar-pair { display: grid; grid-template-columns: minmax(0,1fr) minmax(96px,.45fr); gap: 14px; align-items: center; width: min(480px,100%); }
-.profile-avatar-pair .profile-gecko-real-image { width: 100%; }
-.profile-avatar-crest-wrap { display: grid; gap: 6px; justify-items: center; font-weight: 800; }
-.profile-avatar-crest { width: min(150px,28vw); background: transparent; }
+.profile-gecko-real-image { display: block; position: relative; overflow: hidden; width: min(260px,70vw); aspect-ratio: 1 / 1; border-radius: 16px; background: #fff; filter: drop-shadow(0 12px 18px rgba(15,23,42,.14)); }
 .profile-animal-image { display: block; width: 100%; height: 100%; max-width: 100%; object-fit: contain; pointer-events: none; user-select: none; }
-.profile-visual-controls { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin-top: 10px; }
+.profile-visual-controls { display: grid; grid-template-columns: minmax(0,1fr); gap: 10px; margin-top: 10px; }
 .profile-visual-controls label { margin: 0; }
 .profile-gecko-card--compact { margin-top: 0; padding: 12px; }
 .profile-gecko-card--compact .profile-gecko-stage { padding: 8px; }
-.profile-gecko-card--compact .profile-avatar-pair { grid-template-columns: 120px 76px; justify-content: center; }
-.profile-gecko-card--compact .profile-avatar-crest { width: 76px; }
 
 @media (max-width: 640px) {
   .profile-gecko-header { align-items: flex-start; }
   .profile-visual-controls { grid-template-columns: 1fr; gap: 7px; }
   .profile-gecko-stage { padding: 8px; }
-  .profile-avatar-pair { grid-template-columns: minmax(0,1fr) 86px; gap: 8px; width: 100%; }
-  .profile-avatar-crest { width: 86px; }
 }

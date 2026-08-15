@@ -24,7 +24,9 @@ test("le profil met en évidence les caractéristiques", () => {
   const devers = profile.characteristics.find((item) => item.value === "devers");
   assert.ok(technique.score > devers.score);
   assert.equal(technique.attempts, 1);
+  assert.equal(technique.routeCount, 1);
   assert.equal(devers.attempts, 2);
+  assert.equal(devers.routeCount, 2);
   assert.ok(profile.priorityTags.some((item) => item.value === "devers"));
 });
 

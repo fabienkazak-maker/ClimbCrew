@@ -64,7 +64,7 @@ export default function Profil({
       <div className="card profile-privacy-card">
         <div>
           <strong>Visibilité du profil</strong>
-          <div className="small">Un profil public affiche votre avatar, votre blason et vos caractéristiques dans Progression.</div>
+          <div className="small">Un profil public affiche votre avatar et vos caractéristiques dans Progression.</div>
         </div>
         <label className="profile-privacy-toggle">
           <input

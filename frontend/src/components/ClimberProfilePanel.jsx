@@ -45,7 +45,7 @@ function KiviatChart({ characteristics }) {
         <polygon className="kiviat-area" points={pointsAttribute(dataPoints)} />
         {dataPoints.map((point, index) => (
           <circle key={characteristics[index].value} className="kiviat-point" cx={point.x} cy={point.y} r="4">
-            <title>{characteristics[index].label} : {Number.isFinite(characteristics[index].score) ? `${characteristics[index].score} %` : "à découvrir"}</title>
+            <title>{characteristics[index].label} : {Number.isFinite(characteristics[index].score) ? `${characteristics[index].score} %` : "à découvrir"} · {characteristics[index].routeCount} voie{characteristics[index].routeCount > 1 ? "s" : ""}</title>
           </circle>
         ))}
         {characteristics.map((item, index) => {
@@ -54,17 +54,11 @@ function KiviatChart({ characteristics }) {
           return (
             <text key={item.value} className="kiviat-label" x={point.x} y={point.y} textAnchor={anchor} dominantBaseline="middle">
               <tspan x={point.x}>{item.label}</tspan>
-              <tspan className="kiviat-label-score" x={point.x} dy="16">{Number.isFinite(item.score) ? `${item.score} %` : "À découvrir"}</tspan>
+              <tspan className="kiviat-label-score" x={point.x} dy="16">{Number.isFinite(item.score) ? `${item.score} %` : "À découvrir"} · {item.routeCount} voie{item.routeCount > 1 ? "s" : ""}</tspan>
             </text>
           );
         })}
       </svg>
-      <div className="kiviat-legend small"><span /> Zone neutre : 50 %</div>
-      <div className="kiviat-details" aria-label="Détail des caractéristiques">
-        {characteristics.map((item) => (
-          <div key={item.value} className="small">
-            <strong>{item.label}</strong> · {Number.isFinite(item.score) ? `${item.score} % · ${scoreLabel(item.score)}` : "À découvrir"} · {item.attempts} réalisation{item.attempts > 1 ? "s" : ""}
-          </div>
         ))}
       </div>
     </div>

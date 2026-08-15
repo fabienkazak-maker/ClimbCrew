@@ -108,6 +108,7 @@ export function calculateClimberProfile({ realisations = [], routesById = {}, cp
         ...definition,
         score: null,
         attempts: 0,
+        routeCount: 0,
         successful: 0,
       };
     }
@@ -124,6 +125,7 @@ export function calculateClimberProfile({ realisations = [], routesById = {}, cp
       ...definition,
       score: Math.round(smoothedScore * 100),
       attempts: relevant.length,
+      routeCount: new Set(relevant.map((realisation) => String(realisation.voieId || ""))).size,
       successful: relevant.filter(isSuccessfulRealisation).length,
     };
   });

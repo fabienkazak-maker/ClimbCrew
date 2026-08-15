@@ -40,15 +40,6 @@ export const AVATAR_OPTIONS = Object.freeze([
 
 export const ANIMAL_OPTIONS = AVATAR_OPTIONS;
 
-export const CREST_OPTIONS = Object.freeze([
-  { id: "cristal", label: "Cristal", image: asset(PROFILE_ROOT, "blason-cristal", "svg") },
-  { id: "sommet", label: "Sommet", image: asset(PROFILE_ROOT, "blason-sommet", "svg") },
-  { id: "corde", label: "Corde", image: asset(PROFILE_ROOT, "blason-corde", "svg") },
-  { id: "mousqueton", label: "Mousqueton", image: asset(PROFILE_ROOT, "blason-mousqueton", "svg") },
-  { id: "prise", label: "Prise", image: asset(PROFILE_ROOT, "blason-prise", "svg") },
-  { id: "etoile", label: "Étoile", image: asset(PROFILE_ROOT, "blason-etoile", "svg") },
-]);
-
 const AVATAR_GROUPS = [...new Set(AVATAR_OPTIONS.map((option) => option.group))];
 
 export default function ProfileGecko({ grade, sexe, participant, onProfileUpdate, editable = true, compact = false }) {
@@ -57,10 +48,6 @@ export default function ProfileGecko({ grade, sexe, participant, onProfileUpdate
   const avatar = useMemo(
     () => AVATAR_OPTIONS.find((option) => option.id === participant?.avatarId) || AVATAR_OPTIONS[0],
     [participant?.avatarId],
-  );
-  const crest = useMemo(
-    () => CREST_OPTIONS.find((option) => option.id === participant?.crestId) || CREST_OPTIONS[0],
-    [participant?.crestId],
   );
 
   return (
@@ -85,26 +72,12 @@ export default function ProfileGecko({ grade, sexe, participant, onProfileUpdate
               ))}
             </select>
           </label>
-          <label>
-            <span>Blason indépendant</span>
-            <select value={crest.id} onChange={(event) => onProfileUpdate?.({ crestId: event.target.value })}>
-              {CREST_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
-            </select>
-          </label>
         </div>
       )}
 
       <div className="profile-gecko-stage" style={{ "--gecko-accent": accent }}>
-        <div className="profile-avatar-pair">
-          <div className="profile-gecko-real-image" role="img" aria-label={`Avatar ${avatar.label}`}>
-            <img className="profile-animal-image" src={avatar.image} alt="" draggable="false" />
-          </div>
-          <div className="profile-avatar-crest-wrap">
-            <span className="small">{crest.label}</span>
-            <div className="profile-avatar-crest" role="img" aria-label={`Blason ${crest.label}`}>
-              <img className="profile-animal-image" src={crest.image} alt="" draggable="false" />
-            </div>
-          </div>
+        <div className="profile-gecko-real-image" role="img" aria-label={`Avatar ${avatar.label}`}>
+          <img className="profile-animal-image" src={avatar.image} alt="" draggable="false" />
         </div>
       </div>
     </div>
