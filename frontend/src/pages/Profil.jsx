@@ -61,21 +61,6 @@ export default function Profil({
         </div>
       </div>
 
-      <div className="card profile-privacy-card">
-        <div>
-          <strong>Visibilité du profil</strong>
-          <div className="small">Un profil public affiche votre avatar et vos caractéristiques dans Progression.</div>
-        </div>
-        <label className="profile-privacy-toggle">
-          <input
-            type="checkbox"
-            checked={myParticipant.profilePublic !== false}
-            onChange={(event) => updateMyProfile({ profilePublic: event.target.checked })}
-          />
-          <span>{myParticipant.profilePublic !== false ? "Public" : "Privé"}</span>
-        </label>
-      </div>
-
       <ProfileGecko
         grade={cpr.currentGrade || ""}
         sexe={myParticipant.sexe}
