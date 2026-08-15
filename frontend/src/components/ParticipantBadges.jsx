@@ -22,7 +22,10 @@ export const BADGE_IMAGE_PATH = Object.freeze({
   critique_voies: `/media/badges/badge-16.webp?v=260815007`,
   collectionneur: `/media/badges/badge-17.webp?v=260815007`,
   centurion: `/media/badges/badge-18.webp?v=260815007`,
-  cristal: `/media/badges/badge-19.webp?v=260815007`,
+  cristal: `/media/badges/badge-19.webp?v=260815008`,
+  role_encadrant: `/media/avatars/split/role-encadrant.webp?v=260815008`,
+  role_referent: `/media/avatars/split/role-referent.webp?v=260815008`,
+  role_ouvreur: `/media/avatars/split/role-ouvreur.webp?v=260815008`,
 });
 
 function BadgeRealImage({ src }) {
@@ -121,11 +124,55 @@ function BadgeDetail({ badge, onClose }) {
   );
 }
 
-export default function ParticipantBadges({ realisations, routesById, sessions }) {
+function normalizedPersonName(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function participantRoleBadges(participant, routesById) {
+  if (!participant) return [];
+  const participantName = normalizedPersonName(`${participant.prenom || ""} ${participant.nom || ""}`);
+  const isOpener = Boolean(participantName) && Object.values(routesById || {}).some(
+    (route) => normalizedPersonName(route?.nomOuvreur) === participantName,
+  );
+
+  return [
+    participant.canEncadrer && {
+      id: "role_encadrant",
+      name: "Encadrant",
+      family: "contribution",
+      condition: "Autorisé à encadrer les séances du club.",
+      earned: true,
+    },
+    participant.canReferer && {
+      id: "role_referent",
+      name: "Référent",
+      family: "contribution",
+      condition: "Autorisé à être référent d’une séance libre.",
+      earned: true,
+    },
+    isOpener && {
+      id: "role_ouvreur",
+      name: "Ouvreur",
+      family: "contribution",
+      condition: "Identifié comme ouvreur d’au moins une voie.",
+      earned: true,
+    },
+  ].filter(Boolean);
+}
+
+export default function ParticipantBadges({ realisations, routesById, sessions, participant }) {
   const [selectedBadge, setSelectedBadge] = useState(null);
   const badges = useMemo(
-    () => calculateParticipantBadges({ realisations, routesById, sessions }),
-    [realisations, routesById, sessions],
+    () => [
+      ...participantRoleBadges(participant, routesById),
+      ...calculateParticipantBadges({ realisations, routesById, sessions }),
+    ],
+    [participant, realisations, routesById, sessions],
   );
 
   const earnedBadges = badges.filter((badge) => badge.earned);

@@ -79,6 +79,7 @@ export default function Profil({
       />
 
       <ParticipantBadges
+        participant={myParticipant}
         realisations={myRealisations}
         routesById={routesById}
         sessions={getParticipantSessions(myParticipantId)}

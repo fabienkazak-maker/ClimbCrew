@@ -19,7 +19,9 @@ const AVATAR_NAMES = [
   "robot",
   "astronaute",
   "capybara",
-  "chevalier"
+  "chevalier",
+  "humain-homme",
+  "humain-femme"
 ];
 const BADGE_IDS = [
   "premiere_croix",
@@ -77,5 +79,10 @@ test("chaque badge utilise un fichier indépendant sans atlas", () => {
 
   assert.match(source, /participant-badge-image/);
   assert.match(source, /BADGE_IMAGE_PATH/);
+  for (const role of ["encadrant", "referent", "ouvreur"]) {
+    assertWebp(new URL(`../public/media/avatars/split/role-${role}.webp`, import.meta.url));
+    assert.match(source, new RegExp(`role_${role}`));
+  }
+
   assert.doesNotMatch(source, /BADGE_ATLAS|backgroundImage|backgroundPosition|BADGE_IMAGE_INDEX/);
 });

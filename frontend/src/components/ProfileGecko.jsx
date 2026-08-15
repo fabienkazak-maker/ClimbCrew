@@ -5,7 +5,7 @@ import "../styles/profile-gecko.css";
 const LEVEL_ACCENTS = ["#65a30d", "#4d7c0f", "#0284c7", "#2563eb", "#7c3aed", "#9333ea", "#d97706", "#0ea5e9"];
 const AVATAR_STORAGE_PREFIX = "climbcrew_profile_animal_";
 const AVATAR_ROOT = "/media/avatars/split";
-const ASSET_VERSION = "260815007";
+const ASSET_VERSION = "260815008";
 
 function avatarAsset(name) {
   return `${AVATAR_ROOT}/${name}.webp?v=${ASSET_VERSION}`;
@@ -24,6 +24,8 @@ export const ANIMAL_OPTIONS = Object.freeze([
   { id: "astronaute", label: "Astronaute en SAE", image: avatarAsset("astronaute"), crest: avatarAsset("astronaute-crest") },
   { id: "capybara", label: "Capybara zen", image: avatarAsset("capybara"), crest: avatarAsset("capybara-crest") },
   { id: "chevalier", label: "Chevalier grimpeur", image: avatarAsset("chevalier"), crest: avatarAsset("chevalier-crest") },
+  { id: "humain_homme", label: "Grimpeur hyperréaliste", image: avatarAsset("humain-homme"), crest: avatarAsset("humain-homme-crest") },
+  { id: "humain_femme", label: "Grimpeuse hyperréaliste", image: avatarAsset("humain-femme"), crest: avatarAsset("humain-femme-crest") },
 ]);
 
 function readStoredAnimal(storageKey) {
