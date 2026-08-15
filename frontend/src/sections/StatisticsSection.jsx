@@ -114,12 +114,12 @@ export default function StatisticsSection({
                 <span className="participant-name">{fullName(participant)}</span>
               </span>
               <span className="stats-participant-details small" style={{ color: "inherit" }}>
-                <span>Cotisation : {participant.cotisation ? "Oui" : "Non"}</span>
+                <span title="Cotisation">Cotis. : {participant.cotisation ? "Oui" : "Non"}</span>
                 <span>FFME : {participant.ffme ? "Oui" : "Non"}</span>
-                <span>CPR : {cprByParticipantId[participant.id]?.currentGrade || "Non calculé"}</span>
-                <span>Points : {formatPoints(pointsByParticipantId[participant.id])}</span>
-                <span>Participations : {sessionStats.participationCount[participant.id] || 0}</span>
                 <span>Passeport : {participant.passport}</span>
+                <span>CPR : {cprByParticipantId[participant.id]?.currentGrade || "—"}</span>
+                <span>Points : {formatPoints(pointsByParticipantId[participant.id])}</span>
+                <span title="Participations">Particip. : {sessionStats.participationCount[participant.id] || 0}</span>
               </span>
             </div>
           ))}
