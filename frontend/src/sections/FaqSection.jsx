@@ -1,13 +1,40 @@
-import React from "react";
+import React, { useState } from "react";
+import DemandesEvolution from "../pages/DemandesEvolution.jsx";
 
-export default function FaqSection({ APP_VERSION, canAccessAdminTabs }) {
+export default function FaqSection({ APP_VERSION, canAccessAdminTabs, USE_API, authToken, authUser }) {
+  const [activeSection, setActiveSection] = useState("aide");
+
   return (
+    <>
     <div className="card">
       <div className="card-header">
         <h2>FAQ - fonctionnement de ClimbClubCristal</h2>
         <span className="small">Version : {APP_VERSION}</span>
       </div>
 
+      <div className="faq-subtabs" role="tablist" aria-label="Sections de la FAQ">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeSection === "aide"}
+          className={activeSection === "aide" ? "primary-button" : "secondary"}
+          onClick={() => setActiveSection("aide")}
+        >
+          Aide
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeSection === "evolutions"}
+          className={activeSection === "evolutions" ? "primary-button" : "secondary"}
+          onClick={() => setActiveSection("evolutions")}
+        >
+          Demandes d’évolution
+        </button>
+      </div>
+
+      {activeSection === "aide" && (
+        <>
       <details className="faq-item">
         <summary><strong>A quoi sert ClimbClubCristal ?</strong></summary>
         <div className="small">
@@ -95,6 +122,13 @@ export default function FaqSection({ APP_VERSION, canAccessAdminTabs }) {
           </details>
         </>
       )}
+        </>
+      )}
+
+      {activeSection === "evolutions" && (
+        <DemandesEvolution USE_API={USE_API} authToken={authToken} authUser={authUser} />
+      )}
     </div>
+    </>
   );
 }
