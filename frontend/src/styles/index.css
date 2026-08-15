@@ -41,6 +41,8 @@
         .remove-button:hover { background: rgba(148,163,184,.45); color: inherit; }
         .hero { background: rgba(15,23,42,.88); border: 1px solid rgba(148,163,184,.25); border-radius: 18px; padding: 10px; box-shadow: 0 14px 36px rgba(0,0,0,.25); }
         .hero h1 { margin: 0; font-size: 24px; line-height: 1.05; }
+        .brand-title-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+        .topbar-version { display: inline-flex; align-items: center; flex: 0 0 auto; padding: 3px 7px; border: 1px solid var(--theme-card-border); border-radius: 999px; background: var(--theme-card-soft); color: var(--theme-text-muted); font-size: 10px; font-weight: 800; line-height: 1; letter-spacing: .02em; }
         .hero p { margin: 8px 0 0; color: #94a3b8; }
         .tabs { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 8px; margin-top: 20px; }
         .tab { border: 0; border-radius: 14px; padding: 12px 10px; background: #1e293b; color: #cbd5e1; font-weight: 700; cursor: pointer; }
@@ -127,6 +129,8 @@
           .brand { gap: 10px; }
           .app-logo { width: 34px; height: 34px; border-radius: 9px; padding: 3px; }
           .hero h1 { font-size: 20px; line-height: 1; }
+          .brand-title-row { gap: 6px; }
+          .topbar-version { padding: 3px 6px; font-size: 9px; }
           .hero .small { font-size: 11px; margin-top: 4px; }
           .menu-button { min-width: 42px; min-height: 42px; padding: 8px; border-radius: 12px; }
 
