@@ -52,3 +52,25 @@ test("Cristal est plafonné au nombre de voies existantes", () => {
   assert.equal(cristal.earned, true);
   assert.match(cristal.condition, /Réussir 3 voies actuelles/);
 });
+
+
+test("badges de jours d'inscription après trois séances passées", () => {
+  const sessions = [
+    { id: "ma1", date: "2026-07-07", slot: "midi" },
+    { id: "ma2", date: "2026-07-14", slot: "midi" },
+    { id: "ma3", date: "2026-07-21", slot: "midi" },
+    { id: "je1", date: "2026-07-02", slot: "midi" },
+    { id: "je2", date: "2026-07-09", slot: "midi" },
+    { id: "je3", date: "2026-07-16", slot: "midi" },
+    { id: "am1", date: "2026-07-01", slot: "matin" },
+    { id: "am2", date: "2026-07-08", slot: "matin" },
+    { id: "am3", date: "2026-07-15", slot: "matin" },
+    { id: "pm1", date: "2026-07-03", slot: "soir" },
+    { id: "pm2", date: "2026-07-10", slot: "soir" },
+  ];
+  const input = { realisations: [], routesById: {}, sessions, now: new Date("2026-08-15T12:00:00") };
+  assert.equal(earned(input, "mardi_midi"), true);
+  assert.equal(earned(input, "jeudi_midi"), true);
+  assert.equal(earned(input, "matin"), true);
+  assert.equal(earned(input, "soir"), false);
+});
