@@ -4,7 +4,7 @@ import test from "node:test";
 
 const geckoUrl = new URL("../src/components/ProfileGecko.jsx", import.meta.url);
 const badgesUrl = new URL("../src/components/ParticipantBadges.jsx", import.meta.url);
-const geckoAtlasUrl = new URL("../public/media/geckos/gecko-atlas.webp", import.meta.url);
+const geckoAtlasUrl = new URL("../src/assets/gecko-avatar-atlas.js", import.meta.url);
 const badgeAtlasUrl = new URL("../public/media/badges/badge-atlas.webp", import.meta.url);
 
 const CURRENT_BADGE_IDS = [
@@ -36,19 +36,29 @@ function assertWebp(buffer) {
   assert.equal(buffer.subarray(8, 12).toString("ascii"), "WEBP");
 }
 
-test("les 16 avatars Gecko utilisent un atlas WebP via un vrai img", () => {
+test("les 16 avatars Gecko utilisent un atlas WebP embarqué complet", () => {
   const source = readFileSync(geckoUrl, "utf8");
-  const atlas = readFileSync(geckoAtlasUrl);
+  const atlasModule = readFileSync(geckoAtlasUrl, "utf8");
+  const encodedAtlas = atlasModule.match(/base64,([A-Za-z0-9+/=]+)"/)?.[1];
 
+  assert.ok(encodedAtlas, "l'atlas Gecko embarqué doit contenir une image encodée");
+  const atlas = Buffer.from(encodedAtlas, "base64");
   assertWebp(atlas);
-  assert.match(source, /\/media\/geckos\/gecko-atlas\.webp/);
+
+  const declaredRiffSize = atlas.readUInt32LE(4) + 8;
+  assert.equal(
+    atlas.length,
+    declaredRiffSize,
+    "l'atlas Gecko ne doit pas être tronqué",
+  );
+
+  assert.match(source, /GECKO_ATLAS_DATA_URI/);
   assert.match(source, /<img/);
   assert.match(source, /src=\{GECKO_ATLAS\}/);
-  assert.match(source, /columns:\s*GECKO_ATLAS_COLUMNS/);
-  assert.match(source, /rows:\s*GECKO_ATLAS_ROWS/);
-  assert.match(source, /variant === "feminine" \? 1 : 0/);
-  assert.doesNotMatch(source, /<image\b/);
-  assert.doesNotMatch(source, /GeckoArtwork/);
+  assert.match(source, /GECKO_ATLAS_COLUMNS\s*=\s*4/);
+  assert.match(source, /GECKO_ATLAS_ROWS\s*=\s*4/);
+  assert.match(source, /variant === "feminine" \? 8 : 0/);
+  assert.doesNotMatch(source, /\/media\/geckos\/gecko-atlas\.webp/);
 });
 
 test("les 20 badges courants utilisent un atlas WebP via un vrai img", () => {
