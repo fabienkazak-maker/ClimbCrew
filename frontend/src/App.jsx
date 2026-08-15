@@ -1595,18 +1595,32 @@ async function handleThemePreferenceChange(nextTheme) {
   }
 
   async function exportAllData() {
+    // La version applicative complète la version du format d’export sans la remplacer.
+    // Les anciens imports restent ainsi compatibles, tandis qu’un fichier permet
+    // d’identifier immédiatement la version de ClimbClubCristal qui l’a produit.
+    const buildVersionedExport = (data) => ({
+      ...data,
+      exportedAt: data?.exportedAt || new Date().toISOString(),
+      applicationVersion: APP_VERSION,
+    });
+    const filename = `climbcrew_export_${APP_VERSION}.json`;
+
     if (USE_API && authToken) {
       try {
         const payload = await authApiFetch("/admin/export-data", authToken);
-        downloadFile("climbcrew_export_api.json", JSON.stringify(payload.data || payload, null, 2));
-        setImportMessage("Export API réussi.");
+        const versionedPayload = buildVersionedExport(payload.data || payload);
+        downloadFile(filename, JSON.stringify(versionedPayload, null, 2));
+        setImportMessage(`Export API version ${APP_VERSION} réussi.`);
         return;
       } catch (error) {
         console.error(error);
         setImportMessage("Export API impossible : export local utilisé.");
       }
     }
-    downloadFile("climbcrew_export.json", JSON.stringify(state, null, 2));
+
+    const versionedPayload = buildVersionedExport(state);
+    downloadFile(filename, JSON.stringify(versionedPayload, null, 2));
+    setImportMessage(`Export local version ${APP_VERSION} réussi.`);
   }
 
   function exportSelectedParticipantRealisationsCsv() {
@@ -1646,6 +1660,12 @@ async function handleThemePreferenceChange(nextTheme) {
     if (!file) return;
     try {
       const parsed = JSON.parse(await file.text());
+      const importedApplicationVersion = String(
+        parsed.applicationVersion || parsed.appVersion || parsed.metadata?.applicationVersion || ""
+      ).trim();
+      const importedVersionLabel = importedApplicationVersion
+        ? ` (version source ${importedApplicationVersion})`
+        : " (ancien export sans version applicative)";
 
       if (USE_API && authToken) {
         const result = await authApiFetch("/admin/import-data", authToken, {
@@ -1654,11 +1674,11 @@ async function handleThemePreferenceChange(nextTheme) {
         });
         await reloadApiState();
         setImportMessage(
-          `Import API réussi : ${result.participantsImported || 0} participants, ${result.sessionsImported || 0} séances, ${result.routesImported || 0} voies.`
+          `Import API réussi${importedVersionLabel} : ${result.participantsImported || 0} participants, ${result.sessionsImported || 0} séances, ${result.routesImported || 0} voies.`
         );
       } else {
         setState((prev) => normalizeAppData(parsed, prev));
-        setImportMessage("Import JSON local réussi.");
+        setImportMessage(`Import JSON local réussi${importedVersionLabel}.`);
       }
     } catch (error) {
       console.error(error);
