@@ -57,7 +57,6 @@ export const TABS = [
   { key: "mon_profil", label: "Mon Profil" },
   { key: "statistiques", label: "Statistiques" },
   { key: "wall_of_fame", label: "Tableau d’honneur" },
-  { key: "evolutions", label: "Demandes d’évolution" },
   { key: "faq", label: "FAQ" },
   { key: "administration", label: "Administration", adminOnly: true },
   { key: "gestion_comptes", label: "Gestion des comptes", adminOnly: true },
