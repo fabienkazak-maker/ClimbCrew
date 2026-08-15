@@ -72,8 +72,16 @@
   display: block;
   width: 100%;
   height: 100%;
-  background-repeat: no-repeat;
+  overflow: hidden;
   pointer-events: none;
+  user-select: none;
+}
+
+.profile-animal-atlas-image {
+  position: absolute;
+  display: block;
+  max-width: none !important;
+  object-fit: fill;
   user-select: none;
 }
 
