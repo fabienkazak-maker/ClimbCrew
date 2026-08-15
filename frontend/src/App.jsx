@@ -2379,6 +2379,8 @@ async function handleThemePreferenceChange(nextTheme) {
             authUser={authUser}
             changePassword={changePassword}
             requestEmailChange={requestEmailChange}
+            myParticipant={myParticipant}
+            updateMyProfile={updateMyProfile}
           />
         )}
 
