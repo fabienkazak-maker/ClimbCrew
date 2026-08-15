@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from "react";
 import { BADGE_FAMILY_LABELS, calculateParticipantBadges } from "../lib/badges.js";
+import { BADGE_ATLAS_DATA_URI } from "../assets/badge-atlas.js";
 import BadgeIllustration from "./BadgeIllustration.jsx";
 
-const BADGE_ATLAS = "/media/badges/badge-atlas.webp";
+const BADGE_ATLAS = BADGE_ATLAS_DATA_URI;
 const BADGE_TILE_SIZE = 160;
 const BADGE_ATLAS_COLUMNS = 5;
 const BADGE_ATLAS_ROWS = 4;
