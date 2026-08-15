@@ -36,14 +36,26 @@
   background: #fff;
 }
 
-.profile-gecko-real-atlas {
+.profile-animal-atlas-tile {
   position: absolute;
+  inset: 0;
   display: block;
-  max-width: none;
-  max-height: none;
-  object-fit: fill;
+  width: 100%;
+  height: 100%;
+  background-repeat: no-repeat;
   pointer-events: none;
   user-select: none;
+}
+
+.profile-animal-selector {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+  font-weight: 700;
+}
+
+.profile-animal-selector .input {
+  width: 100%;
 }
 
 @media (max-width: 640px) {
