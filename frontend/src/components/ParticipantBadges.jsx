@@ -75,7 +75,7 @@ function BadgeTile({ badge, pending = false, onOpen }) {
       <BadgeVisual badge={badge} />
       <span className="participant-badge-copy">
         <strong>{badge.name}</strong>
-        <span>{pending ? badge.condition : BADGE_FAMILY_LABELS[badge.family]}</span>
+        <span>{pending ? "À débloquer" : BADGE_FAMILY_LABELS[badge.family]}</span>
       </span>
     </div>
   );
@@ -190,11 +190,9 @@ export default function ParticipantBadges({ realisations, allRealisations = [], 
   return (
     <section className="card participant-badges-card" aria-labelledby="participant-badges-title">
       <div className="card-header participant-badges-header">
-        <div>
-          <h3 id="participant-badges-title">Badges</h3>
-          <div className="small">Récompenses calculées automatiquement à partir de la progression enregistrée.</div>
-        </div>
-        <span className="badge">{earnedBadges.length} / {badges.length}</span>
+        <h3 id="participant-badges-title">
+          Badges <span className="badge participant-badges-count">{earnedBadges.length} / {badges.length}</span>
+        </h3>
       </div>
 
       {earnedBadges.length === 0 ? (
