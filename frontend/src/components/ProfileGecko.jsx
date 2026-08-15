@@ -5,7 +5,8 @@ import "../styles/profile-gecko.css";
 const LEVEL_ACCENTS = ["#65a30d", "#4d7c0f", "#0284c7", "#2563eb", "#7c3aed", "#9333ea", "#d97706", "#0ea5e9"];
 const AVATAR_ROOT = "/media/avatars/split";
 const PROFILE_ROOT = "/media/avatars/profile";
-const ASSET_VERSION = "260815014";
+const ASSET_VERSION = "260815016";
+const EVOLUTION_LABELS = ["Découverte", "Initiation", "Autonome", "Confirmé", "Technique", "Expert", "Maître", "Élite"];
 
 function asset(root, name, extension = "webp") {
   return `${root}/${name}.${extension}?v=${ASSET_VERSION}`;
@@ -26,16 +27,16 @@ export const AVATAR_OPTIONS = Object.freeze([
   { id: "chevalier", label: "Chevalier grimpeur", group: "Personnages", image: asset(AVATAR_ROOT, "chevalier") },
   { id: "humain_homme", label: "Grimpeur hyperréaliste", group: "Personnages", image: asset(AVATAR_ROOT, "humain-homme") },
   { id: "humain_femme", label: "Grimpeuse hyperréaliste", group: "Personnages", image: asset(AVATAR_ROOT, "humain-femme") },
-  { id: "fraise", label: "Fraise verticale", group: "Fruits", image: asset(PROFILE_ROOT, "avatar-fraise", "svg") },
-  { id: "banane", label: "Banane dynamique", group: "Fruits", image: asset(PROFILE_ROOT, "avatar-banane", "svg") },
-  { id: "kiwi", label: "Kiwi tenace", group: "Fruits", image: asset(PROFILE_ROOT, "avatar-kiwi", "svg") },
-  { id: "pasteque", label: "Pastèque puissante", group: "Fruits", image: asset(PROFILE_ROOT, "avatar-pasteque", "svg") },
-  { id: "ananas", label: "Ananas engagé", group: "Fruits", image: asset(PROFILE_ROOT, "avatar-ananas", "svg") },
-  { id: "chausson", label: "Chausson d’escalade", group: "Objets", image: asset(PROFILE_ROOT, "avatar-chausson", "svg") },
-  { id: "mousqueton", label: "Mousqueton", group: "Objets", image: asset(PROFILE_ROOT, "avatar-mousqueton", "svg") },
-  { id: "gourde", label: "Gourde", group: "Objets", image: asset(PROFILE_ROOT, "avatar-gourde", "svg") },
-  { id: "casque", label: "Casque", group: "Objets", image: asset(PROFILE_ROOT, "avatar-casque", "svg") },
-  { id: "sac_magnesie", label: "Sac à magnésie", group: "Objets", image: asset(PROFILE_ROOT, "avatar-sac-magnesie", "svg") },
+  { id: "fraise", label: "Fraise verticale", group: "Fruits", image: asset(PROFILE_ROOT, "avatar-fraise") },
+  { id: "banane", label: "Banane dynamique", group: "Fruits", image: asset(PROFILE_ROOT, "avatar-banane") },
+  { id: "kiwi", label: "Kiwi tenace", group: "Fruits", image: asset(PROFILE_ROOT, "avatar-kiwi") },
+  { id: "pasteque", label: "Pastèque puissante", group: "Fruits", image: asset(PROFILE_ROOT, "avatar-pasteque") },
+  { id: "ananas", label: "Ananas engagé", group: "Fruits", image: asset(PROFILE_ROOT, "avatar-ananas") },
+  { id: "chausson", label: "Chausson d’escalade", group: "Objets", image: asset(PROFILE_ROOT, "avatar-chausson") },
+  { id: "mousqueton", label: "Mousqueton", group: "Objets", image: asset(PROFILE_ROOT, "avatar-mousqueton") },
+  { id: "gourde", label: "Gourde", group: "Objets", image: asset(PROFILE_ROOT, "avatar-gourde") },
+  { id: "casque", label: "Casque", group: "Objets", image: asset(PROFILE_ROOT, "avatar-casque") },
+  { id: "sac_magnesie", label: "Sac à magnésie", group: "Objets", image: asset(PROFILE_ROOT, "avatar-sac-magnesie") },
 ]);
 
 export const ANIMAL_OPTIONS = AVATAR_OPTIONS;
@@ -75,9 +76,19 @@ export default function ProfileGecko({ grade, sexe, participant, onProfileUpdate
         </div>
       )}
 
-      <div className="profile-gecko-stage" style={{ "--gecko-accent": accent }}>
-        <div className="profile-gecko-real-image" role="img" aria-label={`Avatar ${avatar.label}`}>
+      <div className="profile-gecko-stage" style={{ "--gecko-accent": accent }} data-level={level}>
+        <div className="profile-gecko-real-image" role="img" aria-label={`Avatar ${avatar.label}, niveau ${level} sur 8`}>
           <img className="profile-animal-image" src={avatar.image} alt="" draggable="false" />
+          <span className="profile-avatar-evolution-label">{EVOLUTION_LABELS[level - 1]}</span>
+        </div>
+        <div className="profile-avatar-levels" aria-label={`Évolution de l’avatar : niveau ${level} sur 8`}>
+          {EVOLUTION_LABELS.map((evolutionLabel, index) => (
+            <span
+              key={evolutionLabel}
+              className={index < level ? "is-reached" : ""}
+              title={`Niveau ${index + 1} · ${evolutionLabel}`}
+            />
+          ))}
         </div>
       </div>
     </div>
