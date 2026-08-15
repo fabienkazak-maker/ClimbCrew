@@ -12,8 +12,11 @@
   gap: 10px;
 }
 
-.participant-badge-tile {
+ .participant-badge-tile {
   --badge-accent: #38bdf8;
+  --badge-tile-bg: color-mix(in srgb, var(--badge-accent) 10%, rgba(2, 6, 23, .72));
+  --badge-title: #f8fafc;
+  --badge-subtitle: #cbd5e1;
   display: grid;
   grid-template-columns: 72px minmax(0, 1fr);
   gap: 10px;
@@ -22,7 +25,7 @@
   padding: 10px;
   border: 1px solid color-mix(in srgb, var(--badge-accent) 44%, transparent);
   border-radius: 16px;
-  background: color-mix(in srgb, var(--badge-accent) 10%, rgba(2, 6, 23, .72));
+  background: var(--badge-tile-bg);
 }
 
 .participant-badge-tile--achievement { --badge-accent: #22c55e; }
@@ -115,12 +118,12 @@
 }
 
 .participant-badge-copy strong {
-  color: #f8fafc;
+  color: var(--badge-title) !important;
   line-height: 1.15;
 }
 
 .participant-badge-copy span {
-  color: #94a3b8;
+  color: var(--badge-subtitle) !important;
   font-size: 11px;
   line-height: 1.3;
 }
@@ -173,4 +176,23 @@
   .participant-badges-grid {
     grid-template-columns: 1fr;
   }
+}
+
+
+/* Les badges conservent un contraste élevé dans les ambiances claires. */
+:root[data-theme="light"] .participant-badge-tile,
+:root[data-theme="fun"] .participant-badge-tile {
+  --badge-tile-bg: color-mix(in srgb, var(--badge-accent) 13%, #ffffff);
+  --badge-title: #123047;
+  --badge-subtitle: #526777;
+}
+
+:root[data-theme="light"] .participant-badge-tile.is-earned,
+:root[data-theme="fun"] .participant-badge-tile.is-earned {
+  box-shadow: 0 7px 20px color-mix(in srgb, var(--badge-accent) 18%, transparent);
+}
+
+:root[data-theme="light"] .participant-badge-tile.is-pending,
+:root[data-theme="fun"] .participant-badge-tile.is-pending {
+  opacity: .72;
 }
