@@ -78,10 +78,16 @@ test("les avatars historiques et les nouveaux personnages disposent de leurs ill
   }
 
   assert.match(source, /ProfileAnimalImage/);
+  assert.match(source, /function AtlasTile/);
   assert.match(source, /profile-animal-atlas-tile/);
-  assert.match(source, /backgroundImage/);
-  assert.match(source, /backgroundSize/);
-  assert.match(source, /backgroundPosition/);
+  assert.match(source, /profile-animal-atlas-image/);
+  assert.match(source, /<img/);
+  assert.match(source, /src=\\{src\\}/);
+  assert.match(source, /columns \\* 100/);
+  assert.match(source, /rows \\* 100/);
+  assert.match(source, /-column \\* 100/);
+  assert.match(source, /-row \\* 100/);
+  assert.doesNotMatch(source, /backgroundImage/);
   assert.match(source, /Choisir mon avatar/);
   assert.match(source, /ProfileCrestImage/);
   assert.match(source, /profile-avatar-crest/);
