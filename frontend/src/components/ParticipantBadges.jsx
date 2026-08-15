@@ -34,20 +34,17 @@ export const BADGE_IMAGE_INDEX = Object.freeze({
 function BadgeRealImage({ index }) {
   const column = index % BADGE_ATLAS_COLUMNS;
   const row = Math.floor(index / BADGE_ATLAS_COLUMNS);
+  const horizontalPosition = (column / (BADGE_ATLAS_COLUMNS - 1)) * 100;
+  const verticalPosition = (row / (BADGE_ATLAS_ROWS - 1)) * 100;
 
   return (
-    <img
-      src={BADGE_ATLAS}
-      alt=""
+    <span
+      className="participant-badge-atlas-tile"
       aria-hidden="true"
-      loading="eager"
-      decoding="async"
-      draggable="false"
       style={{
-        width: `${BADGE_ATLAS_COLUMNS * 100}%`,
-        height: `${BADGE_ATLAS_ROWS * 100}%`,
-        left: `${-column * 100}%`,
-        top: `${-row * 100}%`,
+        backgroundImage: `url("${BADGE_ATLAS}")`,
+        backgroundSize: `${BADGE_ATLAS_COLUMNS * 100}% ${BADGE_ATLAS_ROWS * 100}%`,
+        backgroundPosition: `${horizontalPosition}% ${verticalPosition}%`,
       }}
     />
   );
