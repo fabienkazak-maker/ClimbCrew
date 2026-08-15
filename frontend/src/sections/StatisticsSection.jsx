@@ -113,8 +113,13 @@ export default function StatisticsSection({
                 <span className="passport-dot" style={getPassportDotStyle(participant)} aria-hidden="true" />
                 <span className="participant-name">{fullName(participant)}</span>
               </span>
-              <span className="small" style={{ color: "inherit" }}>
-                Cotisation : {participant.cotisation ? "Oui" : "Non"} · FFME : {participant.ffme ? "Oui" : "Non"} · CPR : {cprByParticipantId[participant.id]?.currentGrade || "Non calculé"} · Points : {formatPoints(pointsByParticipantId[participant.id])} · Participations : {sessionStats.participationCount[participant.id] || 0} · Passeport : {participant.passport}
+              <span className="stats-participant-details small" style={{ color: "inherit" }}>
+                <span>Cotisation : {participant.cotisation ? "Oui" : "Non"}</span>
+                <span>FFME : {participant.ffme ? "Oui" : "Non"}</span>
+                <span>CPR : {cprByParticipantId[participant.id]?.currentGrade || "Non calculé"}</span>
+                <span>Points : {formatPoints(pointsByParticipantId[participant.id])}</span>
+                <span>Participations : {sessionStats.participationCount[participant.id] || 0}</span>
+                <span>Passeport : {participant.passport}</span>
               </span>
             </div>
           ))}
