@@ -1,32 +1,29 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { getGeckoLevelInfo } from "../lib/gecko-level.js";
-import { GECKO_ATLAS_DATA_URI } from "../assets/gecko-avatar-atlas.js";
-import { BOUQUETIN_ATLAS_DATA_URI } from "../assets/avatar-bouquetin-atlas.js";
-import { CAPUCIN_ATLAS_DATA_URI } from "../assets/avatar-capucin-atlas.js";
-import { ECUREUIL_ATLAS_DATA_URI } from "../assets/avatar-ecureuil-atlas.js";
-import { PARESSEUX_ATLAS_DATA_URI } from "../assets/avatar-paresseux-atlas.js";
-import { LEOPARD_NEIGES_ATLAS_DATA_URI } from "../assets/avatar-leopard_neiges-atlas.js";
 import "../styles/profile-gecko.css";
 
 const LEVEL_ACCENTS = ["#65a30d", "#4d7c0f", "#0284c7", "#2563eb", "#7c3aed", "#9333ea", "#d97706", "#0ea5e9"];
 const AVATAR_STORAGE_PREFIX = "climbcrew_profile_animal_";
-// Le suffixe de version évite qu’un ancien atlas, de dimensions différentes, reste en cache sur mobile.
-const NEW_AVATAR_CREST_ATLAS = "/media/avatars/avatar-crest-atlas-new.png?v=20260815-2";
-const EXISTING_AVATAR_CREST_ATLAS = "/media/avatars/avatar-crest-atlas-existing.png";
+const AVATAR_ROOT = "/media/avatars/split";
+const ASSET_VERSION = "260815007";
+
+function avatarAsset(name) {
+  return `${AVATAR_ROOT}/${name}.webp?v=${ASSET_VERSION}`;
+}
 
 export const ANIMAL_OPTIONS = Object.freeze([
-  { id: "gecko", label: "Gecko", atlas: GECKO_ATLAS_DATA_URI, columns: 4, rows: 4, genderVariants: true, crestAtlas: EXISTING_AVATAR_CREST_ATLAS, crestIndex: 1, crestColumns: 4, crestRows: 2 },
-  { id: "bouquetin", label: "Bouquetin", atlas: BOUQUETIN_ATLAS_DATA_URI, columns: 4, rows: 2, crestAtlas: NEW_AVATAR_CREST_ATLAS, crestIndex: 3, crestColumns: 4, crestRows: 4 },
-  { id: "capucin", label: "Singe capucin", atlas: CAPUCIN_ATLAS_DATA_URI, columns: 4, rows: 2, crestAtlas: EXISTING_AVATAR_CREST_ATLAS, crestIndex: 3, crestColumns: 4, crestRows: 2 },
-  { id: "ecureuil", label: "Écureuil", atlas: ECUREUIL_ATLAS_DATA_URI, columns: 4, rows: 2, crestAtlas: NEW_AVATAR_CREST_ATLAS, crestIndex: 5, crestColumns: 4, crestRows: 4 },
-  { id: "paresseux", label: "Paresseux", atlas: PARESSEUX_ATLAS_DATA_URI, columns: 4, rows: 2, crestAtlas: EXISTING_AVATAR_CREST_ATLAS, crestIndex: 5, crestColumns: 4, crestRows: 2 },
-  { id: "leopard_neiges", label: "Léopard des neiges", atlas: LEOPARD_NEIGES_ATLAS_DATA_URI, columns: 4, rows: 2, crestAtlas: EXISTING_AVATAR_CREST_ATLAS, crestIndex: 7, crestColumns: 4, crestRows: 2 },
-  { id: "orang_outan", label: "Orang-outan bloqueur", atlas: NEW_AVATAR_CREST_ATLAS, columns: 4, rows: 4, avatarIndex: 0, crestAtlas: NEW_AVATAR_CREST_ATLAS, crestIndex: 1, crestColumns: 4, crestRows: 4 },
-  { id: "pieuvre", label: "Pieuvre grimpeuse", atlas: NEW_AVATAR_CREST_ATLAS, columns: 4, rows: 4, avatarIndex: 6, crestAtlas: NEW_AVATAR_CREST_ATLAS, crestIndex: 7, crestColumns: 4, crestRows: 4 },
-  { id: "robot", label: "Robot assureur", atlas: NEW_AVATAR_CREST_ATLAS, columns: 4, rows: 4, avatarIndex: 8, crestAtlas: NEW_AVATAR_CREST_ATLAS, crestIndex: 9, crestColumns: 4, crestRows: 4 },
-  { id: "astronaute", label: "Astronaute en SAE", atlas: NEW_AVATAR_CREST_ATLAS, columns: 4, rows: 4, avatarIndex: 10, crestAtlas: NEW_AVATAR_CREST_ATLAS, crestIndex: 11, crestColumns: 4, crestRows: 4 },
-  { id: "capybara", label: "Capybara zen", atlas: NEW_AVATAR_CREST_ATLAS, columns: 4, rows: 4, avatarIndex: 12, crestAtlas: NEW_AVATAR_CREST_ATLAS, crestIndex: 13, crestColumns: 4, crestRows: 4 },
-  { id: "chevalier", label: "Chevalier grimpeur", atlas: NEW_AVATAR_CREST_ATLAS, columns: 4, rows: 4, avatarIndex: 14, crestAtlas: NEW_AVATAR_CREST_ATLAS, crestIndex: 15, crestColumns: 4, crestRows: 4 },
+  { id: "gecko", label: "Gecko", image: avatarAsset("gecko"), crest: avatarAsset("gecko-crest") },
+  { id: "bouquetin", label: "Bouquetin", image: avatarAsset("bouquetin"), crest: avatarAsset("bouquetin-crest") },
+  { id: "capucin", label: "Singe capucin", image: avatarAsset("capucin"), crest: avatarAsset("capucin-crest") },
+  { id: "ecureuil", label: "Écureuil", image: avatarAsset("ecureuil"), crest: avatarAsset("ecureuil-crest") },
+  { id: "paresseux", label: "Paresseux", image: avatarAsset("paresseux"), crest: avatarAsset("paresseux-crest") },
+  { id: "leopard_neiges", label: "Léopard des neiges", image: avatarAsset("leopard-neiges"), crest: avatarAsset("leopard-neiges-crest") },
+  { id: "orang_outan", label: "Orang-outan bloqueur", image: avatarAsset("orang-outan"), crest: avatarAsset("orang-outan-crest") },
+  { id: "pieuvre", label: "Pieuvre grimpeuse", image: avatarAsset("pieuvre"), crest: avatarAsset("pieuvre-crest") },
+  { id: "robot", label: "Robot assureur", image: avatarAsset("robot"), crest: avatarAsset("robot-crest") },
+  { id: "astronaute", label: "Astronaute en SAE", image: avatarAsset("astronaute"), crest: avatarAsset("astronaute-crest") },
+  { id: "capybara", label: "Capybara zen", image: avatarAsset("capybara"), crest: avatarAsset("capybara-crest") },
+  { id: "chevalier", label: "Chevalier grimpeur", image: avatarAsset("chevalier"), crest: avatarAsset("chevalier-crest") },
 ]);
 
 function readStoredAnimal(storageKey) {
@@ -38,48 +35,10 @@ function readStoredAnimal(storageKey) {
   }
 }
 
-function AtlasTile({ src, columns, rows, index }) {
-  const column = index % columns;
-  const row = Math.floor(index / columns);
-
+function ProfileAnimalImage({ animal, level, label }) {
   return (
-    <span className="profile-animal-atlas-tile" aria-hidden="true">
-      <img
-        src={src}
-        alt=""
-        draggable="false"
-        className="profile-animal-atlas-image"
-        style={{
-          width: `${columns * 100}%`,
-          height: `${rows * 100}%`,
-          left: `${-column * 100}%`,
-          top: `${-row * 100}%`,
-        }}
-      />
-    </span>
-  );
-}
-
-function ProfileAnimalImage({ animal, level, label, variant }) {
-  const safeLevel = Math.max(1, Math.min(8, Number(level || 1)));
-  const avatarIndex = Number.isInteger(animal.avatarIndex)
-    ? animal.avatarIndex
-    : animal.genderVariants
-      ? (variant === "feminine" ? 8 : 0) + safeLevel - 1
-      : safeLevel - 1;
-
-  return (
-    <div
-      className="profile-gecko-real-image"
-      role="img"
-      aria-label={`${animal.label} ${label}, niveau ${level} sur 8`}
-    >
-      <AtlasTile
-        src={animal.atlas}
-        columns={animal.columns}
-        rows={animal.rows}
-        index={avatarIndex}
-      />
+    <div className="profile-gecko-real-image" role="img" aria-label={`${animal.label} ${label}, niveau ${level} sur 8`}>
+      <img className="profile-animal-image" src={animal.image} alt="" draggable="false" />
     </div>
   );
 }
@@ -87,12 +46,7 @@ function ProfileAnimalImage({ animal, level, label, variant }) {
 function ProfileCrestImage({ animal }) {
   return (
     <div className="profile-avatar-crest" role="img" aria-label={`Blason assorti à l’avatar ${animal.label}`}>
-      <AtlasTile
-        src={animal.crestAtlas}
-        columns={animal.crestColumns}
-        rows={animal.crestRows}
-        index={animal.crestIndex}
-      />
+      <img className="profile-animal-image" src={animal.crest} alt="" draggable="false" />
     </div>
   );
 }
@@ -133,21 +87,14 @@ export default function ProfileGecko({ grade, sexe, participantId }) {
 
       <label className="profile-animal-selector">
         <span>Choisir mon avatar</span>
-        <select
-          className="input"
-          value={animal.id}
-          onChange={(event) => chooseAnimal(event.target.value)}
-          aria-label="Choisir mon avatar"
-        >
-          {ANIMAL_OPTIONS.map((option) => (
-            <option key={option.id} value={option.id}>{option.label}</option>
-          ))}
+        <select className="input" value={animal.id} onChange={(event) => chooseAnimal(event.target.value)} aria-label="Choisir mon avatar">
+          {ANIMAL_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
         </select>
       </label>
 
       <div className="profile-gecko-stage" style={{ "--gecko-accent": accent }}>
         <div className="profile-avatar-pair">
-          <ProfileAnimalImage animal={animal} level={level} label={label} variant={variant} />
+          <ProfileAnimalImage animal={animal} level={level} label={label} />
           <div className="profile-avatar-crest-wrap">
             <span className="small">Mon blason</span>
             <ProfileCrestImage animal={animal} />
@@ -157,9 +104,3 @@ export default function ProfileGecko({ grade, sexe, participantId }) {
     </div>
   );
 }
-
-export const GECKO_ATLAS_INFO = Object.freeze({
-  src: GECKO_ATLAS_DATA_URI,
-  columns: 4,
-  rows: 4,
-});

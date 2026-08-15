@@ -4,17 +4,24 @@ import test from "node:test";
 
 const geckoUrl = new URL("../src/components/ProfileGecko.jsx", import.meta.url);
 const badgesUrl = new URL("../src/components/ParticipantBadges.jsx", import.meta.url);
-const animalAtlasUrls = [
-  new URL("../src/assets/gecko-avatar-atlas.js", import.meta.url),
-  new URL("../src/assets/avatar-bouquetin-atlas.js", import.meta.url),
-  new URL("../src/assets/avatar-capucin-atlas.js", import.meta.url),
-  new URL("../src/assets/avatar-ecureuil-atlas.js", import.meta.url),
-  new URL("../src/assets/avatar-paresseux-atlas.js", import.meta.url),
-  new URL("../src/assets/avatar-leopard_neiges-atlas.js", import.meta.url),
-];
-const badgeAtlasUrl = new URL("../src/assets/badge-atlas.js", import.meta.url);
+const avatarRoot = new URL("../public/media/avatars/split/", import.meta.url);
+const badgeRoot = new URL("../public/media/badges/", import.meta.url);
 
-const CURRENT_BADGE_IDS = [
+const AVATAR_NAMES = [
+  "gecko",
+  "bouquetin",
+  "capucin",
+  "ecureuil",
+  "paresseux",
+  "leopard-neiges",
+  "orang-outan",
+  "pieuvre",
+  "robot",
+  "astronaute",
+  "capybara",
+  "chevalier"
+];
+const BADGE_IDS = [
   "premiere_croix",
   "premiere_tete",
   "premiere_moulinette",
@@ -34,95 +41,41 @@ const CURRENT_BADGE_IDS = [
   "critique_voies",
   "collectionneur",
   "centurion",
-  "cristal",
+  "cristal"
 ];
 
-function assertWebp(buffer) {
-  assert.ok(buffer.length > 1024, "l'asset WebP ne doit pas être vide ou tronqué");
+function assertWebp(url) {
+  const buffer = readFileSync(url);
+  assert.ok(buffer.length > 1024, `asset vide ou tronqué : ${url.pathname}`);
   assert.equal(buffer.subarray(0, 4).toString("ascii"), "RIFF");
   assert.equal(buffer.subarray(8, 12).toString("ascii"), "WEBP");
 }
 
-test("les avatars historiques et les nouveaux personnages disposent de leurs illustrations", () => {
+test("chaque avatar et chaque blason utilisent un fichier indépendant", () => {
   const source = readFileSync(geckoUrl, "utf8");
 
-  for (const atlasUrl of animalAtlasUrls) {
-    const atlasModule = readFileSync(atlasUrl, "utf8");
-    const encodedAtlas = atlasModule.match(/base64,([A-Za-z0-9+/=]+)"/)?.[1];
-
-    assert.ok(encodedAtlas, `atlas embarqué manquant pour ${atlasUrl.pathname}`);
-    const atlas = Buffer.from(encodedAtlas, "base64");
-    assertWebp(atlas);
-    assert.equal(
-      atlas.length,
-      atlas.readUInt32LE(4) + 8,
-      `atlas tronqué pour ${atlasUrl.pathname}`,
-    );
+  for (const name of AVATAR_NAMES) {
+    assertWebp(new URL(`${name}.webp`, avatarRoot));
+    assertWebp(new URL(`${name}-crest.webp`, avatarRoot));
+    assert.match(source, new RegExp(`avatarAsset\\("${name}"\\)`));
+    assert.match(source, new RegExp(`avatarAsset\\("${name}-crest"\\)`));
   }
 
-  for (const animalId of [
-    "gecko",
-    "bouquetin",
-    "capucin",
-    "ecureuil",
-    "paresseux",
-    "leopard_neiges",
-    "orang_outan",
-    "pieuvre",
-    "robot",
-    "astronaute",
-    "capybara",
-    "chevalier",
-  ]) {
-    assert.ok(source.includes(`id: "${animalId}"`), `avatar manquant : ${animalId}`);
-  }
-
-  assert.match(source, /ProfileAnimalImage/);
-  assert.match(source, /function AtlasTile/);
-  assert.match(source, /profile-animal-atlas-tile/);
-  assert.match(source, /profile-animal-atlas-image/);
-  assert.match(source, /<img/);
-  assert.match(source, /src=\{src\}/);
-  assert.match(source, /columns \* 100/);
-  assert.match(source, /rows \* 100/);
-  assert.match(source, /-column \* 100/);
-  assert.match(source, /-row \* 100/);
-  assert.doesNotMatch(source, /backgroundImage/);
-  assert.match(source, /Choisir mon avatar/);
-  assert.match(source, /ProfileCrestImage/);
-  assert.match(source, /profile-avatar-crest/);
-  assert.match(source, /avatar-crest-atlas-new\.png/);
-  assert.match(source, /avatar-crest-atlas-existing\.png/);
-  assert.match(source, /AVATAR_STORAGE_PREFIX/);
-  assert.doesNotMatch(source, /\/media\/geckos\/gecko-atlas\.webp/);
+  assert.match(source, /profile-animal-image/);
+  assert.match(source, /src=\{animal\.image\}/);
+  assert.match(source, /src=\{animal\.crest\}/);
+  assert.doesNotMatch(source, /AtlasTile|backgroundImage|backgroundPosition|crestIndex|avatarIndex/);
 });
 
-test("les 20 badges courants utilisent un atlas WebP embarqué complet", () => {
+test("chaque badge utilise un fichier indépendant sans atlas", () => {
   const source = readFileSync(badgesUrl, "utf8");
-  const atlasModule = readFileSync(badgeAtlasUrl, "utf8");
-  const encodedAtlas = atlasModule.match(/base64,([A-Za-z0-9+/=]+)"/)?.[1];
 
-  assert.ok(encodedAtlas, "l'atlas des badges doit contenir une image encodée");
-  const atlas = Buffer.from(encodedAtlas, "base64");
-  assertWebp(atlas);
-
-  const declaredRiffSize = atlas.readUInt32LE(4) + 8;
-  assert.equal(
-    atlas.length,
-    declaredRiffSize,
-    "l'atlas des badges ne doit pas être tronqué",
-  );
-
-  assert.match(source, /BADGE_ATLAS_DATA_URI/);
-  assert.match(source, /participant-badge-atlas-tile/);
-  assert.match(source, /backgroundImage/);
-  assert.match(source, /backgroundSize/);
-  assert.match(source, /backgroundPosition/);
-  assert.match(source, /BADGE_ATLAS_COLUMNS\s*=\s*5/);
-  assert.match(source, /BADGE_ATLAS_ROWS\s*=\s*4/);
-  assert.doesNotMatch(source, /\/media\/badges\/badge-atlas\.webp/);
-
-  for (const id of CURRENT_BADGE_IDS) {
+  BADGE_IDS.forEach((id, index) => {
+    assertWebp(new URL(`badge-${String(index).padStart(2, "0")}.webp`, badgeRoot));
     assert.ok(source.includes(`${id}:`), `mapping image manquant pour ${id}`);
-  }
+  });
+
+  assert.match(source, /participant-badge-image/);
+  assert.match(source, /BADGE_IMAGE_PATH/);
+  assert.doesNotMatch(source, /BADGE_ATLAS|backgroundImage|backgroundPosition|BADGE_IMAGE_INDEX/);
 });

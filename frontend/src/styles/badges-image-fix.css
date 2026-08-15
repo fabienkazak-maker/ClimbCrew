@@ -5,13 +5,12 @@
   background-image: none !important;
 }
 
-.participant-badge-atlas-tile {
-  position: absolute;
-  inset: 0;
+.participant-badge-image {
   display: block;
   width: 100%;
   height: 100%;
-  background-repeat: no-repeat;
+  max-width: 100%;
+  object-fit: contain;
   pointer-events: none;
   user-select: none;
 }

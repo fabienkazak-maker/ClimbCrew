@@ -1,58 +1,37 @@
 import React, { useMemo, useState } from "react";
 import { BADGE_FAMILY_LABELS, calculateParticipantBadges } from "../lib/badges.js";
-import { BADGE_ATLAS_DATA_URI } from "../assets/badge-atlas.js";
 import BadgeIllustration from "./BadgeIllustration.jsx";
 
-const BADGE_ATLAS = BADGE_ATLAS_DATA_URI;
-const BADGE_TILE_SIZE = 160;
-const BADGE_ATLAS_COLUMNS = 5;
-const BADGE_ATLAS_ROWS = 4;
-
-export const BADGE_IMAGE_INDEX = Object.freeze({
-  premiere_croix: 0,
-  premiere_tete: 1,
-  premiere_moulinette: 2,
-  premier_a_vue: 3,
-  premier_flash: 4,
-  cap_5c: 5,
-  club_6a: 6,
-  club_6b: 7,
-  club_6c: 8,
-  club_7a: 9,
-  explorateur: 10,
-  tour_de_salle: 11,
-  polyvalent: 12,
-  habitue: 13,
-  fidele: 14,
-  oeil_ouvreur: 15,
-  critique_voies: 16,
-  collectionneur: 17,
-  centurion: 18,
-  cristal: 19,
+export const BADGE_IMAGE_PATH = Object.freeze({
+  premiere_croix: `/media/badges/badge-00.webp?v=260815007`,
+  premiere_tete: `/media/badges/badge-01.webp?v=260815007`,
+  premiere_moulinette: `/media/badges/badge-02.webp?v=260815007`,
+  premier_a_vue: `/media/badges/badge-03.webp?v=260815007`,
+  premier_flash: `/media/badges/badge-04.webp?v=260815007`,
+  cap_5c: `/media/badges/badge-05.webp?v=260815007`,
+  club_6a: `/media/badges/badge-06.webp?v=260815007`,
+  club_6b: `/media/badges/badge-07.webp?v=260815007`,
+  club_6c: `/media/badges/badge-08.webp?v=260815007`,
+  club_7a: `/media/badges/badge-09.webp?v=260815007`,
+  explorateur: `/media/badges/badge-10.webp?v=260815007`,
+  tour_de_salle: `/media/badges/badge-11.webp?v=260815007`,
+  polyvalent: `/media/badges/badge-12.webp?v=260815007`,
+  habitue: `/media/badges/badge-13.webp?v=260815007`,
+  fidele: `/media/badges/badge-14.webp?v=260815007`,
+  oeil_ouvreur: `/media/badges/badge-15.webp?v=260815007`,
+  critique_voies: `/media/badges/badge-16.webp?v=260815007`,
+  collectionneur: `/media/badges/badge-17.webp?v=260815007`,
+  centurion: `/media/badges/badge-18.webp?v=260815007`,
+  cristal: `/media/badges/badge-19.webp?v=260815007`,
 });
 
-function BadgeRealImage({ index }) {
-  const column = index % BADGE_ATLAS_COLUMNS;
-  const row = Math.floor(index / BADGE_ATLAS_COLUMNS);
-  const horizontalPosition = (column / (BADGE_ATLAS_COLUMNS - 1)) * 100;
-  const verticalPosition = (row / (BADGE_ATLAS_ROWS - 1)) * 100;
-
-  return (
-    <span
-      className="participant-badge-atlas-tile"
-      aria-hidden="true"
-      style={{
-        backgroundImage: `url("${BADGE_ATLAS}")`,
-        backgroundSize: `${BADGE_ATLAS_COLUMNS * 100}% ${BADGE_ATLAS_ROWS * 100}%`,
-        backgroundPosition: `${horizontalPosition}% ${verticalPosition}%`,
-      }}
-    />
-  );
+function BadgeRealImage({ src }) {
+  return <img className="participant-badge-image" src={src} alt="" draggable="false" aria-hidden="true" />;
 }
 
 function BadgeVisual({ badge }) {
-  const index = BADGE_IMAGE_INDEX[badge.id];
-  if (!Number.isInteger(index)) return <BadgeIllustration badge={badge} />;
+  const src = BADGE_IMAGE_PATH[badge.id];
+  if (!src) return <BadgeIllustration badge={badge} />;
 
   return (
     <span
@@ -60,7 +39,7 @@ function BadgeVisual({ badge }) {
       role="img"
       aria-label={`Illustration du badge ${badge.name}`}
     >
-      <BadgeRealImage index={index} />
+      <BadgeRealImage src={src} />
     </span>
   );
 }
