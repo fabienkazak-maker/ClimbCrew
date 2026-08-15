@@ -1,17 +1,20 @@
 import React from "react";
 import { getGeckoLevelInfo } from "../lib/gecko-level.js";
+import { GECKO_ATLAS_DATA_URI } from "../assets/gecko-avatar-atlas.js";
 import "../styles/profile-gecko.css";
 
 const LEVEL_ACCENTS = ["#65a30d", "#4d7c0f", "#0284c7", "#2563eb", "#7c3aed", "#9333ea", "#d97706", "#0ea5e9"];
-const GECKO_ATLAS = "/media/geckos/gecko-atlas.webp";
-const TILE_WIDTH = 260;
-const TILE_HEIGHT = 470;
-const GECKO_ATLAS_COLUMNS = 8;
-const GECKO_ATLAS_ROWS = 2;
+const GECKO_ATLAS = GECKO_ATLAS_DATA_URI;
+const TILE_WIDTH = 1;
+const TILE_HEIGHT = 1;
+const GECKO_ATLAS_COLUMNS = 4;
+const GECKO_ATLAS_ROWS = 4;
 
 function GeckoRealImage({ level, label, variant }) {
-  const column = Math.max(0, Math.min(GECKO_ATLAS_COLUMNS - 1, Number(level || 1) - 1));
-  const row = variant === "feminine" ? 1 : 0;
+  const safeLevel = Math.max(1, Math.min(8, Number(level || 1)));
+  const avatarIndex = (variant === "feminine" ? 8 : 0) + safeLevel - 1;
+  const column = avatarIndex % GECKO_ATLAS_COLUMNS;
+  const row = Math.floor(avatarIndex / GECKO_ATLAS_COLUMNS);
 
   return (
     <div
