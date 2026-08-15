@@ -2079,8 +2079,11 @@ async function importLegacyPayload(inputPayload) {
       const result = await client.query(
         `
           insert into participants
-          (nom, prenom, email, passport, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin)
-          values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+          (
+            nom, prenom, email, passport, sexe, cotisation, ffme,
+            can_encadrer, can_referer, can_admin, avatar_id, profile_public
+          )
+          values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
           returning id
         `,
         [
@@ -2094,6 +2097,8 @@ async function importLegacyPayload(inputPayload) {
           Boolean(participant.canEncadrer),
           Boolean(participant.canReferer),
           Boolean(participant.canAdmin),
+          String(participant.avatarId || participant.avatar_id || "gecko"),
+          participant.profilePublic !== false && participant.profile_public !== false,
         ]
       );
       participantIdMap.set(String(participant.id), String(result.rows[0].id));
@@ -2293,6 +2298,8 @@ async function exportLegacyPayload() {
       canEncadrer: row.can_encadrer,
       canReferer: row.can_referer,
       canAdmin: row.can_admin,
+      avatarId: row.avatar_id || "gecko",
+      profilePublic: row.profile_public !== false,
     };
   });
 
