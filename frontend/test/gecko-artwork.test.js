@@ -43,7 +43,7 @@ function assertWebp(buffer) {
   assert.equal(buffer.subarray(8, 12).toString("ascii"), "WEBP");
 }
 
-test("les six animaux utilisent des atlas WebP embarqués complets", () => {
+test("les avatars historiques et les nouveaux personnages disposent de leurs illustrations", () => {
   const source = readFileSync(geckoUrl, "utf8");
 
   for (const atlasUrl of animalAtlasUrls) {
@@ -60,8 +60,21 @@ test("les six animaux utilisent des atlas WebP embarqués complets", () => {
     );
   }
 
-  for (const animalId of ["gecko", "bouquetin", "capucin", "ecureuil", "paresseux", "leopard_neiges"]) {
-    assert.ok(source.includes(`id: "${animalId}"`), `animal manquant : ${animalId}`);
+  for (const animalId of [
+    "gecko",
+    "bouquetin",
+    "capucin",
+    "ecureuil",
+    "paresseux",
+    "leopard_neiges",
+    "orang_outan",
+    "pieuvre",
+    "robot",
+    "astronaute",
+    "capybara",
+    "chevalier",
+  ]) {
+    assert.ok(source.includes(`id: "${animalId}"`), `avatar manquant : ${animalId}`);
   }
 
   assert.match(source, /ProfileAnimalImage/);
@@ -69,7 +82,11 @@ test("les six animaux utilisent des atlas WebP embarqués complets", () => {
   assert.match(source, /backgroundImage/);
   assert.match(source, /backgroundSize/);
   assert.match(source, /backgroundPosition/);
-  assert.match(source, /Choisir mon animal/);
+  assert.match(source, /Choisir mon avatar/);
+  assert.match(source, /ProfileCrestImage/);
+  assert.match(source, /profile-avatar-crest/);
+  assert.match(source, /avatar-crest-atlas-new\.png/);
+  assert.match(source, /avatar-crest-atlas-existing\.png/);
   assert.match(source, /AVATAR_STORAGE_PREFIX/);
   assert.doesNotMatch(source, /\/media\/geckos\/gecko-atlas\.webp/);
 });
