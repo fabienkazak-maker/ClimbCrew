@@ -26,6 +26,8 @@ export const BADGE_IMAGE_PATH = Object.freeze({
   role_encadrant: `/media/avatars/split/role-encadrant.webp?v=260815008`,
   role_referent: `/media/avatars/split/role-referent.webp?v=260815008`,
   role_ouvreur: `/media/avatars/split/role-ouvreur.webp?v=260815008`,
+  premier_vol: `/media/badges/badge-vol.webp?v=260815012`,
+  assurage: `/media/badges/badge-assurage.webp?v=260815012`,
 });
 
 function BadgeRealImage({ src }) {
@@ -165,14 +167,39 @@ function participantRoleBadges(participant, routesById) {
   ].filter(Boolean);
 }
 
-export default function ParticipantBadges({ realisations, routesById, sessions, participant }) {
+function safetyBadges(participant, realisations, allRealisations) {
+  const participantId = String(participant?.id || "");
+  const flightCount = realisations.filter((realisation) => realisation.chute === true).length;
+  const belayCount = allRealisations.filter(
+    (realisation) => realisation.chute === true && String(realisation.assureurId || "") === participantId,
+  ).length;
+  return [
+    {
+      id: "premier_vol",
+      name: "Premier vol",
+      family: "achievement",
+      condition: "Avoir enregistré au moins un vol retenu par son binôme.",
+      earned: flightCount >= 1,
+    },
+    {
+      id: "assurage",
+      name: "Assurage",
+      family: "contribution",
+      condition: "Avoir assuré et retenu au moins un vol enregistré.",
+      earned: belayCount >= 1,
+    },
+  ];
+}
+
+export default function ParticipantBadges({ realisations, allRealisations = [], routesById, sessions, participant }) {
   const [selectedBadge, setSelectedBadge] = useState(null);
   const badges = useMemo(
     () => [
       ...participantRoleBadges(participant, routesById),
+      ...safetyBadges(participant, realisations, allRealisations),
       ...calculateParticipantBadges({ realisations, routesById, sessions }),
     ],
-    [participant, realisations, routesById, sessions],
+    [participant, realisations, allRealisations, routesById, sessions],
   );
 
   const earnedBadges = badges.filter((badge) => badge.earned);

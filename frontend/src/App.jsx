@@ -178,6 +178,8 @@ function App() {
     commentaire: "",
     cotationProposee: "",
     rating: 0,
+    chute: false,
+    assureurId: "",
   });
 
   // Route sélectionnée pour le popup "Enregistrer une réalisation"
@@ -1272,6 +1274,8 @@ async function deleteRealisation(realisation) {
       commentaire: newRealisation.commentaire,
       cotationProposee: newRealisation.cotationProposee,
       rating: newRealisation.rating,
+      chute: newRealisation.chute,
+      assureurId: newRealisation.chute ? newRealisation.assureurId : "",
     };
 
     try {
@@ -1285,6 +1289,8 @@ async function deleteRealisation(realisation) {
         commentaire: "",
         cotationProposee: "",
         rating: 0,
+        chute: false,
+        assureurId: "",
       }));
       setRealisationModalRouteId(null);
       setConfirmationMessage("Réalisation enregistrée.");
@@ -2084,6 +2090,31 @@ async function handleThemePreferenceChange(nextTheme) {
                 </div>
               </div>
 
+              <label className="realisation-flight-toggle">
+                <input
+                  type="checkbox"
+                  checked={newRealisation.chute}
+                  onChange={(event) => setNewRealisation((prev) => ({
+                    ...prev,
+                    chute: event.target.checked,
+                    assureurId: event.target.checked ? prev.assureurId : "",
+                  }))}
+                />
+                <span>Le grimpeur a volé</span>
+              </label>
+
+              {newRealisation.chute && (
+                <div>
+                  <label>Binôme assureur</label>
+                  <select value={newRealisation.assureurId} onChange={(event) => setNewRealisation((prev) => ({ ...prev, assureurId: event.target.value }))}>
+                    <option value="">Choisir le binôme</option>
+                    {alphabeticalParticipants
+                      .filter((participant) => String(participant.id) !== String(newRealisation.participantId))
+                      .map((participant) => <option key={participant.id} value={participant.id}>{fullName(participant)}</option>)}
+                  </select>
+                </div>
+              )}
+
             </div>
 
             <div style={{ marginTop: 12 }}>
@@ -2093,7 +2124,7 @@ async function handleThemePreferenceChange(nextTheme) {
 
             <div className="modal-actions">
               <Button variant="secondary" onClick={closeRealisationModal}>Annuler</Button>
-              <Button onClick={addRealisation} disabled={!newRealisation.selectedDay || !newRealisation.participantId || !newRealisation.voieId || !newRealisation.rating || modalEligibleParticipants.length === 0}>Enregistrer</Button>
+              <Button onClick={addRealisation} disabled={!newRealisation.selectedDay || !newRealisation.participantId || !newRealisation.voieId || !newRealisation.rating || (newRealisation.chute && !newRealisation.assureurId) || modalEligibleParticipants.length === 0}>Enregistrer</Button>
             </div>
           </div>
         </div>
@@ -2204,6 +2235,7 @@ async function handleThemePreferenceChange(nextTheme) {
             myParticipant={myParticipant}
             myParticipantId={myParticipantId}
             myRealisations={myRealisations}
+            allRealisations={state.realisations}
             myProfileStats={myProfileStats}
             cprByParticipantId={cprByParticipantId}
             pointsByParticipantId={pointsByParticipantId}

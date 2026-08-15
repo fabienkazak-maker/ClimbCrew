@@ -300,6 +300,15 @@ export function validateRealisationPayload(payload = {}, { partial = false } = {
   if (payload.rating !== undefined && payload.rating !== null && payload.rating !== "") {
     validated.rating = validateRouteRating(payload.rating);
   }
+  if (!partial || payload.chute !== undefined) {
+    validated.chute = strictBoolean(payload.chute, "chute", false);
+  }
+  if (!partial || payload.assureurId !== undefined) {
+    validated.assureurId = optionalString(payload.assureurId, "assureurId", 100);
+    if (validated.chute && !validated.assureurId) {
+      throw new ValidationError("Le binôme assureur est obligatoire lorsqu’un vol est enregistré.", { assureurId: "required" });
+    }
+  }
   return validated;
 }
 

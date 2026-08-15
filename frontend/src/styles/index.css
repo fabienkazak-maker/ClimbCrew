@@ -1215,3 +1215,5 @@ button:not(.danger):not(.secondary):not(.ghost),
 .comment-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; }
 @media (max-width: 760px) { .evolution-summary { grid-template-columns: auto minmax(0, 1fr) auto auto; } .evolution-summary-meta { grid-column: 2 / -1; } }
 @media (max-width: 620px) { .comment-form { grid-template-columns: 1fr; } .comment-form button { justify-self: end; } .evolution-summary { gap: 7px; padding: 9px; } .evolution-summary > .opinion-count { display: none; } }
+.realisation-flight-toggle { display: flex; align-items: center; gap: 8px; min-height: 44px; font-weight: 750; }
+.realisation-flight-toggle input { width: 18px; height: 18px; margin: 0; }

@@ -51,9 +51,9 @@ export default function FaqSection({ APP_VERSION, canAccessAdminTabs }) {
       </details>
 
       <details className="faq-item">
-        <summary><strong>Comment fonctionne le Wall of Fame ?</strong></summary>
+        <summary><strong>Comment fonctionne le Tableau d’honneur ?</strong></summary>
         <div className="small">
-          Le Wall of Fame affiche les trois premiers grimpeurs pour le CPR, les points, les participations, le nombre total de réalisations réussies, les voies distinctes réalisées, les voies réalisées en tête et les records sur une séance. Le nombre total compte chaque réalisation réussie, même si une voie est refaite lors d'une autre séance. Pour les records d'une séance, une même voie n'est comptée qu'une fois. La difficulté cumulée attribue 1 point à 4a, puis un point supplémentaire par niveau jusqu'à 15 points pour 7b, avant d'additionner les voies de la séance. Les personnes ayant la même valeur conservent le même rang.
+          Le Tableau d’honneur affiche les trois premiers grimpeurs pour le CPR, les points, les participations, les réalisations, les voies en tête, les records sur une séance et les vols enregistrés. Le nombre total compte chaque réalisation réussie, même si une voie est refaite lors d'une autre séance. Pour les records d'une séance, une même voie n'est comptée qu'une fois. La difficulté cumulée attribue 1 point à 4a, puis un point supplémentaire par niveau jusqu'à 15 points pour 7b, avant d'additionner les voies de la séance. Les personnes ayant la même valeur conservent le même rang.
         </div>
       </details>
 

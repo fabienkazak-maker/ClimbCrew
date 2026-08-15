@@ -477,6 +477,8 @@ async function ensureSchema() {
       commentaire text,
       cotation_proposee text,
       nb_essais text,
+      chute boolean not null default false,
+      assureur_id text,
       rating integer check (rating between 1 and 5),
       tags text[] not null default '{}',
       created_at timestamptz not null default now(),
@@ -486,6 +488,8 @@ async function ensureSchema() {
 
   await pool.query(`alter table realisations add column if not exists rating integer check (rating between 1 and 5)`);
   await pool.query(`alter table realisations add column if not exists tags text[] not null default '{}'`);
+  await pool.query(`alter table realisations add column if not exists chute boolean not null default false`);
+  await pool.query(`alter table realisations add column if not exists assureur_id text`);
 
   await pool.query(`create index if not exists idx_realisations_participant on realisations(participant_id)`);
   await pool.query(`create index if not exists idx_realisations_session on realisations(session_id)`);
@@ -785,7 +789,9 @@ app.get("/realisations", requireAuth, async (_req, res) => {
         commentaire,
         cotation_proposee as "cotationProposee",
         nb_essais as "nbEssais",
-        rating
+        rating,
+        chute,
+        assureur_id as "assureurId"
       from realisations
       order by date_realisation desc, created_at desc
     `);
@@ -802,8 +808,8 @@ app.post("/realisations", requireAuth, async (req, res) => {
       `
         insert into realisations (
           id, participant_id, session_id, voie_id, date_realisation, style_realisation,
-          commentaire, cotation_proposee, nb_essais, rating
-        ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+          commentaire, cotation_proposee, nb_essais, rating, chute, assureur_id
+        ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
       `,
       [
         realisation.id,
@@ -816,6 +822,8 @@ app.post("/realisations", requireAuth, async (req, res) => {
         realisation.cotationProposee || "",
         realisation.nbEssais || "",
         realisation.rating ?? null,
+        Boolean(realisation.chute),
+        realisation.assureurId || null,
       ]
     );
     res.json(realisation);
@@ -840,6 +848,8 @@ app.put("/realisations/:id", requireAuth, async (req, res) => {
           cotation_proposee = coalesce($8, cotation_proposee),
           nb_essais = coalesce($9, nb_essais),
           rating = coalesce($10, rating),
+          chute = coalesce($11, chute),
+          assureur_id = case when $11 = false then null else coalesce($12, assureur_id) end,
           updated_at = now()
         where id = $1
       `,
@@ -854,6 +864,8 @@ app.put("/realisations/:id", requireAuth, async (req, res) => {
         patch.cotationProposee ?? null,
         patch.nbEssais ?? null,
         patch.rating ?? null,
+        patch.chute ?? null,
+        patch.assureurId ?? null,
       ]
     );
     res.json({ ok: true });
@@ -2143,14 +2155,17 @@ async function importLegacyPayload(inputPayload) {
 
     for (const realisation of payload.realisations || []) {
       const mappedParticipantId = participantIdMap.get(String(realisation.participantId));
+      const mappedAssureurId = realisation.assureurId
+        ? participantIdMap.get(String(realisation.assureurId)) || String(realisation.assureurId)
+        : null;
       if (!mappedParticipantId) continue;
 
       await client.query(
         `
           insert into realisations (
             id, participant_id, session_id, voie_id, date_realisation, style_realisation,
-            commentaire, cotation_proposee, nb_essais, rating
-          ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+            commentaire, cotation_proposee, nb_essais, rating, chute, assureur_id
+          ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
           on conflict (id) do update set
             participant_id = excluded.participant_id,
             session_id = excluded.session_id,
@@ -2161,6 +2176,8 @@ async function importLegacyPayload(inputPayload) {
             cotation_proposee = excluded.cotation_proposee,
             nb_essais = excluded.nb_essais,
             rating = excluded.rating,
+            chute = excluded.chute,
+            assureur_id = excluded.assureur_id,
             updated_at = now()
         `,
         [
@@ -2174,6 +2191,8 @@ async function importLegacyPayload(inputPayload) {
           realisation.cotationProposee || "",
           realisation.nbEssais || "",
           realisation.rating || null,
+          Boolean(realisation.chute),
+          mappedAssureurId,
         ]
       );
     }
@@ -2259,6 +2278,10 @@ async function exportLegacyPayload() {
       commentaire: row.commentaire || "",
       cotationProposee: row.cotation_proposee || "",
       nbEssais: row.nb_essais || "",
+      chute: Boolean(row.chute),
+      assureurId: row.assureur_id
+        ? participantByDbId.get(String(row.assureur_id)) || String(row.assureur_id)
+        : "",
     })),
     selectedDate: new Date().toISOString().slice(0, 10),
     selectedParticipantProgress: participants[0]?.id || "",

@@ -138,9 +138,14 @@ create table if not exists realisations (
   commentaire text,
   cotation_proposee text,
   nb_essais text,
+  chute boolean not null default false,
+  assureur_id text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table realisations add column if not exists chute boolean not null default false;
+alter table realisations add column if not exists assureur_id text;
 
 create index if not exists idx_realisations_participant on realisations(participant_id);
 create index if not exists idx_realisations_session on realisations(session_id);

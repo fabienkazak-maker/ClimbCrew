@@ -56,7 +56,7 @@ export const TABS = [
   { key: "progression", label: "Progression" },
   { key: "mon_profil", label: "Mon Profil" },
   { key: "statistiques", label: "Statistiques" },
-  { key: "wall_of_fame", label: "Wall of Fame" },
+  { key: "wall_of_fame", label: "Tableau d’honneur" },
   { key: "evolutions", label: "Demandes d’évolution" },
   { key: "faq", label: "FAQ" },
   { key: "administration", label: "Administration", adminOnly: true },

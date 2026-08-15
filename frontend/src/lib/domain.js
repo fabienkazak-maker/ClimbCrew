@@ -391,7 +391,7 @@ export function calculateRouteAggregates(routes, realisations, cprByParticipantI
 }
 
 /**
- * Classements publics du Wall of Fame. `participants` doit déjà être filtré
+ * Classements publics du Tableau d’honneur. `participants` doit déjà être filtré
  * (par exemple par sexe) par l'appelant : cette fonction ne fait que classer.
  */
 export function calculateWallOfFameCategories({
@@ -504,6 +504,13 @@ export function calculateWallOfFameCategories({
         (realisation) => isSuccessfulLeadRealisation(realisation, routesById[realisation.voieId])
       ),
       formatValue: (value) => `${value} voie${value > 1 ? "s" : ""}`,
+    }),
+    buildRanking({
+      title: "Champions du vol",
+      getValue: (participant) => realisations.filter(
+        (realisation) => String(realisation.participantId) === String(participant.id) && realisation.chute === true
+      ).length,
+      formatValue: (value) => `${value} vol${value > 1 ? "s" : ""}`,
     }),
   ];
 }

@@ -171,6 +171,7 @@ export default function Progression({
                         {formatDateShortFr(realisation.dateRealisation?.slice(0, 10))}
                         {" · "}
                         {STYLE_LABELS[realisation.styleRealisation] || realisation.styleRealisation}
+                        {realisation.chute && <> · Vol{realisation.assureurId && participantsById[realisation.assureurId] ? ` · assuré par ${fullName(participantsById[realisation.assureurId])}` : ""}</>}
                         {displayedRating && <> · <span aria-label={`Évaluation ${Number(realisation.rating)} sur 5`}>{displayedRating}</span></>}
                       </div>
                     </div>

@@ -11,6 +11,7 @@ export default function Profil({
   myParticipant,
   myParticipantId,
   myRealisations,
+  allRealisations,
   myProfileStats,
   cprByParticipantId,
   pointsByParticipantId,
@@ -81,6 +82,7 @@ export default function Profil({
       <ParticipantBadges
         participant={myParticipant}
         realisations={myRealisations}
+        allRealisations={allRealisations}
         routesById={routesById}
         sessions={getParticipantSessions(myParticipantId)}
       />

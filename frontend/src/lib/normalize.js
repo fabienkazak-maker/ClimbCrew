@@ -147,6 +147,8 @@ export function normalizeRealisation(realisation = {}) {
       "",
     ),
     rating: Number.isInteger(Number(realisation.rating)) ? Number(realisation.rating) : null,
+    chute: booleanValue(realisation.chute, false),
+    assureurId: identifier(realisation.assureurId ?? realisation.assureur_id),
   };
 }
 

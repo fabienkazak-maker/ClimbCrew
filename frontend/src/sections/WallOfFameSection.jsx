@@ -13,11 +13,11 @@ export default function WallOfFameSection({
     <>
       <div className="card">
         <div className="card-header">
-          <h2>Wall of Fame</h2>
+          <h2>Tableau d’honneur</h2>
           <div className="group">
             <select
               id="wall-of-fame-sex-filter"
-              aria-label="Filtrer le Wall of Fame par sexe"
+              aria-label="Filtrer le Tableau d’honneur par sexe"
               value={wallOfFameSexFilter}
               onChange={(event) => setWallOfFameSexFilter(event.target.value)}
             >
