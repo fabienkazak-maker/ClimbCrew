@@ -39,25 +39,31 @@
   border-radius: 12px;
   background: color-mix(in srgb, var(--gecko-accent) 7%, var(--theme-card-soft));
 }
-.profile-avatar-evolution-history > strong { display: block; margin-bottom: 7px; font-size: 12px; }
-.profile-avatar-evolution-list { display: flex; flex-wrap: wrap; gap: 5px; }
-.profile-avatar-evolution-list > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 6px;
-  border-radius: 999px;
-  background: var(--theme-card-bg);
+.profile-avatar-evolution-history > strong { display: block; margin-bottom: 8px; font-size: 12px; }
+.profile-avatar-evolution-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
+  gap: 7px;
+}
+.profile-avatar-history-item { min-width: 0; margin: 0; }
+.profile-avatar-history-stage {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  min-height: 0;
+  margin: 0;
+  padding: 3px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #fff;
+}
+.profile-avatar-history-item figcaption {
+  margin-top: 4px;
   color: var(--theme-text-muted);
-  font-size: 10px;
-  line-height: 1;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
 }
-.profile-avatar-evolution-list > span.is-current {
-  background: var(--gecko-accent);
-  color: #fff;
-}
-.profile-avatar-evolution-list b { display: inline-grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; background: rgba(255,255,255,.2); }
-.profile-avatar-evolution-list small { font-size: 8px; font-weight: 800; text-transform: uppercase; }
 
 /* L'avatar gagne en présence, en couleur et en lumière à chacun des huit niveaux. */
 .profile-gecko-stage .profile-animal-image {
