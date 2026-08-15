@@ -10,33 +10,63 @@ function scoreLabel(score) {
   return "À travailler";
 }
 
-function SkillRow({ item }) {
-  const detail = item.attempts > 0
-    ? `${item.attempts} réalisation${item.attempts > 1 ? "s" : ""} analysée${item.attempts > 1 ? "s" : ""}`
-    : "Aucune réalisation sur une voie portant cette caractéristique.";
+function polarPoint(index, count, radius, centerX = 260, centerY = 205) {
+  const angle = (-Math.PI / 2) + (index * Math.PI * 2) / count;
+  return {
+    x: centerX + Math.cos(angle) * radius,
+    y: centerY + Math.sin(angle) * radius,
+  };
+}
+
+function pointsAttribute(points) {
+  return points.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(" ");
+}
+
+function KiviatChart({ characteristics }) {
+  const count = characteristics.length;
+  const radius = 140;
+  if (count < 3) return <div className="muted-box">Pas assez de caractéristiques pour construire le Kiviat.</div>;
+
+  const axes = characteristics.map((_, index) => polarPoint(index, count, radius));
+  const dataPoints = characteristics.map((item, index) => {
+    const score = Number.isFinite(item.score) ? Math.max(0, Math.min(100, item.score)) : 0;
+    return polarPoint(index, count, radius * score / 100);
+  });
 
   return (
-    <div className="climber-profile-skill">
-      <div className="climber-profile-skill-heading">
-        <strong>{item.label}</strong>
-        <span className="small">
-          {Number.isFinite(item.score) ? `${item.score} % · ${scoreLabel(item.score)}` : "À découvrir"}
-        </span>
+    <div className="climber-kiviat">
+      <svg viewBox="0 0 520 430" role="img" aria-labelledby="kiviat-title kiviat-description">
+        <title id="kiviat-title">Kiviat des caractéristiques du grimpeur</title>
+        <desc id="kiviat-description">Chaque axe présente un indice d’aisance compris entre zéro et cent pour une caractéristique de voie.</desc>
+        {[25, 50, 75, 100].map((level) => (
+          <polygon key={level} className={level === 50 ? "kiviat-grid kiviat-neutral" : "kiviat-grid"} points={pointsAttribute(characteristics.map((_, index) => polarPoint(index, count, radius * level / 100)))} />
+        ))}
+        {axes.map((point, index) => <line key={characteristics[index].value} className="kiviat-axis" x1="260" y1="205" x2={point.x} y2={point.y} />)}
+        <polygon className="kiviat-area" points={pointsAttribute(dataPoints)} />
+        {dataPoints.map((point, index) => (
+          <circle key={characteristics[index].value} className="kiviat-point" cx={point.x} cy={point.y} r="4">
+            <title>{characteristics[index].label} : {Number.isFinite(characteristics[index].score) ? `${characteristics[index].score} %` : "à découvrir"}</title>
+          </circle>
+        ))}
+        {characteristics.map((item, index) => {
+          const point = polarPoint(index, count, 174);
+          const anchor = point.x < 230 ? "end" : point.x > 290 ? "start" : "middle";
+          return (
+            <text key={item.value} className="kiviat-label" x={point.x} y={point.y} textAnchor={anchor} dominantBaseline="middle">
+              <tspan x={point.x}>{item.label}</tspan>
+              <tspan className="kiviat-label-score" x={point.x} dy="16">{Number.isFinite(item.score) ? `${item.score} %` : "À découvrir"}</tspan>
+            </text>
+          );
+        })}
+      </svg>
+      <div className="kiviat-legend small"><span /> Zone neutre : 50 %</div>
+      <div className="kiviat-details" aria-label="Détail des caractéristiques">
+        {characteristics.map((item) => (
+          <div key={item.value} className="small">
+            <strong>{item.label}</strong> · {Number.isFinite(item.score) ? `${item.score} % · ${scoreLabel(item.score)}` : "À découvrir"} · {item.attempts} réalisation{item.attempts > 1 ? "s" : ""}
+          </div>
+        ))}
       </div>
-      <div
-        className="climber-profile-bar"
-        role="progressbar"
-        aria-label={item.label}
-        aria-valuemin="0"
-        aria-valuemax="100"
-        aria-valuenow={Number.isFinite(item.score) ? item.score : undefined}
-      >
-        <span
-          className="climber-profile-bar-fill"
-          style={{ width: `${Number.isFinite(item.score) ? item.score : 0}%` }}
-        />
-      </div>
-      <span className="small">{detail}</span>
     </div>
   );
 }
@@ -106,7 +136,7 @@ export default function ClimberProfilePanel({ realisations = [], routesById = {}
           <div className="small">
             50 % est une zone neutre. Le score se stabilise progressivement avec le nombre de réalisations enregistrées.
           </div>
-          {profile.characteristics.map((item) => <SkillRow key={item.value} item={item} />)}
+          <KiviatChart characteristics={profile.characteristics} />
 
           <div className="climber-profile-summary-grid">
             <SummaryBox
