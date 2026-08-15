@@ -78,8 +78,8 @@ test("les 20 badges courants utilisent un atlas WebP embarqué complet", () => {
   );
 
   assert.match(source, /BADGE_ATLAS_DATA_URI/);
-  assert.match(source, /<img/);
-  assert.match(source, /src=\{BADGE_ATLAS\}/);
+  assert.match(source, /participant-badge-atlas-tile/);
+  assert.match(source, /backgroundImage/);\n  assert.match(source, /backgroundSize/);\n  assert.match(source, /backgroundPosition/);
   assert.match(source, /BADGE_ATLAS_COLUMNS\s*=\s*5/);
   assert.match(source, /BADGE_ATLAS_ROWS\s*=\s*4/);
   assert.doesNotMatch(source, /\/media\/badges\/badge-atlas\.webp/);
