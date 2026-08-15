@@ -31,6 +31,7 @@
 .participant-badge-tile--achievement { --badge-accent: #22c55e; }
 .participant-badge-tile--level { --badge-accent: #3b82f6; }
 .participant-badge-tile--consistency { --badge-accent: #14b8a6; }
+.participant-badge-tile--schedule { --badge-accent: #ec4899; }
 .participant-badge-tile--exploration { --badge-accent: #8b5cf6; }
 .participant-badge-tile--contribution { --badge-accent: #f59e0b; }
 .participant-badge-tile--prestige { --badge-accent: #fbbf24; }
