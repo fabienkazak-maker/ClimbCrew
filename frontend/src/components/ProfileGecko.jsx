@@ -5,6 +5,7 @@ import "../styles/profile-gecko.css";
 const LEVEL_ACCENTS = ["#65a30d", "#4d7c0f", "#0284c7", "#2563eb", "#7c3aed", "#9333ea", "#d97706", "#0ea5e9"];
 const AVATAR_ROOT = "/media/avatars/split";
 const PROFILE_ROOT = "/media/avatars/profile";
+const EVOLUTION_ROOT = "/media/avatars/evolutions";
 const ASSET_VERSION = "260815016";
 const EVOLUTION_LABELS = ["Découverte", "Initiation", "Autonome", "Confirmé", "Technique", "Expert", "Maître", "Élite"];
 
@@ -12,8 +13,12 @@ function asset(root, name, extension = "webp") {
   return `${root}/${name}.${extension}?v=${ASSET_VERSION}`;
 }
 
+function evolutionImages(avatarId) {
+  return EVOLUTION_LABELS.map((_, index) => `${EVOLUTION_ROOT}/${avatarId}/level-${index + 1}.webp?v=${ASSET_VERSION}`);
+}
+
 export const AVATAR_OPTIONS = Object.freeze([
-  { id: "gecko", label: "Gecko", group: "Animaux", image: asset(AVATAR_ROOT, "gecko") },
+  { id: "gecko", label: "Gecko", group: "Animaux", image: asset(AVATAR_ROOT, "gecko"), evolutionImages: evolutionImages("gecko") },
   { id: "bouquetin", label: "Bouquetin", group: "Animaux", image: asset(AVATAR_ROOT, "bouquetin") },
   { id: "capucin", label: "Singe capucin", group: "Animaux", image: asset(AVATAR_ROOT, "capucin") },
   { id: "ecureuil", label: "Écureuil", group: "Animaux", image: asset(AVATAR_ROOT, "ecureuil") },
@@ -42,6 +47,10 @@ export const AVATAR_OPTIONS = Object.freeze([
 export const ANIMAL_OPTIONS = AVATAR_OPTIONS;
 
 const AVATAR_GROUPS = [...new Set(AVATAR_OPTIONS.map((option) => option.group))];
+
+function imageForLevel(avatar, level) {
+  return avatar.evolutionImages?.[Math.max(0, Math.min(EVOLUTION_LABELS.length - 1, level - 1))] || avatar.image;
+}
 
 export default function ProfileGecko({ grade, sexe, participant, onProfileUpdate, editable = true, compact = false }) {
   const { level, variant } = getGeckoLevelInfo(grade, sexe);
@@ -84,7 +93,7 @@ export default function ProfileGecko({ grade, sexe, participant, onProfileUpdate
           aria-controls="profile-avatar-evolution-history"
           onClick={() => setShowEvolutionHistory((visible) => !visible)}
         >
-          <img className="profile-animal-image" src={avatar.image} alt="" draggable="false" />
+          <img className="profile-animal-image" src={imageForLevel(avatar, level)} alt="" draggable="false" />
         </button>
 
         {showEvolutionHistory && (
@@ -95,7 +104,7 @@ export default function ProfileGecko({ grade, sexe, participant, onProfileUpdate
                 {EVOLUTION_LABELS.slice(0, level - 1).map((evolutionLabel, index) => (
                   <figure className="profile-avatar-history-item" key={evolutionLabel}>
                     <span className="profile-gecko-stage profile-avatar-history-stage" data-level={index + 1}>
-                      <img className="profile-animal-image" src={avatar.image} alt={`${avatar.label} au niveau ${index + 1}`} draggable="false" />
+                      <img className="profile-animal-image" src={imageForLevel(avatar, index + 1)} alt={`${avatar.label} au niveau ${index + 1}`} draggable="false" />
                     </span>
                     <figcaption>Niveau {index + 1} · {evolutionLabel}</figcaption>
                   </figure>
