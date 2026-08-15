@@ -19,7 +19,7 @@ function evolutionImages(avatarId) {
 
 export const AVATAR_OPTIONS = Object.freeze([
   { id: "gecko", label: "Gecko", group: "Animaux", image: asset(AVATAR_ROOT, "gecko"), evolutionImages: evolutionImages("gecko") },
-  { id: "bouquetin", label: "Bouquetin", group: "Animaux", image: asset(AVATAR_ROOT, "bouquetin") },
+  { id: "bouquetin", label: "Bouquetin", group: "Animaux", image: asset(AVATAR_ROOT, "bouquetin"), evolutionImages: evolutionImages("bouquetin") },
   { id: "capucin", label: "Singe capucin", group: "Animaux", image: asset(AVATAR_ROOT, "capucin") },
   { id: "ecureuil", label: "Écureuil", group: "Animaux", image: asset(AVATAR_ROOT, "ecureuil") },
   { id: "paresseux", label: "Paresseux", group: "Animaux", image: asset(AVATAR_ROOT, "paresseux") },
