@@ -95,20 +95,6 @@ export default function ClimberProfilePanel({ realisations = [], routesById = {}
 
   return (
     <section className="card climber-profile-card">
-      <div className="card-header">
-        <div>
-          <h3>Profil du grimpeur</h3>
-          <div className="small">
-            Indice d'aisance par caractéristique et sélection de voies pour préparer la prochaine séance.
-          </div>
-        </div>
-        {profile.referenceGrade && (
-          <span className="badge">
-            Référence {profile.referenceSource === "cpr" ? "CPR" : "niveau"} : {profile.referenceGrade}
-          </span>
-        )}
-      </div>
-
       <div className="climber-profile-layout">
         <div className="subcard climber-profile-skills">
           <strong>Caractéristiques</strong>
