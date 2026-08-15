@@ -1244,3 +1244,66 @@ button:not(.danger):not(.secondary):not(.ghost),
 @media (max-width: 620px) { .comment-form { grid-template-columns: 1fr; } .comment-form button { justify-self: end; } .evolution-summary { gap: 7px; padding: 9px; } .evolution-summary > .opinion-count { display: none; } }
 .realisation-flight-toggle { display: flex; align-items: center; gap: 8px; min-height: 44px; font-weight: 750; }
 .realisation-flight-toggle input { width: 18px; height: 18px; margin: 0; }
+
+
+/* ==========================================================================
+   Statistiques : cartes inscrits compactes et contenues sur mobile
+   ========================================================================== */
+
+/* Aucun contenu d'une carte ne peut élargir la colonne ou sortir de son cadre. */
+.stats-participant-row,
+.stats-participant-row .participant-identity,
+.stats-participant-row .stats-participant-details {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.stats-participant-row {
+  overflow: hidden;
+}
+
+@media (max-width: 700px) {
+  /*
+   * Le nom occupe la première ligne. Les six indicateurs sont ensuite disposés
+   * sur deux lignes de trois colonnes pour réduire nettement la hauteur.
+   */
+  .stats-participant-row {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 4px !important;
+    align-items: stretch !important;
+    padding: 7px 10px !important;
+    border-radius: 16px !important;
+  }
+
+  .stats-participant-row .participant-identity {
+    display: flex;
+    overflow: hidden;
+    gap: 6px;
+    line-height: 1.15;
+  }
+
+  .stats-participant-row .participant-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .stats-participant-row .stats-participant-details {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    justify-content: stretch;
+    gap: 2px 7px !important;
+    line-height: 1.2 !important;
+    font-size: clamp(10px, 3vw, 12px) !important;
+  }
+
+  .stats-participant-row .stats-participant-details > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
