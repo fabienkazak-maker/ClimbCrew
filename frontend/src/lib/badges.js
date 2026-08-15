@@ -11,6 +11,53 @@ export const BADGE_FAMILY_LABELS = {
   prestige: "Prestige",
 };
 
+export const SAFETY_BADGE_THRESHOLDS = Object.freeze([1, 5, 10, 50]);
+
+const FLIGHT_BADGE_NAMES = Object.freeze({
+  1: "Premier vol",
+  5: "Voltigeur",
+  10: "Habitué du vol",
+  50: "Champion du vol",
+});
+
+const BELAY_BADGE_NAMES = Object.freeze({
+  1: "Premier vol retenu",
+  5: "Assureur confirmé",
+  10: "Assureur expert",
+  50: "Champion de l’assurage",
+});
+
+/** Calcule les badges progressifs liés aux vols et à leur assurage. */
+export function calculateSafetyBadges({ participantId = "", realisations = [], allRealisations = [] } = {}) {
+  const normalizedParticipantId = String(participantId || "");
+  const flightCount = realisations.filter((realisation) => realisation.chute === true).length;
+  const belayCount = allRealisations.filter(
+    (realisation) => realisation.chute === true
+      && String(realisation.assureurId || "") === normalizedParticipantId,
+  ).length;
+
+  return [
+    ...SAFETY_BADGE_THRESHOLDS.map((threshold) => ({
+      id: `vol_${threshold}`,
+      name: FLIGHT_BADGE_NAMES[threshold],
+      family: "achievement",
+      condition: `Avoir enregistré au moins ${threshold} vol${threshold > 1 ? "s" : ""} retenu${threshold > 1 ? "s" : ""} par un binôme.`,
+      earned: flightCount >= threshold,
+      progress: flightCount,
+      threshold,
+    })),
+    ...SAFETY_BADGE_THRESHOLDS.map((threshold) => ({
+      id: `assurage_${threshold}`,
+      name: BELAY_BADGE_NAMES[threshold],
+      family: "contribution",
+      condition: `Avoir assuré et retenu au moins ${threshold} vol${threshold > 1 ? "s" : ""} enregistré${threshold > 1 ? "s" : ""}.`,
+      earned: belayCount >= threshold,
+      progress: belayCount,
+      threshold,
+    })),
+  ];
+}
+
 export const BADGE_CATALOG = [
   { id: "premiere_croix", name: "Première croix", family: "achievement", shape: "flame", symbol: "✓", condition: "Première voie réussie enregistrée.", qualifies: (m) => m.successfulCount >= 1 },
   { id: "premiere_tete", name: "En tête !", family: "achievement", shape: "flame", symbol: "↑", condition: "Première voie réussie en tête.", qualifies: (m) => m.successfulLeadCount >= 1 },
