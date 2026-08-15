@@ -59,8 +59,6 @@ function KiviatChart({ characteristics }) {
           );
         })}
       </svg>
-        ))}
-      </div>
     </div>
   );
 }
