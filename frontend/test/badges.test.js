@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { calculateParticipantBadges } from "../src/lib/badges.js";
+import { calculateParticipantBadges, calculateSafetyBadges } from "../src/lib/badges.js";
 
 function earned(input, id) {
   return calculateParticipantBadges(input).find((badge) => badge.id === id)?.earned;
@@ -73,4 +73,29 @@ test("badges de jours d'inscription après trois séances passées", () => {
   assert.equal(earned(input, "jeudi_midi"), true);
   assert.equal(earned(input, "matin"), true);
   assert.equal(earned(input, "soir"), false);
+});
+
+
+test("badges progressifs de vol et d’assurage aux seuils 1, 5, 10 et 50", () => {
+  const ownFlights = Array.from({ length: 10 }, (_, index) => ({ id: `v${index}`, chute: true }));
+  const retainedFlights = Array.from({ length: 50 }, (_, index) => ({
+    id: `a${index}`,
+    chute: true,
+    assureurId: index < 50 ? "p1" : "p2",
+  }));
+  const badges = calculateSafetyBadges({
+    participantId: "p1",
+    realisations: ownFlights,
+    allRealisations: retainedFlights,
+  });
+  const byId = Object.fromEntries(badges.map((badge) => [badge.id, badge]));
+
+  assert.equal(byId.vol_1.earned, true);
+  assert.equal(byId.vol_5.earned, true);
+  assert.equal(byId.vol_10.earned, true);
+  assert.equal(byId.vol_50.earned, false);
+  assert.equal(byId.assurage_1.earned, true);
+  assert.equal(byId.assurage_5.earned, true);
+  assert.equal(byId.assurage_10.earned, true);
+  assert.equal(byId.assurage_50.earned, true);
 });
