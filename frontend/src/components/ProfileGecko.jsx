@@ -38,6 +38,28 @@ function readStoredAnimal(storageKey) {
   }
 }
 
+function AtlasTile({ src, columns, rows, index }) {
+  const column = index % columns;
+  const row = Math.floor(index / columns);
+
+  return (
+    <span className="profile-animal-atlas-tile" aria-hidden="true">
+      <img
+        src={src}
+        alt=""
+        draggable="false"
+        className="profile-animal-atlas-image"
+        style={{
+          width: `${columns * 100}%`,
+          height: `${rows * 100}%`,
+          left: `${-column * 100}%`,
+          top: `${-row * 100}%`,
+        }}
+      />
+    </span>
+  );
+}
+
 function ProfileAnimalImage({ animal, level, label, variant }) {
   const safeLevel = Math.max(1, Math.min(8, Number(level || 1)));
   const avatarIndex = Number.isInteger(animal.avatarIndex)
@@ -45,10 +67,6 @@ function ProfileAnimalImage({ animal, level, label, variant }) {
     : animal.genderVariants
       ? (variant === "feminine" ? 8 : 0) + safeLevel - 1
       : safeLevel - 1;
-  const column = avatarIndex % animal.columns;
-  const row = Math.floor(avatarIndex / animal.columns);
-  const horizontalPosition = (column / (animal.columns - 1)) * 100;
-  const verticalPosition = (row / (animal.rows - 1)) * 100;
 
   return (
     <div
@@ -56,35 +74,24 @@ function ProfileAnimalImage({ animal, level, label, variant }) {
       role="img"
       aria-label={`${animal.label} ${label}, niveau ${level} sur 8`}
     >
-      <span
-        className="profile-animal-atlas-tile"
-        aria-hidden="true"
-        style={{
-          backgroundImage: `url("${animal.atlas}")`,
-          backgroundSize: `${animal.columns * 100}% ${animal.rows * 100}%`,
-          backgroundPosition: `${horizontalPosition}% ${verticalPosition}%`,
-        }}
+      <AtlasTile
+        src={animal.atlas}
+        columns={animal.columns}
+        rows={animal.rows}
+        index={avatarIndex}
       />
     </div>
   );
 }
 
 function ProfileCrestImage({ animal }) {
-  const column = animal.crestIndex % animal.crestColumns;
-  const row = Math.floor(animal.crestIndex / animal.crestColumns);
-  const horizontalPosition = (column / (animal.crestColumns - 1)) * 100;
-  const verticalPosition = (row / (animal.crestRows - 1)) * 100;
-
   return (
     <div className="profile-avatar-crest" role="img" aria-label={`Blason assorti à l’avatar ${animal.label}`}>
-      <span
-        className="profile-animal-atlas-tile"
-        aria-hidden="true"
-        style={{
-          backgroundImage: `url("${animal.crestAtlas}")`,
-          backgroundSize: `${animal.crestColumns * 100}% ${animal.crestRows * 100}%`,
-          backgroundPosition: `${horizontalPosition}% ${verticalPosition}%`,
-        }}
+      <AtlasTile
+        src={animal.crestAtlas}
+        columns={animal.crestColumns}
+        rows={animal.crestRows}
+        index={animal.crestIndex}
       />
     </div>
   );
