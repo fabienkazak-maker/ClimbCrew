@@ -11,11 +11,11 @@ export const BADGE_FAMILY_LABELS = {
 };
 
 export const BADGE_CATALOG = [
-  { id: "premiere_croix", name: "Première croix", family: "achievement", shape: "medal", symbol: "✓", condition: "Première voie réussie enregistrée.", qualifies: (m) => m.successfulCount >= 1 },
-  { id: "premiere_tete", name: "En tête !", family: "achievement", shape: "medal", symbol: "↑", condition: "Première voie réussie en tête.", qualifies: (m) => m.successfulLeadCount >= 1 },
-  { id: "premiere_moulinette", name: "Moulinette", family: "achievement", shape: "medal", symbol: "↻", condition: "Première voie réussie en moulinette.", qualifies: (m) => m.successfulTopropeCount >= 1 },
-  { id: "premier_a_vue", name: "À vue", family: "achievement", shape: "medal", symbol: "◉", condition: "Première réussite à vue.", qualifies: (m) => m.onsightCount >= 1 },
-  { id: "premier_flash", name: "Flash", family: "achievement", shape: "medal", symbol: "⚡", condition: "Premier flash réussi.", qualifies: (m) => m.flashCount >= 1 },
+  { id: "premiere_croix", name: "Première croix", family: "achievement", shape: "flame", symbol: "✓", condition: "Première voie réussie enregistrée.", qualifies: (m) => m.successfulCount >= 1 },
+  { id: "premiere_tete", name: "En tête !", family: "achievement", shape: "flame", symbol: "↑", condition: "Première voie réussie en tête.", qualifies: (m) => m.successfulLeadCount >= 1 },
+  { id: "premiere_moulinette", name: "Moulinette", family: "achievement", shape: "flame", symbol: "↻", condition: "Première voie réussie en moulinette.", qualifies: (m) => m.successfulTopropeCount >= 1 },
+  { id: "premier_a_vue", name: "À vue", family: "achievement", shape: "flame", symbol: "◉", condition: "Première réussite à vue.", qualifies: (m) => m.onsightCount >= 1 },
+  { id: "premier_flash", name: "Flash", family: "achievement", shape: "flame", symbol: "⚡", condition: "Premier flash réussi.", qualifies: (m) => m.flashCount >= 1 },
   { id: "cap_5c", name: "Cap 5c", family: "level", shape: "shield", symbol: "5c", condition: "Réussir une voie cotée 5c ou plus.", qualifies: (m) => m.bestGradeIndex >= GRADES.indexOf("5c") },
   { id: "club_6a", name: "Club 6a", family: "level", shape: "shield", symbol: "6a", condition: "Réussir une voie cotée 6a ou plus.", qualifies: (m) => m.bestGradeIndex >= GRADES.indexOf("6a") },
   { id: "club_6b", name: "Club 6b", family: "level", shape: "shield", symbol: "6b", condition: "Réussir une voie cotée 6b ou plus.", qualifies: (m) => m.bestGradeIndex >= GRADES.indexOf("6b") },
