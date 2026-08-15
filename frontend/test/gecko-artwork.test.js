@@ -5,7 +5,7 @@ import test from "node:test";
 const geckoUrl = new URL("../src/components/ProfileGecko.jsx", import.meta.url);
 const badgesUrl = new URL("../src/components/ParticipantBadges.jsx", import.meta.url);
 const geckoAtlasUrl = new URL("../src/assets/gecko-avatar-atlas.js", import.meta.url);
-const badgeAtlasUrl = new URL("../public/media/badges/badge-atlas.webp", import.meta.url);
+const badgeAtlasUrl = new URL("../src/assets/badge-atlas.js", import.meta.url);
 
 const CURRENT_BADGE_IDS = [
   "premiere_croix",
@@ -61,19 +61,30 @@ test("les 16 avatars Gecko utilisent un atlas WebP embarqué complet", () => {
   assert.doesNotMatch(source, /\/media\/geckos\/gecko-atlas\.webp/);
 });
 
-test("les 20 badges courants utilisent un atlas WebP via un vrai img", () => {
+test("les 20 badges courants utilisent un atlas WebP embarqué complet", () => {
   const source = readFileSync(badgesUrl, "utf8");
-  const atlas = readFileSync(badgeAtlasUrl);
+  const atlasModule = readFileSync(badgeAtlasUrl, "utf8");
+  const encodedAtlas = atlasModule.match(/base64,([A-Za-z0-9+/=]+)"/)?.[1];
 
+  assert.ok(encodedAtlas, "l'atlas des badges doit contenir une image encodée");
+  const atlas = Buffer.from(encodedAtlas, "base64");
   assertWebp(atlas);
-  assert.match(source, /\/media\/badges\/badge-atlas\.webp/);
+
+  const declaredRiffSize = atlas.readUInt32LE(4) + 8;
+  assert.equal(
+    atlas.length,
+    declaredRiffSize,
+    "l'atlas des badges ne doit pas être tronqué",
+  );
+
+  assert.match(source, /BADGE_ATLAS_DATA_URI/);
   assert.match(source, /<img/);
   assert.match(source, /src=\{BADGE_ATLAS\}/);
   assert.match(source, /BADGE_ATLAS_COLUMNS\s*=\s*5/);
   assert.match(source, /BADGE_ATLAS_ROWS\s*=\s*4/);
-  assert.doesNotMatch(source, /<image\b/);
+  assert.doesNotMatch(source, /\/media\/badges\/badge-atlas\.webp/);
 
   for (const id of CURRENT_BADGE_IDS) {
-    assert.match(source, new RegExp(`${id}:\\s*\\d+`), `mapping image manquant pour ${id}`);
+    assert.match(source, new RegExp(`${id}:\\\\s*\\\\d+`), `mapping image manquant pour ${id}`);
   }
 });
