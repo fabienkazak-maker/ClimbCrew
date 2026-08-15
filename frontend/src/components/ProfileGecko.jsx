@@ -1,105 +1,109 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { getGeckoLevelInfo } from "../lib/gecko-level.js";
 import "../styles/profile-gecko.css";
 
 const LEVEL_ACCENTS = ["#65a30d", "#4d7c0f", "#0284c7", "#2563eb", "#7c3aed", "#9333ea", "#d97706", "#0ea5e9"];
-const AVATAR_STORAGE_PREFIX = "climbcrew_profile_animal_";
 const AVATAR_ROOT = "/media/avatars/split";
-const ASSET_VERSION = "260815008";
+const PROFILE_ROOT = "/media/avatars/profile";
+const ASSET_VERSION = "260815014";
 
-function avatarAsset(name) {
-  return `${AVATAR_ROOT}/${name}.webp?v=${ASSET_VERSION}`;
+function asset(root, name, extension = "webp") {
+  return `${root}/${name}.${extension}?v=${ASSET_VERSION}`;
 }
 
-export const ANIMAL_OPTIONS = Object.freeze([
-  { id: "gecko", label: "Gecko", image: avatarAsset("gecko"), crest: avatarAsset("gecko-crest") },
-  { id: "bouquetin", label: "Bouquetin", image: avatarAsset("bouquetin"), crest: avatarAsset("bouquetin-crest") },
-  { id: "capucin", label: "Singe capucin", image: avatarAsset("capucin"), crest: avatarAsset("capucin-crest") },
-  { id: "ecureuil", label: "Écureuil", image: avatarAsset("ecureuil"), crest: avatarAsset("ecureuil-crest") },
-  { id: "paresseux", label: "Paresseux", image: avatarAsset("paresseux"), crest: avatarAsset("paresseux-crest") },
-  { id: "leopard_neiges", label: "Léopard des neiges", image: avatarAsset("leopard-neiges"), crest: avatarAsset("leopard-neiges-crest") },
-  { id: "orang_outan", label: "Orang-outan bloqueur", image: avatarAsset("orang-outan"), crest: avatarAsset("orang-outan-crest") },
-  { id: "pieuvre", label: "Pieuvre grimpeuse", image: avatarAsset("pieuvre"), crest: avatarAsset("pieuvre-crest") },
-  { id: "robot", label: "Robot assureur", image: avatarAsset("robot"), crest: avatarAsset("robot-crest") },
-  { id: "astronaute", label: "Astronaute en SAE", image: avatarAsset("astronaute"), crest: avatarAsset("astronaute-crest") },
-  { id: "capybara", label: "Capybara zen", image: avatarAsset("capybara"), crest: avatarAsset("capybara-crest") },
-  { id: "chevalier", label: "Chevalier grimpeur", image: avatarAsset("chevalier"), crest: avatarAsset("chevalier-crest") },
-  { id: "humain_homme", label: "Grimpeur hyperréaliste", image: avatarAsset("humain-homme"), crest: avatarAsset("humain-homme-crest") },
-  { id: "humain_femme", label: "Grimpeuse hyperréaliste", image: avatarAsset("humain-femme"), crest: avatarAsset("humain-femme-crest") },
+export const AVATAR_OPTIONS = Object.freeze([
+  { id: "gecko", label: "Gecko", group: "Animaux", image: asset(AVATAR_ROOT, "gecko") },
+  { id: "bouquetin", label: "Bouquetin", group: "Animaux", image: asset(AVATAR_ROOT, "bouquetin") },
+  { id: "capucin", label: "Singe capucin", group: "Animaux", image: asset(AVATAR_ROOT, "capucin") },
+  { id: "ecureuil", label: "Écureuil", group: "Animaux", image: asset(AVATAR_ROOT, "ecureuil") },
+  { id: "paresseux", label: "Paresseux", group: "Animaux", image: asset(AVATAR_ROOT, "paresseux") },
+  { id: "leopard_neiges", label: "Léopard des neiges", group: "Animaux", image: asset(AVATAR_ROOT, "leopard-neiges") },
+  { id: "orang_outan", label: "Orang-outan bloqueur", group: "Animaux", image: asset(AVATAR_ROOT, "orang-outan") },
+  { id: "pieuvre", label: "Pieuvre grimpeuse", group: "Animaux", image: asset(AVATAR_ROOT, "pieuvre") },
+  { id: "robot", label: "Robot assureur", group: "Personnages", image: asset(AVATAR_ROOT, "robot") },
+  { id: "astronaute", label: "Astronaute en SAE", group: "Personnages", image: asset(AVATAR_ROOT, "astronaute") },
+  { id: "capybara", label: "Capybara zen", group: "Animaux", image: asset(AVATAR_ROOT, "capybara") },
+  { id: "chevalier", label: "Chevalier grimpeur", group: "Personnages", image: asset(AVATAR_ROOT, "chevalier") },
+  { id: "humain_homme", label: "Grimpeur hyperréaliste", group: "Personnages", image: asset(AVATAR_ROOT, "humain-homme") },
+  { id: "humain_femme", label: "Grimpeuse hyperréaliste", group: "Personnages", image: asset(AVATAR_ROOT, "humain-femme") },
+  { id: "fraise", label: "Fraise verticale", group: "Fruits", image: asset(PROFILE_ROOT, "avatar-fraise", "svg") },
+  { id: "banane", label: "Banane dynamique", group: "Fruits", image: asset(PROFILE_ROOT, "avatar-banane", "svg") },
+  { id: "kiwi", label: "Kiwi tenace", group: "Fruits", image: asset(PROFILE_ROOT, "avatar-kiwi", "svg") },
+  { id: "pasteque", label: "Pastèque puissante", group: "Fruits", image: asset(PROFILE_ROOT, "avatar-pasteque", "svg") },
+  { id: "ananas", label: "Ananas engagé", group: "Fruits", image: asset(PROFILE_ROOT, "avatar-ananas", "svg") },
+  { id: "chausson", label: "Chausson d’escalade", group: "Objets", image: asset(PROFILE_ROOT, "avatar-chausson", "svg") },
+  { id: "mousqueton", label: "Mousqueton", group: "Objets", image: asset(PROFILE_ROOT, "avatar-mousqueton", "svg") },
+  { id: "gourde", label: "Gourde", group: "Objets", image: asset(PROFILE_ROOT, "avatar-gourde", "svg") },
+  { id: "casque", label: "Casque", group: "Objets", image: asset(PROFILE_ROOT, "avatar-casque", "svg") },
+  { id: "sac_magnesie", label: "Sac à magnésie", group: "Objets", image: asset(PROFILE_ROOT, "avatar-sac-magnesie", "svg") },
 ]);
 
-function readStoredAnimal(storageKey) {
-  try {
-    const stored = window.localStorage.getItem(storageKey);
-    return ANIMAL_OPTIONS.some((animal) => animal.id === stored) ? stored : "gecko";
-  } catch {
-    return "gecko";
-  }
-}
+export const ANIMAL_OPTIONS = AVATAR_OPTIONS;
 
-function ProfileAnimalImage({ animal, level, label }) {
-  return (
-    <div className="profile-gecko-real-image" role="img" aria-label={`${animal.label} ${label}, niveau ${level} sur 8`}>
-      <img className="profile-animal-image" src={animal.image} alt="" draggable="false" />
-    </div>
-  );
-}
+export const CREST_OPTIONS = Object.freeze([
+  { id: "cristal", label: "Cristal", image: asset(PROFILE_ROOT, "blason-cristal", "svg") },
+  { id: "sommet", label: "Sommet", image: asset(PROFILE_ROOT, "blason-sommet", "svg") },
+  { id: "corde", label: "Corde", image: asset(PROFILE_ROOT, "blason-corde", "svg") },
+  { id: "mousqueton", label: "Mousqueton", image: asset(PROFILE_ROOT, "blason-mousqueton", "svg") },
+  { id: "prise", label: "Prise", image: asset(PROFILE_ROOT, "blason-prise", "svg") },
+  { id: "etoile", label: "Étoile", image: asset(PROFILE_ROOT, "blason-etoile", "svg") },
+]);
 
-function ProfileCrestImage({ animal }) {
-  return (
-    <div className="profile-avatar-crest" role="img" aria-label={`Blason assorti à l’avatar ${animal.label}`}>
-      <img className="profile-animal-image" src={animal.crest} alt="" draggable="false" />
-    </div>
-  );
-}
+const AVATAR_GROUPS = [...new Set(AVATAR_OPTIONS.map((option) => option.group))];
 
-export default function ProfileGecko({ grade, sexe, participantId }) {
+export default function ProfileGecko({ grade, sexe, participant, onProfileUpdate, editable = true, compact = false }) {
   const { level, label, variant } = getGeckoLevelInfo(grade, sexe);
   const accent = variant === "feminine" ? "#db2777" : LEVEL_ACCENTS[level - 1];
-  const storageKey = `${AVATAR_STORAGE_PREFIX}${participantId || "default"}`;
-  const [animalId, setAnimalId] = useState(() => readStoredAnimal(storageKey));
-
-  useEffect(() => {
-    setAnimalId(readStoredAnimal(storageKey));
-  }, [storageKey]);
-
-  const animal = useMemo(
-    () => ANIMAL_OPTIONS.find((option) => option.id === animalId) || ANIMAL_OPTIONS[0],
-    [animalId],
+  const avatar = useMemo(
+    () => AVATAR_OPTIONS.find((option) => option.id === participant?.avatarId) || AVATAR_OPTIONS[0],
+    [participant?.avatarId],
+  );
+  const crest = useMemo(
+    () => CREST_OPTIONS.find((option) => option.id === participant?.crestId) || CREST_OPTIONS[0],
+    [participant?.crestId],
   );
 
-  function chooseAnimal(nextAnimalId) {
-    setAnimalId(nextAnimalId);
-    try {
-      window.localStorage.setItem(storageKey, nextAnimalId);
-    } catch {
-      // Le choix reste actif pour la session même si le stockage local est indisponible.
-    }
-  }
-
   return (
-    <div className="card profile-gecko-card">
+    <div className={`card profile-gecko-card${compact ? " profile-gecko-card--compact" : ""}`}>
       <div className="card-header profile-gecko-header">
         <div>
-          <h3 style={{ margin: 0 }}>Mon avatar · {animal.label}</h3>
+          <h3 style={{ margin: 0 }}>{editable ? "Mon profil visuel" : "Profil public"}</h3>
           <div className="small">Niveau {level}/8 · {label}{grade ? ` · CPR ${grade}` : ""}</div>
         </div>
         <span className="pill" style={{ borderColor: accent, color: "inherit" }}>{label}</span>
       </div>
 
-      <label className="profile-animal-selector">
-        <span>Choisir mon avatar</span>
-        <select className="input" value={animal.id} onChange={(event) => chooseAnimal(event.target.value)} aria-label="Choisir mon avatar">
-          {ANIMAL_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
-        </select>
-      </label>
+      {editable && (
+        <div className="profile-visual-controls">
+          <label>
+            <span>Avatar</span>
+            <select value={avatar.id} onChange={(event) => onProfileUpdate?.({ avatarId: event.target.value })}>
+              {AVATAR_GROUPS.map((group) => (
+                <optgroup key={group} label={group}>
+                  {AVATAR_OPTIONS.filter((option) => option.group === group).map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+                </optgroup>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Blason indépendant</span>
+            <select value={crest.id} onChange={(event) => onProfileUpdate?.({ crestId: event.target.value })}>
+              {CREST_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+            </select>
+          </label>
+        </div>
+      )}
 
       <div className="profile-gecko-stage" style={{ "--gecko-accent": accent }}>
         <div className="profile-avatar-pair">
-          <ProfileAnimalImage animal={animal} level={level} label={label} />
+          <div className="profile-gecko-real-image" role="img" aria-label={`Avatar ${avatar.label}`}>
+            <img className="profile-animal-image" src={avatar.image} alt="" draggable="false" />
+          </div>
           <div className="profile-avatar-crest-wrap">
-            <span className="small">Mon blason</span>
-            <ProfileCrestImage animal={animal} />
+            <span className="small">{crest.label}</span>
+            <div className="profile-avatar-crest" role="img" aria-label={`Blason ${crest.label}`}>
+              <img className="profile-animal-image" src={crest.image} alt="" draggable="false" />
+            </div>
           </div>
         </div>
       </div>

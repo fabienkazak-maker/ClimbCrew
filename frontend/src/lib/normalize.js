@@ -63,6 +63,9 @@ export function normalizeParticipant(participant = {}) {
     canEncadrer: booleanValue(participant.canEncadrer ?? participant.can_encadrer),
     canReferer: booleanValue(participant.canReferer ?? participant.can_referer),
     canAdmin: booleanValue(participant.canAdmin ?? participant.can_admin),
+    avatarId: text(participant.avatarId ?? participant.avatar_id) || "gecko",
+    crestId: text(participant.crestId ?? participant.crest_id) || "cristal",
+    profilePublic: booleanValue(participant.profilePublic ?? participant.profile_public ?? true),
   };
 }
 

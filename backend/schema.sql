@@ -10,6 +10,9 @@ create table if not exists participants (
   can_encadrer boolean not null default false,
   can_referer boolean not null default false,
   can_admin boolean not null default false,
+  avatar_id text not null default 'gecko',
+  crest_id text not null default 'cristal',
+  profile_public boolean not null default true,
   created_at timestamptz not null default now()
 );
 

@@ -21,6 +21,7 @@ export default function Profil({
   getPassportStyle,
   getPassportDotStyle,
   normalizePassport,
+  updateMyProfile,
 }) {
   if (!USE_API) {
     return <div className="card"><div className="muted-box">Mon Profil est disponible avec le backend API.</div></div>;
@@ -60,7 +61,27 @@ export default function Profil({
         </div>
       </div>
 
-      <ProfileGecko grade={cpr.currentGrade || ""} sexe={myParticipant.sexe} participantId={myParticipantId} />
+      <div className="card profile-privacy-card">
+        <div>
+          <strong>Visibilité du profil</strong>
+          <div className="small">Un profil public affiche votre avatar, votre blason et vos caractéristiques dans Progression.</div>
+        </div>
+        <label className="profile-privacy-toggle">
+          <input
+            type="checkbox"
+            checked={myParticipant.profilePublic !== false}
+            onChange={(event) => updateMyProfile({ profilePublic: event.target.checked })}
+          />
+          <span>{myParticipant.profilePublic !== false ? "Public" : "Privé"}</span>
+        </label>
+      </div>
+
+      <ProfileGecko
+        grade={cpr.currentGrade || ""}
+        sexe={myParticipant.sexe}
+        participant={myParticipant}
+        onProfileUpdate={updateMyProfile}
+      />
 
       <div className="card">
         <div className="card-header"><h3>Mes statistiques</h3></div>

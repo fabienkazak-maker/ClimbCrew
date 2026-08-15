@@ -939,6 +939,38 @@ function App() {
     }
   }
 
+  async function updateMyProfile(patch) {
+    if (!myParticipant || !USE_API) return;
+    const previous = myParticipant;
+    const optimistic = { ...previous, ...patch };
+    setState((prev) => ({
+      ...prev,
+      participants: prev.participants.map((participant) => String(participant.id) === myParticipantId ? optimistic : participant),
+    }));
+    try {
+      const updated = await apiFetch("/participants/me/profile", {
+        method: "PATCH",
+        body: JSON.stringify({
+          avatarId: optimistic.avatarId || "gecko",
+          crestId: optimistic.crestId || "cristal",
+          profilePublic: optimistic.profilePublic !== false,
+        }),
+      });
+      setState((prev) => ({
+        ...prev,
+        participants: prev.participants.map((participant) => String(participant.id) === myParticipantId ? updated : participant),
+      }));
+      setConfirmationMessage("Préférences du profil enregistrées.");
+    } catch (error) {
+      setState((prev) => ({
+        ...prev,
+        participants: prev.participants.map((participant) => String(participant.id) === myParticipantId ? previous : participant),
+      }));
+      setSyncMessage("Erreur d'enregistrement du profil");
+      console.error(error);
+    }
+  }
+
   async function deleteParticipant(id) {
     const participant = state.participants.find((item) => String(item.id) === String(id));
     if (!participant) return;
@@ -2203,6 +2235,7 @@ async function handleThemePreferenceChange(nextTheme) {
         {tab === "progression" && (
           <Progression
             selectedParticipantProgress={state.selectedParticipantProgress}
+            selectedParticipant={participantsById[state.selectedParticipantProgress] || null}
             setState={setState}
             selectedRouteProgress={selectedRouteProgress}
             setSelectedRouteProgress={setSelectedRouteProgress}
@@ -2225,6 +2258,7 @@ async function handleThemePreferenceChange(nextTheme) {
             allProgressRealisationsExpanded={allProgressRealisationsExpanded}
             toggleAllProgressRealisations={toggleAllProgressRealisations}
             exportSelectedParticipantRealisationsCsv={exportSelectedParticipantRealisationsCsv}
+            allRealisations={state.realisations}
           />
         )}
 
@@ -2245,6 +2279,7 @@ async function handleThemePreferenceChange(nextTheme) {
             getPassportStyle={getPassportStyle}
             getPassportDotStyle={getPassportDotStyle}
             normalizePassport={normalizePassport}
+            updateMyProfile={updateMyProfile}
           />
         )}
 

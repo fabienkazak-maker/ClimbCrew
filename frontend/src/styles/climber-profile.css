@@ -20,16 +20,17 @@
 .climber-recommendation-copy { min-width: 0; }
 .climber-profile-reference-note { margin-top: 10px; }
 
-/* Les éléments personnels vivent désormais dans Mon Profil, pas dans Progression. */
-.card:has(> .progression-filters) > .climber-profile-card,
-.card:has(> .progression-filters) > .participant-badges-card,
-.card:has(> .progression-filters) > .card:has(> .cpr-chart-card) {
-  display: none;
-}
+.public-profile-section { display: grid; grid-template-columns: minmax(220px,.65fr) minmax(0,1.35fr); gap: 10px; margin-top: 12px; }
+.public-profile-section .climber-profile-card { margin-top: 0; }
+.profile-privacy-card { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 14px; }
+.profile-privacy-toggle { display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto; margin: 0; }
+.profile-privacy-toggle input { width: 20px; min-height: 20px; }
+.private-profile-notice { margin-top: 12px; }
 
 @media (max-width: 900px) {
   .climber-profile-layout,
   .climber-profile-summary-grid { grid-template-columns: 1fr; }
+  .public-profile-section { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 560px) {

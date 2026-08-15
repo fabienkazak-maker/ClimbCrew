@@ -350,6 +350,9 @@ async function ensureSchema() {
     alter table participants add column if not exists can_admin boolean not null default false;
     alter table participants add column if not exists email text not null default '';
     alter table participants add column if not exists sexe text not null default '';
+    alter table participants add column if not exists avatar_id text not null default 'gecko';
+    alter table participants add column if not exists crest_id text not null default 'cristal';
+    alter table participants add column if not exists profile_public boolean not null default true;
 
     alter table sessions drop constraint if exists sessions_slot_check;
     alter table sessions add constraint sessions_slot_check check (slot in ('midi', 'matin', 'soir'));
@@ -897,6 +900,9 @@ function participantDbToApi(row) {
     canEncadrer: row.can_encadrer,
     canReferer: row.can_referer,
     canAdmin: row.can_admin,
+    avatarId: row.avatar_id || "gecko",
+    crestId: row.crest_id || "cristal",
+    profilePublic: row.profile_public !== false,
   };
 }
 
@@ -1706,14 +1712,21 @@ app.post("/admin/auth/users/:id/reset-token", requireAuth, requireAdmin, async (
 /**
  * Participants
  */
-app.get("/participants", requireAuth, async (_req, res) => {
+app.get("/participants", requireAuth, async (req, res) => {
   try {
     const result = await pool.query(`
-      select id, nom, prenom, email, passport, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin
+      select id, nom, prenom, email, passport, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin, avatar_id, crest_id, profile_public
       from participants
       order by prenom asc, nom asc
     `);
-    res.json(result.rows.map(participantDbToApi));
+    const ownParticipantId = String(req.auth.user.participantId || "");
+    const canSeePrivateProfiles = req.auth.user.role === "admin";
+    res.json(result.rows.map((row) => {
+      if (row.profile_public || canSeePrivateProfiles || String(row.id) === ownParticipantId) {
+        return participantDbToApi(row);
+      }
+      return participantDbToApi({ ...row, avatar_id: "gecko", crest_id: "cristal" });
+    }));
   } catch (error) {
     res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
   }
@@ -1732,16 +1745,19 @@ app.post("/participants", requireAuth, requireAdmin, async (req, res) => {
       canEncadrer,
       canReferer,
       canAdmin,
+      avatarId = "gecko",
+      crestId = "cristal",
+      profilePublic = true,
     } = validateParticipantPayload(req.body || {});
 
     const result = await pool.query(
       `
         insert into participants
-        (nom, prenom, email, passport, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin)
-        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-        returning id, nom, prenom, email, passport, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin
+        (nom, prenom, email, passport, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin, avatar_id, crest_id, profile_public)
+        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+        returning id, nom, prenom, email, passport, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin, avatar_id, crest_id, profile_public
       `,
-      [nom, prenom, String(email || "").trim().toLowerCase(), passport, sexe, cotisation, ffme, canEncadrer, canReferer, canAdmin]
+      [nom, prenom, String(email || "").trim().toLowerCase(), passport, sexe, cotisation, ffme, canEncadrer, canReferer, canAdmin, avatarId, crestId, profilePublic]
     );
 
     res.status(201).json(participantDbToApi(result.rows[0]));
@@ -1769,6 +1785,9 @@ app.put("/participants/:id", requireAuth, requireAdmin, async (req, res) => {
       canEncadrer,
       canReferer,
       canAdmin,
+      avatarId = "gecko",
+      crestId = "cristal",
+      profilePublic = true,
     } = validateParticipantPayload(req.body || {});
 
     const result = await pool.query(
@@ -1783,11 +1802,14 @@ app.put("/participants/:id", requireAuth, requireAdmin, async (req, res) => {
             ffme = $8,
             can_encadrer = $9,
             can_referer = $10,
-            can_admin = $11
+            can_admin = $11,
+            avatar_id = $12,
+            crest_id = $13,
+            profile_public = $14
         where id = $1
-        returning id, nom, prenom, email, passport, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin
+        returning id, nom, prenom, email, passport, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin, avatar_id, crest_id, profile_public
       `,
-      [id, nom, prenom, String(email || "").trim().toLowerCase(), passport, sexe, cotisation, ffme, canEncadrer, canReferer, canAdmin]
+      [id, nom, prenom, String(email || "").trim().toLowerCase(), passport, sexe, cotisation, ffme, canEncadrer, canReferer, canAdmin, avatarId, crestId, profilePublic]
     );
 
     if (!result.rowCount) {
@@ -1797,6 +1819,36 @@ app.put("/participants/:id", requireAuth, requireAdmin, async (req, res) => {
     res.json(participantDbToApi(result.rows[0]));
   } catch (error) {
     res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
+  }
+});
+
+app.patch("/participants/me/profile", requireAuth, async (req, res) => {
+  try {
+    const participantId = Number(req.auth.user.participantId);
+    if (!Number.isInteger(participantId) || participantId <= 0) {
+      return res.status(409).json({ error: "Le compte n'est pas relié à une fiche grimpeur" });
+    }
+
+    const cleanChoice = (value, fallback) => {
+      const normalized = String(value || fallback).trim().toLowerCase();
+      return /^[a-z0-9_]{2,40}$/.test(normalized) ? normalized : fallback;
+    };
+    const avatarId = cleanChoice(req.body?.avatarId, "gecko");
+    const crestId = cleanChoice(req.body?.crestId, "cristal");
+    const profilePublic = req.body?.profilePublic !== false;
+
+    const result = await pool.query(
+      `
+        update participants
+        set avatar_id = $2, crest_id = $3, profile_public = $4
+        where id = $1
+        returning id, nom, prenom, email, passport, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin, avatar_id, crest_id, profile_public
+      `,
+      [participantId, avatarId, crestId, profilePublic],
+    );
+    res.json(participantDbToApi(result.rows[0]));
+  } catch (error) {
+    res.status(error.status || 500).json({ error: error.message || String(error) });
   }
 });
 

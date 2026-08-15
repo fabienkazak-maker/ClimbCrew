@@ -4,6 +4,8 @@ import ParticipantBadges from "../components/ParticipantBadges.jsx";
 import { GRADES, fullName, formatRouteForRealisation, formatPoints, formatDateShortFr } from "../lib/domain.js";
 import { STYLE_LABELS } from "../lib/ui-config.js";
 import CprEvolutionChart from "../sections/CprEvolutionChart.jsx";
+import ClimberProfilePanel from "../components/ClimberProfilePanel.jsx";
+import ProfileGecko from "../components/ProfileGecko.jsx";
 
 function ratingStars(value) {
   const rating = Number(value);
@@ -13,6 +15,7 @@ function ratingStars(value) {
 
 export default function Progression({
   selectedParticipantProgress,
+  selectedParticipant,
   setState,
   selectedRouteProgress,
   setSelectedRouteProgress,
@@ -34,6 +37,7 @@ export default function Progression({
   allProgressRealisationsExpanded,
   toggleAllProgressRealisations,
   exportSelectedParticipantRealisationsCsv,
+  allRealisations,
 }) {
   return (
     <div className="card">
@@ -95,15 +99,38 @@ export default function Progression({
         </div>
       )}
 
-      {selectedParticipantProgress && (
+      {selectedParticipantProgress && selectedParticipant?.profilePublic !== false && (
+        <section className="public-profile-section">
+          <ProfileGecko
+            grade={participantProgressStats.cpr.currentGrade || ""}
+            sexe={selectedParticipant.sexe}
+            participant={selectedParticipant}
+            editable={false}
+            compact
+          />
+          <ClimberProfilePanel
+            realisations={selectedParticipantRealisations}
+            routesById={routesById}
+            cprGrade={participantProgressStats.cpr.currentGrade || ""}
+          />
+        </section>
+      )}
+
+      {selectedParticipantProgress && selectedParticipant?.profilePublic === false && (
+        <div className="muted-box private-profile-notice">Ce grimpeur a choisi de conserver son profil privé.</div>
+      )}
+
+      {selectedParticipantProgress && selectedParticipant?.profilePublic !== false && (
         <ParticipantBadges
+          participant={selectedParticipant}
           realisations={selectedParticipantRealisations}
+          allRealisations={allRealisations}
           routesById={routesById}
           sessions={getParticipantSessions(selectedParticipantProgress)}
         />
       )}
 
-      {selectedParticipantProgress && (
+      {selectedParticipantProgress && selectedParticipant?.profilePublic !== false && (
         <div className="card" style={{ marginTop: 12 }}>
           <CprEvolutionChart realisations={selectedParticipantRealisations} routesById={routesById} />
         </div>
