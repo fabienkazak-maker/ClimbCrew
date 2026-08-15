@@ -2120,7 +2120,10 @@ async function handleThemePreferenceChange(nextTheme) {
       <div className="brand">
         <img src="/logo-climbcrew.png" alt="Logo ClimbClubCristal" className="app-logo" />
         <div>
-          <h1>ClimbClubCristal</h1>
+          <div className="brand-title-row">
+            <h1>ClimbClubCristal</h1>
+            <span className="topbar-version" aria-label={`Version ${APP_VERSION}`}>v{APP_VERSION}</span>
+          </div>
           <p>{tab === "parametres" ? "Paramètres" : (visibleTabs.find((item) => item.key === tab)?.label || "ClimbClubCristal")}</p>
         </div>
       </div>
