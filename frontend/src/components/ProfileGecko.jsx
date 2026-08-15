@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { getGeckoLevelInfo } from "../lib/gecko-level.js";
 import "../styles/profile-gecko.css";
 
@@ -44,7 +44,8 @@ export const ANIMAL_OPTIONS = AVATAR_OPTIONS;
 const AVATAR_GROUPS = [...new Set(AVATAR_OPTIONS.map((option) => option.group))];
 
 export default function ProfileGecko({ grade, sexe, participant, onProfileUpdate, editable = true, compact = false }) {
-  const { level, label, variant } = getGeckoLevelInfo(grade, sexe);
+  const { level, variant } = getGeckoLevelInfo(grade, sexe);
+  const [showEvolutionHistory, setShowEvolutionHistory] = useState(false);
   const accent = variant === "feminine" ? "#db2777" : LEVEL_ACCENTS[level - 1];
   const avatar = useMemo(
     () => AVATAR_OPTIONS.find((option) => option.id === participant?.avatarId) || AVATAR_OPTIONS[0],
@@ -53,13 +54,11 @@ export default function ProfileGecko({ grade, sexe, participant, onProfileUpdate
 
   return (
     <div className={`card profile-gecko-card${compact ? " profile-gecko-card--compact" : ""}`}>
-      <div className="card-header profile-gecko-header">
-        <div>
-          <h3 style={{ margin: 0 }}>{editable ? "Mon profil visuel" : "Profil public"}</h3>
-          <div className="small">Niveau {level}/8 · {label}{grade ? ` · CPR ${grade}` : ""}</div>
+      {!editable && (
+        <div className="card-header profile-gecko-header">
+          <h3 style={{ margin: 0 }}>Profil public</h3>
         </div>
-        <span className="pill" style={{ borderColor: accent, color: "inherit" }}>{label}</span>
-      </div>
+      )}
 
       {editable && (
         <div className="profile-visual-controls">
@@ -77,19 +76,31 @@ export default function ProfileGecko({ grade, sexe, participant, onProfileUpdate
       )}
 
       <div className="profile-gecko-stage" style={{ "--gecko-accent": accent }} data-level={level}>
-        <div className="profile-gecko-real-image" role="img" aria-label={`Avatar ${avatar.label}, niveau ${level} sur 8`}>
+        <button
+          type="button"
+          className="profile-gecko-real-image"
+          aria-label="Afficher les évolutions passées de l’avatar"
+          aria-expanded={showEvolutionHistory}
+          aria-controls="profile-avatar-evolution-history"
+          onClick={() => setShowEvolutionHistory((visible) => !visible)}
+        >
           <img className="profile-animal-image" src={avatar.image} alt="" draggable="false" />
-          <span className="profile-avatar-evolution-label">{EVOLUTION_LABELS[level - 1]}</span>
-        </div>
-        <div className="profile-avatar-levels" aria-label={`Évolution de l’avatar : niveau ${level} sur 8`}>
-          {EVOLUTION_LABELS.map((evolutionLabel, index) => (
-            <span
-              key={evolutionLabel}
-              className={index < level ? "is-reached" : ""}
-              title={`Niveau ${index + 1} · ${evolutionLabel}`}
-            />
-          ))}
-        </div>
+        </button>
+
+        {showEvolutionHistory && (
+          <div id="profile-avatar-evolution-history" className="profile-avatar-evolution-history">
+            <strong>Évolutions atteintes</strong>
+            <div className="profile-avatar-evolution-list">
+              {EVOLUTION_LABELS.slice(0, level).map((evolutionLabel, index) => (
+                <span key={evolutionLabel} className={index === level - 1 ? "is-current" : ""}>
+                  <b>{index + 1}</b>
+                  <span>{evolutionLabel}</span>
+                  {index === level - 1 && <small>Actuel</small>}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
