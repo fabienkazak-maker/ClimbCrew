@@ -63,19 +63,6 @@ function KiviatChart({ characteristics }) {
   );
 }
 
-function SummaryBox({ title, items, emptyText }) {
-  return (
-    <div className="muted-box">
-      <strong>{title}</strong>
-      <div className="small" style={{ marginTop: 5 }}>
-        {items.length
-          ? items.map((item) => `${item.label} ${item.score} %`).join(" · ")
-          : emptyText}
-      </div>
-    </div>
-  );
-}
-
 function RecommendationCard({ recommendation, index }) {
   return (
     <div className="muted-box climber-recommendation">
@@ -130,18 +117,6 @@ export default function ClimberProfilePanel({ realisations = [], routesById = {}
           </div>
           <KiviatChart characteristics={profile.characteristics} />
 
-          <div className="climber-profile-summary-grid">
-            <SummaryBox
-              title="Points forts"
-              items={profile.strengths}
-              emptyText="Pas encore de point fort suffisamment documenté."
-            />
-            <SummaryBox
-              title="Axes à travailler"
-              items={profile.developmentAreas}
-              emptyText="Aucun axe faible marqué pour le moment."
-            />
-          </div>
         </div>
 
         <div className="subcard climber-recommendations">
