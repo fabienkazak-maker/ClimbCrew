@@ -97,10 +97,6 @@ export default function ClimberProfilePanel({ realisations = [], routesById = {}
     <section className="card climber-profile-card">
       <div className="climber-profile-layout">
         <div className="subcard climber-profile-skills">
-          <strong>Caractéristiques</strong>
-          <div className="small">
-            50 % est une zone neutre. Le score se stabilise progressivement avec le nombre de réalisations enregistrées.
-          </div>
           <KiviatChart characteristics={profile.characteristics} />
 
         </div>
