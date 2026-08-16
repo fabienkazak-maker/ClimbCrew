@@ -111,7 +111,7 @@ export default function StatisticsSection({
             <div className="participant-row passport-row stats-participant-row" key={participant.id} style={getPassportStyle(participant)} data-passport={normalizePassport(participant.passport)}>
               <span className="participant-identity">
                 <span className="passport-dot" style={getPassportDotStyle(participant)} aria-hidden="true" />
-                <span className="participant-name">{fullName(participant)}</span>
+                <span className="participant-name">{fullName(participant)},</span>
               </span>
               <span className="stats-participant-details small" style={{ color: "inherit" }}>
                 <span title="Cotisation">Cotis. : {participant.cotisation ? "Oui" : "Non"}</span>
