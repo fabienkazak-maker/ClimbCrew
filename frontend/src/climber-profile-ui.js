@@ -156,52 +156,8 @@ function progressionSignature(participantId, realisations, routes, cprGrade) {
 }
 
 function updateProgressionProfile() {
-  const filters = document.querySelector(".progression-filters");
-  if (!filters) return;
-  const rootCard = filters.closest(".card");
-  if (!rootCard) return;
-
-  const participantId = String(filters.querySelector("select")?.value || "");
-  const existing = rootCard.querySelector('[data-climber-profile="true"]');
-  if (!participantId) {
-    existing?.remove();
-    return;
-  }
-
-  const state = readState();
-  const routes = Array.isArray(state.routes) ? state.routes : [];
-  const realisations = (Array.isArray(state.realisations) ? state.realisations : [])
-    .filter((item) => String(item.participantId) === participantId);
-  const routesById = Object.fromEntries(routes.map((route) => [route.id, route]));
-  const cprGrade = calculateSimpleCpr(realisations, routesById).currentGrade || "";
-  const signature = progressionSignature(participantId, realisations, routes, cprGrade);
-  if (existing?.dataset.signature === signature) return;
-
-  const profile = calculateClimberProfile({ realisations, routesById, cprGrade });
-  const recommendations = recommendRoutesForNextSession({
-    routes,
-    realisations,
-    routesById,
-    cprGrade,
-    profile,
-    limit: 5,
-  });
-  const next = buildProgressionCard({ profile, recommendations, cprGrade });
-  next.dataset.signature = signature;
-
-  if (existing) {
-    existing.replaceWith(next);
-    return;
-  }
-
-  const badges = rootCard.querySelector(".participant-badges-card");
-  if (badges) {
-    badges.before(next);
-    return;
-  }
-
-  const stats = rootCard.querySelector(".stats-grid");
-  if (stats) stats.after(next);
+  // La sélection automatique de cinq voies n'est plus affichée dans Progression.
+  document.querySelectorAll('[data-climber-profile="true"]').forEach((element) => element.remove());
 }
 
 function addFaqItem() {
