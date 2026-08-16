@@ -901,6 +901,9 @@ app.get("/realisations", requireAuth, async (_req, res) => {
 app.post("/realisations", requireAuth, async (req, res) => {
   try {
     const realisation = validateRealisationPayload(req.body || {});
+    const participantId = req.auth?.user?.participantId;
+    if (!participantId) return res.status(403).json({ error: "Compte non relié à un grimpeur" });
+    realisation.participantId = String(participantId);
     await pool.query(
       `
         insert into realisations (
@@ -932,7 +935,10 @@ app.post("/realisations", requireAuth, async (req, res) => {
 app.put("/realisations/:id", requireAuth, async (req, res) => {
   try {
     const patch = validateRealisationPayload(req.body || {}, { partial: true });
-    await pool.query(
+    const participantId = req.auth?.user?.participantId;
+    if (!participantId) return res.status(403).json({ error: "Compte non relié à un grimpeur" });
+    delete patch.participantId;
+    const result = await pool.query(
       `
         update realisations
         set
@@ -948,7 +954,7 @@ app.put("/realisations/:id", requireAuth, async (req, res) => {
           chute = coalesce($11, chute),
           assureur_id = case when $11 = false then null else coalesce($12, assureur_id) end,
           updated_at = now()
-        where id = $1
+        where id = $1 and participant_id = $13
       `,
       [
         req.params.id,
@@ -963,8 +969,10 @@ app.put("/realisations/:id", requireAuth, async (req, res) => {
         patch.rating ?? null,
         patch.chute ?? null,
         patch.assureurId ?? null,
+        participantId,
       ]
     );
+    if (result.rowCount === 0) return res.status(403).json({ error: "Cette réalisation ne vous appartient pas" });
     res.json({ ok: true });
   } catch (error) {
     res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
@@ -973,7 +981,10 @@ app.put("/realisations/:id", requireAuth, async (req, res) => {
 
 app.delete("/realisations/:id", requireAuth, async (req, res) => {
   try {
-    await pool.query(`delete from realisations where id = $1`, [req.params.id]);
+    const participantId = req.auth?.user?.participantId;
+    if (!participantId) return res.status(403).json({ error: "Compte non relié à un grimpeur" });
+    const result = await pool.query(`delete from realisations where id = $1 and participant_id = $2`, [req.params.id, participantId]);
+    if (result.rowCount === 0) return res.status(403).json({ error: "Cette réalisation ne vous appartient pas" });
     res.json({ ok: true });
   } catch (error) {
     res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });

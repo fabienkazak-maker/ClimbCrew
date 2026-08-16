@@ -1197,6 +1197,11 @@ function App() {
   }
 
   function updateRealisation(realisationId, patch) {
+    const target = state.realisations.find((item) => String(item.id) === String(realisationId));
+    if (!target || String(target.participantId) !== String(myParticipantId)) {
+      alert("Vous pouvez modifier uniquement vos propres réalisations.");
+      return;
+    }
     syncRealisationPatch(realisationId, patch);
     setState((prev) => ({
       ...prev,
@@ -1220,6 +1225,7 @@ function App() {
 
   function openRealisationModal(routeId, requestedParticipantId = "") {
     const route = routesById[routeId];
+    requestedParticipantId = myParticipantId || "";
     const requestedParticipant = participantsById[requestedParticipantId];
     const latestRegisteredDay = requestedParticipant?.cotisation
       ? getParticipantSessionDays(requestedParticipantId)[0] || ""
@@ -1269,6 +1275,10 @@ async function updateRealisationInApi(realisationId, patch) {
 
 async function deleteRealisation(realisation) {
   if (!realisation?.id) return;
+  if (String(realisation.participantId) !== String(myParticipantId)) {
+    alert("Vous pouvez supprimer uniquement vos propres réalisations.");
+    return;
+  }
 
   const route = routesById[realisation.voieId];
   const routeLabel = route ? formatRouteName(route) : "la voie concernée";
@@ -1298,6 +1308,10 @@ async function deleteRealisation(realisation) {
 }
 
   async function addRealisation() {
+    if (!myParticipantId || String(newRealisation.participantId) !== String(myParticipantId)) {
+      alert("Vous pouvez enregistrer uniquement vos propres réalisations.");
+      return;
+    }
     if (!newRealisation.participantId || !newRealisation.selectedDay || !newRealisation.voieId || !newRealisation.rating) {
       alert("Sélectionne un jour, un participant, une voie et une note de 1 à 5 étoiles.");
       return;
@@ -2349,6 +2363,7 @@ async function handleThemePreferenceChange(nextTheme) {
             toggleAllProgressRealisations={toggleAllProgressRealisations}
             exportSelectedParticipantRealisationsCsv={exportSelectedParticipantRealisationsCsv}
             allRealisations={state.realisations}
+            myParticipantId={myParticipantId}
           />
         )}
 

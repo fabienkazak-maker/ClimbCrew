@@ -1,6 +1,5 @@
 import React, { useMemo } from "react";
-import { formatRouteForRealisation } from "../lib/domain.js";
-import { calculateClimberProfile, recommendRoutesForNextSession } from "../lib/climber-profile.js";
+import { calculateClimberProfile } from "../lib/climber-profile.js";
 
 function scoreLabel(score) {
   if (!Number.isFinite(score)) return "À découvrir";
@@ -63,34 +62,10 @@ function KiviatChart({ characteristics }) {
   );
 }
 
-function RecommendationCard({ recommendation, index }) {
-  return (
-    <article className="climber-recommendation">
-      <span className="climber-recommendation-number" aria-hidden="true">{index + 1}</span>
-      <div className="climber-recommendation-copy">
-        <strong className="climber-recommendation-route">{formatRouteForRealisation(recommendation.route)}</strong>
-        <span className="climber-recommendation-reason">{recommendation.reason}</span>
-      </div>
-    </article>
-  );
-}
-
 export default function ClimberProfilePanel({ realisations = [], routesById = {}, cprGrade = "" }) {
-  const routes = useMemo(() => Object.values(routesById || {}), [routesById]);
   const profile = useMemo(
     () => calculateClimberProfile({ realisations, routesById, cprGrade }),
     [realisations, routesById, cprGrade],
-  );
-  const recommendations = useMemo(
-    () => recommendRoutesForNextSession({
-      routes,
-      realisations,
-      routesById,
-      cprGrade,
-      profile,
-      limit: 5,
-    }),
-    [routes, realisations, routesById, cprGrade, profile],
   );
 
   return (
@@ -101,32 +76,6 @@ export default function ClimberProfilePanel({ realisations = [], routesById = {}
 
         </div>
 
-        <div className="subcard climber-recommendations">
-          <div className="climber-recommendations-header">
-            <div>
-              <strong>5 voies pour la prochaine séance</strong>
-              <div className="small">Une sélection adaptée à votre progression récente.</div>
-            </div>
-            <span className="badge">{recommendations.length} / 5</span>
-          </div>
-
-          {recommendations.length > 0
-            ? (
-              <div className="climber-recommendations-list">
-                {recommendations.map((recommendation, index) => (
-                  <RecommendationCard key={recommendation.route.id} recommendation={recommendation} index={index} />
-                ))}
-              </div>
-            )
-            : <div className="muted-box">Pas assez de voies cotées pour proposer une sélection.</div>}
-
-          <details className="climber-recommendations-help">
-            <summary>Comment sont choisies ces voies ?</summary>
-            <div className="small">
-              La sélection privilégie les voies non encore réussies, les projets, les axes à travailler et une progression autour du niveau de référence. Elle reste à adapter à l’échauffement, à la forme du jour et aux consignes d’encadrement.
-            </div>
-          </details>
-        </div>
       </div>
 
       {!cprGrade && profile.referenceGrade && (

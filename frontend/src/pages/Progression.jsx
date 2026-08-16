@@ -38,6 +38,7 @@ export default function Progression({
   toggleAllProgressRealisations,
   exportSelectedParticipantRealisationsCsv,
   allRealisations,
+  myParticipantId,
 }) {
   return (
     <div className="card">
@@ -84,7 +85,8 @@ export default function Progression({
       <div className="card" style={{ marginTop: 12 }}>
         <div className="card-header">
           <h3>Saisir une réalisation</h3>
-          <Button onClick={() => openRealisationModal("", selectedParticipantProgress)}>
+          <Button onClick={() => openRealisationModal("", myParticipantId)}
+            disabled={!myParticipantId}>
             Nouvelle réalisation
           </Button>
         </div>
@@ -179,6 +181,7 @@ export default function Progression({
               const route = routesById[realisation.voieId];
               const availableSessionsForRealisation = getParticipantSessions(realisation.participantId);
               const displayedRating = ratingStars(realisation.rating);
+              const canEditRealisation = String(realisation.participantId) === String(myParticipantId);
               const isIncludedInCpr = Boolean(
                 cprByParticipantId[realisation.participantId]?.timeline.some(
                   (performance) => String(performance.id) === String(realisation.id)
@@ -204,12 +207,12 @@ export default function Progression({
                     </div>
                     <div className="group">
                       {isIncludedInCpr && <span className="pill">Prise en compte dans le CPR</span>}
-                      <Button variant="danger" className="realisation-delete-button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); deleteRealisation(realisation); }}>Supprimer</Button>
+                      {canEditRealisation && <Button variant="danger" className="realisation-delete-button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); deleteRealisation(realisation); }}>Supprimer</Button>}
                     </div>
                   </summary>
 
                   <div className="grid three">
-                    {!selectedParticipantProgress && <div>
+                    {!selectedParticipantProgress && canEditRealisation && <div>
                       <label>Participant</label>
                       <select
                         value={realisation.participantId}
@@ -233,6 +236,7 @@ export default function Progression({
                       <label>Séance</label>
                       <select
                         value={realisation.sessionId}
+                        disabled={!canEditRealisation}
                         onChange={(event) => updateRealisation(realisation.id, { sessionId: event.target.value })}
                       >
                         {availableSessionsForRealisation.length === 0 ? (
@@ -249,6 +253,7 @@ export default function Progression({
                       <label>Voie</label>
                       <select
                         value={realisation.voieId}
+                        disabled={!canEditRealisation}
                         onChange={(event) => updateRealisation(realisation.id, { voieId: event.target.value })}
                       >
                         {routes.map((routeOption) => (
@@ -263,6 +268,7 @@ export default function Progression({
                       <label>Style</label>
                       <select
                         value={realisation.styleRealisation}
+                        disabled={!canEditRealisation}
                         onChange={(event) => updateRealisation(realisation.id, { styleRealisation: event.target.value })}
                       >
                         {Object.entries(STYLE_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
@@ -273,6 +279,7 @@ export default function Progression({
                       <label>Cotation proposée</label>
                       <select
                         value={realisation.cotationProposee || ""}
+                        disabled={!canEditRealisation}
                         onChange={(event) => updateRealisation(realisation.id, { cotationProposee: event.target.value })}
                       >
                         <option value="">Aucune</option>
@@ -292,7 +299,8 @@ export default function Progression({
                     <label>Commentaire</label>
                     <input
                       value={realisation.commentaire || ""}
-                      onChange={(event) => updateRealisation(realisation.id, { commentaire: event.target.value })}
+                      disabled={!canEditRealisation}
+                        onChange={(event) => updateRealisation(realisation.id, { commentaire: event.target.value })}
                     />
                   </div>
                 </details>
