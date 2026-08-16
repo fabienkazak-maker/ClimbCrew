@@ -41,7 +41,7 @@ test("les réalisations sont repliables et la voie est choisie dans la fenêtre"
 
   assert.match(source, /<details className="subcard editable-realisation-card"/);
   assert.match(source, /<summary className="card-header realisation-summary">/);
-  assert.match(source, /openRealisationModal\("", selectedParticipantProgress\)/);
+  assert.match(source, /openRealisationModal\("", myParticipantId\)/);
   assert.doesNotMatch(source, /progressEntryRouteId/);
   assert.match(source, /!selectedParticipantProgress && `\$\{fullName\(participant\)\} — `/);
   assert.match(source, /\{\(selectedParticipantProgress \|\| selectedRouteProgress\) && <div className="card"/);
