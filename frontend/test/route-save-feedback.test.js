@@ -35,8 +35,8 @@ test("les formulaires de réalisation présentent corde, cotation, ouvreur puis 
 });
 
 test("les réalisations sont repliables et la voie est choisie dans la fenêtre", async () => {
-  // Cette UI vit désormais dans pages/Progression.jsx, où selectedParticipantProgress
-  // est une prop déstructurée (et non plus lue via state.selectedParticipantProgress).
+  // Cette UI vit désormais dans pages/Progression.jsx. La création utilise le participant
+  // associé au compte connecté, jamais le grimpeur simplement consulté.
   const source = await readFile(new URL("../src/pages/Progression.jsx", import.meta.url), "utf8");
 
   assert.match(source, /<details className="subcard editable-realisation-card"/);
