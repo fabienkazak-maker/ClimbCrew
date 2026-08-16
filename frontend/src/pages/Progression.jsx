@@ -212,32 +212,12 @@ export default function Progression({
                   </summary>
 
                   <div className="grid three">
-                    {!selectedParticipantProgress && canEditRealisation && <div>
-                      <label>Participant</label>
-                      <select
-                        value={realisation.participantId}
-                        onChange={(event) => {
-                          const participantId = event.target.value;
-                          const firstSession = getParticipantSessions(participantId)[0];
-                          updateRealisation(realisation.id, {
-                            participantId,
-                            sessionId: firstSession?.id || "",
-                            dateRealisation: firstSession ? `${firstSession.date}T12:00:00` : realisation.dateRealisation,
-                          });
-                        }}
-                      >
-                        {alphabeticalParticipants.map((participantOption) => (
-                          <option key={participantOption.id} value={participantOption.id}>{fullName(participantOption)}</option>
-                        ))}
-                      </select>
-                    </div>}
-
                     <div>
                       <label>Séance</label>
                       <select
                         value={realisation.sessionId}
                         disabled={!canEditRealisation}
-                        onChange={(event) => updateRealisation(realisation.id, { sessionId: event.target.value })}
+                      onChange={(event) => updateRealisation(realisation.id, { sessionId: event.target.value })}
                       >
                         {availableSessionsForRealisation.length === 0 ? (
                           <option value="">Aucune séance inscrite</option>
