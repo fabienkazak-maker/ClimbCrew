@@ -79,7 +79,7 @@ function createRecommendationCard(recommendation, index) {
   const card = document.createElement("div");
   card.className = "muted-box climber-recommendation";
 
-  const number = createText("span", String(index + 1), "badge climber-recommendation-number");
+  const number = createText("span", String(index + 1), "climber-recommendation-number");
   card.appendChild(number);
 
   const copy = document.createElement("div");
@@ -97,49 +97,8 @@ function buildProgressionCard({ profile, recommendations, cprGrade }) {
   section.className = "card climber-profile-card";
   section.dataset.climberProfile = "true";
 
-  const header = document.createElement("div");
-  header.className = "card-header";
-  const titleBlock = document.createElement("div");
-  titleBlock.appendChild(createText("h3", "Profil du grimpeur"));
-  titleBlock.appendChild(createText(
-    "div",
-    "Indice d'aisance par caractéristique et sélection de voies pour préparer la prochaine séance.",
-    "small",
-  ));
-  header.appendChild(titleBlock);
-  if (profile.referenceGrade) {
-    const source = profile.referenceSource === "cpr" ? "CPR" : "niveau";
-    header.appendChild(createText("span", `Référence ${source} : ${profile.referenceGrade}`, "badge"));
-  }
-  section.appendChild(header);
-
   const layout = document.createElement("div");
-  layout.className = "climber-profile-layout";
-
-  const skills = document.createElement("div");
-  skills.className = "subcard climber-profile-skills";
-  skills.appendChild(createText("strong", "Caractéristiques"));
-  skills.appendChild(createText(
-    "div",
-    "50 % est une zone neutre. Le score se stabilise progressivement avec le nombre de réalisations enregistrées.",
-    "small",
-  ));
-  profile.characteristics.forEach((item) => skills.appendChild(createSkillRow(item)));
-
-  const summaries = document.createElement("div");
-  summaries.className = "climber-profile-summary-grid";
-  summaries.appendChild(createSummaryBox(
-    "Points forts",
-    profile.strengths,
-    "Pas encore de point fort suffisamment documenté.",
-  ));
-  summaries.appendChild(createSummaryBox(
-    "Axes à travailler",
-    profile.developmentAreas,
-    "Aucun axe faible marqué pour le moment.",
-  ));
-  skills.appendChild(summaries);
-  layout.appendChild(skills);
+  layout.className = "climber-profile-layout climber-profile-recommendations-only";
 
   const routes = document.createElement("div");
   routes.className = "subcard climber-recommendations";
