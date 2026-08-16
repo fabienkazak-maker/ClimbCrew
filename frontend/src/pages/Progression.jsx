@@ -148,7 +148,7 @@ export default function Progression({
                 : "Réalisations"}
           </h3>
           <div className="group">
-            {selectedParticipantProgress && (
+            {selectedParticipantProgress && String(selectedParticipantProgress) === String(myParticipantId) && (
               <Button
                 variant="secondary"
                 onClick={exportSelectedParticipantRealisationsCsv}
