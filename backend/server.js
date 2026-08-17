@@ -41,7 +41,7 @@ const TRUST_PROXY = Number(process.env.TRUST_PROXY || 1);
 
 const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * Number(process.env.SESSION_DURATION_DAYS || 7);
 const RESET_TOKEN_DURATION_MS = 1000 * 60 * 60; // 1 heure
-const MAX_JSON_BODY_SIZE = process.env.MAX_JSON_BODY_SIZE || "512kb";
+const MAX_JSON_BODY_SIZE = process.env.MAX_JSON_BODY_SIZE || "1mb";
 const WRITE_RATE_LIMIT_PER_MINUTE = Number(process.env.WRITE_RATE_LIMIT_PER_MINUTE || 120);
 
 if (!DATABASE_URL) {
@@ -353,6 +353,7 @@ async function ensureSchema() {
     alter table participants add column if not exists avatar_id text not null default 'gecko';
     alter table participants add column if not exists crest_id text not null default 'cristal';
     alter table participants add column if not exists profile_public boolean not null default true;
+    alter table participants add column if not exists custom_avatar_image text not null default '';
 
     alter table sessions drop constraint if exists sessions_slot_check;
     alter table sessions add constraint sessions_slot_check check (slot in ('midi', 'matin', 'soir'));
@@ -1008,6 +1009,7 @@ function participantDbToApi(row) {
     avatarId: row.avatar_id || "gecko",
     crestId: row.crest_id || "cristal",
     profilePublic: row.profile_public !== false,
+    customAvatarImage: row.custom_avatar_image || "",
   };
 }
 
@@ -1820,7 +1822,7 @@ app.post("/admin/auth/users/:id/reset-token", requireAuth, requireAdmin, async (
 app.get("/participants", requireAuth, async (req, res) => {
   try {
     const result = await pool.query(`
-      select id, nom, prenom, email, passport, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin, avatar_id, crest_id, profile_public
+      select id, nom, prenom, email, passport, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin, avatar_id, crest_id, profile_public, custom_avatar_image
       from participants
       order by prenom asc, nom asc
     `);
@@ -1830,7 +1832,7 @@ app.get("/participants", requireAuth, async (req, res) => {
       if (row.profile_public || canSeePrivateProfiles || String(row.id) === ownParticipantId) {
         return participantDbToApi(row);
       }
-      return participantDbToApi({ ...row, avatar_id: "gecko", crest_id: "cristal" });
+      return participantDbToApi({ ...row, avatar_id: "gecko", crest_id: "cristal", custom_avatar_image: "" });
     }));
   } catch (error) {
     res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
@@ -1941,15 +1943,20 @@ app.patch("/participants/me/profile", requireAuth, async (req, res) => {
     const avatarId = cleanChoice(req.body?.avatarId, "gecko");
     const crestId = cleanChoice(req.body?.crestId, "cristal");
     const profilePublic = req.body?.profilePublic !== false;
+    const customAvatarImage = String(req.body?.customAvatarImage || "");
+    const allowedImagePrefix = /^data:image\\/webp;base64,/;
+    if (customAvatarImage && (!allowedImagePrefix.test(customAvatarImage) || customAvatarImage.length > 450000)) {
+      return res.status(400).json({ error: "L’image personnalisée doit être un WebP 512×512 de moins de 450 Ko." });
+    }
 
     const result = await pool.query(
       `
         update participants
-        set avatar_id = $2, crest_id = $3, profile_public = $4
+        set avatar_id = $2, crest_id = $3, profile_public = $4, custom_avatar_image = $5
         where id = $1
-        returning id, nom, prenom, email, passport, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin, avatar_id, crest_id, profile_public
+        returning id, nom, prenom, email, passport, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin, avatar_id, crest_id, profile_public, custom_avatar_image
       `,
-      [participantId, avatarId, crestId, profilePublic],
+      [participantId, avatarId, crestId, profilePublic, customAvatarImage],
     );
     res.json(participantDbToApi(result.rows[0]));
   } catch (error) {

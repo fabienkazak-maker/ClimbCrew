@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { getGeckoLevelInfo } from "../lib/gecko-level.js";
 import "../styles/profile-gecko.css";
 
@@ -6,8 +6,49 @@ const LEVEL_ACCENTS = ["#65a30d", "#4d7c0f", "#0284c7", "#2563eb", "#7c3aed", "#
 const AVATAR_ROOT = "/media/avatars/split";
 const PROFILE_ROOT = "/media/avatars/profile";
 const EVOLUTION_ROOT = "/media/avatars/evolutions";
-const ASSET_VERSION = "260817006";
+const ASSET_VERSION = "260817007";
 const EVOLUTION_LABELS = ["Découverte", "Initiation", "Autonome", "Confirmé", "Technique", "Expert", "Maître", "Élite"];
+const CUSTOM_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+const CUSTOM_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+function prepareCustomImage(file) {
+  return new Promise((resolve, reject) => {
+    if (!CUSTOM_IMAGE_TYPES.has(file.type)) {
+      reject(new Error("Format refusé. Utilisez une image PNG, JPEG ou WebP."));
+      return;
+    }
+    if (file.size > CUSTOM_IMAGE_MAX_BYTES) {
+      reject(new Error("Image trop volumineuse. La taille maximale est de 5 Mo."));
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Impossible de lire cette image."));
+    reader.onload = () => {
+      const source = new Image();
+      source.onerror = () => reject(new Error("Le fichier ne contient pas une image valide."));
+      source.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 512;
+        canvas.height = 512;
+        const context = canvas.getContext("2d");
+        const cropSize = Math.min(source.naturalWidth, source.naturalHeight);
+        const sourceX = (source.naturalWidth - cropSize) / 2;
+        const sourceY = (source.naturalHeight - cropSize) / 2;
+        context.clearRect(0, 0, 512, 512);
+        context.drawImage(source, sourceX, sourceY, cropSize, cropSize, 0, 0, 512, 512);
+        const preparedImage = canvas.toDataURL("image/webp", 0.86);
+        if (preparedImage.length > 450000) {
+          reject(new Error("L’image reste trop volumineuse après conversion. Choisissez une image plus simple."));
+          return;
+        }
+        resolve(preparedImage);
+      };
+      source.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 function asset(root, name, extension = "webp") {
   return `${root}/${name}.${extension}?v=${ASSET_VERSION}`;
@@ -72,11 +113,35 @@ function imageForLevel(avatar, level, variant) {
 export default function ProfileGecko({ grade, sexe, participant, onProfileUpdate, editable = true, compact = false }) {
   const { level, variant } = getGeckoLevelInfo(grade, sexe);
   const [showEvolutionHistory, setShowEvolutionHistory] = useState(false);
+  const [customImageError, setCustomImageError] = useState("");
+  const fileInputRef = useRef(null);
   const accent = variant === "feminine" ? "#db2777" : LEVEL_ACCENTS[level - 1];
   const avatar = useMemo(
     () => AVATAR_OPTIONS.find((option) => option.id === participant?.avatarId) || AVATAR_OPTIONS[0],
     [participant?.avatarId],
   );
+  const customImage = participant?.customAvatarImage || "";
+
+  async function onCustomImageChange(event) {
+    const file = event.target.files?.[0];
+    if (!file || !participant?.id) return;
+    setCustomImageError("");
+    try {
+      const preparedImage = await prepareCustomImage(file);
+      await onProfileUpdate?.({ customAvatarImage: preparedImage });
+      setShowEvolutionHistory(false);
+    } catch (error) {
+      setCustomImageError(error.message || "Impossible de charger cette image.");
+    } finally {
+      event.target.value = "";
+    }
+  }
+
+  function removeCustomImage() {
+    onProfileUpdate?.({ customAvatarImage: "" });
+    setCustomImageError("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
 
   return (
     <div className={`card profile-gecko-card${compact ? " profile-gecko-card--compact" : ""}`}>
@@ -98,6 +163,30 @@ export default function ProfileGecko({ grade, sexe, participant, onProfileUpdate
               ))}
             </select>
           </label>
+          <div className="profile-custom-image-control">
+            <span className="profile-custom-image-title">Image personnalisée</span>
+            <div className="profile-custom-image-actions">
+              <label className="profile-custom-image-button">
+                Charger une image
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={onCustomImageChange}
+                />
+              </label>
+              {customImage && (
+                <button type="button" className="secondary" onClick={removeCustomImage}>
+                  Revenir à l’avatar
+                </button>
+              )}
+            </div>
+            <div className="small profile-custom-image-help">
+              PNG, JPEG ou WebP · 5 Mo maximum · format carré 512×512 recommandé.
+              L’image est recadrée au centre et convertie automatiquement en WebP 512×512.
+            </div>
+            {customImageError && <div className="profile-custom-image-error" role="alert">{customImageError}</div>}
+          </div>
         </div>
       )}
 
@@ -105,15 +194,17 @@ export default function ProfileGecko({ grade, sexe, participant, onProfileUpdate
         <button
           type="button"
           className="profile-gecko-real-image"
-          aria-label="Afficher les évolutions passées de l’avatar"
+          aria-label={customImage ? "Image de profil personnalisée" : "Afficher les évolutions passées de l’avatar"}
           aria-expanded={showEvolutionHistory}
           aria-controls="profile-avatar-evolution-history"
-          onClick={() => setShowEvolutionHistory((visible) => !visible)}
+          onClick={() => {
+            if (!customImage) setShowEvolutionHistory((visible) => !visible);
+          }}
         >
-          <img className="profile-animal-image" src={imageForLevel(avatar, level, variant)} alt="" draggable="false" />
+          <img className={`profile-animal-image${customImage ? " profile-custom-image" : ""}`} src={customImage || imageForLevel(avatar, level, variant)} alt="" draggable="false" />
         </button>
 
-        {showEvolutionHistory && (
+        {!customImage && showEvolutionHistory && (
           <div id="profile-avatar-evolution-history" className="profile-avatar-evolution-history">
             <strong>Images des évolutions précédentes</strong>
             {level > 1 ? (

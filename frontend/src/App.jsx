@@ -973,6 +973,7 @@ function App() {
           avatarId: optimistic.avatarId || "gecko",
           crestId: optimistic.crestId || "cristal",
           profilePublic: optimistic.profilePublic !== false,
+          customAvatarImage: optimistic.customAvatarImage || "",
         }),
       });
       setState((prev) => ({

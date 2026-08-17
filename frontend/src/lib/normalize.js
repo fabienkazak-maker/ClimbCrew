@@ -66,6 +66,7 @@ export function normalizeParticipant(participant = {}) {
     avatarId: text(participant.avatarId ?? participant.avatar_id) || "gecko",
     crestId: text(participant.crestId ?? participant.crest_id) || "cristal",
     profilePublic: booleanValue(participant.profilePublic ?? participant.profile_public ?? true),
+    customAvatarImage: text(participant.customAvatarImage ?? participant.custom_avatar_image),
   };
 }
 
