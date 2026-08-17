@@ -18,6 +18,8 @@ import {
 import { exportAllData } from "./export-service.js";
 import { requireAdmin, requireAuthUser } from "./security.js";
 import { createCrossOriginCsrfBridge } from "../deployment-compatibility.js";
+import { installBackupRoutes } from "../backup-routes.js";
+import { startBackupScheduler } from "../backup-service.js";
 
 /**
  * Intégration des modules séparés dans l'application Express historique.
@@ -119,10 +121,13 @@ export function installExpressIntegration() {
         app.post("/auth/change-password", requireAuthUser, changePassword);
         app.post("/auth/change-email/request", requireAuthUser, requestEmailChange);
         app.get("/auth/change-email/confirm", confirmEmailChange);
+        installBackupRoutes(app);
         app[INSTALL_FLAG] = true;
       }
 
-      return originalListen.apply(app, args);
+      const server = originalListen.apply(app, args);
+      startBackupScheduler();
+      return server;
     };
 
     startListening().catch((error) => {
