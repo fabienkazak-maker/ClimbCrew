@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - '.github/workflows/finalize-avatars.yml'
+      - 'scripts/finalize-avatar-variants.sh'
   workflow_dispatch:
 
 permissions:
@@ -39,14 +40,14 @@ jobs:
           echo "Fichiers vides :"
           find frontend/public/media/avatars/evolutions -type f -size 0 -print
 
-      - name: Committer la production
+      - name: Committer la production et le câblage
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add frontend/public/media/avatars/evolutions
+          git add frontend/public/media/avatars/evolutions frontend/src/components/ProfileGecko.jsx
           if git diff --cached --quiet; then
             echo 'Aucun changement à committer.'
             exit 0
           fi
-          git commit -m 'feat(avatars): complete male and female evolution series'
+          git commit -m 'feat(avatars): finalize all avatar evolution variants'
           git push origin HEAD:main
