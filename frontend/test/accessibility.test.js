@@ -35,11 +35,12 @@ test("la liste des inscrits devient multicolonne sans couper les noms sur plusie
 });
 
 test("les pages administratives sont placées après la FAQ", async () => {
-  // La liste des onglets (TABS) a été extraite de App.jsx vers lib/ui-config.js.
+  // Le test vérifie l'ordre à partir des clés stables, indépendamment du libellé affiché.
   const source = await readFile(new URL("../src/lib/ui-config.js", import.meta.url), "utf8");
-  const faq = source.indexOf('{ key: "faq", label: "FAQ" }');
-  const administration = source.indexOf('{ key: "administration", label: "Administration", adminOnly: true }');
-  const accounts = source.indexOf('{ key: "gestion_comptes", label: "Gestion des comptes", adminOnly: true }');
-  const logs = source.indexOf('{ key: "logs", label: "Log", adminOnly: true }');
+  const faq = source.indexOf('key: "faq"');
+  const administration = source.indexOf('key: "administration"');
+  const accounts = source.indexOf('key: "gestion_comptes"');
+  const logs = source.indexOf('key: "logs"');
+  assert.ok(faq >= 0 && administration >= 0 && accounts >= 0 && logs >= 0);
   assert.ok(faq < administration && administration < accounts && accounts < logs);
 });
