@@ -7,7 +7,14 @@ import { sendBackupEmail } from "./admin-users/email-service.js";
 
 const execFileAsync = promisify(execFile);
 
+function envBoolean(name, fallback = false) {
+  const value = process.env[name];
+  if (value === undefined || value === null || value === "") return fallback;
+  return ["1", "true", "yes", "oui", "on"].includes(String(value).trim().toLowerCase());
+}
+
 const DATABASE_URL = String(process.env.DATABASE_URL || "").trim();
+const BACKUP_ENABLED = envBoolean("BACKUP_ENABLED", false);
 const BACKUP_DIR = path.resolve(process.env.BACKUP_DIR || "/backups");
 const BACKUP_TIMEZONE = String(process.env.BACKUP_TIMEZONE || "Europe/Paris").trim();
 const BACKUP_HOUR = Math.min(23, Math.max(0, Number(process.env.BACKUP_HOUR || 3)));
@@ -19,6 +26,10 @@ const EMAIL_RETRY_MS = 60 * 60 * 1000;
 
 let operationQueue = Promise.resolve();
 const lastEmailAttemptByFile = new Map();
+
+function assertBackupEnabled() {
+  if (!BACKUP_ENABLED) throw new Error("Le service de sauvegarde n'est pas activé sur cet environnement");
+}
 
 function queueOperation(operation) {
   const next = operationQueue.then(operation, operation);
@@ -90,10 +101,12 @@ function mailMarkerPath(fileName) {
 }
 
 async function ensureBackupDirectory() {
+  assertBackupEnabled();
   await fs.mkdir(BACKUP_DIR, { recursive: true });
 }
 
 async function runPgTool(command, args, options = {}) {
+  assertBackupEnabled();
   if (!DATABASE_URL) throw new Error("DATABASE_URL est absent");
   return execFileAsync(command, args, {
     maxBuffer: 10 * 1024 * 1024,
@@ -144,6 +157,7 @@ async function createBackupInternal({ reason = "manual", fixedFileName = "" } = 
 }
 
 export function createBackup(options = {}) {
+  assertBackupEnabled();
   return queueOperation(() => createBackupInternal(options));
 }
 
@@ -161,6 +175,7 @@ async function wasEmailed(fileName) {
 }
 
 export async function sendBackupByEmail(fileName) {
+  assertBackupEnabled();
   const filePath = backupPath(fileName);
   const stats = await validateDumpFile(filePath);
   const result = await sendBackupEmail({
@@ -197,6 +212,7 @@ async function metadataFor(fileName) {
 }
 
 export async function listBackups() {
+  if (!BACKUP_ENABLED) return [];
   await ensureBackupDirectory();
   const entries = await fs.readdir(BACKUP_DIR, { withFileTypes: true });
   const fileNames = entries
@@ -208,6 +224,7 @@ export async function listBackups() {
 }
 
 export async function importBackupBuffer(buffer, sourceName = "") {
+  assertBackupEnabled();
   if (!Buffer.isBuffer(buffer) || buffer.length < 1024) {
     throw new Error("Fichier de sauvegarde absent ou trop petit");
   }
@@ -262,11 +279,11 @@ async function revokeRestoredSessions() {
 }
 
 export async function restoreBackup(fileName) {
+  assertBackupEnabled();
   return queueOperation(async () => {
     const requestedPath = backupPath(fileName);
     await validateDumpFile(requestedPath);
 
-    // Une restauration est précédée d'un point de retour automatique.
     const safetyBackup = await createBackupInternal({ reason: "pre-restore" });
     const safetyPath = backupPath(safetyBackup.fileName);
     let poolClosed = false;
@@ -299,6 +316,7 @@ export async function restoreBackup(fileName) {
 }
 
 export async function pruneOldBackups() {
+  if (!BACKUP_ENABLED) return;
   await ensureBackupDirectory();
   const cutoff = Date.now() - BACKUP_RETENTION_DAYS * 24 * 60 * 60 * 1000;
   const entries = await fs.readdir(BACKUP_DIR, { withFileTypes: true });
@@ -314,6 +332,7 @@ export async function pruneOldBackups() {
 
 export function getBackupConfig() {
   return {
+    enabled: BACKUP_ENABLED,
     directory: BACKUP_DIR,
     timezone: BACKUP_TIMEZONE,
     hour: BACKUP_HOUR,
@@ -324,6 +343,7 @@ export function getBackupConfig() {
 }
 
 async function schedulerTick() {
+  if (!BACKUP_ENABLED) return;
   const local = localParts();
   if (local.hour < BACKUP_HOUR) return;
 
@@ -356,6 +376,10 @@ async function schedulerTick() {
 }
 
 export function startBackupScheduler() {
+  if (!BACKUP_ENABLED) {
+    console.log("[backup] planification désactivée sur cet environnement");
+    return;
+  }
   if (globalThis[BACKUP_SCHEDULER_FLAG]) return;
   globalThis[BACKUP_SCHEDULER_FLAG] = true;
 
