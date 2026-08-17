@@ -1944,7 +1944,7 @@ app.patch("/participants/me/profile", requireAuth, async (req, res) => {
     const crestId = cleanChoice(req.body?.crestId, "cristal");
     const profilePublic = req.body?.profilePublic !== false;
     const customAvatarImage = String(req.body?.customAvatarImage || "");
-    const allowedImagePrefix = /^data:image\\/webp;base64,/;
+    const allowedImagePrefix = /^data:image\/webp;base64,/;
     if (customAvatarImage && (!allowedImagePrefix.test(customAvatarImage) || customAvatarImage.length > 450000)) {
       return res.status(400).json({ error: "L’image personnalisée doit être un WebP 512×512 de moins de 450 Ko." });
     }
