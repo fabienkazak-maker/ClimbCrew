@@ -19,8 +19,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER manquant}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant}
     volumes:
-      # Volume persistant : une reconstruction des images ne supprime pas les
-      # comptes, séances, voies, inscriptions ni réalisations.
       - climbcrew_pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
@@ -43,8 +41,6 @@ services:
 
   # ---------------------------------------------------------------------------
   # API Node/Express.
-  # Le port est lié uniquement à 127.0.0.1 : seul le reverse proxy du serveur
-  # Linux peut l'exposer publiquement sous /api.
   # ---------------------------------------------------------------------------
   backend:
     build:
@@ -61,6 +57,7 @@ services:
       PORT: 3000
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL manquant}
       TRUST_PROXY: ${TRUST_PROXY:-1}
+      BACKUP_ENABLED: ${BACKUP_ENABLED:-true}
       BACKUP_DIR: /backups
       BACKUP_TIMEZONE: ${BACKUP_TIMEZONE:-Europe/Paris}
       BACKUP_HOUR: ${BACKUP_HOUR:-3}
@@ -77,8 +74,6 @@ services:
       backup-init:
         condition: service_completed_successfully
     healthcheck:
-      # /health vérifie aussi la connexion PostgreSQL. Une réponse non 2xx
-      # empêche le frontend de démarrer sur une API inutilisable.
       test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
       interval: 30s
       timeout: 5s
@@ -87,8 +82,6 @@ services:
 
   # ---------------------------------------------------------------------------
   # Frontend React compilé puis servi par Nginx.
-  # Impact visuel : ce conteneur fournit toutes les pages, feuilles de style et
-  # ressources graphiques visibles par l'utilisateur.
   # ---------------------------------------------------------------------------
   frontend:
     build:
