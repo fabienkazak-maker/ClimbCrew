@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/finalize-avatars.yml'
       - 'scripts/finalize-avatar-variants.sh'
+      - 'scripts/generate-sac-magnesie-series.py'
   workflow_dispatch:
 
 permissions:
@@ -25,18 +26,48 @@ jobs:
         with:
           ref: main
 
-      - name: Installer ImageMagick
+      - name: Installer les outils graphiques
         run: |
           sudo apt-get update
-          sudo apt-get install -y imagemagick
+          sudo apt-get install -y imagemagick librsvg2-bin
 
-      - name: Produire les séries homme et femme
+      - name: Produire les 16 évolutions du sac à magnésie
+        run: python3 scripts/generate-sac-magnesie-series.py
+
+      - name: Produire et contrôler les autres séries homme et femme
         run: bash scripts/finalize-avatar-variants.sh
+
+      - name: Passer l'application en version 260817.010
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          version_file = Path('frontend/src/lib/version.js')
+          version_text = version_file.read_text(encoding='utf-8')
+          version_text = re.sub(
+              r'export const APP_VERSION = "[^"]+";',
+              'export const APP_VERSION = "260817.010";',
+              version_text,
+          )
+          version_file.write_text(version_text, encoding='utf-8')
+
+          profile_file = Path('frontend/src/components/ProfileGecko.jsx')
+          profile_text = profile_file.read_text(encoding='utf-8')
+          profile_text = re.sub(
+              r'const ASSET_VERSION = "[^"]+";',
+              'const ASSET_VERSION = "260817010";',
+              profile_text,
+          )
+          profile_file.write_text(profile_text, encoding='utf-8')
+          PY
 
       - name: Résumer la production
         run: |
           echo "Fichiers homme/femme générés :"
           find frontend/public/media/avatars/evolutions -type f \( -path '*/homme/level-*.webp' -o -path '*/femme/level-*.webp' \) | wc -l
+          echo "Sac à magnésie :"
+          find frontend/public/media/avatars/evolutions/sac_magnesie -type f \( -path '*/homme/level-*.webp' -o -path '*/femme/level-*.webp' \) -print | sort
           echo "Fichiers vides :"
           find frontend/public/media/avatars/evolutions -type f -size 0 -print
 
@@ -44,10 +75,10 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add frontend/public/media/avatars/evolutions frontend/src/components/ProfileGecko.jsx
+          git add frontend/public/media/avatars/evolutions frontend/src/components/ProfileGecko.jsx frontend/src/lib/version.js
           if git diff --cached --quiet; then
             echo 'Aucun changement à committer.'
             exit 0
           fi
-          git commit -m 'feat(avatars): finalize all avatar evolution variants'
+          git commit -m 'feat(avatars): publish distinct chalk bag series v260817.010'
           git push origin HEAD:main
