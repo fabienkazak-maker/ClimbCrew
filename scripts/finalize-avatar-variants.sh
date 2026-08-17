@@ -11,7 +11,8 @@ if ! command -v convert >/dev/null 2>&1; then
 fi
 
 # Séries déjà produites individuellement : on ne les retouche pas.
-COMPLETED=(casque chausson gourde mousqueton)
+# sac_magnesie possède désormais sa propre production graphique 8 niveaux x 2 variantes.
+COMPLETED=(casque chausson gourde mousqueton sac_magnesie)
 
 is_completed() {
   local candidate="$1"
@@ -22,8 +23,7 @@ is_completed() {
 }
 
 # Le sac à magnésie était proposé dans Mon profil sans série d'évolution.
-# On construit d'abord 8 niveaux distincts depuis son illustration de référence,
-# puis il suit exactement le même traitement homme/femme que les autres objets.
+# Ce bloc historique ne sert plus qu'à conserver une source neutre de compatibilité.
 SAC_DIR="$ROOT/sac_magnesie"
 SAC_SOURCE="$PROFILE_ROOT/avatar-sac-magnesie.webp"
 if [[ ! -s "$SAC_DIR/level-1.webp" ]]; then
