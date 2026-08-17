@@ -70,31 +70,44 @@ function enhanceConsent(card) {
   }
 }
 
-function enhanceForgotPasswordCopy(card) {
-  const helper = [...card.querySelectorAll(".small")].find((element) => {
+function findForgotPasswordHelper(card) {
+  return [...card.querySelectorAll(".small")].find((element) => {
     const text = normalizedText(element.textContent);
     return text.includes("administrateur pourra générer un code")
-      || text.includes("demande sera journalisée");
+      || text.includes("demande sera journalisée")
+      || text.includes("code de réinitialisation valable une heure");
   });
+}
+
+function enhanceForgotPasswordCopy(card) {
+  const helper = findForgotPasswordHelper(card);
 
   if (helper && helper.textContent !== FORGOT_PASSWORD_HELP_TEXT) {
     helper.textContent = FORGOT_PASSWORD_HELP_TEXT;
   }
+
+  return Boolean(helper);
 }
 
-function enhanceButtons(card, requestFormVisible) {
+function enhanceButtons(card, requestFormVisible, forgotPasswordFormVisible) {
   // Les changements de l’issue #15 ne doivent s’appliquer que sur
   // le formulaire de création de compte, jamais sur l’écran de connexion.
   const submitButton = card.querySelector(".auth-submit-row button");
-  if (requestFormVisible && submitButton) {
-    submitButton.textContent = "Demander la création d’un compte";
-    submitButton.classList.remove("secondary");
+  if (submitButton) {
+    submitButton.classList.toggle("issue13-hidden", forgotPasswordFormVisible);
+
+    if (requestFormVisible) {
+      submitButton.textContent = "Création d’un compte";
+      submitButton.classList.remove("secondary");
+    }
   }
 
   const switchButtons = [...card.querySelectorAll(".auth-switcher button")];
   const requestSwitchButton = switchButtons.find((button) => {
     const text = normalizedText(button.textContent);
-    return text.includes("demander un accès") || text.includes("création d’un compte");
+    return text.includes("demander un accès")
+      || text.includes("demander la création d’un compte")
+      || text.includes("création d’un compte");
   });
   const forgotPasswordButton = switchButtons.find((button) => normalizedText(button.textContent).includes("mot de passe perdu"));
 
@@ -102,7 +115,7 @@ function enhanceButtons(card, requestFormVisible) {
     requestSwitchButton.classList.toggle("issue13-hidden", requestFormVisible);
 
     if (!requestFormVisible) {
-      requestSwitchButton.textContent = "Demander la création d’un compte";
+      requestSwitchButton.textContent = "Création d’un compte";
     }
   }
 
@@ -115,6 +128,25 @@ function enhanceButtons(card, requestFormVisible) {
     } else {
       forgotPasswordButton.removeAttribute("aria-hidden");
       forgotPasswordButton.removeAttribute("tabindex");
+    }
+
+    // Sur l’écran « Mot de passe perdu », le gros bouton redondant est masqué.
+    // Le bouton du sélecteur conserve l’action : un premier clic ouvre l’écran,
+    // puis un clic depuis cet écran envoie la demande de code de réinitialisation.
+    if (!forgotPasswordButton.dataset.issue13ResetActionBound) {
+      forgotPasswordButton.dataset.issue13ResetActionBound = "true";
+      forgotPasswordButton.addEventListener("click", (event) => {
+        const currentCard = forgotPasswordButton.closest(".auth-card");
+        const currentForgotFormVisible = Boolean(currentCard && findForgotPasswordHelper(currentCard));
+        if (!currentForgotFormVisible) return;
+
+        const currentSubmitButton = currentCard.querySelector(".auth-submit-row button");
+        if (!currentSubmitButton) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        currentSubmitButton.click();
+      }, true);
     }
   }
 }
@@ -132,10 +164,10 @@ function enhanceAccessPage() {
   if (!card) return;
 
   const requestFormVisible = enhancePasswordPolicy(card);
+  const forgotPasswordFormVisible = enhanceForgotPasswordCopy(card);
   card.classList.toggle("issue13-request-form", requestFormVisible);
   if (requestFormVisible) enhanceConsent(card);
-  enhanceForgotPasswordCopy(card);
-  enhanceButtons(card, requestFormVisible);
+  enhanceButtons(card, requestFormVisible, forgotPasswordFormVisible);
   hideVersion(card);
 }
 
