@@ -22,6 +22,37 @@ export default function GestionComptes({
     return <div className="card"><div className="muted-box">Cette section est réservée aux administrateurs authentifiés.</div></div>;
   }
 
+  const pendingUsers = adminAuthUsers.filter((user) => user.status === "pending");
+  const otherUsers = adminAuthUsers.filter((user) => user.status !== "pending");
+
+  const renderAccountActions = (user) => (
+    <div className="group">
+      {user.status === "pending" && <Button onClick={() => approveAccessRequest(user.id)}>Approuver</Button>}
+      {user.status !== "revoked" ? (
+        <Button variant="danger" onClick={() => revokeUserAccess(user.id)}>Répudier</Button>
+      ) : (
+        <Button onClick={() => reactivateUserAccess(user.id)}>Réactiver</Button>
+      )}
+      <Button variant="secondary" onClick={() => generatePasswordResetToken(user.id)}>Code reset</Button>
+      {Number(authUser?.id) !== Number(user.id) && (
+        <Button variant="danger" onClick={() => deleteUserAccount(user)}>Supprimer le compte</Button>
+      )}
+    </div>
+  );
+
+  const renderAccountBody = (user) => (
+    <div style={{ marginTop: 10 }}>
+      <div className="card-header">
+        <div className="small">{user.email} · rôle {user.role} · statut {user.status}</div>
+        {renderAccountActions(user)}
+      </div>
+      <div className="small">
+        Créé le {user.created_at ? formatDateFr(user.created_at.slice(0, 10)) : "-"}
+        {user.last_login_at ? ` · dernière connexion le ${formatDateFr(user.last_login_at.slice(0, 10))}` : " · aucune connexion"}
+      </div>
+    </div>
+  );
+
   return (
     <div className="card">
       <div className="card-header">
@@ -29,41 +60,35 @@ export default function GestionComptes({
         <Button variant="secondary" onClick={loadAdminAccessData}>Actualiser</Button>
       </div>
       <div className="small" style={{ marginBottom: 10 }}>
-        L’administrateur peut approuver, révoquer, réactiver ou supprimer définitivement un compte.
+        Toute création de compte doit être validée par un administrateur. Les demandes en attente sont affichées en premier et dépliées.
       </div>
       {generatedResetToken && <div className="success" style={{ marginBottom: 12 }}>{generatedResetToken}</div>}
       <div className="stack">
         {adminAuthUsers.length === 0 ? (
           <div className="muted-box">Aucun compte utilisateur chargé.</div>
         ) : (
-          adminAuthUsers.map((user) => (
-            <details className="subcard account-admin-details" key={user.id}>
-              <summary style={{ cursor: "pointer", fontWeight: 700 }}>
-                {user.prenom} {user.nom}
-              </summary>
-              <div style={{ marginTop: 10 }}>
+          <>
+            {pendingUsers.map((user) => (
+              <div className="subcard account-admin-details" key={user.id}>
                 <div className="card-header">
-                  <div className="small">{user.email} · rôle {user.role} · statut {user.status}</div>
-                  <div className="group">
-                    {user.status === "pending" && <Button onClick={() => approveAccessRequest(user.id)}>Approuver</Button>}
-                    {user.status !== "revoked" ? (
-                      <Button variant="danger" onClick={() => revokeUserAccess(user.id)}>Répudier</Button>
-                    ) : (
-                      <Button onClick={() => reactivateUserAccess(user.id)}>Réactiver</Button>
-                    )}
-                    <Button variant="secondary" onClick={() => generatePasswordResetToken(user.id)}>Code reset</Button>
-                    {Number(authUser?.id) !== Number(user.id) && (
-                      <Button variant="danger" onClick={() => deleteUserAccount(user)}>Supprimer le compte</Button>
-                    )}
+                  <div>
+                    <div style={{ fontWeight: 700 }}>{user.prenom} {user.nom}</div>
+                    <div className="small">En attente de validation administrateur</div>
                   </div>
                 </div>
-                <div className="small">
-                  Créé le {user.created_at ? formatDateFr(user.created_at.slice(0, 10)) : "-"}
-                  {user.last_login_at ? ` · dernière connexion le ${formatDateFr(user.last_login_at.slice(0, 10))}` : " · aucune connexion"}
-                </div>
+                {renderAccountBody(user)}
               </div>
-            </details>
-          ))
+            ))}
+
+            {otherUsers.map((user) => (
+              <details className="subcard account-admin-details" key={user.id}>
+                <summary style={{ cursor: "pointer", fontWeight: 700 }}>
+                  {user.prenom} {user.nom}
+                </summary>
+                {renderAccountBody(user)}
+              </details>
+            ))}
+          </>
         )}
       </div>
     </div>
