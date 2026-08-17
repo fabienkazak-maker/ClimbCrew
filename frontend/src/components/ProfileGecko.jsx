@@ -6,7 +6,7 @@ const LEVEL_ACCENTS = ["#65a30d", "#4d7c0f", "#0284c7", "#2563eb", "#7c3aed", "#
 const AVATAR_ROOT = "/media/avatars/split";
 const PROFILE_ROOT = "/media/avatars/profile";
 const EVOLUTION_ROOT = "/media/avatars/evolutions";
-const ASSET_VERSION = "260815016";
+const ASSET_VERSION = "260817001";
 const EVOLUTION_LABELS = ["Découverte", "Initiation", "Autonome", "Confirmé", "Technique", "Expert", "Maître", "Élite"];
 
 function asset(root, name, extension = "webp") {
@@ -15,6 +15,13 @@ function asset(root, name, extension = "webp") {
 
 function evolutionImages(avatarId) {
   return EVOLUTION_LABELS.map((_, index) => `${EVOLUTION_ROOT}/${avatarId}/level-${index + 1}.webp?v=${ASSET_VERSION}`);
+}
+
+function evolutionImagesByVariant(avatarId) {
+  return {
+    masculine: EVOLUTION_LABELS.map((_, index) => `${EVOLUTION_ROOT}/${avatarId}/homme/level-${index + 1}.webp?v=${ASSET_VERSION}`),
+    feminine: EVOLUTION_LABELS.map((_, index) => `${EVOLUTION_ROOT}/${avatarId}/femme/level-${index + 1}.webp?v=${ASSET_VERSION}`),
+  };
 }
 
 export const AVATAR_OPTIONS = Object.freeze([
@@ -37,7 +44,7 @@ export const AVATAR_OPTIONS = Object.freeze([
   { id: "kiwi", label: "Kiwi tenace", group: "Fruits", image: asset(PROFILE_ROOT, "avatar-kiwi"), evolutionImages: evolutionImages("kiwi") },
   { id: "pasteque", label: "Pastèque puissante", group: "Fruits", image: asset(PROFILE_ROOT, "avatar-pasteque"), evolutionImages: evolutionImages("pasteque") },
   { id: "ananas", label: "Ananas engagé", group: "Fruits", image: asset(PROFILE_ROOT, "avatar-ananas"), evolutionImages: evolutionImages("ananas") },
-  { id: "chausson", label: "Chausson d’escalade", group: "Objets", image: asset(PROFILE_ROOT, "avatar-chausson") },
+  { id: "chausson", label: "Chausson d’escalade", group: "Objets", image: asset(PROFILE_ROOT, "avatar-chausson"), evolutionImagesByVariant: evolutionImagesByVariant("chausson") },
   { id: "mousqueton", label: "Mousqueton", group: "Objets", image: asset(PROFILE_ROOT, "avatar-mousqueton") },
   { id: "gourde", label: "Gourde", group: "Objets", image: asset(PROFILE_ROOT, "avatar-gourde") },
   { id: "casque", label: "Casque", group: "Objets", image: asset(PROFILE_ROOT, "avatar-casque") },
@@ -48,8 +55,18 @@ export const ANIMAL_OPTIONS = AVATAR_OPTIONS;
 
 const AVATAR_GROUPS = [...new Set(AVATAR_OPTIONS.map((option) => option.group))];
 
-function imageForLevel(avatar, level) {
-  return avatar.evolutionImages?.[Math.max(0, Math.min(EVOLUTION_LABELS.length - 1, level - 1))] || avatar.image;
+function imageForLevel(avatar, level, variant) {
+  const index = Math.max(0, Math.min(EVOLUTION_LABELS.length - 1, level - 1));
+  const variantImages = variant === "masculine" || variant === "feminine"
+    ? avatar.evolutionImagesByVariant?.[variant]
+    : null;
+  const stableVariantFallback = avatar.evolutionImagesByVariant?.masculine
+    || avatar.evolutionImagesByVariant?.feminine;
+
+  return variantImages?.[index]
+    || avatar.evolutionImages?.[index]
+    || stableVariantFallback?.[index]
+    || avatar.image;
 }
 
 export default function ProfileGecko({ grade, sexe, participant, onProfileUpdate, editable = true, compact = false }) {
@@ -93,7 +110,7 @@ export default function ProfileGecko({ grade, sexe, participant, onProfileUpdate
           aria-controls="profile-avatar-evolution-history"
           onClick={() => setShowEvolutionHistory((visible) => !visible)}
         >
-          <img className="profile-animal-image" src={imageForLevel(avatar, level)} alt="" draggable="false" />
+          <img className="profile-animal-image" src={imageForLevel(avatar, level, variant)} alt="" draggable="false" />
         </button>
 
         {showEvolutionHistory && (
@@ -104,7 +121,7 @@ export default function ProfileGecko({ grade, sexe, participant, onProfileUpdate
                 {EVOLUTION_LABELS.slice(0, level - 1).map((evolutionLabel, index) => (
                   <figure className="profile-avatar-history-item" key={evolutionLabel}>
                     <span className="profile-gecko-stage profile-avatar-history-stage" data-level={index + 1}>
-                      <img className="profile-animal-image" src={imageForLevel(avatar, index + 1)} alt={`${avatar.label} au niveau ${index + 1}`} draggable="false" />
+                      <img className="profile-animal-image" src={imageForLevel(avatar, index + 1, variant)} alt={`${avatar.label} au niveau ${index + 1}`} draggable="false" />
                     </span>
                     <figcaption>Niveau {index + 1} · {evolutionLabel}</figcaption>
                   </figure>
