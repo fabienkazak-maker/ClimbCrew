@@ -6,7 +6,7 @@ const LEVEL_ACCENTS = ["#65a30d", "#4d7c0f", "#0284c7", "#2563eb", "#7c3aed", "#
 const AVATAR_ROOT = "/media/avatars/split";
 const PROFILE_ROOT = "/media/avatars/profile";
 const EVOLUTION_ROOT = "/media/avatars/evolutions";
-const ASSET_VERSION = "260817003";
+const ASSET_VERSION = "260817005";
 const EVOLUTION_LABELS = ["Découverte", "Initiation", "Autonome", "Confirmé", "Technique", "Expert", "Maître", "Élite"];
 
 function asset(root, name, extension = "webp") {
@@ -46,7 +46,7 @@ export const AVATAR_OPTIONS = Object.freeze([
   { id: "ananas", label: "Ananas engagé", group: "Fruits", image: asset(PROFILE_ROOT, "avatar-ananas"), evolutionImages: evolutionImages("ananas") },
   { id: "chausson", label: "Chausson d’escalade", group: "Objets", image: asset(PROFILE_ROOT, "avatar-chausson"), evolutionImagesByVariant: evolutionImagesByVariant("chausson") },
   { id: "mousqueton", label: "Mousqueton", group: "Objets", image: asset(PROFILE_ROOT, "avatar-mousqueton"), evolutionImagesByVariant: evolutionImagesByVariant("mousqueton") },
-  { id: "gourde", label: "Gourde", group: "Objets", image: asset(PROFILE_ROOT, "avatar-gourde") },
+  { id: "gourde", label: "Gourde", group: "Objets", image: asset(PROFILE_ROOT, "avatar-gourde"), evolutionImagesByVariant: evolutionImagesByVariant("gourde") },
   { id: "casque", label: "Casque", group: "Objets", image: asset(PROFILE_ROOT, "avatar-casque") },
   { id: "sac_magnesie", label: "Sac à magnésie", group: "Objets", image: asset(PROFILE_ROOT, "avatar-sac-magnesie") },
 ]);
