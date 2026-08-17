@@ -58,7 +58,7 @@ export const TABS = [
   { key: "statistiques", label: "Statistiques" },
   { key: "wall_of_fame", label: "Tableau d’honneur" },
   { key: "faq", label: "FAQ" },
-  { key: "administration", label: "Administration", adminOnly: true },
+  { key: "administration", label: "Administration des inscrits", adminOnly: true },
   { key: "gestion_comptes", label: "Gestion des comptes", adminOnly: true },
   { key: "logs", label: "Log", adminOnly: true },
 ];
