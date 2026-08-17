@@ -56,7 +56,7 @@ function getTransporter() {
   return transporter;
 }
 
-async function sendEmail({ to, subject, text, html }) {
+async function sendEmail({ to, subject, text, html, attachments = [] }) {
   const target = String(to || "").trim().toLowerCase();
   if (!target) throw new Error("Adresse de destination absente");
 
@@ -75,6 +75,7 @@ async function sendEmail({ to, subject, text, html }) {
     subject,
     text,
     html,
+    attachments,
   });
 
   return {
@@ -122,5 +123,27 @@ export async function sendEmailChangeConfirmation({ email, prenom, newEmail, con
   return sendEmail({
     to: email,
     ...buildEmailChangeConfirmationEmail({ prenom, newEmail, confirmUrl, expiresAt, publicUrl: PUBLIC_URL }),
+  });
+}
+
+export async function sendBackupEmail({ to, filePath, fileName, size }) {
+  const sizeMb = (Number(size || 0) / (1024 * 1024)).toFixed(2);
+  const now = new Date().toLocaleString("fr-FR", { timeZone: process.env.BACKUP_TIMEZONE || "Europe/Paris" });
+  return sendEmail({
+    to,
+    subject: `Sauvegarde ClimbClubCristal — ${fileName}`,
+    text: [
+      "Sauvegarde PostgreSQL complète de ClimbClubCristal.",
+      `Fichier : ${fileName}`,
+      `Taille : ${sizeMb} Mo`,
+      `Créée / envoyée : ${now}`,
+      "Conserver cette pièce jointe dans un emplacement protégé. Elle contient les données de l'application.",
+    ].join("\n"),
+    html: `<p><strong>Sauvegarde PostgreSQL complète de ClimbClubCristal.</strong></p><p>Fichier : ${fileName}<br>Taille : ${sizeMb} Mo<br>Créée / envoyée : ${now}</p><p>Conserver cette pièce jointe dans un emplacement protégé. Elle contient les données de l'application.</p>`,
+    attachments: [{
+      filename: fileName,
+      path: filePath,
+      contentType: "application/octet-stream",
+    }],
   });
 }
