@@ -11,14 +11,16 @@ FROM node:24-alpine
 # renforcé et absence des facilités réservées au développement.
 ENV NODE_ENV=production
 
+# pg_dump, pg_restore et psql servent aux sauvegardes PostgreSQL complètes et à
+# leur restauration depuis l'administration.
+RUN apk add --no-cache postgresql-client
+
 # Tous les chemins suivants sont relatifs au répertoire applicatif du conteneur.
 WORKDIR /app
 
-# Installation des dépendances de production sans dépendre de l'environnement
-# Linux hôte. Les fichiers package sont copiés seuls pour exploiter le cache
-# Docker tant qu'aucune dépendance n'est modifiée.
-COPY package.json ./
-RUN npm install --omit=dev --no-package-lock --no-audit --no-fund --registry=https://registry.npmjs.org/
+# Reproduction exacte des dépendances validées en CI grâce au lockfile.
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --no-audit --no-fund --registry=https://registry.npmjs.org/
 
 # Copie du code du backend après l'installation des dépendances.
 COPY . .
