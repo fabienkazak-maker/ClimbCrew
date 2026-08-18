@@ -392,7 +392,8 @@ export function calculateRouteAggregates(routes, realisations, cprByParticipantI
 
 /**
  * Classements publics du Tableau d’honneur. `participants` doit déjà être filtré
- * (par exemple par sexe) par l'appelant : cette fonction ne fait que classer.
+ * (par exemple par sexe) par l'appelant. Seules les personnes inscrites à au
+ * moins une séance sont classées, y compris lorsqu'elles ont une valeur nulle.
  */
 export function calculateWallOfFameCategories({
   participants,
@@ -402,6 +403,10 @@ export function calculateWallOfFameCategories({
   pointsByParticipantId,
   participationCount,
 }) {
+  const rankedParticipants = participants.filter((participant) => (
+    Number(participationCount?.[participant.id] || 0) > 0
+  ));
+
   const successfulRealisationsFor = (participantId) => realisations
     .filter((realisation) => String(realisation.participantId) === String(participantId))
     .filter(isSuccessfulRealisation);
@@ -439,12 +444,11 @@ export function calculateWallOfFameCategories({
     return Math.max(record, total);
   }, 0);
 
-  const buildRanking = ({ title, getValue, formatValue, isEligible = (value) => value > 0 }) => {
-    const sorted = participants
+  const buildRanking = ({ title, getValue, formatValue }) => {
+    const sorted = rankedParticipants
       .map((participant) => ({ participant, value: getValue(participant) }))
-      .filter((entry) => Number.isFinite(entry.value) && isEligible(entry.value, entry.participant))
-      .sort((a, b) => b.value - a.value || fullName(a.participant).localeCompare(fullName(b.participant), "fr"))
-      .slice(0, 3);
+      .filter((entry) => Number.isFinite(entry.value))
+      .sort((a, b) => b.value - a.value || fullName(a.participant).localeCompare(fullName(b.participant), "fr"));
 
     let previousValue = null;
     let previousRank = 0;
@@ -463,9 +467,11 @@ export function calculateWallOfFameCategories({
   return [
     buildRanking({
       title: "Meilleurs CPR",
-      getValue: (participant) => cprByParticipantId[participant.id]?.averageIndex,
+      getValue: (participant) => {
+        const averageIndex = cprByParticipantId[participant.id]?.averageIndex;
+        return Number.isFinite(averageIndex) ? averageIndex : -1;
+      },
       formatValue: (_value, participant) => cprByParticipantId[participant.id]?.currentGrade || "nc",
-      isEligible: (_value, participant) => Boolean(cprByParticipantId[participant.id]?.currentGrade),
     }),
     buildRanking({
       title: "Plus de points",
