@@ -184,7 +184,7 @@ test("le Wall of Fame conserve le même rang en cas d'égalité", () => {
     routesById: {},
     cprByParticipantId: {},
     pointsByParticipantId: { p1: 100, p2: 100 },
-    participationCount: {},
+    participationCount: { p1: 1, p2: 1 },
   });
 
   const pointsRanking = categories.find((category) => category.title === "Plus de points");
@@ -212,10 +212,41 @@ test("le Wall of Fame distingue une réussite en tête d'une réussite en moulin
     routesById,
     cprByParticipantId: {},
     pointsByParticipantId: { p1: 0, p2: 0 },
-    participationCount: {},
+    participationCount: { p1: 1, p2: 1 },
   });
   const ranking = categories.find((category) => category.title === "Voies réalisées en tête");
   const valuesById = Object.fromEntries(ranking.entries.map((entry) => [entry.participant.id, entry.value]));
   assert.equal(valuesById.p1, 2);
-  assert.equal(valuesById.p2, undefined);
+  assert.equal(valuesById.p2, 0);
+});
+
+test("le Tableau d’honneur classe tous les inscrits au moins une fois et exclut les autres", () => {
+  const participants = [
+    { id: "p1", nom: "A", prenom: "Alice" },
+    { id: "p2", nom: "B", prenom: "Bob" },
+    { id: "p3", nom: "C", prenom: "Chloé" },
+    { id: "p4", nom: "D", prenom: "David" },
+    { id: "p5", nom: "E", prenom: "Emma" },
+  ];
+
+  const categories = calculateWallOfFameCategories({
+    participants,
+    realisations: [],
+    routesById: {},
+    cprByParticipantId: {},
+    pointsByParticipantId: {},
+    participationCount: { p1: 5, p2: 4, p3: 3, p4: 1, p5: 0 },
+  });
+
+  const participationsRanking = categories.find((category) => category.title === "Plus de participations");
+  assert.deepEqual(
+    participationsRanking.entries.map((entry) => entry.participant.id),
+    ["p1", "p2", "p3", "p4"],
+  );
+
+  const pointsRanking = categories.find((category) => category.title === "Plus de points");
+  assert.equal(pointsRanking.entries.length, 4);
+  assert.equal(pointsRanking.entries.some((entry) => entry.participant.id === "p5"), false);
+  assert.deepEqual(pointsRanking.entries.map((entry) => entry.rank), [1, 1, 1, 1]);
+  assert.deepEqual(pointsRanking.entries.map((entry) => entry.displayValue), ["0 points", "0 points", "0 points", "0 points"]);
 });
