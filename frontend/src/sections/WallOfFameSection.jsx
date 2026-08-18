@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import Button from "../components/Button.jsx";
 import { fullName } from "../lib/domain.js";
 
 export default function WallOfFameSection({
@@ -10,8 +9,14 @@ export default function WallOfFameSection({
   wallOfFameSexFilter,
   setWallOfFameSexFilter,
 }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const hasMoreEntries = wallOfFameCategories.some((category) => category.entries.length > 3);
+  const [expandedCategories, setExpandedCategories] = useState({});
+
+  function toggleCategory(title) {
+    setExpandedCategories((current) => ({
+      ...current,
+      [title]: !current[title],
+    }));
+  }
 
   return (
     <>
@@ -29,29 +34,43 @@ export default function WallOfFameSection({
               <option value="h">H</option>
               <option value="f">F</option>
             </select>
-            {hasMoreEntries && (
-              <Button
-                type="button"
-                variant="secondary"
-                aria-expanded={isExpanded}
-                aria-controls="wall-of-fame-rankings"
-                onClick={() => setIsExpanded((expanded) => !expanded)}
-              >
-                {isExpanded ? "Réduire" : "Afficher tout"}
-              </Button>
-            )}
           </div>
         </div>
         <div className="grid three" id="wall-of-fame-rankings">
           {wallOfFameCategories.map((category) => {
+            const canExpand = category.entries.length > 3;
+            const isExpanded = Boolean(expandedCategories[category.title]);
             const visibleEntries = isExpanded ? category.entries : category.entries.slice(0, 3);
+            const categoryId = `wall-of-fame-${category.title.toLowerCase().replace(/[^a-z0-9]+/gi, "-")}`;
 
             return (
               <div className="subcard" key={category.title}>
                 <div className="card-header">
-                  <h3>{category.title}</h3>
+                  <h3>
+                    {canExpand ? (
+                      <button
+                        type="button"
+                        aria-expanded={isExpanded}
+                        aria-controls={categoryId}
+                        aria-label={`${isExpanded ? "Compacter" : "Étendre"} le classement ${category.title}`}
+                        onClick={() => toggleCategory(category.title)}
+                        style={{
+                          all: "unset",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "0.4rem",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <span>{category.title}</span>
+                        <span aria-hidden="true">{isExpanded ? "▴" : "▾"}</span>
+                      </button>
+                    ) : (
+                      category.title
+                    )}
+                  </h3>
                 </div>
-                <div className="stack">
+                <div className="stack" id={categoryId}>
                   {visibleEntries.length === 0 ? (
                     <div className="muted-box">Pas encore de classement.</div>
                   ) : (
