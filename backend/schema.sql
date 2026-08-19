@@ -14,6 +14,7 @@ create table if not exists participants (
   crest_id text not null default 'cristal',
   profile_public boolean not null default true,
   custom_avatar_image text not null default '',
+  login_email text,
   created_at timestamptz not null default now()
 );
 
@@ -37,6 +38,11 @@ create table if not exists session_participants (
 
 alter table participants add column if not exists can_admin boolean not null default false;
 alter table participants add column if not exists custom_avatar_image text not null default '';
+alter table participants add column if not exists login_email text;
+
+create index if not exists idx_participants_login_email_normalized
+  on participants ((lower(trim(login_email))))
+  where login_email is not null and trim(login_email) <> '';
 
 alter table sessions drop constraint if exists sessions_slot_check;
 alter table sessions add constraint sessions_slot_check check (slot in ('midi', 'matin', 'soir'));
