@@ -118,7 +118,8 @@ export async function listParticipantsWithPrivacy(req, res) {
  *
  * Les réalisations constituent la progression personnelle : celles d'un profil
  * privé ne sont donc visibles que par leur propriétaire et les administrateurs.
- * Les agrégats anonymisés des voies restent calculés par /routes comme avant.
+ * Les casts vers text maintiennent la compatibilité pendant la migration des
+ * identifiants participants de text vers bigint.
  */
 export async function listRealisationsWithPrivacy(req, res) {
   try {
@@ -141,9 +142,9 @@ export async function listRealisationsWithPrivacy(req, res) {
           r.chute,
           r.assureur_id as "assureurId"
         from realisations r
-        left join participants p on p.id::text = r.participant_id
+        left join participants p on p.id::text = r.participant_id::text
         where $1::boolean = true
-           or r.participant_id = $2
+           or r.participant_id::text = $2
            or coalesce(p.profile_public, false) = true
         order by r.date_realisation desc, r.created_at desc
       `,
