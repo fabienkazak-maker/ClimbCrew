@@ -33,6 +33,8 @@ export function getPool() {
 /**
  * Migration idempotente : elle peut être rejouée à chaque démarrage.
  * Les deux représentations historiques du droit administrateur sont alignées.
+ * L'adresse e-mail normalisée est la clé fonctionnelle de rapprochement entre
+ * un compte et son profil grimpeur.
  */
 export async function ensureAdminUserSchema() {
   const pool = getPool();
@@ -72,11 +74,54 @@ export async function ensureAdminUserSchema() {
   await pool.query(`update users set is_admin = true where role = 'admin' and is_admin = false`);
   await pool.query(`update users set role = 'admin' where is_admin = true and role <> 'admin'`);
 
+  // Normalise d'abord les valeurs historiques pour qu'une même adresse ne
+  // diffère jamais uniquement par la casse ou des espaces parasites.
+  await pool.query(`
+    update participants
+    set login_email = nullif(lower(trim(login_email)), '')
+    where login_email is not null
+  `);
+
+  // Le compte lié reste la source de vérité de l'adresse de connexion.
   await pool.query(`
     update participants p
     set can_admin = (u.role = 'admin' or u.is_admin),
-        login_email = u.email
+        login_email = lower(trim(u.email))
     from users u
     where u.participant_id = p.id
   `);
+
+  // Index de recherche utilisé par le rapprochement compte <-> grimpeur.
+  await pool.query(`
+    create index if not exists idx_participants_login_email_normalized
+    on participants ((lower(trim(login_email))))
+    where login_email is not null and trim(login_email) <> ''
+  `);
+
+  // Sur une base saine, l'unicité est également garantie par PostgreSQL.
+  // Si des doublons historiques existent, le démarrage n'est pas bloqué :
+  // l'application les détecte et refuse toute association ambiguë jusqu'à
+  // correction par un administrateur.
+  const duplicateEmails = await pool.query(`
+    select lower(trim(login_email)) as email, count(*)::int as count
+    from participants
+    where login_email is not null and trim(login_email) <> ''
+    group by lower(trim(login_email))
+    having count(*) > 1
+    order by lower(trim(login_email))
+  `);
+
+  if (duplicateEmails.rowCount === 0) {
+    await pool.query(`
+      create unique index if not exists uq_participants_login_email_normalized
+      on participants ((lower(trim(login_email))))
+      where login_email is not null and trim(login_email) <> ''
+    `);
+  } else {
+    console.warn(
+      "ClimbCrew : doublons d'adresse e-mail détectés dans participants ; "
+      + "l'index unique n'a pas été créé.",
+      duplicateEmails.rows
+    );
+  }
 }
