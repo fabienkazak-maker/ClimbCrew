@@ -1,6 +1,8 @@
 import { configureDeploymentEnvironment } from "./deployment-compatibility.js";
 import { installPoolCapture } from "./admin-users/database.js";
+import { installClientIpHardening } from "./admin-users/client-ip-hardening.js";
 import { installExpressIntegration } from "./admin-users/express-integration.js";
+import { installMigrationHook } from "./admin-users/migration-service.js";
 
 /**
  * Point d'entrée préchargé par Node avant server.js.
@@ -21,6 +23,14 @@ configureDeploymentEnvironment();
 //    de gestion des comptes utilisent exactement la même connexion à la base.
 installPoolCapture();
 
-// 3. Installe les routes complémentaires et la compatibilité CSRF avant que
+// 3. Normalise l'adresse cliente à partir de req.ip, donc après application de
+//    la politique Express trust proxy, avant les limiteurs et les journaux.
+installClientIpHardening();
+
+// 4. Installe les routes complémentaires et la compatibilité CSRF avant que
 //    server.js ne commence à enregistrer ses middlewares et ses contrôleurs.
 installExpressIntegration();
+
+// 5. Enveloppe le démarrage réseau afin d'appliquer les migrations PostgreSQL
+//    versionnées une fois le schéma historique créé mais avant la première requête.
+installMigrationHook();

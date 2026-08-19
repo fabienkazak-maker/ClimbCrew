@@ -99,6 +99,7 @@ test("les lectures participants et réalisations utilisent les contrôleurs de c
   assert.match(integration, /path === "\/participants"[\s\S]*listParticipantsWithPrivacy/);
   assert.match(integration, /path === "\/realisations"[\s\S]*listRealisationsWithPrivacy/);
   assert.match(privacy, /serializePublicParticipant/);
-  assert.match(privacy, /r\.participant_id = \$2/);
+  assert.match(privacy, /r\.participant_id::text = \$2/);
+  assert.match(privacy, /p\.id::text = r\.participant_id::text/);
   assert.match(privacy, /coalesce\(p\.profile_public, false\) = true/);
 });
