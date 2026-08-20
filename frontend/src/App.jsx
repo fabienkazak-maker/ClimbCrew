@@ -1755,7 +1755,7 @@ async function handleThemePreferenceChange(nextTheme) {
     );
 
     return (
-      <div className={`card session-card ${compact ? "session-card-compact" : ""}`} key={session.id}>
+      <div className={`card session-card session-status-${String(session.status || "fermee").trim().toLowerCase()} ${compact ? "session-card-compact" : ""}`} key={session.id}>
         <div className="card-header">
           <h3>Séance {session.slot}</h3>
           <span className="badge">{occupied}/{MAX_PARTICIPANTS}</span>

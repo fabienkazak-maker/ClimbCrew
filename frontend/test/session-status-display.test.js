@@ -23,13 +23,12 @@ test("la normalisation des passeports ignore casse, espaces et accents", () => {
   assert.equal(normalizeSessionPassport(" Bleu "), "bleu");
 });
 
-test("les cartes de séance reçoivent une classe liée à leur statut", async () => {
-  const source = await readFile(new URL("../src/session-status-display.js", import.meta.url), "utf8");
+test("React applique directement la classe de couleur correspondant au statut de la séance", async () => {
+  const app = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const display = await readFile(new URL("../src/session-status-display.js", import.meta.url), "utf8");
 
-  for (const status of ["libre", "encadree", "fermee", "renouvellement", "passeport", "challenge"]) {
-    assert.match(source, new RegExp(`session-status-${status}`));
-  }
-  assert.match(source, /applySessionStatusClass/);
+  assert.match(app, /session-status-\$\{String\(session\.status \|\| "fermee"\)\.trim\(\)\.toLowerCase\(\)\}/);
+  assert.doesNotMatch(display, /applySessionStatusClass/);
 });
 
 test("les couleurs de fond respectent la convention des inscriptions", async () => {
