@@ -64,7 +64,7 @@ const STORAGE_KEY = "climbcrew_local_data_v2";
 const ADMIN_CODE = import.meta.env.VITE_LEGACY_ADMIN_CODE || "";
 
 // La session est conservée uniquement dans un cookie HttpOnly côté backend.
-const PASSWORD_RULE_TEXT = "Minimum 8 caractères avec majuscule, minuscule, chiffre et caractère spécial.";
+const PASSWORD_RULE_TEXT = "8 caractères minimum, dont 1 majuscule, 1 minuscule, 1 chiffre et 1 caractère spécial.";
 
 function isStrongPassword(value) {
   return typeof value === "string"

@@ -9,9 +9,10 @@ test("la politique de mot de passe utilise un minimum de 8 caractères partout",
     readFile(new URL("../admin-users/security.js", import.meta.url), "utf8"),
   ]);
 
-  assert.match(frontend, /Minimum 8 caractères/);
+  assert.match(frontend, /8 caractères minimum/);
   assert.match(frontend, /value\.length >= 8/);
   assert.match(server, /value\.length >= 8/);
+  assert.match(server, /8 caractères minimum/);
   assert.match(security, /value\.length >= 8/);
   assert.doesNotMatch(frontend, /value\.length >= 12/);
   assert.doesNotMatch(server, /value\.length >= 12/);
