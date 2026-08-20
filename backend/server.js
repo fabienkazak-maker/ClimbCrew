@@ -1407,7 +1407,7 @@ app.post("/auth/request-access", authRateLimit, async (req, res) => {
     return res.status(400).json({ error: "Les conditions d’utilisation doivent être acceptées" });
   }
   if (!isStrongPassword(password)) {
-    return res.status(400).json({ error: "Mot de passe insuffisamment robuste" });
+    return res.status(400).json({ error: "Le mot de passe doit contenir 8 caractères minimum, dont 1 majuscule, 1 minuscule, 1 chiffre et 1 caractère spécial" });
   }
 
   try {
@@ -1486,7 +1486,7 @@ app.post("/auth/reset-password", resetRateLimit, async (req, res) => {
     return res.status(400).json({ error: "Email, code et nouveau mot de passe sont requis" });
   }
   if (!isStrongPassword(password)) {
-    return res.status(400).json({ error: "Mot de passe insuffisamment robuste" });
+    return res.status(400).json({ error: "Le mot de passe doit contenir 8 caractères minimum, dont 1 majuscule, 1 minuscule, 1 chiffre et 1 caractère spécial" });
   }
 
   const client = await pool.connect();
