@@ -256,7 +256,7 @@ function firstLetter(value = "") {
 
 function isStrongPassword(value) {
   return typeof value === "string"
-    && value.length >= 12
+    && value.length >= 8
     && /[a-z]/.test(value)
     && /[A-Z]/.test(value)
     && /\d/.test(value)
