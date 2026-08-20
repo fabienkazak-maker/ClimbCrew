@@ -1,0 +1,80 @@
+name: Apply React session colors
+
+on:
+  push:
+    branches:
+      - agent/fix-session-colors-260820017
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Appliquer les classes de statut directement dans React
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          app = Path('frontend/src/App.jsx')
+          text = app.read_text(encoding='utf-8')
+          old = '<div className={`card session-card ${compact ? "session-card-compact" : ""}`} key={session.id}>'
+          new = '<div className={`card session-card session-status-${String(session.status || "fermee").trim().toLowerCase()} ${compact ? "session-card-compact" : ""}`} key={session.id}>'
+          if old not in text:
+              raise SystemExit('Carte de séance cible absente dans App.jsx')
+          app.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          display = Path('frontend/src/session-status-display.js')
+          text = display.read_text(encoding='utf-8')
+          start = 'const SESSION_STATUS_CLASSES = [\n'
+          end = '];\n'
+          if start in text:
+              a = text.index(start)
+              b = text.index(end, a) + len(end)
+              text = text[:a] + text[b:]
+          func_start = 'function applySessionStatusClass(card, status) {\n'
+          if func_start in text:
+              a = text.index(func_start)
+              b = text.index('\n}\n', a) + len('\n}\n')
+              text = text[:a] + text[b:]
+          text = text.replace('  applySessionStatusClass(card, status);\n\n', '')
+          display.write_text(text, encoding='utf-8')
+
+          test = Path('frontend/test/session-status-display.test.js')
+          text = test.read_text(encoding='utf-8')
+          old_test = '''test("les cartes de séance reçoivent une classe liée à leur statut", async () => {\n  const source = await readFile(new URL("../src/session-status-display.js", import.meta.url), "utf8");\n\n  for (const status of ["libre", "encadree", "fermee", "renouvellement", "passeport", "challenge"]) {\n    assert.match(source, new RegExp(`session-status-${status}`));\n  }\n  assert.match(source, /applySessionStatusClass/);\n});\n'''
+          new_test = '''test("React applique directement la classe de couleur correspondant au statut de la séance", async () => {\n  const app = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");\n  const display = await readFile(new URL("../src/session-status-display.js", import.meta.url), "utf8");\n\n  assert.match(app, /session-status-\$\{String\(session\.status \|\| "fermee"\)\.trim\(\)\.toLowerCase\(\)\}/);\n  assert.doesNotMatch(display, /applySessionStatusClass/);\n});\n'''
+          if old_test not in text:
+              raise SystemExit('Test de classe de statut attendu absent')
+          test.write_text(text.replace(old_test, new_test), encoding='utf-8')
+
+          version = Path('frontend/src/lib/version.js')
+          text = version.read_text(encoding='utf-8')
+          if '260820.016' not in text:
+              raise SystemExit('Version 260820.016 absente')
+          version.write_text(text.replace('260820.016', '260820.017'), encoding='utf-8')
+          PY
+
+      - name: Vérifier le patch
+        shell: bash
+        run: |
+          grep -F 'session-status-${String(session.status || "fermee").trim().toLowerCase()}' frontend/src/App.jsx
+          ! grep -F 'applySessionStatusClass' frontend/src/session-status-display.js
+          grep -F '260820.017' frontend/src/lib/version.js
+
+      - name: Commit et push
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add frontend/src/App.jsx frontend/src/session-status-display.js frontend/test/session-status-display.test.js frontend/src/lib/version.js
+          git commit -m 'fix: appliquer directement les couleurs de séance dans React'
+          git push origin HEAD:agent/fix-session-colors-260820017
