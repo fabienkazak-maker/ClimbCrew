@@ -15,6 +15,7 @@ import "./progression-ui.js";
 import "./badge-faq-ui.js";
 import "./climber-profile-ui.js";
 import "./styles/index.css";
+import "./styles/session-status-colors.css";
 import "./styles/badges.css";
 import "./styles/badges-image-fix.css";
 import "./styles/climber-profile.css";
@@ -27,4 +28,3 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     </ErrorBoundary>
   </React.StrictMode>
 );
-
