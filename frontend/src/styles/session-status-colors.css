@@ -1,26 +1,32 @@
-/* Couleurs de fond des cartes de séance dans l'onglet Inscriptions. */
+/* Couleurs de fond des cartes de séance dans l'onglet Inscriptions.
+ *
+ * Les styles génériques du thème appliquent background et border-color avec
+ * !important sur toutes les cartes. Les règles de statut doivent donc avoir la
+ * même priorité afin que la couleur métier de la séance reste visible quel que
+ * soit le thème actif.
+ */
 .session-card.session-status-libre {
-  background: linear-gradient(135deg, rgba(22, 163, 74, .30), rgba(20, 83, 45, .48));
-  border-color: rgba(74, 222, 128, .65);
+  background: linear-gradient(135deg, rgba(22, 163, 74, .30), rgba(20, 83, 45, .48)) !important;
+  border-color: rgba(74, 222, 128, .65) !important;
 }
 
 .session-card.session-status-encadree {
-  background: linear-gradient(135deg, rgba(37, 99, 235, .32), rgba(30, 64, 175, .48));
-  border-color: rgba(96, 165, 250, .68);
+  background: linear-gradient(135deg, rgba(37, 99, 235, .32), rgba(30, 64, 175, .48)) !important;
+  border-color: rgba(96, 165, 250, .68) !important;
 }
 
 .session-card.session-status-fermee,
 .session-card.session-status-renouvellement {
-  background: linear-gradient(135deg, rgba(220, 38, 38, .31), rgba(127, 29, 29, .50));
-  border-color: rgba(248, 113, 113, .68);
+  background: linear-gradient(135deg, rgba(220, 38, 38, .31), rgba(127, 29, 29, .50)) !important;
+  border-color: rgba(248, 113, 113, .68) !important;
 }
 
 .session-card.session-status-passeport {
-  background: linear-gradient(135deg, rgba(234, 88, 12, .32), rgba(154, 52, 18, .50));
-  border-color: rgba(251, 146, 60, .72);
+  background: linear-gradient(135deg, rgba(234, 88, 12, .32), rgba(154, 52, 18, .50)) !important;
+  border-color: rgba(251, 146, 60, .72) !important;
 }
 
 .session-card.session-status-challenge {
-  background: linear-gradient(135deg, rgba(100, 116, 139, .34), rgba(51, 65, 85, .55));
-  border-color: rgba(148, 163, 184, .62);
+  background: linear-gradient(135deg, rgba(100, 116, 139, .34), rgba(51, 65, 85, .55)) !important;
+  border-color: rgba(148, 163, 184, .62) !important;
 }
