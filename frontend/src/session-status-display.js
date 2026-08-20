@@ -1,6 +1,14 @@
 import { isEligibleForFreeSession, normalizeSessionPassport } from "./session-status-display-rules.js";
 
 const INELIGIBLE_CLASS = "free-session-ineligible";
+const SESSION_STATUS_CLASSES = [
+  "session-status-libre",
+  "session-status-encadree",
+  "session-status-fermee",
+  "session-status-renouvellement",
+  "session-status-passeport",
+  "session-status-challenge",
+];
 let scheduled = false;
 
 function normalize(value) {
@@ -17,8 +25,19 @@ function getSessionStatus(card) {
   return normalize(statusField?.querySelector("select")?.value);
 }
 
+function applySessionStatusClass(card, status) {
+  card.classList.remove(...SESSION_STATUS_CLASSES);
+  const className = `session-status-${status}`;
+  if (SESSION_STATUS_CLASSES.includes(className)) {
+    card.classList.add(className);
+  }
+}
+
 function updateSessionCardDisplay(card) {
-  const isFreeSession = getSessionStatus(card) === "libre";
+  const status = getSessionStatus(card);
+  const isFreeSession = status === "libre";
+
+  applySessionStatusClass(card, status);
 
   card.querySelectorAll(".passport-row").forEach((row) => {
     const passport = normalizeSessionPassport(row.dataset.passport);
