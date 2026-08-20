@@ -1,4 +1,4 @@
-const PASSWORD_POLICY_TEXT = "Au moins 12 caractères, avec au moins une lettre majuscule, une lettre minuscule, un chiffre et un caractère spécial.";
+const PASSWORD_POLICY_TEXT = "8 caractères minimum, dont 1 majuscule, 1 minuscule, 1 chiffre et 1 caractère spécial.";
 const FORGOT_PASSWORD_HELP_TEXT = "Un code de réinitialisation valable une heure sera envoyé par e-mail si le compte est actif.";
 
 function normalizedText(value) {
