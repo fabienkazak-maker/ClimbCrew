@@ -29,8 +29,9 @@ export function serializeParticipant(row) {
  * Vue d'un profil public pour les autres membres.
  *
  * Le profil d'escalade peut être consulté, y compris son avatar et sa
- * progression, mais les coordonnées et informations administratives restent
- * privées même lorsque `profile_public` vaut true.
+ * progression. Le passeport, l'état de cotisation et le statut FFME sont des
+ * informations de club partagées entre membres authentifiés ; les coordonnées
+ * et droits administrateur restent privés.
  */
 export function serializePublicParticipant(row) {
   return {
@@ -40,8 +41,8 @@ export function serializePublicParticipant(row) {
     email: "",
     passport: row.passport,
     sexe: row.sexe,
-    cotisation: false,
-    ffme: false,
+    cotisation: Boolean(row.cotisation),
+    ffme: Boolean(row.ffme),
     canEncadrer: Boolean(row.can_encadrer),
     canReferer: Boolean(row.can_referer),
     canAdmin: false,
@@ -55,10 +56,10 @@ export function serializePublicParticipant(row) {
 /**
  * Vue minimale d'un profil privé.
  *
- * Le nom, le passeport et les rôles opérationnels restent disponibles afin que
- * les inscriptions et l'identification d'un encadrant/référent continuent de
- * fonctionner. Les coordonnées, informations administratives, sexe, droits
- * d'administration, avatar personnalisé et progression ne sont pas exposés.
+ * Le nom, le passeport, l'état de cotisation, le statut FFME et les rôles
+ * opérationnels restent disponibles afin que la vie du club et les inscriptions
+ * continuent de fonctionner. Les coordonnées, le sexe, les droits
+ * d'administration, l'avatar personnalisé et la progression ne sont pas exposés.
  */
 export function serializePrivateParticipant(row) {
   return {
@@ -68,8 +69,8 @@ export function serializePrivateParticipant(row) {
     email: "",
     passport: row.passport,
     sexe: "",
-    cotisation: false,
-    ffme: false,
+    cotisation: Boolean(row.cotisation),
+    ffme: Boolean(row.ffme),
     canEncadrer: Boolean(row.can_encadrer),
     canReferer: Boolean(row.can_referer),
     canAdmin: false,
@@ -84,8 +85,9 @@ export function serializePrivateParticipant(row) {
  * Remplace GET /participants du serveur historique.
  *
  * - administrateur ou propriétaire : vue complète ;
- * - autre membre + profil public : profil d'escalade sans données admin ;
- * - autre membre + profil privé : vue opérationnelle minimale.
+ * - autre membre + profil public : profil d'escalade sans données privées ;
+ * - autre membre + profil privé : vue opérationnelle minimale, avec passeport,
+ *   cotisation et statut FFME visibles.
  */
 export async function listParticipantsWithPrivacy(req, res) {
   try {

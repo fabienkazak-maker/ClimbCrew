@@ -36,35 +36,36 @@ test("la vue complète utilise login_email comme adresse canonique", () => {
   assert.equal(participant.canAdmin, true);
 });
 
-test("la vue publique conserve le profil d'escalade sans divulguer les données administratives", () => {
+test("la vue publique conserve les données de club sans divulguer les données privées", () => {
   const participant = serializePublicParticipant(participantRow);
 
   assert.equal(participant.id, "42");
+  assert.equal(participant.passport, "vert");
+  assert.equal(participant.cotisation, true);
+  assert.equal(participant.ffme, true);
   assert.equal(participant.avatarId, "lynx");
   assert.equal(participant.crestId, "flamme");
   assert.equal(participant.customAvatarImage, "data:image/webp;base64,SECRET");
   assert.equal(participant.profilePublic, true);
 
   assert.equal(participant.email, "");
-  assert.equal(participant.cotisation, false);
-  assert.equal(participant.ffme, false);
   assert.equal(participant.canAdmin, false);
 });
 
-test("la vue privée ne divulgue pas les données personnelles ou administratives", () => {
+test("la vue privée conserve passeport, cotisation et FFME mais masque les données privées", () => {
   const participant = serializePrivateParticipant({ ...participantRow, profile_public: false });
 
   assert.equal(participant.id, "42");
   assert.equal(participant.nom, "Martin");
   assert.equal(participant.prenom, "Alice");
   assert.equal(participant.passport, "vert");
+  assert.equal(participant.cotisation, true);
+  assert.equal(participant.ffme, true);
   assert.equal(participant.canEncadrer, true);
   assert.equal(participant.canReferer, true);
 
   assert.equal(participant.email, "");
   assert.equal(participant.sexe, "");
-  assert.equal(participant.cotisation, false);
-  assert.equal(participant.ffme, false);
   assert.equal(participant.canAdmin, false);
   assert.equal(participant.avatarId, "gecko");
   assert.equal(participant.crestId, "cristal");
@@ -99,6 +100,8 @@ test("les lectures participants et réalisations utilisent les contrôleurs de c
   assert.match(integration, /path === "\/participants"[\s\S]*listParticipantsWithPrivacy/);
   assert.match(integration, /path === "\/realisations"[\s\S]*listRealisationsWithPrivacy/);
   assert.match(privacy, /serializePublicParticipant/);
+  assert.match(privacy, /cotisation: Boolean\(row\.cotisation\)/);
+  assert.match(privacy, /ffme: Boolean\(row\.ffme\)/);
   assert.match(privacy, /r\.participant_id::text = \$2/);
   assert.match(privacy, /p\.id::text = r\.participant_id::text/);
   assert.match(privacy, /coalesce\(p\.profile_public, false\) = true/);
