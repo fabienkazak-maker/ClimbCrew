@@ -31,14 +31,16 @@ test("React applique directement la classe de couleur correspondant au statut de
   assert.doesNotMatch(display, /applySessionStatusClass/);
 });
 
-test("les couleurs de fond respectent la convention des inscriptions", async () => {
+test("les couleurs de fond respectent la convention des inscriptions et restent prioritaires sur le thème", async () => {
   const css = await readFile(new URL("../src/styles/session-status-colors.css", import.meta.url), "utf8");
+  const themeCss = await readFile(new URL("../src/styles/index.css", import.meta.url), "utf8");
   const main = await readFile(new URL("../src/main.jsx", import.meta.url), "utf8");
 
-  assert.match(css, /session-status-libre[\s\S]*22, 163, 74/); // vert
-  assert.match(css, /session-status-encadree[\s\S]*37, 99, 235/); // bleu
-  assert.match(css, /session-status-fermee,[\s\S]*session-status-renouvellement[\s\S]*220, 38, 38/); // rouge
-  assert.match(css, /session-status-passeport[\s\S]*234, 88, 12/); // orange
-  assert.match(css, /session-status-challenge[\s\S]*100, 116, 139/); // gris
+  assert.match(css, /session-status-libre[\s\S]*22, 163, 74[\s\S]*!important/); // vert
+  assert.match(css, /session-status-encadree[\s\S]*37, 99, 235[\s\S]*!important/); // bleu
+  assert.match(css, /session-status-fermee,[\s\S]*session-status-renouvellement[\s\S]*220, 38, 38[\s\S]*!important/); // rouge
+  assert.match(css, /session-status-passeport[\s\S]*234, 88, 12[\s\S]*!important/); // orange
+  assert.match(css, /session-status-challenge[\s\S]*100, 116, 139[\s\S]*!important/); // gris
+  assert.match(themeCss, /\.toolbar,[\s\S]*\.card,[\s\S]*background:\s*var\(--theme-card-bg\)\s*!important/);
   assert.match(main, /styles\/session-status-colors\.css/);
 });
