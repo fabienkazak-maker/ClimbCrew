@@ -60,7 +60,7 @@ export default function GestionComptes({
         <Button variant="secondary" onClick={loadAdminAccessData}>Actualiser</Button>
       </div>
       <div className="small" style={{ marginBottom: 10 }}>
-        Toute création de compte doit être validée par un administrateur. Les demandes en attente sont affichées en premier et dépliées.
+        Les comptes standards sont activés automatiquement après vérification de l’adresse e-mail. Les actions d’approbation manuelle restent disponibles pour les cas qui en ont encore besoin.
       </div>
       {generatedResetToken && <div className="success" style={{ marginBottom: 12 }}>{generatedResetToken}</div>}
       <div className="stack">
@@ -73,7 +73,7 @@ export default function GestionComptes({
                 <div className="card-header">
                   <div>
                     <div style={{ fontWeight: 700 }}>{user.prenom} {user.nom}</div>
-                    <div className="small">En attente de validation administrateur</div>
+                    <div className="small">En attente d’une intervention administrateur</div>
                   </div>
                 </div>
                 {renderAccountBody(user)}

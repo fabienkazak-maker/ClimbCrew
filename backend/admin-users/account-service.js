@@ -233,8 +233,8 @@ export async function requestAccess(req, res) {
     res.json({
       ok: true,
       message: emailSent
-        ? "Demande d’accès enregistrée. Un e-mail de confirmation a été envoyé pour vérifier l’adresse du demandeur. Un administrateur doit ensuite approuver le compte."
-        : "Demande d’accès enregistrée. Un administrateur doit l’approuver. La confirmation par e-mail n’a pas pu être envoyée.",
+        ? "Demande d’accès enregistrée. Un e-mail de confirmation a été envoyé. Le compte sera activé automatiquement dès que l’adresse e-mail sera vérifiée."
+        : "Demande d’accès enregistrée, mais la confirmation par e-mail n’a pas pu être envoyée. Le compte restera inactif tant que l’adresse e-mail n’aura pas été vérifiée.",
       user: serializeUser(user),
       participantCreated,
       emailSent,
@@ -288,30 +288,54 @@ export async function verifyEmailRequest(req, res) {
       `update email_verification_tokens set used_at = now() where id = $1`,
       [tokenRow.id]
     );
-    await client.query(
-      `update users set email_verified_at = coalesce(email_verified_at, now()) where id = $1`,
+    const verifiedUserResult = await client.query(
+      `
+        update users
+        set email_verified_at = coalesce(email_verified_at, now()),
+            status = case when status = 'pending' then 'active' else status end,
+            approved_at = case when status = 'pending' then coalesce(approved_at, now()) else approved_at end,
+            revoked_at = case when status = 'pending' then null else revoked_at end,
+            revoked_reason = case when status = 'pending' then null else revoked_reason end
+        where id = $1
+        returning id, email, prenom, nom, status, approved_at, email_verified_at
+      `,
       [tokenRow.user_id]
     );
     await client.query("commit");
+
+    const verifiedUser = verifiedUserResult.rows[0] || {
+      id: tokenRow.user_id,
+      email: tokenRow.email,
+      prenom: tokenRow.prenom,
+      nom: tokenRow.nom,
+      status: "pending",
+    };
 
     await writeAccessLog({
       userId: tokenRow.user_id,
       eventType: "account_request_email_verified",
       req,
-      details: { email: tokenRow.email },
+      details: { email: tokenRow.email, activated: verifiedUser.status === "active" },
     });
+
+    if (verifiedUser.status === "active") {
+      await sendApprovalNotificationEmail({
+        user: verifiedUser,
+        req,
+      });
+    }
 
     await notifyActiveAdminsOfConfirmedRequest({
       user: {
-        id: tokenRow.user_id,
-        email: tokenRow.email,
-        prenom: tokenRow.prenom,
-        nom: tokenRow.nom,
+        id: verifiedUser.id,
+        email: verifiedUser.email,
+        prenom: verifiedUser.prenom,
+        nom: verifiedUser.nom,
       },
       req,
     });
 
-    return res.status(200).send("Adresse e-mail confirmée. La demande a été transmise aux administrateurs pour examen.");
+    return res.status(200).send("Adresse e-mail confirmée. Le compte est désormais actif et la demande a aussi été transmise aux administrateurs pour suivi manuel si nécessaire.");
   } catch (error) {
     await client.query("rollback");
     return res.status(500).send("La confirmation de l’adresse e-mail a échoué.");
