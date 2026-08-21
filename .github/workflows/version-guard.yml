@@ -28,7 +28,7 @@ jobs:
           set -euo pipefail
 
           VERSION_FILE="frontend/src/lib/version.js"
-          VERSION_PATTERN='^[0-9]{6}\.[0-9]{3}$'
+          VERSION_PATTERN='^[0-9]{8}\.[0-9]{3}$'
 
           extract_version() {
             sed -n 's/.*APP_VERSION = configuredVersion || "\([0-9][0-9]*\.[0-9][0-9]*\)".*/\1/p' "$1" | head -n 1
@@ -38,6 +38,7 @@ jobs:
 
           if [[ ! "$CURRENT_VERSION" =~ $VERSION_PATTERN ]]; then
             echo "ERROR: version courante absente ou invalide dans $VERSION_FILE : '$CURRENT_VERSION'"
+            echo "Format attendu : AAAAMMJJ.NNN (ex. 20260821.001)."
             exit 1
           fi
 
