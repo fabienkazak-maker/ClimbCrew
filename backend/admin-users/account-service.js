@@ -44,22 +44,26 @@ function buildEmailChangeConfirmUrl(rawToken) {
   return publicUrl ? `${publicUrl}/api/auth/change-email/confirm?token=${encodeURIComponent(rawToken)}` : "";
 }
 
-async function notifyActiveAdminsOfConfirmedRequest({ user, req }) {
-  const adminResult = await getPool().query(
-    `
-      select email
-      from users
-      where status = 'active'
-        and (role = 'admin' or is_admin = true)
-        and lower(email) <> lower($1)
-    `,
-    [user.email]
+/**
+ * Destinataires fixes des notifications de demande de compte confirmée.
+ * Volontairement indépendant de la table users : le statut administrateur
+ * d'un compte ne doit pas suffire à l'abonner à ces e-mails (cf. compte
+ * administrateur externe ayant reçu ces notifications par erreur).
+ */
+const ACCOUNT_REQUEST_NOTIFICATION_RECIPIENTS = [
+  "thithi.petit@gmail.com",
+  "fabien.alcouffe@thalesgroup.com",
+];
+
+async function notifyAccountRequestReviewers({ user, req }) {
+  const recipients = ACCOUNT_REQUEST_NOTIFICATION_RECIPIENTS.filter(
+    (email) => email.toLowerCase() !== String(user.email || "").trim().toLowerCase()
   );
 
-  for (const admin of adminResult.rows) {
+  for (const email of recipients) {
     try {
       const emailResult = await sendAdminAccountRequestReadyEmail({
-        email: admin.email,
+        email,
         prenom: user.prenom,
         nom: user.nom,
         applicantEmail: user.email,
@@ -72,7 +76,7 @@ async function notifyActiveAdminsOfConfirmedRequest({ user, req }) {
         success: Boolean(emailResult.sent || emailResult.skipped),
         req,
         details: {
-          ...emailLogDetails(emailResult, admin.email),
+          ...emailLogDetails(emailResult, email),
           applicantEmail: user.email,
         },
       });
@@ -84,7 +88,7 @@ async function notifyActiveAdminsOfConfirmedRequest({ user, req }) {
         success: false,
         req,
         details: {
-          adminEmail: admin.email,
+          adminEmail: email,
           applicantEmail: user.email,
           error: String(error.message || error),
         },
@@ -325,7 +329,7 @@ export async function verifyEmailRequest(req, res) {
       });
     }
 
-    await notifyActiveAdminsOfConfirmedRequest({
+    await notifyAccountRequestReviewers({
       user: {
         id: verifiedUser.id,
         email: verifiedUser.email,
