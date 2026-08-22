@@ -14,9 +14,9 @@ const partNames = (await readdir(partsDir))
   .filter((name) => name.startsWith("climbcrew-startup.mp4.part-"))
   .sort();
 
-if (partNames.length !== 5) {
+if (partNames.length !== 14) {
   throw new Error(
-    `Intro ClimbCrew incomplète : 5 fragments attendus, ${partNames.length} trouvés.`,
+    `Intro ClimbCrew incomplète : 14 fragments attendus, ${partNames.length} trouvés.`,
   );
 }
 
