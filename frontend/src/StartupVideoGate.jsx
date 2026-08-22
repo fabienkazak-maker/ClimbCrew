@@ -61,7 +61,7 @@ export default function StartupVideoGate({ children }) {
       {showIntro ? (
         <div
           className={`startup-video${isLeaving ? " startup-video--leaving" : ""}`}
-          aria-label="Vidéo d'introduction ClimbCrew"
+          aria-label="Vidéo d'introduction Cristal Climb Club"
         >
           <video
             className="startup-video__media"
@@ -74,6 +74,17 @@ export default function StartupVideoGate({ children }) {
           >
             <source src={INTRO_VIDEO_SRC} type="video/mp4" />
           </video>
+
+          <div className="startup-video__brand-frame" aria-hidden="true">
+            <div className="startup-video__brand">
+              <span className="startup-video__brand-c startup-video__brand-c--crystal">C</span>
+              <span>ristal </span>
+              <span className="startup-video__brand-c startup-video__brand-c--blue">C</span>
+              <span>limb </span>
+              <span className="startup-video__brand-c startup-video__brand-c--orange">C</span>
+              <span>lub</span>
+            </div>
+          </div>
 
           <button
             className="startup-video__skip"
