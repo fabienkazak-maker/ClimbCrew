@@ -9,6 +9,25 @@ function formatBackupSize(bytes) {
   return `${(size / (1024 * 1024)).toFixed(1)} Mo`;
 }
 
+function AdminSection({ title, summary, children }) {
+  return (
+    <details className="card admin-section-details">
+      <summary
+        className="card-header"
+        style={{ cursor: "pointer", userSelect: "none", marginBottom: 0 }}
+      >
+        <div>
+          <h2>{title}</h2>
+          {summary ? <div className="small">{summary}</div> : null}
+        </div>
+      </summary>
+      <div style={{ marginTop: 12 }}>
+        {children}
+      </div>
+    </details>
+  );
+}
+
 export default function Administration({
   adminUnlocked,
   adminInput,
@@ -178,23 +197,16 @@ export default function Administration({
 
   return (
     <>
-      <div className="card">
-        <div className="card-header">
-          <div>
-            <h2>Sauvegardes serveur</h2>
-            <div className="small">
-              Sauvegarde PostgreSQL automatique tous les jours à {String(backupConfig?.hour ?? 3).padStart(2, "0")}:00 ({backupConfig?.timezone || "Europe/Paris"}).
-              {` La sauvegarde du lundi est envoyée à ${backupConfig?.recipient || "cristal.climbcrew@gmail.com"}.`}
-            </div>
-          </div>
-          <Button onClick={createBackupNow} disabled={backupBusy}>Sauvegarder maintenant</Button>
-        </div>
-
+      <AdminSection
+        title="Sauvegardes serveur"
+        summary={`${backups.length} sauvegarde${backups.length > 1 ? "s" : ""} locale${backups.length > 1 ? "s" : ""}`}
+      >
         <div className="small" style={{ marginBottom: 10 }}>
-          Le bouton crée un dump complet local sur le serveur et l’envoie également par e-mail. Conservation locale : {backupConfig?.retentionDays || 35} jours.
+          Sauvegarde PostgreSQL automatique tous les jours à {String(backupConfig?.hour ?? 3).padStart(2, "0")}:00 ({backupConfig?.timezone || "Europe/Paris"}).
+          {` La sauvegarde du lundi est envoyée à ${backupConfig?.recipient || "cristal.climbcrew@gmail.com"}.`}
         </div>
-
         <div className="group" style={{ marginBottom: 12 }}>
+          <Button onClick={createBackupNow} disabled={backupBusy}>Sauvegarder maintenant</Button>
           <Button variant="secondary" onClick={loadBackups} disabled={backupBusy}>Actualiser la liste</Button>
           <label className="pill" style={{ cursor: backupBusy ? "default" : "pointer", opacity: backupBusy ? 0.6 : 1 }}>
             Importer une sauvegarde .dump
@@ -206,6 +218,10 @@ export default function Administration({
               onChange={importDatabaseBackup}
             />
           </label>
+        </div>
+
+        <div className="small" style={{ marginBottom: 10 }}>
+          Le bouton crée un dump complet local sur le serveur et l’envoie également par e-mail. Conservation locale : {backupConfig?.retentionDays || 35} jours.
         </div>
 
         {backupStatus && <div className="muted-box" style={{ marginBottom: 12 }}>{backupStatus}</div>}
@@ -231,14 +247,11 @@ export default function Administration({
             </div>
           ))}
         </div>
-      </div>
+      </AdminSection>
 
-      <div className="card">
-        <div className="card-header">
-          <div>
-            <h2>Diffuser un message</h2>
-            <div className="small">Le message sera présenté une seule fois à chaque utilisateur actif lors de sa prochaine utilisation de l’application.</div>
-          </div>
+      <AdminSection title="Diffuser un message">
+        <div className="small" style={{ marginBottom: 12 }}>
+          Le message sera présenté une seule fois à chaque utilisateur actif lors de sa prochaine utilisation de l’application.
         </div>
         <div className="stack">
           <div>
@@ -270,10 +283,9 @@ export default function Administration({
             </Button>
           </div>
         </div>
-      </div>
+      </AdminSection>
 
-      <div className="card">
-        <div className="card-header"><h2>Ajouter un participant</h2></div>
+      <AdminSection title="Ajouter un participant">
         <div className="grid four">
           <div><label>Nom</label><input value={newParticipant.nom} onChange={(e) => setNewParticipant((p) => ({ ...p, nom: e.target.value }))} /></div>
           <div><label>Prénom</label><input value={newParticipant.prenom} onChange={(e) => setNewParticipant((p) => ({ ...p, prenom: e.target.value }))} /></div>
@@ -289,10 +301,12 @@ export default function Administration({
           <label><input type="checkbox" checked={newParticipant.canReferer} onChange={(e) => setNewParticipant((p) => ({ ...p, canReferer: e.target.checked }))} /> Référent</label>
           <label><input type="checkbox" checked={newParticipant.canAdmin} onChange={(e) => setNewParticipant((p) => ({ ...p, canAdmin: e.target.checked }))} /> Administrateur</label>
         </div>
-      </div>
+      </AdminSection>
 
-      <div className="card">
-        <div className="card-header"><h2>Gestion des participants</h2></div>
+      <AdminSection
+        title="Gestion des participants"
+        summary={`${adminParticipants.length} participant${adminParticipants.length > 1 ? "s" : ""}`}
+      >
         <div className="stack">
           {adminParticipants.map((p) => (
             <details className="subcard participant-admin-details" key={p.id}>
@@ -317,10 +331,9 @@ export default function Administration({
             </details>
           ))}
         </div>
-      </div>
+      </AdminSection>
 
-      <div className="card">
-        <div className="card-header"><h2>Import / export</h2></div>
+      <AdminSection title="Import / export">
         <div className="group">
           <Button variant="secondary" onClick={exportAllData}>Export JSON</Button>
           <label className="pill" style={{ cursor: "pointer" }}>
@@ -329,7 +342,7 @@ export default function Administration({
           </label>
         </div>
         {importMessage && <div className="success" style={{ marginTop: 10 }}>{importMessage}</div>}
-      </div>
+      </AdminSection>
     </>
   );
 }
