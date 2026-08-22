@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import "./business-storage-policy.js";
 import App from "./App.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
+import StartupVideoGate from "./StartupVideoGate.jsx";
 import "./api-error-messages.js";
 import "./issue-13-access-page.js";
 import "./admin-user-management.js";
@@ -20,11 +21,14 @@ import "./styles/badges.css";
 import "./styles/badges-image-fix.css";
 import "./styles/climber-profile.css";
 import "./styles/mobile-bottom-nav.css";
+import "./styles/startup-video.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <ErrorBoundary>
-      <App />
+      <StartupVideoGate>
+        <App />
+      </StartupVideoGate>
     </ErrorBoundary>
   </React.StrictMode>
 );
