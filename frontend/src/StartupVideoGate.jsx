@@ -69,8 +69,10 @@ export default function StartupVideoGate({ children }) {
             muted
             playsInline
             preload="auto"
+            onClick={finishIntro}
             onEnded={finishIntro}
             onError={finishIntro}
+            aria-label="Passer la vidéo d'introduction et ouvrir l'application"
           >
             <source src={INTRO_VIDEO_SRC} type="video/mp4" />
           </video>
