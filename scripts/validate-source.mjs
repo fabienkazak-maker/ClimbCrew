@@ -43,6 +43,7 @@ if (enhancements.includes("l’ocre apparaît sur fond marron")) fail("mention o
 const backend = fs.readFileSync("backend/server.js", "utf8");
 const expressIntegration = fs.readFileSync("backend/admin-users/express-integration.js", "utf8");
 const sessionAuthorization = fs.readFileSync("backend/admin-users/session-authorization-service.js", "utf8");
+const realisationManagement = fs.readFileSync("backend/realisation-management-routes.js", "utf8");
 
 // PUT /sessions/:id est désormais un simple point d'ancrage dans server.js.
 // Les règles métier doivent être contrôlées dans le contrôleur réellement injecté.
@@ -67,6 +68,17 @@ if (!sessionAuthorization.includes('requestedStatus === "fermee"')) {
   fail("blocage des nouvelles inscriptions en séance fermée absent");
 }
 
-if (!backend.includes('app.delete("/realisations/:id"')) fail("API de suppression des réalisations absente");
+// Les écritures de réalisations sont maintenant installées depuis un module dédié.
+if (!backend.includes("installRealisationManagementRoutes(app, { requireAuth, pool });")) {
+  fail("module d’écriture des réalisations non installé");
+}
+if (!realisationManagement.includes('app.post("/realisations", requireAuth, async')
+    || !realisationManagement.includes('app.put("/realisations/:id", requireAuth, async')
+    || !realisationManagement.includes('app.delete("/realisations/:id", requireAuth, async')) {
+  fail("API d’écriture des réalisations incomplète");
+}
+if (!realisationManagement.includes("delete from realisations where id = $1 and participant_id = $2")) {
+  fail("suppression de réalisation non limitée au propriétaire");
+}
 
 if (!process.exitCode) console.log("Validation source ClimbCrew réussie.");
