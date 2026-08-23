@@ -18,35 +18,50 @@ const accountSource = await readFile(
   new URL("../admin-users/account-service.js", import.meta.url),
   "utf8",
 );
+const configSource = await readFile(
+  new URL("../admin-users/config.js", import.meta.url),
+  "utf8",
+);
 
-test("la demande de compte conserve l'approbation administrateur sans divulguer l'association", () => {
-  assert.match(emailAssociationSource, /Après confirmation, un administrateur devra associer puis approuver le compte si nécessaire/);
+test("l'approbation administrateur est désactivée par défaut et reste configurable", () => {
+  assert.match(configSource, /REQUIRE_ADMIN_ACCOUNT_APPROVAL/);
+  assert.match(configSource, /"REQUIRE_ADMIN_ACCOUNT_APPROVAL",\s*false/);
+  assert.match(emailAssociationSource, /le compte sera activé automatiquement/);
   assert.match(emailAssociationSource, /publicRequestResponse/);
   assert.match(integrationSource, /requestAccessByEmailOnly/);
 });
 
-test("la vérification de l'e-mail ne transforme plus un compte pending en active", () => {
-  assert.match(approvalSource, /set email_verified_at = coalesce\(email_verified_at, now\(\)\)/);
-  assert.doesNotMatch(approvalSource, /status = case when status = 'pending' then 'active'/);
-  assert.match(approvalSource, /en attente d’approbation par un administrateur/);
+test("une fiche participant minimale est créée lorsque l'adresse n'existe pas", () => {
+  assert.match(emailAssociationSource, /match\.issue === "email_not_found"/);
+  assert.match(emailAssociationSource, /insert into participants/);
+  assert.match(emailAssociationSource, /participantCreated = true/);
+  assert.match(emailAssociationSource, /can_admin\s*\) values/);
+});
+
+test("la vérification de l'e-mail active automatiquement un compte pending associé", () => {
+  assert.match(approvalSource, /autoActivate/);
+  assert.match(approvalSource, /status = case when \$2 then 'active' else status end/);
+  assert.match(approvalSource, /approved_at = case when \$2 then coalesce\(approved_at, now\(\)\)/);
+  assert.match(approvalSource, /account_request_email_verified_auto_activated/);
+  assert.match(approvalSource, /Votre compte est maintenant actif/);
   assert.match(integrationSource, /verifyEmailPendingAdminApproval/);
 });
 
-test("les demandes pending vérifiées restent visibles dans Gestion des comptes", () => {
+test("un compte pending déjà vérifié peut être activé après changement de politique", () => {
+  assert.match(approvalSource, /if \(tokenRow\.used_at && tokenRow\.status === "active"\)/);
+  assert.match(approvalSource, /if \(tokenRow\.used_at && REQUIRE_ADMIN_ACCOUNT_APPROVAL\)/);
+  assert.match(approvalSource, /if \(!tokenRow\.used_at\)/);
+});
+
+test("les demandes pending exceptionnelles restent visibles dans Gestion des comptes", () => {
   assert.match(accountSource, /where status <> 'pending'[\s\S]*or email_verified_at is not null/);
 });
 
-test("l'approbation refuse une adresse non vérifiée ou un compte non associé", () => {
+test("l'approbation manuelle reste disponible pour une régularisation exceptionnelle", () => {
   assert.match(approvalSource, /if \(!target\.email_verified_at\)/);
-  assert.match(approvalSource, /L’adresse e-mail doit être confirmée avant l’approbation du compte/);
   assert.match(approvalSource, /if \(!target\.participant_id\)/);
-  assert.match(approvalSource, /Associez d’abord ce compte à une fiche grimpeur avant de l’approuver/);
   assert.match(approvalSource, /if \(target\.status !== "pending"\)/);
-  assert.match(integrationSource, /path === "\/admin\/auth\/users\/:id\/approve"[\s\S]*approveVerifiedAccount/);
-});
-
-test("l'activation reste une action administrateur distincte", () => {
   assert.match(approvalSource, /set status = 'active'/);
   assert.match(approvalSource, /eventType: "account_approved"/);
-  assert.match(approvalSource, /sendApprovalNotificationEmail/);
+  assert.match(integrationSource, /path === "\/admin\/auth\/users\/:id\/approve"[\s\S]*approveVerifiedAccount/);
 });
