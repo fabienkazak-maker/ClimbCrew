@@ -20,7 +20,6 @@ import {
 } from "./auth-hardening-service.js";
 import {
   approveVerifiedAccount,
-  requestAccessPendingAdminApproval,
   verifyEmailPendingAdminApproval,
 } from "./account-approval-flow-service.js";
 import {
@@ -29,10 +28,11 @@ import {
   updateAccountNotificationPreference,
   updateManagedAccountNotificationPreference,
 } from "./account-notification-preference-service.js";
+import { setUserParticipantAssociation } from "./association-service.js";
 import {
-  associateExistingAccounts,
-  setUserParticipantAssociation,
-} from "./association-service.js";
+  associateExistingAccountsByEmail,
+  requestAccessByEmailOnly,
+} from "./email-association-service.js";
 import { exportAllData } from "./export-service.js";
 import {
   listParticipantsWithPrivacy,
@@ -50,31 +50,15 @@ import { createCrossOriginCsrfBridge } from "../deployment-compatibility.js";
 import { installBackupRoutes } from "../backup-routes.js";
 import { startBackupScheduler } from "../backup-service.js";
 
-/**
- * Intégration des modules séparés dans l'application Express historique.
- *
- * Rôle : conserver les URL déjà utilisées par le frontend tout en remplaçant
- * certains contrôleurs par des versions plus robustes et mieux découpées.
- *
- * Impact visuel : les écrans restent identiques. Les changements se voient
- * uniquement par une meilleure fiabilité des demandes de compte, de la gestion
- * administrateur et des actions effectuées depuis un frontend Render séparé.
- */
-
-/**
- * Remplace uniquement le dernier gestionnaire d'une route.
- * Les middlewares déjà déclarés dans server.js, comme l'authentification et la
- * limitation de débit, restent ainsi actifs et dans le même ordre.
- */
 function replaceLastHandler(originalMethod, app, path, handlers, replacement) {
   const middlewares = handlers.slice(0, -1);
   return originalMethod.call(app, path, ...middlewares, replacement);
 }
 
 /**
- * Installe les extensions Express avant le chargement de server.js.
- * Les routes historiques gardent leur URL afin de ne pas casser le frontend,
- * les favoris ni les éventuels scripts d'administration existants.
+ * Adapte progressivement le serveur historique sans changer les URL utilisées
+ * par le frontend. Les middlewares historiques d'authentification, de CSRF et de
+ * limitation de débit sont conservés lorsqu'un contrôleur final est remplacé.
  */
 export function installExpressIntegration() {
   if (express.application[EXPRESS_PATCH_FLAG]) return;
@@ -104,7 +88,7 @@ export function installExpressIntegration() {
       return replaceLastHandler(originalPost, this, path, handlers, secureLogin);
     }
     if (path === "/auth/request-access" && handlers.length) {
-      return replaceLastHandler(originalPost, this, path, handlers, requestAccessPendingAdminApproval);
+      return replaceLastHandler(originalPost, this, path, handlers, requestAccessByEmailOnly);
     }
     if (path === "/auth/forgot-password" && handlers.length) {
       return replaceLastHandler(originalPost, this, path, handlers, secureForgotPassword);
@@ -164,7 +148,7 @@ export function installExpressIntegration() {
 
       if (!app[INSTALL_FLAG]) {
         app.post("/admin/auth/users/:id/admin", requireAdmin, updateAdminRight);
-        app.post("/admin/auth/associations/auto", requireAdmin, associateExistingAccounts);
+        app.post("/admin/auth/associations/auto", requireAdmin, associateExistingAccountsByEmail);
         app.put("/admin/auth/users/:id/participant", requireAdmin, setUserParticipantAssociation);
         app.get("/auth/verify-email", verifyEmailPendingAdminApproval);
         app.post("/auth/change-password", requireAuthUser, changePassword);
