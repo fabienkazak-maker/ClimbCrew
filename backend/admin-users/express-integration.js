@@ -39,6 +39,7 @@ import { updateSessionWithAuthorization } from "./session-authorization-service.
 import { startAccessLogRetentionScheduler } from "./access-log-retention.js";
 import { requireAdmin, requireAuthUser } from "./security.js";
 import {
+  blockLegacyFileImportInProduction,
   rejectMaintenanceTokenInQuery,
   safeHealthCheck,
 } from "./maintenance-hardening.js";
@@ -102,6 +103,15 @@ export function installExpressIntegration() {
    */
   const originalPost = express.application.post;
   express.application.post = function patchedPost(path, ...handlers) {
+    if (path === "/import-data" && handlers.length) {
+      return originalPost.call(
+        this,
+        path,
+        rejectMaintenanceTokenInQuery,
+        blockLegacyFileImportInProduction,
+        ...handlers,
+      );
+    }
     if (path === "/auth/login" && handlers.length) {
       return replaceLastHandler(originalPost, this, path, handlers, secureLogin);
     }
