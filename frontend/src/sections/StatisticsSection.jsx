@@ -2,6 +2,17 @@ import React from "react";
 import Button from "../components/Button.jsx";
 import { fullName } from "../lib/domain.js";
 
+const PASSPORT_STATISTICS = [
+  ["sans", "Sans passeport"],
+  ["blanc", "Blanc"],
+  ["jaune", "Jaune"],
+  ["orange", "Orange"],
+  ["vert", "Vert"],
+  ["bleu", "Bleu"],
+  ["ocre", "Ocre"],
+  ["decouverte", "Découverte"],
+];
+
 export default function StatisticsSection({
   sessionStats,
   topRouteRankings,
@@ -26,6 +37,33 @@ export default function StatisticsSection({
         <div className="stat"><div className="label">Cotisations</div><div className="value">{sessionStats.nombreCotisations}</div></div>
         <div className="stat"><div className="label">FFME</div><div className="value">{sessionStats.nombreFFME}</div></div>
         <div className="stat"><div className="label">Voies actives</div><div className="value">{sessionStats.nombreVoiesActives}</div></div>
+      </div>
+
+      <div className="stats-grid" style={{ marginTop: 12 }}>
+        <div className="stat"><div className="label">Séances libres</div><div className="value">{sessionStats.nombreSeancesLibres || 0}</div></div>
+        <div className="stat"><div className="label">Séances encadrées</div><div className="value">{sessionStats.nombreSeancesEncadrees || 0}</div></div>
+        <div className="stat" title="Somme des inscriptions aux séances libres et encadrées">
+          <div className="label">Participations libre + encadrée</div>
+          <div className="value">{sessionStats.nombreParticipationsLibreEncadree || 0}</div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <h2>Grimpeurs par couleur de passeport</h2>
+          <span className="badge">{sortedStatsParticipants.length} grimpeur{sortedStatsParticipants.length > 1 ? "s" : ""}</span>
+        </div>
+        <div className="stats-grid">
+          {PASSPORT_STATISTICS.map(([passport, label]) => (
+            <div className="stat" key={passport}>
+              <div className="label" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span className="passport-dot" style={getPassportDotStyle({ passport })} aria-hidden="true" />
+                {label}
+              </div>
+              <div className="value">{sessionStats.passportCounts?.[passport] || 0}</div>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="card">
