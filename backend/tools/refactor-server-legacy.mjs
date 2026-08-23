@@ -114,9 +114,21 @@ locatedRoutes
   .sort((left, right) => right.index - left.index)
   .forEach(({ start, replacement }) => replaceRouteBlock(start, replacement));
 
-// Dépendances devenues mortes avec les handlers supprimés.
+// Les anciennes fonctions d'import/export ne sont plus référencées : les routes
+// administrateur sont remplacées par secure-import-service.js et export-service.js.
+const legacyImportStart = source.indexOf("async function importLegacyPayload");
+const adminImportRouteStart = source.indexOf(`app.post("/admin/import-data"`);
+if (legacyImportStart >= 0) {
+  if (adminImportRouteStart < 0 || adminImportRouteStart <= legacyImportStart) {
+    throw new Error("Impossible de borner les helpers import/export legacy");
+  }
+  source = `${source.slice(0, legacyImportStart)}${source.slice(adminImportRouteStart)}`;
+}
+
+// Dépendances devenues mortes avec les handlers et helpers supprimés.
 source = source.replace(`import { sendApprovalNotificationEmail } from "./admin-users/account-service.js";\n`, "");
 source = source.replace("  ValidationError,\n", "");
+source = source.replace("  validateLegacyImportPayload,\n", "");
 source = source.replace("  validateSessionPayload,\n", "");
 source = source.replace(/\nfunction firstLetter\(value = ""\) \{[\s\S]*?\n\}\n\nfunction isStrongPassword/, "\nfunction isStrongPassword");
 source = source.replace(/\nasync function findParticipantId\(prenom, nom\) \{[\s\S]*?\n\}\n\nasync function loadSessionFromToken/, "\nasync function loadSessionFromToken");
@@ -127,6 +139,8 @@ const forbiddenLegacyFragments = [
   `const customAvatarImage = String(req.body?.customAvatarImage || "");`,
   `const resolvedStatus = status || defaultSessionStatus(date, slot);`,
   `await sendApprovalNotificationEmail({ user: result.rows[0], req });`,
+  `async function importLegacyPayload`,
+  `async function exportLegacyPayload`,
 ];
 for (const fragment of forbiddenLegacyFragments) {
   if (source.includes(fragment)) throw new Error(`Fragment legacy encore présent: ${fragment}`);
