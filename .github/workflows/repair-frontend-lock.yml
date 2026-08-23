@@ -1,0 +1,43 @@
+name: Repair frontend dependency lock
+
+on:
+  push:
+    branches:
+      - audit-fixes-1-2-3-4-8-10-20260823
+    paths:
+      - .github/workflows/repair-frontend-lock.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: audit-fixes-1-2-3-4-8-10-20260823
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Régénérer uniquement le lockfile dans les plages compatibles
+        working-directory: frontend
+        run: |
+          npm ci --no-audit --no-fund
+          npm audit fix --package-lock-only
+          npm audit --audit-level=high
+      - name: Publier le lockfile corrigé
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add frontend/package-lock.json
+          if git diff --cached --quiet; then
+            echo 'Lockfile déjà à jour.'
+            exit 0
+          fi
+          git commit -m 'fix(deps): corriger les dépendances frontend vulnérables'
+          git push origin HEAD:audit-fixes-1-2-3-4-8-10-20260823
