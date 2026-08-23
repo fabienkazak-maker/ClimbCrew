@@ -1,5 +1,6 @@
 import { configureDeploymentEnvironment } from "./deployment-compatibility.js";
 import { installPoolCapture } from "./admin-users/database.js";
+import { installCookieHardening } from "./admin-users/cookie-hardening.js";
 import { installClientIpHardening } from "./admin-users/client-ip-hardening.js";
 import { installRateLimitLogIntegration } from "./admin-users/rate-limit-log-integration.js";
 import { installExpressIntegration } from "./admin-users/express-integration.js";
@@ -25,22 +26,26 @@ configureDeploymentEnvironment();
 //    de gestion des comptes utilisent exactement la même connexion à la base.
 installPoolCapture();
 
-// 3. Normalise l'adresse cliente à partir de req.ip, donc après application de
+// 3. Retire les en-têtes Cookie malformés avant les anciens parseurs de server.js.
+//    Une séquence percent-encodée invalide devient ainsi une simple session absente.
+installCookieHardening();
+
+// 4. Normalise l'adresse cliente à partir de req.ip, donc après application de
 //    la politique Express trust proxy, avant les limiteurs et les journaux.
 installClientIpHardening();
 
-// 4. Journalise les réponses 429 des limiteurs sans conserver les mots de passe,
+// 5. Journalise les réponses 429 des limiteurs sans conserver les mots de passe,
 //    jetons ou paramètres de requête potentiellement sensibles.
 installRateLimitLogIntegration();
 
-// 5. Installe les routes complémentaires et la compatibilité CSRF avant que
+// 6. Installe les routes complémentaires et la compatibilité CSRF avant que
 //    server.js ne commence à enregistrer ses middlewares et ses contrôleurs.
 installExpressIntegration();
 
-// 6. Enveloppe le démarrage réseau afin d'appliquer les migrations PostgreSQL
+// 7. Enveloppe le démarrage réseau afin d'appliquer les migrations PostgreSQL
 //    versionnées une fois le schéma historique créé mais avant la première requête.
 installMigrationHook();
 
-// 7. Ajoute la route d'administration dédiée aux qualifications Initiateur.
+// 8. Ajoute la route d'administration dédiée aux qualifications Initiateur.
 //    Elle est installée avant l'écoute réseau et reste protégée par requireAdmin.
 installInitiatorQualificationIntegration();
