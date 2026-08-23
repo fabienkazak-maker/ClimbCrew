@@ -13,6 +13,7 @@ import { installParticipantCreationRoute } from "./participant-creation-route.js
 import { installBroadcastMessageRoutes } from "./broadcast-message-routes.js";
 import { installEvolutionRequestRoutes } from "./evolution-request-routes.js";
 import { installAuthSessionRoutes } from "./auth-session-routes.js";
+import { installAdminAccessLogRoutes } from "./admin-access-log-routes.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -739,34 +740,7 @@ app.post("/auth/request-access", authRateLimit, legacyReplacedRoute);
 app.post("/auth/forgot-password", resetRateLimit, legacyReplacedRoute);
 app.post("/auth/reset-password", resetRateLimit, legacyReplacedRoute);
 app.get("/admin/auth/users", requireAuth, requireAdmin, legacyReplacedRoute);
-app.get("/admin/auth/logs", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const limit = Math.min(Number(req.query.limit || 200), 500);
-    const result = await pool.query(
-      `
-        select
-          al.id,
-          al.event_type,
-          al.success,
-          al.ip_address,
-          al.user_agent,
-          al.created_at,
-          al.details,
-          coalesce(u.email, al.details->>'email') as email,
-          coalesce(al.details::text, '') as details_text
-        from access_logs al
-        left join users u on u.id = al.user_id
-        order by al.created_at desc
-        limit $1
-      `,
-      [limit]
-    );
-
-    res.json({ ok: true, logs: result.rows });
-  } catch (error) {
-    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
-  }
-});
+installAdminAccessLogRoutes(app, { requireAuth, requireAdmin, pool });
 
 app.post("/admin/auth/users/:id/approve", requireAuth, requireAdmin, legacyReplacedRoute);
 app.post("/admin/auth/users/:id/revoke", requireAuth, requireAdmin, legacyReplacedRoute);
