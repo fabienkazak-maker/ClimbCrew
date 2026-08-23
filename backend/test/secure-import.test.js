@@ -36,11 +36,12 @@ test("l'import refuse de perdre l'association d'un administrateur actif", () => 
 test("l'export complet est dans le format métier réimportable", () => {
   for (const field of [
     "numeroCorde", "cotationReference", "cotationAjustee", "nomOuvreur",
-    "participantIds", "styleRealisation", "dateRealisation", "canEncadrer",
+    "styleRealisation", "dateRealisation", "canEncadrer",
     "canReferer", "avatarId", "crestId", "customAvatarImage",
   ]) {
     assert.match(exportSource, new RegExp(`${field}:`));
   }
+  assert.match(exportSource, /participantIds[, :]/);
   assert.match(exportSource, /climbcrew-complete-export-v3/);
   assert.match(exportSource, /accountMetadata/);
   assert.doesNotMatch(exportSource, /password_hash/);
