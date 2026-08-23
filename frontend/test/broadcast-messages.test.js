@@ -17,7 +17,7 @@ test("Administration Serveur diffuse et l'application affiche le prochain messag
     readFile(new URL("../src/pages/Logs.jsx", import.meta.url), "utf8"),
   ]);
   assert.match(serverAdministrationSource, /Diffuser un message/);
-  assert.match(serverAdministrationSource, /publishBroadcastMessage/);
+  assert.match(serverAdministrationSource, /\/admin\/broadcast-messages/);
   assert.match(appSource, /pendingBroadcastMessages/);
   assert.match(appSource, /Message du club/);
   assert.match(appSource, /J’ai lu/);
