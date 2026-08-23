@@ -1,18 +1,23 @@
 name: Validate ClimbCrew Linux
 
 on:
-  pull_request:
-  push:
-    branches:
-      - main
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit ou ref exact à valider
+        required: false
+        type: string
+        default: ""
   workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit ou ref à valider
+        required: false
+        default: main
+        type: string
 
 permissions:
   contents: read
-
-concurrency:
-  group: climbcrew-linux-validation-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   validate:
@@ -23,6 +28,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       - name: Configure Node.js
         uses: actions/setup-node@v4
@@ -43,7 +50,7 @@ jobs:
         run: |
           set -euo pipefail
           for attempt in 1 2 3; do
-            npm ci && exit 0
+            npm ci --no-audit --no-fund && exit 0
             echo "npm ci failed (attempt ${attempt}/3), retrying in 5s..."
             sleep 5
           done
