@@ -23,8 +23,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # La validation reste exécutée sur un runner GitHub éphémère. Ce runner a
-  # besoin de actions/checkout car il ne conserve pas de clone entre deux runs.
   validate:
     name: Validation du code
     runs-on: ubuntu-latest
@@ -37,8 +35,6 @@ jobs:
       - name: Récupérer le dépôt à valider
         uses: actions/checkout@v4
         with:
-          # Un déclenchement manuel peut demander une branche précise. Dans les
-          # autres cas, le SHA de l'événement est validé sans ambiguïté.
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.sha }}
           fetch-depth: 2
 
@@ -95,6 +91,10 @@ jobs:
           done
           exit 1
 
+      - name: Auditer les dépendances frontend
+        working-directory: frontend
+        run: npm audit --audit-level=high
+
       - name: Tester le frontend
         working-directory: frontend
         run: npm test
@@ -115,6 +115,10 @@ jobs:
           done
           exit 1
 
+      - name: Auditer les dépendances backend
+        working-directory: backend
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Vérifier la syntaxe du backend
         working-directory: backend
         run: node --check server.js
@@ -123,13 +127,80 @@ jobs:
         working-directory: backend
         run: npm test
 
-  # Le runner de production possède un clone persistant dans /opt/climbcrew.
-  # Il n'utilise volontairement aucune action `uses:` : cela évite notamment
-  # qu'un HTTP 429 de codeload.github.com sur actions/checkout bloque le serveur
-  # avant même l'exécution des commandes de déploiement.
+  integration:
+    name: Intégration API et PostgreSQL
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: climbcrew_test
+          POSTGRES_USER: climbcrew_test
+          POSTGRES_PASSWORD: climbcrew_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U climbcrew_test -d climbcrew_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    steps:
+      - name: Récupérer exactement le commit validé
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.validated_sha }}
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Installer le backend
+        working-directory: backend
+        run: npm ci --no-audit --no-fund
+
+      - name: Tester les flux critiques avec une vraie base PostgreSQL
+        working-directory: backend
+        env:
+          NODE_ENV: test
+          PORT: "3100"
+          DATABASE_URL: postgres://climbcrew_test:climbcrew_test_password@127.0.0.1:5432/climbcrew_test
+          PG_SSL: "false"
+          PUBLIC_URL: http://127.0.0.1:5173
+          FRONTEND_ORIGIN: http://127.0.0.1:5173
+          CORS_ORIGIN: http://127.0.0.1:5173
+          SECURE_COOKIES: "false"
+          COOKIE_SAMESITE: lax
+          EMAIL_ENABLED: "false"
+          BACKUP_ENABLED: "false"
+          REQUIRE_ADMIN_ACCOUNT_APPROVAL: "false"
+          ALLOW_FIRST_ADMIN_BOOTSTRAP: "true"
+          FIRST_ADMIN_EMAIL: admin@integration.test
+          FIRST_ADMIN_PASSWORD: Integration_Admin1!
+          ALLOW_WEAK_FIRST_ADMIN_PASSWORD: "false"
+          BCRYPT_ROUNDS: "10"
+        run: node test/integration/security-flow.integration.mjs
+
+  linux_validate:
+    name: Validation Linux bloquante
+    needs: validate
+    uses: ./.github/workflows/validate-linux.yml
+    with:
+      ref: ${{ needs.validate.outputs.validated_sha }}
+
+  # Le déploiement n'est autorisé qu'après validation du code, intégration sur
+  # PostgreSQL et démarrage réel de la pile Linux du même commit.
   deploy:
     name: Déployer sur le serveur de production
-    needs: validate
+    needs:
+      - validate
+      - integration
+      - linux_validate
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: self-hosted
     timeout-minutes: 30
@@ -196,8 +267,6 @@ jobs:
           FETCH_REFSPEC="refs/heads/${DEPLOY_BRANCH}:refs/remotes/origin/${DEPLOY_BRANCH}"
           FETCH_OK=false
 
-          # Le fetch utilise Git directement et tolère les incidents réseau
-          # transitoires. Chaque tentative est limitée dans le temps.
           for attempt in 1 2 3 4 5; do
             echo "git fetch : tentative ${attempt}/5"
             if timeout 90s git fetch --no-tags --prune origin "$FETCH_REFSPEC"; then
@@ -218,8 +287,6 @@ jobs:
             exit 1
           fi
 
-          # Le commit validé doit exister après le fetch de la branche. Si le
-          # clone du serveur est peu profond, une tentative ciblée est effectuée.
           if ! git cat-file -e "${VALIDATED_SHA}^{commit}" 2>/dev/null; then
             echo "SHA validé absent du clone local, tentative de récupération ciblée."
             for attempt in 1 2 3; do
@@ -235,9 +302,6 @@ jobs:
             exit 1
           fi
 
-          # En cas d'avance normale de la branche entre validation et
-          # déploiement, le SHA validé reste un ancêtre et peut être déployé.
-          # Un force-push qui l'aurait retiré de la branche bloque le déploiement.
           if ! git merge-base --is-ancestor "$VALIDATED_SHA" "refs/remotes/origin/$DEPLOY_BRANCH"; then
             echo "ERROR: le SHA validé n'appartient plus à la branche distante $DEPLOY_BRANCH."
             echo "Relancer une validation sur l'état actuel de la branche."
