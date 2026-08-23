@@ -1,4 +1,5 @@
 // Script temporaire : extrait les routes de maintenance de la base hors de server.js.
+// Ce fichier sert uniquement à appliquer de façon déterministe la phase 12.
 import { readFile, writeFile } from "node:fs/promises";
 
 const serverUrl = new URL("../server.js", import.meta.url);
