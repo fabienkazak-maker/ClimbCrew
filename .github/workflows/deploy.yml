@@ -184,7 +184,7 @@ jobs:
           FIRST_ADMIN_PASSWORD: Integration_Admin1!
           ALLOW_WEAK_FIRST_ADMIN_PASSWORD: "false"
           BCRYPT_ROUNDS: "10"
-        run: node test/integration/security-flow.integration.mjs
+        run: node integration/security-flow.integration.mjs
 
   linux_validate:
     name: Validation Linux bloquante
