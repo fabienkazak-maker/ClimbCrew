@@ -6,17 +6,29 @@ const service = await readFile(new URL("../admin-users/account-notification-pref
 const database = await readFile(new URL("../admin-users/database.js", import.meta.url), "utf8");
 const integration = await readFile(new URL("../admin-users/express-integration.js", import.meta.url), "utf8");
 
-test("la préférence de notification est persistée par compte administrateur", () => {
+test("la préférence de notification est désactivée par défaut", () => {
   assert.match(database, /receive_account_notifications boolean not null default false/);
-  assert.match(integration, /GET|app\.get\("\/auth\/notification-preference"/i);
-  assert.match(integration, /app\.patch\("\/auth\/notification-preference"/);
 });
 
-test("seuls les administrateurs actifs ayant activé la préférence sont destinataires", () => {
-  assert.match(service, /status = 'active'/);
-  assert.match(service, /role = 'admin' or is_admin = true/);
-  assert.match(service, /receive_account_notifications = true/);
-  assert.match(service, /lower\(email\) <> lower\(\$1\)/);
+test("la préférence est administrable depuis la gestion des participants", () => {
+  assert.match(integration, /\/admin\/auth\/notification-preferences/);
+  assert.match(integration, /\/admin\/participants\/:participantId\/account-notifications/);
+  assert.match(service, /listManagedAccountNotificationPreferences/);
+  assert.match(service, /updateManagedAccountNotificationPreference/);
+});
+
+test("seuls les administrateurs actifs autorisés et abonnés sont destinataires", () => {
+  assert.match(service, /u\.status = 'active'/);
+  assert.match(service, /u\.role = 'admin' or u\.is_admin = true/);
+  assert.match(service, /p\.can_admin = true/);
+  assert.match(service, /u\.receive_account_notifications = true/);
+  assert.match(service, /lower\(u\.email\) <> lower\(\$1\)/);
+});
+
+test("l'activation est refusée sans participant et compte administrateurs actifs", () => {
+  assert.match(service, /target\.can_admin !== true/);
+  assert.match(service, /target\.is_admin !== true/);
+  assert.match(service, /target\.status !== "active"/);
 });
 
 test("la confirmation e-mail utilise le service de notification configurable", () => {
