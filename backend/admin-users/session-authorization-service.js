@@ -27,6 +27,7 @@ function symmetricDifference(left, right) {
  * - administrateur : gestion complète de la séance ;
  * - référent ou encadrant : peut changer le type/statut de la séance ;
  * - membre standard : peut uniquement s'inscrire ou se désinscrire lui-même ;
+ * - une séance fermée refuse toute nouvelle inscription non administrateur ;
  * - création d'une séance : administrateur uniquement.
  */
 export function evaluateSessionMutation({
@@ -93,13 +94,23 @@ export function evaluateSessionMutation({
     };
   }
 
+  const actorJoins = requested.has(actorId) && !previous.has(actorId);
+  const actorLeaves = previous.has(actorId) && !requested.has(actorId);
+  if (actorJoins && requestedStatus === "fermee") {
+    return {
+      allowed: false,
+      status: 409,
+      error: "Cette séance est fermée : aucune nouvelle inscription n’est autorisée.",
+    };
+  }
+
   return {
     allowed: true,
     canManageAll: false,
     canChangeStatus,
     statusChanged,
-    actorJoins: requested.has(actorId) && !previous.has(actorId),
-    actorLeaves: previous.has(actorId) && !requested.has(actorId),
+    actorJoins,
+    actorLeaves,
   };
 }
 
