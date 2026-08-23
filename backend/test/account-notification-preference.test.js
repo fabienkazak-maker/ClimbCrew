@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const service = await readFile(new URL("../admin-users/account-notification-preference-service.js", import.meta.url), "utf8");
+const approvalFlow = await readFile(new URL("../admin-users/account-approval-flow-service.js", import.meta.url), "utf8");
 const database = await readFile(new URL("../admin-users/database.js", import.meta.url), "utf8");
 const integration = await readFile(new URL("../admin-users/express-integration.js", import.meta.url), "utf8");
 
@@ -31,7 +32,9 @@ test("l'activation est refusée sans participant et compte administrateurs actif
   assert.match(service, /target\.status !== "active"/);
 });
 
-test("la confirmation e-mail utilise le service de notification configurable", () => {
-  assert.match(integration, /verifyEmailRequestWithNotificationPreferences/);
+test("la confirmation e-mail utilise le service de notification configurable sans auto-activer le compte", () => {
+  assert.match(integration, /verifyEmailPendingAdminApproval/);
+  assert.match(approvalFlow, /notifyAccountRequestReviewers/);
   assert.match(service, /notifyAccountRequestReviewers/);
+  assert.doesNotMatch(approvalFlow, /status = case when status = 'pending' then 'active'/);
 });

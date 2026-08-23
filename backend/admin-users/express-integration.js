@@ -19,15 +19,18 @@ import {
   secureResetPassword,
 } from "./auth-hardening-service.js";
 import {
+  approveVerifiedAccount,
+  requestAccessPendingAdminApproval,
+  verifyEmailPendingAdminApproval,
+} from "./account-approval-flow-service.js";
+import {
   getAccountNotificationPreference,
   listManagedAccountNotificationPreferences,
   updateAccountNotificationPreference,
   updateManagedAccountNotificationPreference,
-  verifyEmailRequestWithNotificationPreferences,
 } from "./account-notification-preference-service.js";
 import {
   associateExistingAccounts,
-  requestAccessWithAssociations,
   setUserParticipantAssociation,
 } from "./association-service.js";
 import { exportAllData } from "./export-service.js";
@@ -74,19 +77,9 @@ function replaceLastHandler(originalMethod, app, path, handlers, replacement) {
  * les favoris ni les éventuels scripts d'administration existants.
  */
 export function installExpressIntegration() {
-  // Le préchargement Node ne devrait s'exécuter qu'une fois. Ce garde-fou évite
-  // néanmoins d'empiler les adaptations lors d'un test ou d'un rechargement.
   if (express.application[EXPRESS_PATCH_FLAG]) return;
   express.application[EXPRESS_PATCH_FLAG] = true;
 
-  /**
-   * Installe le pont CSRF comme tout premier middleware de l'application.
-   *
-   * Il est ajouté avant les middlewares de server.js afin que les contrôles
-   * d'authentification historiques reçoivent un en-tête cohérent. Le pont ne
-   * s'active que sur Render, ou lorsqu'il est explicitement demandé, et ne
-   * traite que les origines figurant dans la liste CORS autorisée.
-   */
   const originalUse = express.application.use;
   express.application.use = function patchedUse(...handlers) {
     if (!this[CSRF_BRIDGE_FLAG]) {
@@ -96,11 +89,6 @@ export function installExpressIntegration() {
     return originalUse.apply(this, handlers);
   };
 
-  /**
-   * Remplace les contrôleurs POST liés à la création, à la connexion et à la
-   * récupération des comptes tout en conservant les limiteurs et middlewares
-   * déjà posés par server.js.
-   */
   const originalPost = express.application.post;
   express.application.post = function patchedPost(path, ...handlers) {
     if (path === "/import-data" && handlers.length) {
@@ -116,7 +104,7 @@ export function installExpressIntegration() {
       return replaceLastHandler(originalPost, this, path, handlers, secureLogin);
     }
     if (path === "/auth/request-access" && handlers.length) {
-      return replaceLastHandler(originalPost, this, path, handlers, requestAccessWithAssociations);
+      return replaceLastHandler(originalPost, this, path, handlers, requestAccessPendingAdminApproval);
     }
     if (path === "/auth/forgot-password" && handlers.length) {
       return replaceLastHandler(originalPost, this, path, handlers, secureForgotPassword);
@@ -124,18 +112,15 @@ export function installExpressIntegration() {
     if (path === "/auth/reset-password" && handlers.length) {
       return replaceLastHandler(originalPost, this, path, handlers, secureResetPassword);
     }
+    if (path === "/admin/auth/users/:id/approve" && handlers.length) {
+      return replaceLastHandler(originalPost, this, path, handlers, approveVerifiedAccount);
+    }
     if (path === "/admin/auth/users/:id/reset-token" && handlers.length) {
       return replaceLastHandler(originalPost, this, path, handlers, secureAdminResetToken);
     }
     return originalPost.call(this, path, ...handlers);
   };
 
-  /**
-   * Sécurise la mise à jour des séances sans modifier le contrat API existant.
-   * Un membre standard ne peut toucher qu'à sa propre inscription ; un référent
-   * ou encadrant peut en plus changer le type/statut ; l'administration garde la
-   * gestion complète de la séance.
-   */
   const originalPut = express.application.put;
   express.application.put = function patchedPut(path, ...handlers) {
     if (path === "/sessions/:id" && handlers.length) {
@@ -144,11 +129,6 @@ export function installExpressIntegration() {
     return originalPut.call(this, path, ...handlers);
   };
 
-  /**
-   * Remplace les contrôleurs GET sensibles par des services spécialisés.
-   * Les middlewares requireAuth/requireAdmin déjà présents dans server.js sont
-   * conservés : seul le contrôleur final est substitué.
-   */
   const originalGet = express.application.get;
   express.application.get = function patchedGet(path, ...handlers) {
     if ((path === "/setup-db" || path === "/db-status") && handlers.length) {
@@ -170,16 +150,11 @@ export function installExpressIntegration() {
       return replaceLastHandler(originalGet, this, path, handlers, exportAllData);
     }
     if (path === "/auth/verify-email" && handlers.length) {
-      return replaceLastHandler(originalGet, this, path, handlers, verifyEmailRequestWithNotificationPreferences);
+      return replaceLastHandler(originalGet, this, path, handlers, verifyEmailPendingAdminApproval);
     }
     return originalGet.call(this, path, ...handlers);
   };
 
-  /**
-   * Termine l'initialisation juste avant l'écoute réseau.
-   * Le schéma PostgreSQL complémentaire est créé avant d'accepter des requêtes,
-   * ce qui évite qu'un écran d'administration s'ouvre sur des tables absentes.
-   */
   const originalListen = express.application.listen;
   express.application.listen = function patchedListen(...args) {
     const app = this;
@@ -191,7 +166,7 @@ export function installExpressIntegration() {
         app.post("/admin/auth/users/:id/admin", requireAdmin, updateAdminRight);
         app.post("/admin/auth/associations/auto", requireAdmin, associateExistingAccounts);
         app.put("/admin/auth/users/:id/participant", requireAdmin, setUserParticipantAssociation);
-        app.get("/auth/verify-email", verifyEmailRequestWithNotificationPreferences);
+        app.get("/auth/verify-email", verifyEmailPendingAdminApproval);
         app.post("/auth/change-password", requireAuthUser, changePassword);
         app.post("/auth/change-email/request", requireAuthUser, requestEmailChange);
         app.get("/auth/change-email/confirm", confirmEmailChange);
@@ -222,8 +197,6 @@ export function installExpressIntegration() {
       process.exitCode = 1;
     });
 
-    // Compatibilité avec le comportement historique : server.js ne réutilise
-    // pas la valeur de retour de listen(). Le démarrage réel reste asynchrone.
     return app;
   };
 }
