@@ -8,6 +8,7 @@ const realisationManagementSource = await readFile(new URL("../realisation-manag
 const sessionReadSource = await readFile(new URL("../session-read-routes.js", import.meta.url), "utf8");
 const participantCreationSource = await readFile(new URL("../participant-creation-route.js", import.meta.url), "utf8");
 const broadcastMessageSource = await readFile(new URL("../broadcast-message-routes.js", import.meta.url), "utf8");
+const evolutionRequestSource = await readFile(new URL("../evolution-request-routes.js", import.meta.url), "utf8");
 
 const replacedRouteShells = [
   `app.post("/admin/import-data", requireAuth, requireAdmin, legacyReplacedRoute);`,
@@ -57,6 +58,13 @@ test("les anciennes implémentations remplacées ne reviennent pas dans server.j
     'app.post("/admin/broadcast-messages", requireAuth, requireAdmin, async',
     'app.get("/auth/broadcast-messages/pending", requireAuth, async',
     'app.post("/auth/broadcast-messages/:id/read", requireAuth, async',
+    "function cleanEvolutionText(value, maxLength)",
+    "async function evolutionRequestsForUser(userId)",
+    'app.get("/evolution-requests", requireAuth, async',
+    'app.post("/evolution-requests", requireAuth, async',
+    'app.put("/evolution-requests/:id/vote", requireAuth, async',
+    'app.post("/evolution-requests/:id/comments", requireAuth, async',
+    'app.put("/admin/evolution-requests/:id/status", requireAuth, requireAdmin, async',
   ];
 
   for (const fragment of forbiddenFragments) {
@@ -65,6 +73,20 @@ test("les anciennes implémentations remplacées ne reviennent pas dans server.j
 });
 
 test("les routes encore actives restent implémentées ou explicitement extraites", () => {
+  assert.match(serverSource, /installEvolutionRequestRoutes\(app, \{ requireAuth, requireAdmin, pool \}\)/);
+  assert.match(evolutionRequestSource, /app\.get\("\/evolution-requests", requireAuth, async/);
+  assert.match(evolutionRequestSource, /coalesce\(sum\(ev\.value\), 0\)::integer as score/);
+  assert.match(evolutionRequestSource, /coalesce\(max\(case when ev\.user_id = \$1 then ev\.value end\), 0\)::integer as "myVote"/);
+  assert.match(evolutionRequestSource, /app\.post\("\/evolution-requests", requireAuth, async/);
+  assert.match(evolutionRequestSource, /insert into evolution_requests \(author_id, title, description\)/);
+  assert.match(evolutionRequestSource, /Number\(req\.auth\.user\.id\)/);
+  assert.match(evolutionRequestSource, /app\.put\("\/evolution-requests\/:id\/vote", requireAuth, async/);
+  assert.match(evolutionRequestSource, /on conflict \(request_id, user_id\) do update/);
+  assert.match(evolutionRequestSource, /app\.post\("\/evolution-requests\/:id\/comments", requireAuth, async/);
+  assert.match(evolutionRequestSource, /insert into evolution_comments \(request_id, author_id, body\)/);
+  assert.match(evolutionRequestSource, /app\.put\("\/admin\/evolution-requests\/:id\/status", requireAuth, requireAdmin, async/);
+  assert.match(evolutionRequestSource, /"a_voir", "approuve", "integre", "trop_creatif"/);
+
   assert.match(serverSource, /installBroadcastMessageRoutes\(app, \{ requireAuth, requireAdmin, pool \}\)/);
   assert.match(broadcastMessageSource, /app\.post\("\/admin\/broadcast-messages", requireAuth, requireAdmin, async/);
   assert.match(broadcastMessageSource, /insert into broadcast_message_recipients/);
