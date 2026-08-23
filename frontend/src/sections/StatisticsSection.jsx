@@ -4,12 +4,10 @@ import { fullName } from "../lib/domain.js";
 
 const PASSPORT_STATISTICS = [
   ["sans", "Sans passeport"],
-  ["blanc", "Blanc"],
   ["jaune", "Jaune"],
   ["orange", "Orange"],
   ["vert", "Vert"],
   ["bleu", "Bleu"],
-  ["ocre", "Ocre"],
   ["decouverte", "Découverte"],
 ];
 
