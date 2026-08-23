@@ -1,3 +1,4 @@
+# Trigger du workflow temporaire
 name: Apply statistics enhancement
 
 on:
