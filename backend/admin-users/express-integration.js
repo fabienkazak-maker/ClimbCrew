@@ -15,7 +15,9 @@ import {
 } from "./account-service.js";
 import {
   getAccountNotificationPreference,
+  listManagedAccountNotificationPreferences,
   updateAccountNotificationPreference,
+  updateManagedAccountNotificationPreference,
   verifyEmailRequestWithNotificationPreferences,
 } from "./account-notification-preference-service.js";
 import {
@@ -160,6 +162,16 @@ export function installExpressIntegration() {
         app.get("/auth/change-email/confirm", confirmEmailChange);
         app.get("/auth/notification-preference", requireAuthUser, getAccountNotificationPreference);
         app.patch("/auth/notification-preference", requireAuthUser, updateAccountNotificationPreference);
+        app.get(
+          "/admin/auth/notification-preferences",
+          requireAdmin,
+          listManagedAccountNotificationPreferences,
+        );
+        app.put(
+          "/admin/participants/:participantId/account-notifications",
+          requireAdmin,
+          updateManagedAccountNotificationPreference,
+        );
         installBackupRoutes(app);
         app[INSTALL_FLAG] = true;
       }
