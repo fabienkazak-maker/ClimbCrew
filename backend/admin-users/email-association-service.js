@@ -99,9 +99,10 @@ export async function findParticipantByEmailOnly(client, { email, userId = null 
 /**
  * Création de compte avec association automatique exclusivement par e-mail.
  *
- * Lorsque l'approbation administrateur est désactivée, une fiche participant
- * minimale est créée si l'adresse n'existe pas encore. Le compte pourra ainsi
- * être activé après vérification de l'e-mail sans intervention manuelle.
+ * Une demande non vérifiée ne crée jamais de nouvelle fiche participant. Si une
+ * fiche portant déjà exactement l'adresse existe, le compte pending peut y être
+ * associé ; sinon la création de la fiche minimale est différée jusqu'au clic
+ * sur le lien de confirmation e-mail.
  *
  * La réponse publique reste volontairement identique qu'un compte ou une fiche
  * existe déjà ou non afin d'empêcher l'énumération des membres du club.
@@ -145,27 +146,7 @@ export async function requestAccessByEmailOnly(req, res) {
     }
 
     const match = await findParticipantByEmailOnly(client, { email });
-    let participantId = match.participantId || null;
-    let participantCreated = false;
-
-    if (
-      !participantId
-      && !REQUIRE_ADMIN_ACCOUNT_APPROVAL
-      && match.issue === "email_not_found"
-    ) {
-      const createdParticipant = await client.query(
-        `
-          insert into participants (
-            nom, prenom, email, login_email, passport, cotisation, ffme,
-            can_encadrer, can_referer, can_admin
-          ) values ($1, $2, $3, $3, 'sans', false, false, false, false, false)
-          returning id
-        `,
-        [nom, prenom, email],
-      );
-      participantId = String(createdParticipant.rows[0].id);
-      participantCreated = true;
-    }
+    const participantId = match.participantId || null;
 
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
     const verificationToken = crypto.randomBytes(24).toString("hex");
@@ -210,9 +191,10 @@ export async function requestAccessByEmailOnly(req, res) {
       details: {
         email,
         participantId: participantId ? String(participantId) : null,
-        participantCreated,
-        matchingKey: participantCreated ? "email_new_participant" : match.matchingKey,
-        associationIssue: participantCreated ? null : match.issue,
+        participantCreated: false,
+        participantCreationDeferred: !participantId && match.issue === "email_not_found",
+        matchingKey: match.matchingKey,
+        associationIssue: match.issue,
         requiresAdminApproval: REQUIRE_ADMIN_ACCOUNT_APPROVAL,
       },
     });
