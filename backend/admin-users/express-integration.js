@@ -38,6 +38,10 @@ import {
 import { updateSessionWithAuthorization } from "./session-authorization-service.js";
 import { startAccessLogRetentionScheduler } from "./access-log-retention.js";
 import { requireAdmin, requireAuthUser } from "./security.js";
+import {
+  rejectMaintenanceTokenInQuery,
+  safeHealthCheck,
+} from "./maintenance-hardening.js";
 import { createCrossOriginCsrfBridge } from "../deployment-compatibility.js";
 import { installBackupRoutes } from "../backup-routes.js";
 import { startBackupScheduler } from "../backup-service.js";
@@ -137,6 +141,12 @@ export function installExpressIntegration() {
    */
   const originalGet = express.application.get;
   express.application.get = function patchedGet(path, ...handlers) {
+    if ((path === "/setup-db" || path === "/db-status") && handlers.length) {
+      return originalGet.call(this, path, rejectMaintenanceTokenInQuery, ...handlers);
+    }
+    if (path === "/health" && handlers.length) {
+      return replaceLastHandler(originalGet, this, path, handlers, safeHealthCheck);
+    }
     if (path === "/participants" && handlers.length) {
       return replaceLastHandler(originalGet, this, path, handlers, listParticipantsWithPrivacy);
     }
