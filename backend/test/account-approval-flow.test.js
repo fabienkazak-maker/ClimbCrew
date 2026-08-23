@@ -31,8 +31,15 @@ test("les demandes pending vérifiées restent visibles dans Gestion des comptes
   assert.match(accountSource, /where status <> 'pending'[\s\S]*or email_verified_at is not null/);
 });
 
-test("l'activation reste une action administrateur distincte", async () => {
-  const serverSource = await readFile(new URL("../server.js", import.meta.url), "utf8");
-  assert.match(serverSource, /\/admin\/auth\/users\/:id\/approve/);
-  assert.match(serverSource, /set status = 'active'/);
+test("l'approbation refuse une adresse non vérifiée", () => {
+  assert.match(approvalSource, /if \(!target\.email_verified_at\)/);
+  assert.match(approvalSource, /L’adresse e-mail doit être confirmée avant l’approbation du compte/);
+  assert.match(approvalSource, /if \(target\.status !== "pending"\)/);
+  assert.match(integrationSource, /path === "\/admin\/auth\/users\/:id\/approve"[\s\S]*approveVerifiedAccount/);
+});
+
+test("l'activation reste une action administrateur distincte", () => {
+  assert.match(approvalSource, /set status = 'active'/);
+  assert.match(approvalSource, /eventType: "account_approved"/);
+  assert.match(approvalSource, /sendApprovalNotificationEmail/);
 });
