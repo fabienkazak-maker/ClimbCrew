@@ -1,3 +1,4 @@
+// Script temporaire de migration de server.js vers le module voies/cordes.
 import { readFile, writeFile } from "node:fs/promises";
 
 const serverUrl = new URL("../server.js", import.meta.url);
