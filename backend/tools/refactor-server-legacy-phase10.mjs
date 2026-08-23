@@ -1,4 +1,5 @@
 // Script temporaire : extrait la suppression administrateur d'un compte hors de server.js.
+// Ce fichier sert uniquement à appliquer de façon déterministe la phase 10.
 import { readFile, writeFile } from "node:fs/promises";
 
 const serverUrl = new URL("../server.js", import.meta.url);
