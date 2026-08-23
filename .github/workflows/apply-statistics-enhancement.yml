@@ -1,11 +1,11 @@
-# Trigger du workflow temporaire
 name: Apply statistics enhancement
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
-      - .github/workflows/apply-statistics-enhancement.yml
+      - .github/triggers/statistics-enhancement.trigger
 
 permissions:
   contents: write
@@ -13,6 +13,7 @@ permissions:
 jobs:
   apply:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -162,12 +163,13 @@ jobs:
       - name: Build frontend
         run: npm --prefix frontend run build
 
-      - name: Commit changes and remove one-shot workflow
+      - name: Commit changes and remove temporary files
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git rm .github/workflows/apply-statistics-enhancement.yml
+          git rm .github/triggers/statistics-enhancement.trigger
           git add frontend/src/App.jsx frontend/src/sections/StatisticsSection.jsx frontend/src/lib/version.js
           git commit -m "feat: enrichir les statistiques séances et passeports"
           git push origin HEAD:main
