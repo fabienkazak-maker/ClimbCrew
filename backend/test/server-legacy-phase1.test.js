@@ -7,6 +7,7 @@ const routeManagementSource = await readFile(new URL("../route-management-routes
 const realisationManagementSource = await readFile(new URL("../realisation-management-routes.js", import.meta.url), "utf8");
 const sessionReadSource = await readFile(new URL("../session-read-routes.js", import.meta.url), "utf8");
 const participantCreationSource = await readFile(new URL("../participant-creation-route.js", import.meta.url), "utf8");
+const broadcastMessageSource = await readFile(new URL("../broadcast-message-routes.js", import.meta.url), "utf8");
 
 const replacedRouteShells = [
   `app.post("/admin/import-data", requireAuth, requireAdmin, legacyReplacedRoute);`,
@@ -53,6 +54,9 @@ test("les anciennes implémentations remplacées ne reviennent pas dans server.j
     'app.get("/sessions", requireAuth, async',
     'app.delete("/sessions/:id", requireAuth, requireAdmin, async',
     "function sessionDbToApi(row, participantIds = [])",
+    'app.post("/admin/broadcast-messages", requireAuth, requireAdmin, async',
+    'app.get("/auth/broadcast-messages/pending", requireAuth, async',
+    'app.post("/auth/broadcast-messages/:id/read", requireAuth, async',
   ];
 
   for (const fragment of forbiddenFragments) {
@@ -61,6 +65,17 @@ test("les anciennes implémentations remplacées ne reviennent pas dans server.j
 });
 
 test("les routes encore actives restent implémentées ou explicitement extraites", () => {
+  assert.match(serverSource, /installBroadcastMessageRoutes\(app, \{ requireAuth, requireAdmin, pool \}\)/);
+  assert.match(broadcastMessageSource, /app\.post\("\/admin\/broadcast-messages", requireAuth, requireAdmin, async/);
+  assert.match(broadcastMessageSource, /insert into broadcast_message_recipients/);
+  assert.match(broadcastMessageSource, /select \$1, id from users where status = 'active'/);
+  assert.match(broadcastMessageSource, /app\.get\("\/auth\/broadcast-messages\/pending", requireAuth, async/);
+  assert.match(broadcastMessageSource, /where bmr\.user_id = \$1 and bmr\.read_at is null/);
+  assert.match(broadcastMessageSource, /app\.post\("\/auth\/broadcast-messages\/:id\/read", requireAuth, async/);
+  assert.match(broadcastMessageSource, /where message_id = \$1 and user_id = \$2/);
+  assert.match(broadcastMessageSource, /await client\.query\("commit"\)/);
+  assert.match(broadcastMessageSource, /await client\.query\("rollback"\)/);
+
   assert.match(serverSource, /installParticipantCreationRoute\(app, \{ requireAuth, requireAdmin, pool \}\)/);
   assert.match(participantCreationSource, /app\.post\("\/participants", requireAuth, requireAdmin, async/);
   assert.match(participantCreationSource, /validateParticipantPayload/);
