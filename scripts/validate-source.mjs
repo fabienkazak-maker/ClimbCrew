@@ -41,9 +41,32 @@ const enhancements = fs.readFileSync("frontend/src/climbcrew-enhancements.js", "
 if (enhancements.includes("l’ocre apparaît sur fond marron")) fail("mention ocre sur fond marron encore présente dans la FAQ");
 
 const backend = fs.readFileSync("backend/server.js", "utf8");
-if (!backend.includes("function defaultSessionStatus(date, slot)")) fail("règle de statut par défaut absente du backend");
-if (!backend.includes("const resolvedStatus = status || defaultSessionStatus(date, slot);")) fail("statut de séance non résolu dans le backend");
-if (!backend.includes("const newlyAddedParticipantIds")) fail("contrôle des nouvelles inscriptions en séance libre absent");
+const expressIntegration = fs.readFileSync("backend/admin-users/express-integration.js", "utf8");
+const sessionAuthorization = fs.readFileSync("backend/admin-users/session-authorization-service.js", "utf8");
+
+// PUT /sessions/:id est désormais un simple point d'ancrage dans server.js.
+// Les règles métier doivent être contrôlées dans le contrôleur réellement injecté.
+if (!backend.includes('app.put("/sessions/:id", requireAuth, legacyReplacedRoute);')) {
+  fail("point d’ancrage de mise à jour des séances absent du backend");
+}
+if (!expressIntegration.includes('path === "/sessions/:id"')
+    || !expressIntegration.includes("updateSessionWithAuthorization")) {
+  fail("contrôleur sécurisé des séances non branché");
+}
+if (!sessionAuthorization.includes("function defaultSessionStatus(date, slot)")) {
+  fail("règle de statut par défaut absente du contrôleur de séances");
+}
+if (!sessionAuthorization.includes("const resolvedStatus = requested.status")) {
+  fail("statut de séance non résolu dans le contrôleur actif");
+}
+if (!sessionAuthorization.includes("const newlyAdded =")
+    || !sessionAuthorization.includes("assertLibreEligibility")) {
+  fail("contrôle des nouvelles inscriptions en séance libre absent");
+}
+if (!sessionAuthorization.includes('requestedStatus === "fermee"')) {
+  fail("blocage des nouvelles inscriptions en séance fermée absent");
+}
+
 if (!backend.includes('app.delete("/realisations/:id"')) fail("API de suppression des réalisations absente");
 
 if (!process.exitCode) console.log("Validation source ClimbCrew réussie.");
