@@ -8,11 +8,16 @@ import { ensureAdminUserSchema } from "./database.js";
 import {
   changePassword,
   confirmEmailChange,
-  forgotPassword,
   listUsers,
   requestEmailChange,
   updateAdminRight,
 } from "./account-service.js";
+import {
+  secureAdminResetToken,
+  secureForgotPassword,
+  secureLogin,
+  secureResetPassword,
+} from "./auth-hardening-service.js";
 import {
   getAccountNotificationPreference,
   listManagedAccountNotificationPreferences,
@@ -87,16 +92,26 @@ export function installExpressIntegration() {
   };
 
   /**
-   * Remplace les contrôleurs POST liés à la création et à la récupération des
-   * comptes tout en conservant les protections déjà posées par server.js.
+   * Remplace les contrôleurs POST liés à la création, à la connexion et à la
+   * récupération des comptes tout en conservant les limiteurs et middlewares
+   * déjà posés par server.js.
    */
   const originalPost = express.application.post;
   express.application.post = function patchedPost(path, ...handlers) {
+    if (path === "/auth/login" && handlers.length) {
+      return replaceLastHandler(originalPost, this, path, handlers, secureLogin);
+    }
     if (path === "/auth/request-access" && handlers.length) {
       return replaceLastHandler(originalPost, this, path, handlers, requestAccessWithAssociations);
     }
     if (path === "/auth/forgot-password" && handlers.length) {
-      return replaceLastHandler(originalPost, this, path, handlers, forgotPassword);
+      return replaceLastHandler(originalPost, this, path, handlers, secureForgotPassword);
+    }
+    if (path === "/auth/reset-password" && handlers.length) {
+      return replaceLastHandler(originalPost, this, path, handlers, secureResetPassword);
+    }
+    if (path === "/admin/auth/users/:id/reset-token" && handlers.length) {
+      return replaceLastHandler(originalPost, this, path, handlers, secureAdminResetToken);
     }
     return originalPost.call(this, path, ...handlers);
   };
