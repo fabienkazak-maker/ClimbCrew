@@ -24,9 +24,6 @@ export default function StatisticsSection({
   getPassportStyle,
   normalizePassport,
   getPassportDotStyle,
-  cprByParticipantId,
-  formatPoints,
-  pointsByParticipantId,
 }) {
   return (
     <>
@@ -127,9 +124,6 @@ export default function StatisticsSection({
                 <option value="passport">Passeport</option>
                 <option value="cotisation">Cotisation</option>
                 <option value="ffme">Licence FFME</option>
-                <option value="cpr">CPR</option>
-                <option value="points">Points</option>
-                <option value="participations">Participations</option>
               </select>
             </div>
             <Button
@@ -153,9 +147,6 @@ export default function StatisticsSection({
                 <span title="Cotisation">Cotis. : {participant.cotisation ? "Oui" : "Non"}</span>
                 <span>FFME : {participant.ffme ? "Oui" : "Non"}</span>
                 <span>Passeport : {participant.passport}</span>
-                <span>CPR : {cprByParticipantId[participant.id]?.currentGrade || "—"}</span>
-                <span>Points : {formatPoints(pointsByParticipantId[participant.id])}</span>
-                <span title="Participations">Particip. : {sessionStats.participationCount[participant.id] || 0}</span>
               </span>
             </div>
           ))}
