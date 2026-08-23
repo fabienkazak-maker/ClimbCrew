@@ -2,6 +2,15 @@ import crypto from "node:crypto";
 import { CSRF_COOKIE_NAME, SESSION_COOKIE_NAME } from "./config.js";
 import { getPool } from "./database.js";
 
+/** Décode un cookie sans laisser une séquence d'échappement invalide faire échouer la requête. */
+function safeDecodeCookie(value = "") {
+  try {
+    return decodeURIComponent(String(value || ""));
+  } catch {
+    return String(value || "");
+  }
+}
+
 /** Transforme l'en-tête Cookie en objet clé/valeur. */
 export function parseCookies(req) {
   return Object.fromEntries(
@@ -12,7 +21,7 @@ export function parseCookies(req) {
       .map((part) => {
         const separator = part.indexOf("=");
         if (separator < 0) return [part, ""];
-        return [part.slice(0, separator), decodeURIComponent(part.slice(separator + 1))];
+        return [part.slice(0, separator), safeDecodeCookie(part.slice(separator + 1))];
       })
   );
 }
@@ -38,8 +47,14 @@ export function cleanEmail(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+/**
+ * bcrypt ne prend en compte que les 72 premiers octets du mot de passe.
+ * Refuser explicitement les valeurs plus longues évite que deux chaînes
+ * différentes deviennent équivalentes après troncature implicite.
+ */
 export function isStrongPassword(value) {
   return typeof value === "string"
+    && Buffer.byteLength(value, "utf8") <= 72
     && value.length >= 8
     && /[a-z]/.test(value)
     && /[A-Z]/.test(value)
