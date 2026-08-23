@@ -146,14 +146,15 @@ export async function getParticipantCustomAvatar(req, res) {
 
     res.setHeader("Cache-Control", "private, max-age=0, must-revalidate");
     res.setHeader("ETag", etag);
-    res.setHeader("Vary", "Cookie");
-    res.setHeader("Content-Type", "image/webp");
-    res.setHeader("Content-Length", String(buffer.length));
+    res.vary("Cookie");
     res.setHeader("X-Content-Type-Options", "nosniff");
 
     if (String(req.headers?.["if-none-match"] || "") === etag) {
       return res.status(304).end();
     }
+
+    res.setHeader("Content-Type", "image/webp");
+    res.setHeader("Content-Length", String(buffer.length));
     return res.status(200).send(buffer);
   } catch (error) {
     console.error("GET /participants/:id/avatar", error);
