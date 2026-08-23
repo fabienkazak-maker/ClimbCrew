@@ -19,15 +19,17 @@ import {
   secureResetPassword,
 } from "./auth-hardening-service.js";
 import {
+  requestAccessPendingAdminApproval,
+  verifyEmailPendingAdminApproval,
+} from "./account-approval-flow-service.js";
+import {
   getAccountNotificationPreference,
   listManagedAccountNotificationPreferences,
   updateAccountNotificationPreference,
   updateManagedAccountNotificationPreference,
-  verifyEmailRequestWithNotificationPreferences,
 } from "./account-notification-preference-service.js";
 import {
   associateExistingAccounts,
-  requestAccessWithAssociations,
   setUserParticipantAssociation,
 } from "./association-service.js";
 import { exportAllData } from "./export-service.js";
@@ -116,7 +118,7 @@ export function installExpressIntegration() {
       return replaceLastHandler(originalPost, this, path, handlers, secureLogin);
     }
     if (path === "/auth/request-access" && handlers.length) {
-      return replaceLastHandler(originalPost, this, path, handlers, requestAccessWithAssociations);
+      return replaceLastHandler(originalPost, this, path, handlers, requestAccessPendingAdminApproval);
     }
     if (path === "/auth/forgot-password" && handlers.length) {
       return replaceLastHandler(originalPost, this, path, handlers, secureForgotPassword);
@@ -170,7 +172,7 @@ export function installExpressIntegration() {
       return replaceLastHandler(originalGet, this, path, handlers, exportAllData);
     }
     if (path === "/auth/verify-email" && handlers.length) {
-      return replaceLastHandler(originalGet, this, path, handlers, verifyEmailRequestWithNotificationPreferences);
+      return replaceLastHandler(originalGet, this, path, handlers, verifyEmailPendingAdminApproval);
     }
     return originalGet.call(this, path, ...handlers);
   };
@@ -191,7 +193,7 @@ export function installExpressIntegration() {
         app.post("/admin/auth/users/:id/admin", requireAdmin, updateAdminRight);
         app.post("/admin/auth/associations/auto", requireAdmin, associateExistingAccounts);
         app.put("/admin/auth/users/:id/participant", requireAdmin, setUserParticipantAssociation);
-        app.get("/auth/verify-email", verifyEmailRequestWithNotificationPreferences);
+        app.get("/auth/verify-email", verifyEmailPendingAdminApproval);
         app.post("/auth/change-password", requireAuthUser, changePassword);
         app.post("/auth/change-email/request", requireAuthUser, requestEmailChange);
         app.get("/auth/change-email/confirm", confirmEmailChange);
