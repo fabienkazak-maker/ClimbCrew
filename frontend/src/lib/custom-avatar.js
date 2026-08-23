@@ -1,8 +1,6 @@
-import { API_BASE, USE_API } from "./api.js";
-
 export const REMOTE_CUSTOM_AVATAR_MARKER = "remote";
 
-export function customAvatarSource(participant, { apiBase = API_BASE, useApi = USE_API } = {}) {
+export function customAvatarSource(participant, { apiBase = "", useApi = true } = {}) {
   const inlineImage = String(participant?.customAvatarImage || "");
   if (inlineImage.startsWith("data:image/")) return inlineImage;
   if (!useApi) return inlineImage;
