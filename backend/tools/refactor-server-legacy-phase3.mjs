@@ -1,4 +1,5 @@
 // Script temporaire de migration des écritures de réalisations hors de server.js.
+// Déclenchement contrôlé après installation du workflow de branche.
 import { readFile, writeFile } from "node:fs/promises";
 
 const serverUrl = new URL("../server.js", import.meta.url);
