@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const serverSource = await readFile(new URL("../server.js", import.meta.url), "utf8");
+const routeManagementSource = await readFile(new URL("../route-management-routes.js", import.meta.url), "utf8");
 
 const replacedRouteShells = [
   `app.post("/admin/import-data", requireAuth, requireAdmin, legacyReplacedRoute);`,
@@ -48,10 +49,15 @@ test("les anciennes implémentations remplacées ne reviennent pas dans server.j
   }
 });
 
-test("les routes encore actives restent implémentées dans server.js", () => {
+test("les routes encore actives restent implémentées ou explicitement extraites", () => {
   assert.match(serverSource, /app\.post\("\/participants", requireAuth, requireAdmin, async/);
   assert.match(serverSource, /app\.get\("\/sessions", requireAuth, async/);
   assert.match(serverSource, /app\.post\("\/realisations", requireAuth, async/);
-  assert.match(serverSource, /app\.post\("\/routes", requireAuth, requireAdmin, async/);
+  assert.match(serverSource, /installRouteManagementRoutes\(app, \{ requireAuth, requireAdmin, pool \}\)/);
+  assert.match(routeManagementSource, /app\.get\("\/ropes", requireAuth, async/);
+  assert.match(routeManagementSource, /app\.get\("\/routes", requireAuth, async/);
+  assert.match(routeManagementSource, /app\.post\("\/routes", requireAuth, requireAdmin, async/);
+  assert.match(routeManagementSource, /app\.put\("\/routes\/:id", requireAuth, requireAdmin, async/);
+  assert.match(routeManagementSource, /app\.delete\("\/routes\/:id", requireAuth, requireAdmin, async/);
   assert.match(serverSource, /app\.post\("\/import-data", requireSetupAccess, async/);
 });
