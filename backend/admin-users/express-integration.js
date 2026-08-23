@@ -20,9 +20,9 @@ import {
   secureResetPassword,
 } from "./auth-hardening-service.js";
 import { verifyEmailPendingAdminApproval } from "./account-approval-flow-service.js";
+import { setAccountParticipantAssociation } from "./account-participant-association-service.js";
 import {
   approveVerifiedAccountWithParticipantRole,
-  setUserParticipantAssociationWithAdminRight,
   updateParticipantWithAdminRight,
 } from "./participant-admin-right-service.js";
 import {
@@ -160,7 +160,7 @@ export function installExpressIntegration() {
         app.put(
           "/admin/auth/users/:id/participant",
           requireAdmin,
-          setUserParticipantAssociationWithAdminRight,
+          setAccountParticipantAssociation,
         );
         app.get("/auth/verify-email", verifyEmailPendingAdminApproval);
         app.post("/auth/change-password", requireAuthUser, changePassword);
