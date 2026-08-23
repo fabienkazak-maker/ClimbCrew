@@ -6,10 +6,10 @@ import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import { readFile } from "node:fs/promises";
-import { validateParticipantPayload } from "./validation.js";
 import { installRouteManagementRoutes } from "./route-management-routes.js";
 import { installRealisationManagementRoutes } from "./realisation-management-routes.js";
 import { installSessionReadRoutes } from "./session-read-routes.js";
+import { installParticipantCreationRoute } from "./participant-creation-route.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -862,26 +862,6 @@ app.put("/admin/evolution-requests/:id/status", requireAuth, requireAdmin, async
 app.get("/realisations", requireAuth, legacyReplacedRoute);
 installRealisationManagementRoutes(app, { requireAuth, pool });
 
-function participantDbToApi(row) {
-  return {
-    id: String(row.id),
-    nom: row.nom,
-    prenom: row.prenom,
-    email: row.email || "",
-    passport: row.passport,
-    sexe: row.sexe || "",
-    cotisation: row.cotisation,
-    ffme: row.ffme,
-    canEncadrer: row.can_encadrer,
-    canReferer: row.can_referer,
-    canAdmin: row.can_admin,
-    avatarId: row.avatar_id || "gecko",
-    crestId: row.crest_id || "cristal",
-    profilePublic: row.profile_public !== false,
-    customAvatarImage: row.custom_avatar_image || "",
-  };
-}
-
 installRouteManagementRoutes(app, { requireAuth, requireAdmin, pool });
 
 app.get("/", (_req, res) => {
@@ -1078,40 +1058,7 @@ app.delete("/admin/auth/users/:id", requireAuth, requireAdmin, async (req, res) 
 app.post("/admin/auth/users/:id/reactivate", requireAuth, requireAdmin, legacyReplacedRoute);
 app.post("/admin/auth/users/:id/reset-token", requireAuth, requireAdmin, legacyReplacedRoute);
 app.get("/participants", requireAuth, legacyReplacedRoute);
-app.post("/participants", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const {
-      nom,
-      prenom,
-      email,
-      passport,
-      sexe,
-      cotisation,
-      ffme,
-      canEncadrer,
-      canReferer,
-      canAdmin,
-      avatarId = "gecko",
-      crestId = "cristal",
-      profilePublic = true,
-    } = validateParticipantPayload(req.body || {});
-
-    const result = await pool.query(
-      `
-        insert into participants
-        (nom, prenom, email, passport, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin, avatar_id, crest_id, profile_public)
-        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
-        returning id, nom, prenom, email, passport, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin, avatar_id, crest_id, profile_public
-      `,
-      [nom, prenom, String(email || "").trim().toLowerCase(), passport, sexe, cotisation, ffme, canEncadrer, canReferer, canAdmin, avatarId, crestId, profilePublic]
-    );
-
-    res.status(201).json(participantDbToApi(result.rows[0]));
-  } catch (error) {
-    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
-  }
-});
-
+installParticipantCreationRoute(app, { requireAuth, requireAdmin, pool });
 app.put("/participants/:id", requireAuth, requireAdmin, legacyReplacedRoute);
 app.patch("/participants/me/profile", requireAuth, legacyReplacedRoute);
 app.delete("/participants/:id", requireAuth, requireAdmin, legacyReplacedRoute);
