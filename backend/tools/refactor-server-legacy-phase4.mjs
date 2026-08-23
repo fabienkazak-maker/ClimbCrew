@@ -1,4 +1,5 @@
 // Script temporaire : extrait GET/DELETE /sessions de server.js.
+// Déclenchement après installation du workflow de branche.
 import { readFile, writeFile } from "node:fs/promises";
 
 const serverUrl = new URL("../server.js", import.meta.url);
@@ -11,12 +12,9 @@ if (!source.includes(importLine)) {
   source = source.replace(importAnchor, `${importAnchor}\n${importLine}`);
 }
 
-// Le convertisseur n'est utilisé que par GET /sessions et part avec ce module.
 const helperStart = source.indexOf("function sessionDbToApi(row, participantIds = [])");
 const helperEnd = source.indexOf("installRouteManagementRoutes", helperStart);
-if (helperStart < 0 || helperEnd < 0 || helperEnd <= helperStart) {
-  throw new Error("Helper sessionDbToApi introuvable");
-}
+if (helperStart < 0 || helperEnd < 0 || helperEnd <= helperStart) throw new Error("Helper sessionDbToApi introuvable");
 source = `${source.slice(0, helperStart)}${source.slice(helperEnd)}`;
 
 const getStart = source.indexOf('app.get("/sessions", requireAuth, async');
@@ -36,11 +34,7 @@ for (const forbidden of [
 ]) {
   if (source.includes(forbidden)) throw new Error(`Fragment session encore présent: ${forbidden}`);
 }
-if (!source.includes('app.put("/sessions/:id", requireAuth, legacyReplacedRoute);')) {
-  throw new Error("Point d'ancrage PUT /sessions/:id perdu");
-}
-if (!source.includes("installSessionReadRoutes(app, { requireAuth, requireAdmin, pool });")) {
-  throw new Error("Installation du module sessions absente");
-}
+if (!source.includes('app.put("/sessions/:id", requireAuth, legacyReplacedRoute);')) throw new Error("Point d'ancrage PUT /sessions/:id perdu");
+if (!source.includes("installSessionReadRoutes(app, { requireAuth, requireAdmin, pool });")) throw new Error("Installation du module sessions absente");
 
 await writeFile(serverUrl, source, "utf8");
