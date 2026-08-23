@@ -19,17 +19,18 @@ import {
   secureLogin,
   secureResetPassword,
 } from "./auth-hardening-service.js";
+import { verifyEmailPendingAdminApproval } from "./account-approval-flow-service.js";
+import { setAccountParticipantAssociation } from "./account-participant-association-service.js";
 import {
-  approveVerifiedAccount,
-  verifyEmailPendingAdminApproval,
-} from "./account-approval-flow-service.js";
+  approveVerifiedAccountWithParticipantRole,
+  updateParticipantWithAdminRight,
+} from "./participant-admin-right-service.js";
 import {
   getAccountNotificationPreference,
   listManagedAccountNotificationPreferences,
   updateAccountNotificationPreference,
   updateManagedAccountNotificationPreference,
 } from "./account-notification-preference-service.js";
-import { setUserParticipantAssociation } from "./association-service.js";
 import {
   associateExistingAccountsByEmail,
   requestAccessByEmailOnly,
@@ -98,7 +99,7 @@ export function installExpressIntegration() {
       return replaceLastHandler(originalPost, this, path, handlers, secureResetPassword);
     }
     if (path === "/admin/auth/users/:id/approve" && handlers.length) {
-      return replaceLastHandler(originalPost, this, path, handlers, approveVerifiedAccount);
+      return replaceLastHandler(originalPost, this, path, handlers, approveVerifiedAccountWithParticipantRole);
     }
     if (path === "/admin/auth/users/:id/revoke" && handlers.length) {
       return replaceLastHandler(originalPost, this, path, handlers, revokeAccountSafely);
@@ -111,6 +112,9 @@ export function installExpressIntegration() {
 
   const originalPut = express.application.put;
   express.application.put = function patchedPut(path, ...handlers) {
+    if (path === "/participants/:id" && handlers.length) {
+      return replaceLastHandler(originalPut, this, path, handlers, updateParticipantWithAdminRight);
+    }
     if (path === "/sessions/:id" && handlers.length) {
       return replaceLastHandler(originalPut, this, path, handlers, updateSessionWithAuthorization);
     }
@@ -153,7 +157,11 @@ export function installExpressIntegration() {
       if (!app[INSTALL_FLAG]) {
         app.post("/admin/auth/users/:id/admin", requireAdmin, updateAdminRight);
         app.post("/admin/auth/associations/auto", requireAdmin, associateExistingAccountsByEmail);
-        app.put("/admin/auth/users/:id/participant", requireAdmin, setUserParticipantAssociation);
+        app.put(
+          "/admin/auth/users/:id/participant",
+          requireAdmin,
+          setAccountParticipantAssociation,
+        );
         app.get("/auth/verify-email", verifyEmailPendingAdminApproval);
         app.post("/auth/change-password", requireAuthUser, changePassword);
         app.post("/auth/change-email/request", requireAuthUser, requestEmailChange);
