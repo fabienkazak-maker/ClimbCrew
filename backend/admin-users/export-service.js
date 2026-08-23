@@ -88,7 +88,10 @@ function serializeRealisation(row) {
     cotationProposee: row.cotation_proposee || "",
     nbEssais: row.nb_essais || "",
     ...(storedMode ? { modeRealisation: storedMode } : {}),
-    rating: row.rating === null || row.rating === undefined ? 0 : Number(row.rating),
+    // Une ancienne réalisation peut ne pas avoir de note. Une chaîne vide est
+    // volontairement utilisée : validateLegacyImportPayload la traite comme
+    // « non renseignée », alors que 0 serait rejeté hors de la plage 1..5.
+    rating: row.rating === null || row.rating === undefined ? "" : Number(row.rating),
     chute: Boolean(row.chute),
     assureurId: row.assureur_id ? String(row.assureur_id) : "",
   };
