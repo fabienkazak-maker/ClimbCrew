@@ -2,7 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const source = await readFile(new URL("../auth-middleware.js", import.meta.url), "utf8");
+const [source, serverSource] = await Promise.all([
+  readFile(new URL("../auth-middleware.js", import.meta.url), "utf8"),
+  readFile(new URL("../server.js", import.meta.url), "utf8"),
+]);
 
 test("le middleware conserve la validation de session et le contrôle CSRF", () => {
   assert.match(source, /from user_sessions us/);
@@ -20,4 +23,12 @@ test("le middleware conserve la validation de session et le contrôle CSRF", () 
 test("requireAdmin exige toujours le rôle admin", () => {
   assert.match(source, /req\.auth\?\.user\?\.role !== "admin"/);
   assert.match(source, /Accès administrateur requis/);
+});
+
+test("server.js installe le middleware extrait sans conserver l'ancienne implémentation", () => {
+  assert.match(serverSource, /const \{ requireAuth, requireAdmin \} = createAuthMiddleware\(\{/);
+  assert.match(serverSource, /csrfCookieName: CSRF_COOKIE_NAME/);
+  assert.equal(serverSource.includes("async function loadSessionFromToken(rawToken)"), false);
+  assert.equal(serverSource.includes("async function requireAuth(req, res, next)"), false);
+  assert.equal(serverSource.includes("function requireAdmin(req, res, next)"), false);
 });
