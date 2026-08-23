@@ -12,6 +12,7 @@ import {
   requestEmailChange,
   updateAdminRight,
 } from "./account-service.js";
+import { revokeAccountSafely } from "./account-lifecycle-service.js";
 import {
   secureAdminResetToken,
   secureForgotPassword,
@@ -98,6 +99,9 @@ export function installExpressIntegration() {
     }
     if (path === "/admin/auth/users/:id/approve" && handlers.length) {
       return replaceLastHandler(originalPost, this, path, handlers, approveVerifiedAccount);
+    }
+    if (path === "/admin/auth/users/:id/revoke" && handlers.length) {
+      return replaceLastHandler(originalPost, this, path, handlers, revokeAccountSafely);
     }
     if (path === "/admin/auth/users/:id/reset-token" && handlers.length) {
       return replaceLastHandler(originalPost, this, path, handlers, secureAdminResetToken);
