@@ -18,7 +18,7 @@ const BACKUP_ENABLED = envBoolean("BACKUP_ENABLED", false);
 const BACKUP_DIR = path.resolve(process.env.BACKUP_DIR || "/backups");
 const BACKUP_TIMEZONE = String(process.env.BACKUP_TIMEZONE || "Europe/Paris").trim();
 const BACKUP_HOUR = Math.min(23, Math.max(0, Number(process.env.BACKUP_HOUR || 3)));
-const BACKUP_RECIPIENT = String(process.env.BACKUP_RECIPIENT || "cristal.climbcrew@gmail.com").trim().toLowerCase();
+const BACKUP_RECIPIENT = String(process.env.BACKUP_RECIPIENT || "").trim().toLowerCase();
 const BACKUP_RETENTION_DAYS = Math.max(7, Number(process.env.BACKUP_RETENTION_DAYS || 35));
 const BACKUP_UPLOAD_MAX_BYTES = Math.max(1024 * 1024, Number(process.env.BACKUP_UPLOAD_MAX_BYTES || 50 * 1024 * 1024));
 const BACKUP_SCHEDULER_FLAG = Symbol.for("climbcrew.backupScheduler.started");
@@ -29,6 +29,12 @@ const lastEmailAttemptByFile = new Map();
 
 function assertBackupEnabled() {
   if (!BACKUP_ENABLED) throw new Error("Le service de sauvegarde n'est pas activé sur cet environnement");
+}
+
+function assertBackupRecipientConfigured() {
+  if (!BACKUP_RECIPIENT) {
+    throw new Error("BACKUP_RECIPIENT n'est pas configuré : la sauvegarde locale est conservée mais aucun e-mail ne peut être envoyé");
+  }
 }
 
 function queueOperation(operation) {
@@ -176,6 +182,7 @@ async function wasEmailed(fileName) {
 
 export async function sendBackupByEmail(fileName) {
   assertBackupEnabled();
+  assertBackupRecipientConfigured();
   const filePath = backupPath(fileName);
   const stats = await validateDumpFile(filePath);
   const result = await sendBackupEmail({
@@ -194,6 +201,9 @@ export async function createManualBackupAndEmail() {
     const email = await sendBackupByEmail(backup.fileName);
     return { ...backup, emailSent: Boolean(email.sent), emailSkipped: Boolean(email.skipped) };
   } catch (error) {
+    // La sauvegarde locale a déjà été créée avec succès. Une configuration SMTP
+    // ou de destinataire incomplète ne doit jamais transformer ce succès en
+    // perte de sauvegarde.
     return { ...backup, emailSent: false, emailError: String(error.message || error) };
   }
 }
@@ -337,6 +347,7 @@ export function getBackupConfig() {
     timezone: BACKUP_TIMEZONE,
     hour: BACKUP_HOUR,
     recipient: BACKUP_RECIPIENT,
+    emailConfigured: Boolean(BACKUP_RECIPIENT),
     retentionDays: BACKUP_RETENTION_DAYS,
     uploadMaxBytes: BACKUP_UPLOAD_MAX_BYTES,
   };
@@ -361,7 +372,9 @@ async function schedulerTick() {
     await createBackup({ reason: "scheduled", fixedFileName: fileName });
   }
 
-  if (local.weekday === "Mon" && !(await wasEmailed(fileName))) {
+  // La sauvegarde locale quotidienne reste active même sans destinataire e-mail.
+  // Dans ce cas le lundi ne déclenche simplement aucune tentative d'envoi.
+  if (local.weekday === "Mon" && BACKUP_RECIPIENT && !(await wasEmailed(fileName))) {
     const lastAttempt = lastEmailAttemptByFile.get(fileName) || 0;
     if (Date.now() - lastAttempt >= EMAIL_RETRY_MS) {
       lastEmailAttemptByFile.set(fileName, Date.now());
@@ -390,5 +403,8 @@ export function startBackupScheduler() {
   setTimeout(run, 10_000);
   const timer = setInterval(run, 60_000);
   timer.unref?.();
-  console.log(`[backup] planification active : tous les jours à ${String(BACKUP_HOUR).padStart(2, "0")}:00 (${BACKUP_TIMEZONE}); envoi le lundi à ${BACKUP_RECIPIENT}`);
+  const emailState = BACKUP_RECIPIENT
+    ? "envoi hebdomadaire configuré"
+    : "envoi e-mail désactivé (BACKUP_RECIPIENT absent)";
+  console.log(`[backup] planification active : tous les jours à ${String(BACKUP_HOUR).padStart(2, "0")}:00 (${BACKUP_TIMEZONE}); ${emailState}`);
 }

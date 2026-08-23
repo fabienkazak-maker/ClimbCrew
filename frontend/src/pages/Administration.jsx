@@ -87,6 +87,11 @@ export default function Administration({
   }
 
   async function sendBackupAgain(fileName) {
+    if (!backupConfig?.emailConfigured) {
+      setBackupStatus("Envoi impossible : BACKUP_RECIPIENT n’est pas configuré sur le serveur.");
+      return;
+    }
+
     try {
       setBackupBusy(true);
       setBackupStatus(`Envoi de ${fileName}…`);
@@ -94,7 +99,7 @@ export default function Administration({
         method: "POST",
         body: JSON.stringify({}),
       });
-      setBackupStatus(`${fileName} envoyé à ${backupConfig?.recipient || "l’adresse de sauvegarde"}.`);
+      setBackupStatus(`${fileName} envoyé à ${backupConfig.recipient}.`);
       await loadBackups();
     } catch (error) {
       setBackupStatus(`Envoi impossible : ${error.message || error}`);
@@ -203,7 +208,9 @@ export default function Administration({
       >
         <div className="small" style={{ marginBottom: 10 }}>
           Sauvegarde PostgreSQL automatique tous les jours à {String(backupConfig?.hour ?? 3).padStart(2, "0")}:00 ({backupConfig?.timezone || "Europe/Paris"}).
-          {` La sauvegarde du lundi est envoyée à ${backupConfig?.recipient || "cristal.climbcrew@gmail.com"}.`}
+          {backupConfig?.emailConfigured
+            ? ` La sauvegarde du lundi est envoyée à ${backupConfig.recipient}.`
+            : " L’envoi e-mail du lundi est désactivé tant que BACKUP_RECIPIENT n’est pas configuré."}
         </div>
         <div className="group" style={{ marginBottom: 12 }}>
           <Button onClick={createBackupNow} disabled={backupBusy}>Sauvegarder maintenant</Button>
@@ -221,7 +228,7 @@ export default function Administration({
         </div>
 
         <div className="small" style={{ marginBottom: 10 }}>
-          Le bouton crée un dump complet local sur le serveur et l’envoie également par e-mail. Conservation locale : {backupConfig?.retentionDays || 35} jours.
+          Le bouton crée toujours un dump complet local sur le serveur et tente aussi l’envoi par e-mail lorsqu’un destinataire est configuré. Conservation locale : {backupConfig?.retentionDays || 35} jours.
         </div>
 
         {backupStatus && <div className="muted-box" style={{ marginBottom: 12 }}>{backupStatus}</div>}
@@ -240,7 +247,7 @@ export default function Administration({
                   </div>
                 </div>
                 <div className="group">
-                  <Button variant="secondary" onClick={() => sendBackupAgain(backup.fileName)} disabled={backupBusy}>Envoyer</Button>
+                  <Button variant="secondary" onClick={() => sendBackupAgain(backup.fileName)} disabled={backupBusy || !backupConfig?.emailConfigured}>Envoyer</Button>
                   <Button variant="danger" onClick={() => restoreDatabaseBackup(backup.fileName)} disabled={backupBusy}>Restaurer</Button>
                 </div>
               </div>
