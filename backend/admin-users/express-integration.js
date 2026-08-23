@@ -10,9 +10,12 @@ import {
   confirmEmailChange,
   listUsers,
   requestEmailChange,
-  updateAdminRight,
 } from "./account-service.js";
-import { revokeAccountSafely } from "./account-lifecycle-service.js";
+import {
+  reactivateAccountSafely,
+  revokeAccountSafely,
+  updateAdminRightSafely,
+} from "./account-lifecycle-service.js";
 import {
   secureAdminResetToken,
   secureForgotPassword,
@@ -25,6 +28,7 @@ import {
   approveVerifiedAccountWithParticipantRole,
   updateParticipantWithAdminRight,
 } from "./participant-admin-right-service.js";
+import { deleteParticipantSafely } from "./participant-lifecycle-service.js";
 import {
   getAccountNotificationPreference,
   listManagedAccountNotificationPreferences,
@@ -108,6 +112,9 @@ export function installExpressIntegration() {
     if (path === "/admin/auth/users/:id/revoke" && handlers.length) {
       return replaceLastHandler(originalPost, this, path, handlers, revokeAccountSafely);
     }
+    if (path === "/admin/auth/users/:id/reactivate" && handlers.length) {
+      return replaceLastHandler(originalPost, this, path, handlers, reactivateAccountSafely);
+    }
     if (path === "/admin/auth/users/:id/reset-token" && handlers.length) {
       return replaceLastHandler(originalPost, this, path, handlers, secureAdminResetToken);
     }
@@ -123,6 +130,14 @@ export function installExpressIntegration() {
       return replaceLastHandler(originalPut, this, path, handlers, updateSessionWithAuthorization);
     }
     return originalPut.call(this, path, ...handlers);
+  };
+
+  const originalDelete = express.application.delete;
+  express.application.delete = function patchedDelete(path, ...handlers) {
+    if (path === "/participants/:id" && handlers.length) {
+      return replaceLastHandler(originalDelete, this, path, handlers, deleteParticipantSafely);
+    }
+    return originalDelete.call(this, path, ...handlers);
   };
 
   const originalGet = express.application.get;
@@ -159,7 +174,7 @@ export function installExpressIntegration() {
       await ensureAdminUserSchema();
 
       if (!app[INSTALL_FLAG]) {
-        app.post("/admin/auth/users/:id/admin", requireAdmin, updateAdminRight);
+        app.post("/admin/auth/users/:id/admin", requireAdmin, updateAdminRightSafely);
         app.post("/admin/auth/associations/auto", requireAdmin, associateExistingAccountsByEmail);
         app.put(
           "/admin/auth/users/:id/participant",
