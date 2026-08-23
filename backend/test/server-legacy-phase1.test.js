@@ -6,6 +6,7 @@ const serverSource = await readFile(new URL("../server.js", import.meta.url), "u
 const routeManagementSource = await readFile(new URL("../route-management-routes.js", import.meta.url), "utf8");
 const realisationManagementSource = await readFile(new URL("../realisation-management-routes.js", import.meta.url), "utf8");
 const sessionReadSource = await readFile(new URL("../session-read-routes.js", import.meta.url), "utf8");
+const participantCreationSource = await readFile(new URL("../participant-creation-route.js", import.meta.url), "utf8");
 
 const replacedRouteShells = [
   `app.post("/admin/import-data", requireAuth, requireAdmin, legacyReplacedRoute);`,
@@ -44,6 +45,8 @@ test("les anciennes implémentations remplacées ne reviennent pas dans server.j
     'const customAvatarImage = String(req.body?.customAvatarImage || "");',
     'const resolvedStatus = status || defaultSessionStatus(date, slot);',
     "sendApprovalNotificationEmail",
+    'app.post("/participants", requireAuth, requireAdmin, async',
+    "function participantDbToApi(row)",
     'app.post("/realisations", requireAuth, async',
     'app.put("/realisations/:id", requireAuth, async',
     'app.delete("/realisations/:id", requireAuth, async',
@@ -58,7 +61,12 @@ test("les anciennes implémentations remplacées ne reviennent pas dans server.j
 });
 
 test("les routes encore actives restent implémentées ou explicitement extraites", () => {
-  assert.match(serverSource, /app\.post\("\/participants", requireAuth, requireAdmin, async/);
+  assert.match(serverSource, /installParticipantCreationRoute\(app, \{ requireAuth, requireAdmin, pool \}\)/);
+  assert.match(participantCreationSource, /app\.post\("\/participants", requireAuth, requireAdmin, async/);
+  assert.match(participantCreationSource, /validateParticipantPayload/);
+  assert.match(participantCreationSource, /insert into participants/);
+  assert.match(serverSource, /app\.get\("\/participants", requireAuth, legacyReplacedRoute\)/);
+  assert.match(serverSource, /app\.put\("\/participants\/:id", requireAuth, requireAdmin, legacyReplacedRoute\)/);
 
   assert.match(serverSource, /installSessionReadRoutes\(app, \{ requireAuth, requireAdmin, pool \}\)/);
   assert.match(serverSource, /app\.put\("\/sessions\/:id", requireAuth, legacyReplacedRoute\)/);
