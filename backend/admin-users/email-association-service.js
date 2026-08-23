@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
-import { BCRYPT_ROUNDS } from "./config.js";
+import { BCRYPT_ROUNDS, REQUIRE_ADMIN_ACCOUNT_APPROVAL } from "./config.js";
 import { getPool } from "./database.js";
 import { writeAccessLog } from "./access-log-service.js";
 import { cleanEmail, hashToken, isStrongPassword } from "./security.js";
@@ -8,7 +8,9 @@ import { sendAccountRequestConfirmation } from "./email-service.js";
 
 const EMAIL_VERIFICATION_DURATION_MS = 1000 * 60 * 60 * 24 * 7;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PUBLIC_REQUEST_MESSAGE = "Si cette adresse peut être utilisée pour un compte ClimbCrew, un e-mail de confirmation sera envoyé. Après confirmation, un administrateur devra associer puis approuver le compte si nécessaire.";
+const PUBLIC_REQUEST_MESSAGE = REQUIRE_ADMIN_ACCOUNT_APPROVAL
+  ? "Si cette adresse peut être utilisée pour un compte ClimbCrew, un e-mail de confirmation sera envoyé. Après confirmation, un administrateur devra associer puis approuver le compte si nécessaire."
+  : "Si cette adresse peut être utilisée pour un compte ClimbCrew, un e-mail de confirmation sera envoyé. Après confirmation de l’adresse e-mail, le compte sera activé automatiquement.";
 
 function getPublicUrl() {
   return String(
@@ -97,10 +99,12 @@ export async function findParticipantByEmailOnly(client, { email, userId = null 
 /**
  * Création de compte avec association automatique exclusivement par e-mail.
  *
- * La réponse publique est volontairement identique qu'un compte ou une fiche
- * existe déjà ou non. Elle ne contient jamais participantId, matchingKey, état
- * interne du compte ni résultat SMTP : ces informations permettraient sinon
- * d'énumérer les membres du club depuis une route non authentifiée.
+ * Lorsque l'approbation administrateur est désactivée, une fiche participant
+ * minimale est créée si l'adresse n'existe pas encore. Le compte pourra ainsi
+ * être activé après vérification de l'e-mail sans intervention manuelle.
+ *
+ * La réponse publique reste volontairement identique qu'un compte ou une fiche
+ * existe déjà ou non afin d'empêcher l'énumération des membres du club.
  */
 export async function requestAccessByEmailOnly(req, res) {
   const prenom = String(req.body?.prenom || "").trim();
@@ -141,7 +145,28 @@ export async function requestAccessByEmailOnly(req, res) {
     }
 
     const match = await findParticipantByEmailOnly(client, { email });
-    const participantId = match.participantId || null;
+    let participantId = match.participantId || null;
+    let participantCreated = false;
+
+    if (
+      !participantId
+      && !REQUIRE_ADMIN_ACCOUNT_APPROVAL
+      && match.issue === "email_not_found"
+    ) {
+      const createdParticipant = await client.query(
+        `
+          insert into participants (
+            nom, prenom, email, login_email, passport, cotisation, ffme,
+            can_encadrer, can_referer, can_admin
+          ) values ($1, $2, $3, $3, 'sans', false, false, false, false, false)
+          returning id
+        `,
+        [nom, prenom, email],
+      );
+      participantId = String(createdParticipant.rows[0].id);
+      participantCreated = true;
+    }
+
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
     const verificationToken = crypto.randomBytes(24).toString("hex");
     const verificationTokenHash = hashToken(verificationToken);
@@ -162,7 +187,6 @@ export async function requestAccessByEmailOnly(req, res) {
     const user = userResult.rows[0];
 
     if (participantId) {
-      // L'association ne doit jamais retirer un droit Administrateur existant.
       await client.query(
         `update participants set login_email = $2 where id = $1`,
         [participantId, email],
@@ -186,9 +210,10 @@ export async function requestAccessByEmailOnly(req, res) {
       details: {
         email,
         participantId: participantId ? String(participantId) : null,
-        participantCreated: false,
-        matchingKey: match.matchingKey,
-        associationIssue: match.issue,
+        participantCreated,
+        matchingKey: participantCreated ? "email_new_participant" : match.matchingKey,
+        associationIssue: participantCreated ? null : match.issue,
+        requiresAdminApproval: REQUIRE_ADMIN_ACCOUNT_APPROVAL,
       },
     });
 
