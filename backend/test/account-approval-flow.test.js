@@ -19,8 +19,9 @@ const accountSource = await readFile(
   "utf8",
 );
 
-test("la demande de compte annonce l'approbation administrateur obligatoire", () => {
-  assert.match(emailAssociationSource, /un administrateur devra associer la demande à une fiche si nécessaire puis approuver le compte/);
+test("la demande de compte conserve l'approbation administrateur sans divulguer l'association", () => {
+  assert.match(emailAssociationSource, /Après confirmation, un administrateur devra associer puis approuver le compte si nécessaire/);
+  assert.match(emailAssociationSource, /publicRequestResponse/);
   assert.match(integrationSource, /requestAccessByEmailOnly/);
 });
 

@@ -4,10 +4,11 @@ import { BCRYPT_ROUNDS } from "./config.js";
 import { getPool } from "./database.js";
 import { writeAccessLog } from "./access-log-service.js";
 import { cleanEmail, hashToken, isStrongPassword } from "./security.js";
-import { serializeUser } from "./user-serializer.js";
 import { sendAccountRequestConfirmation } from "./email-service.js";
 
 const EMAIL_VERIFICATION_DURATION_MS = 1000 * 60 * 60 * 24 * 7;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PUBLIC_REQUEST_MESSAGE = "Si cette adresse peut être utilisée pour un compte ClimbCrew, un e-mail de confirmation sera envoyé. Après confirmation, un administrateur devra associer puis approuver le compte si nécessaire.";
 
 function getPublicUrl() {
   return String(
@@ -30,6 +31,23 @@ function emailLogDetails(result, email) {
     reason: result?.reason || null,
     messageId: result?.messageId || null,
   };
+}
+
+function validatePublicRequestIdentity({ prenom, nom, email }) {
+  if (!prenom || !nom || !email) {
+    return "Prénom, nom et email sont requis";
+  }
+  if (prenom.length > 120 || nom.length > 120) {
+    return "Le prénom et le nom sont limités à 120 caractères";
+  }
+  if (email.length > 320 || !EMAIL_PATTERN.test(email)) {
+    return "Adresse e-mail invalide";
+  }
+  return "";
+}
+
+function publicRequestResponse(res) {
+  return res.json({ ok: true, message: PUBLIC_REQUEST_MESSAGE });
 }
 
 /**
@@ -78,8 +96,11 @@ export async function findParticipantByEmailOnly(client, { email, userId = null 
 
 /**
  * Création de compte avec association automatique exclusivement par e-mail.
- * Une demande sans correspondance reste sans participant_id et devra être
- * associée manuellement par un administrateur avant approbation.
+ *
+ * La réponse publique est volontairement identique qu'un compte ou une fiche
+ * existe déjà ou non. Elle ne contient jamais participantId, matchingKey, état
+ * interne du compte ni résultat SMTP : ces informations permettraient sinon
+ * d'énumérer les membres du club depuis une route non authentifiée.
  */
 export async function requestAccessByEmailOnly(req, res) {
   const prenom = String(req.body?.prenom || "").trim();
@@ -88,14 +109,15 @@ export async function requestAccessByEmailOnly(req, res) {
   const password = String(req.body?.password || "");
   const acceptTerms = Boolean(req.body?.acceptTerms);
 
-  if (!prenom || !nom || !email) {
-    return res.status(400).json({ error: "Prénom, nom et email sont requis" });
-  }
+  const identityError = validatePublicRequestIdentity({ prenom, nom, email });
+  if (identityError) return res.status(400).json({ error: identityError });
   if (!acceptTerms) {
     return res.status(400).json({ error: "Les conditions d’utilisation doivent être acceptées" });
   }
   if (!isStrongPassword(password)) {
-    return res.status(400).json({ error: "Mot de passe insuffisamment robuste" });
+    return res.status(400).json({
+      error: "Le mot de passe doit contenir entre 8 caractères et 72 octets, dont 1 majuscule, 1 minuscule, 1 chiffre et 1 caractère spécial",
+    });
   }
 
   const client = await getPool().connect();
@@ -108,7 +130,14 @@ export async function requestAccessByEmailOnly(req, res) {
     );
     if (existing.rowCount) {
       await client.query("rollback");
-      return res.status(409).json({ error: "Un compte existe déjà pour cet email" });
+      await writeAccessLog({
+        userId: existing.rows[0].id,
+        eventType: "request_access_existing_email",
+        success: false,
+        req,
+        details: { reason: "existing_account" },
+      });
+      return publicRequestResponse(res);
     }
 
     const match = await findParticipantByEmailOnly(client, { email });
@@ -163,7 +192,6 @@ export async function requestAccessByEmailOnly(req, res) {
       },
     });
 
-    let emailSent = false;
     try {
       const emailResult = await sendAccountRequestConfirmation({
         email,
@@ -171,7 +199,6 @@ export async function requestAccessByEmailOnly(req, res) {
         nom,
         verificationUrl: buildEmailVerificationUrl(verificationToken),
       });
-      emailSent = Boolean(emailResult.sent);
       await writeAccessLog({
         userId: user.id,
         eventType: emailResult.sent
@@ -195,20 +222,7 @@ export async function requestAccessByEmailOnly(req, res) {
       });
     }
 
-    return res.json({
-      ok: true,
-      message: emailSent
-        ? "Demande d’accès enregistrée. Confirmez d’abord votre adresse avec l’e-mail reçu. Après cette confirmation, un administrateur devra associer la demande à une fiche si nécessaire puis approuver le compte."
-        : "Demande d’accès enregistrée, mais l’e-mail de confirmation n’a pas pu être envoyé. Le compte restera en attente de confirmation et d’approbation administrateur.",
-      user: serializeUser(user),
-      participantCreated: false,
-      association: {
-        participantId: participantId ? String(participantId) : null,
-        matchingKey: match.matchingKey,
-        issue: match.issue,
-      },
-      emailSent,
-    });
+    return publicRequestResponse(res);
   } catch (error) {
     await client.query("rollback").catch(() => undefined);
     console.error("Création de compte impossible :", error);
