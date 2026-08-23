@@ -31,11 +31,12 @@ test("l'approbation administrateur est désactivée par défaut et reste configu
   assert.match(integrationSource, /requestAccessByEmailOnly/);
 });
 
-test("une fiche participant minimale est créée lorsque l'adresse n'existe pas", () => {
-  assert.match(emailAssociationSource, /match\.issue === "email_not_found"/);
-  assert.match(emailAssociationSource, /insert into participants/);
-  assert.match(emailAssociationSource, /participantCreated = true/);
-  assert.match(emailAssociationSource, /can_admin\s*\) values/);
+test("une nouvelle fiche participant n'est créée qu'après vérification de l'adresse", () => {
+  assert.doesNotMatch(emailAssociationSource, /insert into participants/i);
+  assert.match(emailAssociationSource, /participantCreationDeferred/);
+  assert.match(approvalSource, /ensureParticipantForAutomaticActivation/);
+  assert.match(approvalSource, /insert into participants/i);
+  assert.match(approvalSource, /can_encadrer, can_referer, can_admin/);
 });
 
 test("la vérification de l'e-mail active automatiquement un compte pending associé", () => {
