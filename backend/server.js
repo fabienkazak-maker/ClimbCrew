@@ -6,18 +6,24 @@ import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import { readFile } from "node:fs/promises";
-import { sendApprovalNotificationEmail } from "./admin-users/account-service.js";
 import {
-  ValidationError,
   validateLegacyImportPayload,
   validateParticipantPayload,
   validateRealisationPayload,
   validateRoutePayload,
-  validateSessionPayload,
 } from "./validation.js";
 
 const app = express();
 app.disable("x-powered-by");
+
+/**
+ * Point d'ancrage temporaire pour les routes dont le contrôleur historique a
+ * déjà été remplacé par admin-user-enhancements.js au démarrage normal.
+ * Cette fonction ne doit jamais être atteinte avec `npm start`.
+ */
+function legacyReplacedRoute(_req, res) {
+  return res.status(503).json({ error: "Contrôleur moderne non initialisé" });
+}
 const { Pool } = pg;
 
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -249,10 +255,6 @@ app.use((req, res, next) => {
   if (isSafeMethod(req.method)) return next();
   return writeRateLimit(req, res, next);
 });
-
-function firstLetter(value = "") {
-  return String(value || "").trim().charAt(0).toUpperCase();
-}
 
 function isStrongPassword(value) {
   return typeof value === "string"
@@ -591,21 +593,6 @@ async function ensureDefaultAdmin() {
   console.log(`Compte administrateur initial créé : ${email}. Change le mot de passe à la première utilisation.`);
 }
 
-async function findParticipantId(prenom, nom) {
-  const result = await pool.query(
-    `
-      select id
-      from participants
-      where lower(prenom) = lower($1)
-        and lower(nom) = lower($2)
-      limit 1
-    `,
-    [String(prenom || "").trim(), firstLetter(nom)]
-  );
-
-  return result.rows[0]?.id || null;
-}
-
 async function loadSessionFromToken(rawToken) {
   const tokenHash = hashToken(rawToken);
 
@@ -874,31 +861,7 @@ app.put("/admin/evolution-requests/:id/status", requireAuth, requireAdmin, async
 });
 
 
-app.get("/realisations", requireAuth, async (_req, res) => {
-  try {
-    const result = await pool.query(`
-      select
-        id,
-        participant_id as "participantId",
-        session_id as "sessionId",
-        voie_id as "voieId",
-        date_realisation as "dateRealisation",
-        style_realisation as "styleRealisation",
-        commentaire,
-        cotation_proposee as "cotationProposee",
-        nb_essais as "nbEssais",
-        rating,
-        chute,
-        assureur_id as "assureurId"
-      from realisations
-      order by date_realisation desc, created_at desc
-    `);
-    res.json(result.rows);
-  } catch (error) {
-    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
-  }
-});
-
+app.get("/realisations", requireAuth, legacyReplacedRoute);
 app.post("/realisations", requireAuth, async (req, res) => {
   try {
     const realisation = validateRealisationPayload(req.body || {});
@@ -1206,15 +1169,7 @@ app.get("/", (_req, res) => {
   res.send("ClimbCrew API running");
 });
 
-app.get("/health", async (_req, res) => {
-  try {
-    await pool.query("select 1");
-    res.json({ ok: true });
-  } catch (error) {
-    res.status(500).json({ ok: false, error: String(error) });
-  }
-});
-
+app.get("/health", legacyReplacedRoute);
 app.get("/setup-db", requireSetupAccess, async (_req, res) => {
   try {
     await ensureSchema();
@@ -1255,85 +1210,7 @@ app.get("/db-status", requireSetupAccess, async (_req, res) => {
 /**
  * Auth
  */
-app.post("/auth/login", authRateLimit, async (req, res) => {
-  const email = cleanEmail(req.body?.email);
-  const password = String(req.body?.password || "");
-
-  try {
-    const result = await pool.query(`select * from users where lower(email) = $1 limit 1`, [email]);
-    const user = result.rows[0];
-
-    if (!user) {
-      await logAccess({
-        userId: null,
-        eventType: "login_failed",
-        success: false,
-        req,
-        details: { email, reason: "unknown_email" },
-      });
-      return res.status(401).json({ error: "Identifiants invalides" });
-    }
-
-    if (user.status !== "active") {
-      await logAccess({
-        userId: user.id,
-        eventType: "login_blocked",
-        success: false,
-        req,
-        details: { email, status: user.status },
-      });
-      return res.status(403).json({ error: `Compte ${user.status}` });
-    }
-
-    const validPassword = await bcrypt.compare(password, user.password_hash);
-    if (!validPassword) {
-      await logAccess({
-        userId: user.id,
-        eventType: "login_failed",
-        success: false,
-        req,
-        details: { email, reason: "bad_password" },
-      });
-      return res.status(401).json({ error: "Identifiants invalides" });
-    }
-
-    const rawToken = randomToken(32);
-    const expiresAt = nowPlus(SESSION_DURATION_MS);
-
-    await pool.query(
-      `
-        insert into user_sessions (user_id, token_hash, expires_at, user_agent, ip_address)
-        values ($1, $2, $3, $4, $5)
-      `,
-      [user.id, hashToken(rawToken), expiresAt, req.headers["user-agent"] || null, getClientIp(req)]
-    );
-
-    const updatedUserResult = await pool.query(
-      `update users set last_login_at = now() where id = $1 returning *`,
-      [user.id]
-    );
-
-    await logAccess({
-      userId: user.id,
-      eventType: "login_success",
-      success: true,
-      req,
-      details: { email },
-    });
-
-    const csrfToken = randomToken(24);
-    setSessionCookie(res, rawToken, expiresAt);
-    setCsrfCookie(res, csrfToken, expiresAt);
-
-    res.json({
-      ok: true,
-      user: serializeUser(updatedUserResult.rows[0]),
-    });
-  } catch (error) {
-    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
-  }
-});
-
+app.post("/auth/login", authRateLimit, legacyReplacedRoute);
 app.get("/auth/me", requireAuth, async (req, res) => {
   res.json({ ok: true, user: req.auth.user });
 });
@@ -1393,205 +1270,10 @@ app.post("/auth/logout", requireAuth, async (req, res) => {
   }
 });
 
-app.post("/auth/request-access", authRateLimit, async (req, res) => {
-  const prenom = String(req.body?.prenom || "").trim();
-  const nom = String(req.body?.nom || "").trim();
-  const email = cleanEmail(req.body?.email);
-  const password = String(req.body?.password || "");
-  const acceptTerms = Boolean(req.body?.acceptTerms);
-
-  if (!prenom || !nom || !email) {
-    return res.status(400).json({ error: "Prénom, nom et email sont requis" });
-  }
-  if (!acceptTerms) {
-    return res.status(400).json({ error: "Les conditions d’utilisation doivent être acceptées" });
-  }
-  if (!isStrongPassword(password)) {
-    return res.status(400).json({ error: "Le mot de passe doit contenir 8 caractères minimum, dont 1 majuscule, 1 minuscule, 1 chiffre et 1 caractère spécial" });
-  }
-
-  try {
-    const existing = await pool.query(`select id from users where lower(email) = $1`, [email]);
-    if (existing.rowCount > 0) {
-      return res.status(409).json({ error: "Un compte existe déjà pour cet email" });
-    }
-
-    const participantId = await findParticipantId(prenom, nom);
-    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
-
-    const result = await pool.query(
-      `
-        insert into users (participant_id, email, prenom, nom, password_hash, role, status)
-        values ($1, $2, $3, $4, $5, 'user', 'pending')
-        returning *
-      `,
-      [participantId, email, prenom, nom, passwordHash]
-    );
-
-    if (participantId) {
-      await pool.query(
-        `update participants set email = $2 where id = $1 and coalesce(email, '') = ''`,
-        [participantId, email]
-      );
-    }
-
-    await logAccess({
-      userId: result.rows[0].id,
-      eventType: "request_access",
-      success: true,
-      req,
-      details: { email, participantId },
-    });
-
-    res.json({
-      ok: true,
-      message: "Demande d’accès enregistrée. Un administrateur doit l’approuver.",
-      user: serializeUser(result.rows[0]),
-    });
-  } catch (error) {
-    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
-  }
-});
-
-app.post("/auth/forgot-password", resetRateLimit, async (req, res) => {
-  const email = cleanEmail(req.body?.email);
-
-  try {
-    const result = await pool.query(`select id, email from users where lower(email) = $1 limit 1`, [email]);
-    const user = result.rows[0] || null;
-
-    await logAccess({
-      userId: user?.id || null,
-      eventType: "forgot_password_requested",
-      success: true,
-      req,
-      details: { email },
-    });
-
-    res.json({
-      ok: true,
-      message: "La demande a été enregistrée. Un administrateur peut désormais générer un code de réinitialisation.",
-    });
-  } catch (error) {
-    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
-  }
-});
-
-app.post("/auth/reset-password", resetRateLimit, async (req, res) => {
-  const email = cleanEmail(req.body?.email);
-  const rawToken = String(req.body?.token || "").trim();
-  const password = String(req.body?.password || "");
-
-  if (!email || !rawToken || !password) {
-    return res.status(400).json({ error: "Email, code et nouveau mot de passe sont requis" });
-  }
-  if (!isStrongPassword(password)) {
-    return res.status(400).json({ error: "Le mot de passe doit contenir 8 caractères minimum, dont 1 majuscule, 1 minuscule, 1 chiffre et 1 caractère spécial" });
-  }
-
-  const client = await pool.connect();
-  try {
-    await client.query("begin");
-
-    const userResult = await client.query(`select * from users where lower(email) = $1 limit 1`, [email]);
-    const user = userResult.rows[0];
-
-    if (!user) {
-      await client.query("rollback");
-      return res.status(404).json({ error: "Compte introuvable" });
-    }
-
-    const tokenHash = hashToken(rawToken);
-    const tokenResult = await client.query(
-      `
-        select *
-        from password_reset_tokens
-        where user_id = $1
-          and token_hash = $2
-          and used_at is null
-          and expires_at > now()
-        limit 1
-      `,
-      [user.id, tokenHash]
-    );
-
-    const resetToken = tokenResult.rows[0];
-    if (!resetToken) {
-      await client.query("rollback");
-      return res.status(400).json({ error: "Code de réinitialisation invalide ou expiré" });
-    }
-
-    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
-
-    await client.query(
-      `
-        update users
-        set password_hash = $2,
-            must_reset_password = false
-        where id = $1
-      `,
-      [user.id, passwordHash]
-    );
-
-    await client.query(
-      `update password_reset_tokens set used_at = now() where id = $1`,
-      [resetToken.id]
-    );
-
-    await client.query(
-      `update user_sessions set revoked_at = now() where user_id = $1 and revoked_at is null`,
-      [user.id]
-    );
-
-    await client.query("commit");
-
-    await logAccess({
-      userId: user.id,
-      eventType: "password_reset_completed",
-      success: true,
-      req,
-      details: { email },
-    });
-
-    res.json({
-      ok: true,
-      message: "Mot de passe réinitialisé. Tu peux te reconnecter.",
-    });
-  } catch (error) {
-    await client.query("rollback");
-    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
-  } finally {
-    client.release();
-  }
-});
-
-/**
- * Admin auth
- */
-app.get("/admin/auth/users", requireAuth, requireAdmin, async (_req, res) => {
-  try {
-    const result = await pool.query(
-      `
-        select id, participant_id, email, prenom, nom, role, status, must_reset_password, created_at, approved_at, revoked_at, revoked_reason, last_login_at
-        from users
-        order by
-          case status
-            when 'pending' then 0
-            when 'active' then 1
-            when 'revoked' then 2
-            else 3
-          end,
-          created_at desc,
-          email asc
-      `
-    );
-
-    res.json({ ok: true, users: result.rows.map(serializeUser) });
-  } catch (error) {
-    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
-  }
-});
-
+app.post("/auth/request-access", authRateLimit, legacyReplacedRoute);
+app.post("/auth/forgot-password", resetRateLimit, legacyReplacedRoute);
+app.post("/auth/reset-password", resetRateLimit, legacyReplacedRoute);
+app.get("/admin/auth/users", requireAuth, requireAdmin, legacyReplacedRoute);
 app.get("/admin/auth/logs", requireAuth, requireAdmin, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 200), 500);
@@ -1621,79 +1303,8 @@ app.get("/admin/auth/logs", requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-app.post("/admin/auth/users/:id/approve", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const userId = Number(req.params.id);
-    const result = await pool.query(
-      `
-        update users
-        set status = 'active',
-            approved_at = now(),
-            revoked_at = null,
-            revoked_reason = null
-        where id = $1
-        returning *
-      `,
-      [userId]
-    );
-
-    if (!result.rowCount) {
-      return res.status(404).json({ error: "Compte introuvable" });
-    }
-
-    await logAccess({
-      userId,
-      eventType: "account_approved",
-      success: true,
-      req,
-      details: { by: req.auth.user.email },
-    });
-
-    await sendApprovalNotificationEmail({ user: result.rows[0], req });
-
-    res.json({ ok: true, user: serializeUser(result.rows[0]) });
-  } catch (error) {
-    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
-  }
-});
-
-app.post("/admin/auth/users/:id/revoke", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const userId = Number(req.params.id);
-    const reason = String(req.body?.reason || "Révocation administrateur");
-
-    const result = await pool.query(
-      `
-        update users
-        set status = 'revoked',
-            revoked_at = now(),
-            revoked_reason = $2
-        where id = $1
-        returning *
-      `,
-      [userId, reason]
-    );
-
-    if (!result.rowCount) {
-      return res.status(404).json({ error: "Compte introuvable" });
-    }
-
-    await pool.query(`update user_sessions set revoked_at = now() where user_id = $1 and revoked_at is null`, [userId]);
-
-    await logAccess({
-      userId,
-      eventType: "account_revoked",
-      success: true,
-      req,
-      details: { by: req.auth.user.email, reason },
-    });
-
-    res.json({ ok: true, user: serializeUser(result.rows[0]) });
-  } catch (error) {
-    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
-  }
-});
-
+app.post("/admin/auth/users/:id/approve", requireAuth, requireAdmin, legacyReplacedRoute);
+app.post("/admin/auth/users/:id/revoke", requireAuth, requireAdmin, legacyReplacedRoute);
 app.delete("/admin/auth/users/:id", requireAuth, requireAdmin, async (req, res) => {
   const client = await pool.connect();
   try {
@@ -1745,100 +1356,9 @@ app.delete("/admin/auth/users/:id", requireAuth, requireAdmin, async (req, res) 
   }
 });
 
-app.post("/admin/auth/users/:id/reactivate", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const userId = Number(req.params.id);
-    const result = await pool.query(
-      `
-        update users
-        set status = 'active',
-            revoked_at = null,
-            revoked_reason = null
-        where id = $1
-        returning *
-      `,
-      [userId]
-    );
-
-    if (!result.rowCount) {
-      return res.status(404).json({ error: "Compte introuvable" });
-    }
-
-    await logAccess({
-      userId,
-      eventType: "account_reactivated",
-      success: true,
-      req,
-      details: { by: req.auth.user.email },
-    });
-
-    res.json({ ok: true, user: serializeUser(result.rows[0]) });
-  } catch (error) {
-    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
-  }
-});
-
-app.post("/admin/auth/users/:id/reset-token", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const userId = Number(req.params.id);
-    const userResult = await pool.query(`select id, email from users where id = $1`, [userId]);
-
-    if (!userResult.rowCount) {
-      return res.status(404).json({ error: "Compte introuvable" });
-    }
-
-    const rawToken = randomToken(4).toUpperCase();
-    const expiresAt = nowPlus(RESET_TOKEN_DURATION_MS);
-
-    await pool.query(
-      `
-        insert into password_reset_tokens (user_id, token_hash, expires_at)
-        values ($1, $2, $3)
-      `,
-      [userId, hashToken(rawToken), expiresAt]
-    );
-
-    await logAccess({
-      userId,
-      eventType: "password_reset_token_generated",
-      success: true,
-      req,
-      details: { by: req.auth.user.email, expiresAt },
-    });
-
-    res.json({
-      ok: true,
-      resetToken: rawToken,
-      expiresAt,
-    });
-  } catch (error) {
-    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
-  }
-});
-
-/**
- * Participants
- */
-app.get("/participants", requireAuth, async (req, res) => {
-  try {
-    const result = await pool.query(`
-      select id, nom, prenom, email, passport, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin, avatar_id, crest_id, profile_public, custom_avatar_image
-      from participants
-      order by prenom asc, nom asc
-    `);
-    const ownParticipantId = String(req.auth.user.participantId || "");
-    const canSeePrivateProfiles = req.auth.user.role === "admin";
-    res.json(result.rows.map((row) => {
-      if (row.profile_public || canSeePrivateProfiles || String(row.id) === ownParticipantId) {
-        return participantDbToApi(row);
-      }
-      return participantDbToApi({ ...row, avatar_id: "gecko", crest_id: "cristal", custom_avatar_image: "" });
-    }));
-  } catch (error) {
-    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
-  }
-});
-
+app.post("/admin/auth/users/:id/reactivate", requireAuth, requireAdmin, legacyReplacedRoute);
+app.post("/admin/auth/users/:id/reset-token", requireAuth, requireAdmin, legacyReplacedRoute);
+app.get("/participants", requireAuth, legacyReplacedRoute);
 app.post("/participants", requireAuth, requireAdmin, async (req, res) => {
   try {
     const {
@@ -1873,151 +1393,9 @@ app.post("/participants", requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-app.put("/participants/:id", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id <= 0) {
-      throw new ValidationError("L'identifiant du participant est invalide.", {
-        id: "invalid_identifier",
-      });
-    }
-    const {
-      nom,
-      prenom,
-      email,
-      passport,
-      sexe,
-      cotisation,
-      ffme,
-      canEncadrer,
-      canReferer,
-      canAdmin,
-      avatarId = "gecko",
-      crestId = "cristal",
-      profilePublic = true,
-    } = validateParticipantPayload(req.body || {});
-
-    const result = await pool.query(
-      `
-        update participants
-        set nom = $2,
-            prenom = $3,
-            email = $4,
-            passport = $5,
-            sexe = $6,
-            cotisation = $7,
-            ffme = $8,
-            can_encadrer = $9,
-            can_referer = $10,
-            can_admin = $11,
-            avatar_id = $12,
-            crest_id = $13,
-            profile_public = $14
-        where id = $1
-        returning id, nom, prenom, email, passport, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin, avatar_id, crest_id, profile_public
-      `,
-      [id, nom, prenom, String(email || "").trim().toLowerCase(), passport, sexe, cotisation, ffme, canEncadrer, canReferer, canAdmin, avatarId, crestId, profilePublic]
-    );
-
-    if (!result.rowCount) {
-      return res.status(404).json({ error: "participant not found" });
-    }
-
-    res.json(participantDbToApi(result.rows[0]));
-  } catch (error) {
-    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
-  }
-});
-
-app.patch("/participants/me/profile", requireAuth, async (req, res) => {
-  try {
-    const participantId = Number(req.auth.user.participantId);
-    if (!Number.isInteger(participantId) || participantId <= 0) {
-      return res.status(409).json({ error: "Le compte n'est pas relié à une fiche grimpeur" });
-    }
-
-    const cleanChoice = (value, fallback) => {
-      const normalized = String(value || fallback).trim().toLowerCase();
-      return /^[a-z0-9_]{2,40}$/.test(normalized) ? normalized : fallback;
-    };
-    const avatarId = cleanChoice(req.body?.avatarId, "gecko");
-    const crestId = cleanChoice(req.body?.crestId, "cristal");
-    const profilePublic = req.body?.profilePublic !== false;
-    const customAvatarImage = String(req.body?.customAvatarImage || "");
-    const allowedImagePrefix = /^data:image\/webp;base64,/;
-    if (customAvatarImage && (!allowedImagePrefix.test(customAvatarImage) || customAvatarImage.length > 450000)) {
-      return res.status(400).json({ error: "L’image personnalisée doit être un WebP 512×512 de moins de 450 Ko." });
-    }
-
-    const result = await pool.query(
-      `
-        update participants
-        set avatar_id = $2, crest_id = $3, profile_public = $4, custom_avatar_image = $5
-        where id = $1
-        returning id, nom, prenom, email, passport, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin, avatar_id, crest_id, profile_public, custom_avatar_image
-      `,
-      [participantId, avatarId, crestId, profilePublic, customAvatarImage],
-    );
-    res.json(participantDbToApi(result.rows[0]));
-  } catch (error) {
-    res.status(error.status || 500).json({ error: error.message || String(error) });
-  }
-});
-
-app.delete("/participants/:id", requireAuth, requireAdmin, async (req, res) => {
-  const client = await pool.connect();
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id <= 0) {
-      return res.status(400).json({ error: "Identifiant du grimpeur invalide" });
-    }
-
-    await client.query("begin");
-    const participantResult = await client.query(
-      "select id from participants where id = $1 for update",
-      [id],
-    );
-    if (!participantResult.rowCount) {
-      await client.query("rollback");
-      return res.status(404).json({ error: "Grimpeur introuvable" });
-    }
-
-    await client.query("update users set participant_id = null where participant_id = $1", [id]);
-    const inscriptionsResult = await client.query(
-      "delete from session_participants where participant_id = $1",
-      [String(id)],
-    );
-    await client.query(
-      "update sessions set encadrant_id = null where encadrant_id = $1",
-      [String(id)],
-    );
-    await client.query(
-      "update sessions set referent_id = null where referent_id = $1",
-      [String(id)],
-    );
-    const realisationsResult = await client.query(
-      "delete from realisations where participant_id = $1",
-      [String(id)],
-    );
-    await client.query("delete from participants where id = $1", [id]);
-    await client.query("commit");
-
-    res.json({
-      ok: true,
-      deletedInscriptions: inscriptionsResult.rowCount,
-      deletedRealisations: realisationsResult.rowCount,
-    });
-  } catch (error) {
-    await client.query("rollback");
-    res.status(500).json({ error: error.message || "Suppression du grimpeur impossible" });
-  } finally {
-    client.release();
-  }
-});
-
-/**
- * Sessions + inscriptions
- */
+app.put("/participants/:id", requireAuth, requireAdmin, legacyReplacedRoute);
+app.patch("/participants/me/profile", requireAuth, legacyReplacedRoute);
+app.delete("/participants/:id", requireAuth, requireAdmin, legacyReplacedRoute);
 app.get("/sessions", requireAuth, async (_req, res) => {
   try {
     const sessionsResult = await pool.query(`
@@ -2050,92 +1428,7 @@ app.get("/sessions", requireAuth, async (_req, res) => {
   }
 });
 
-app.put("/sessions/:id", requireAuth, async (req, res) => {
-  const client = await pool.connect();
-
-  try {
-    const {
-      id,
-      date,
-      slot,
-      status,
-      encadrantId,
-      referentId,
-      participantIds,
-    } = validateSessionPayload(req.body || {}, req.params.id);
-
-    const resolvedStatus = status || defaultSessionStatus(date, slot);
-
-    await client.query("begin");
-
-    const sessionResult = await client.query(
-      `
-        insert into sessions (id, date, slot, status, encadrant_id, referent_id)
-        values ($1,$2,$3,$4,$5,$6)
-        on conflict (id) do update set
-          date = excluded.date,
-          slot = excluded.slot,
-          status = excluded.status,
-          encadrant_id = excluded.encadrant_id,
-          referent_id = excluded.referent_id,
-          updated_at = now()
-        returning id, date, slot, status, encadrant_id, referent_id
-      `,
-      [id, date, slot, resolvedStatus, encadrantId || null, referentId || null]
-    );
-
-    const previousParticipantsResult = await client.query(
-      `select participant_id from session_participants where session_id = $1`,
-      [id]
-    );
-    const previousParticipantIds = new Set(
-      previousParticipantsResult.rows.map((row) => String(row.participant_id))
-    );
-
-    await client.query("delete from session_participants where session_id = $1", [id]);
-
-    const uniqueParticipantIds = [...new Set(participantIds.map(String))];
-    const newlyAddedParticipantIds = uniqueParticipantIds.filter(
-      (participantId) => !previousParticipantIds.has(participantId)
-    );
-
-    if (resolvedStatus === "libre" && newlyAddedParticipantIds.length) {
-      const eligibleResult = await client.query(
-        `select id from participants where id = any($1::bigint[]) and lower(passport) in ('jaune', 'orange', 'vert', 'bleu')`,
-        [newlyAddedParticipantIds]
-      );
-      const eligibleIds = new Set(eligibleResult.rows.map((row) => String(row.id)));
-      const ineligibleIds = newlyAddedParticipantIds.filter((participantId) => !eligibleIds.has(participantId));
-      if (ineligibleIds.length) {
-        await client.query("rollback");
-        return res.status(400).json({
-          error: "Une séance libre est réservée aux passeports Jaune, Orange, Vert ou Bleu pour toute nouvelle inscription.",
-        });
-      }
-    }
-
-    for (const participantId of uniqueParticipantIds) {
-      await client.query(
-        `
-          insert into session_participants (session_id, participant_id)
-          values ($1,$2)
-          on conflict do nothing
-        `,
-        [id, participantId]
-      );
-    }
-
-    await client.query("commit");
-
-    res.json(sessionDbToApi(sessionResult.rows[0], uniqueParticipantIds));
-  } catch (error) {
-    await client.query("rollback");
-    res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
-  } finally {
-    client.release();
-  }
-});
-
+app.put("/sessions/:id", requireAuth, legacyReplacedRoute);
 app.delete("/sessions/:id", requireAuth, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
@@ -2459,29 +1752,8 @@ async function exportLegacyPayload() {
   };
 }
 
-app.post("/admin/import-data", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const summary = await importLegacyPayload(req.body);
-    res.json(summary);
-  } catch (error) {
-    console.error("POST /admin/import-data", error);
-    res.status(error.status || 500).json({ error: error.message || String(error) });
-  }
-});
-
-app.get("/admin/export-data", requireAuth, requireAdmin, async (_req, res) => {
-  try {
-    const data = await exportLegacyPayload();
-    res.json({ ok: true, data });
-  } catch (error) {
-    console.error("GET /admin/export-data", error);
-    res.status(500).json({ error: error.message || String(error) });
-  }
-});
-
-/**
- * Import des données transformées, si le fichier existe.
- */
+app.post("/admin/import-data", requireAuth, requireAdmin, legacyReplacedRoute);
+app.get("/admin/export-data", requireAuth, requireAdmin, legacyReplacedRoute);
 app.post("/import-data", requireSetupAccess, async (req, res) => {
   const importFilePath = new URL("./import-data.json", import.meta.url);
   if (!fs.existsSync(importFilePath)) {
