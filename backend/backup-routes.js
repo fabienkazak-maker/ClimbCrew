@@ -13,6 +13,20 @@ function restartProcessSoon(exitCode = 0) {
   setTimeout(() => process.exit(exitCode), 1200).unref?.();
 }
 
+function emailRuntimeConfig() {
+  const enabled = ["1", "true", "yes", "oui", "on"].includes(
+    String(process.env.EMAIL_ENABLED || "").trim().toLowerCase(),
+  );
+  const fromAddress = String(
+    process.env.EMAIL_FROM_ADDRESS || process.env.SMTP_USER || "",
+  ).trim().toLowerCase();
+
+  return {
+    emailEnabled: enabled,
+    emailFromAddress: fromAddress,
+  };
+}
+
 /**
  * Routes d'exploitation réservées aux administrateurs authentifiés.
  * Les dumps restent dans /backups et ne sont jamais exposés comme fichiers statiques.
@@ -21,7 +35,14 @@ export function installBackupRoutes(app) {
   app.get("/admin/backups", requireAdmin, async (_req, res) => {
     try {
       const backups = await listBackups();
-      res.json({ ok: true, backups, config: getBackupConfig() });
+      res.json({
+        ok: true,
+        backups,
+        config: {
+          ...getBackupConfig(),
+          ...emailRuntimeConfig(),
+        },
+      });
     } catch (error) {
       console.error("GET /admin/backups", error);
       res.status(500).json({ error: "Chargement des sauvegardes impossible" });
