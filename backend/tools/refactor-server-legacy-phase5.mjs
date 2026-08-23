@@ -1,4 +1,5 @@
 // Script temporaire : extrait POST /participants de server.js.
+// Déclenchement après installation du workflow de branche.
 import { readFile, writeFile } from "node:fs/promises";
 
 const serverUrl = new URL("../server.js", import.meta.url);
