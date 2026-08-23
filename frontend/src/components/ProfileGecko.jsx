@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
 import { getGeckoLevelInfo } from "../lib/gecko-level.js";
+import { customAvatarSource } from "../lib/custom-avatar.js";
 import "../styles/profile-gecko.css";
 
 const LEVEL_ACCENTS = ["#65a30d", "#4d7c0f", "#0284c7", "#2563eb", "#7c3aed", "#9333ea", "#d97706", "#0ea5e9"];
@@ -120,7 +121,7 @@ export default function ProfileGecko({ grade, sexe, participant, onProfileUpdate
     () => AVATAR_OPTIONS.find((option) => option.id === participant?.avatarId) || AVATAR_OPTIONS[0],
     [participant?.avatarId],
   );
-  const customImage = participant?.customAvatarImage || "";
+  const customImage = customAvatarSource(participant);
 
   async function onCustomImageChange(event) {
     const file = event.target.files?.[0];

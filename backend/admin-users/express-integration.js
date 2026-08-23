@@ -45,6 +45,10 @@ import {
   listParticipantsWithPrivacy,
   listRealisationsWithPrivacy,
 } from "./participant-privacy-service.js";
+import {
+  getParticipantCustomAvatar,
+  updateOwnParticipantProfile,
+} from "./participant-avatar-service.js";
 import { updateSessionWithAuthorization } from "./session-authorization-service.js";
 import { startAccessLogRetentionScheduler } from "./access-log-retention.js";
 import { startSecurityRetentionScheduler } from "./security-retention-service.js";
@@ -133,6 +137,14 @@ export function installExpressIntegration() {
     return originalPut.call(this, path, ...handlers);
   };
 
+  const originalPatch = express.application.patch;
+  express.application.patch = function patchedPatch(path, ...handlers) {
+    if (path === "/participants/me/profile" && handlers.length) {
+      return replaceLastHandler(originalPatch, this, path, handlers, updateOwnParticipantProfile);
+    }
+    return originalPatch.call(this, path, ...handlers);
+  };
+
   const originalDelete = express.application.delete;
   express.application.delete = function patchedDelete(path, ...handlers) {
     if (path === "/participants/:id" && handlers.length) {
@@ -188,6 +200,7 @@ export function installExpressIntegration() {
         app.get("/auth/change-email/confirm", confirmEmailChange);
         app.get("/auth/notification-preference", requireAuthUser, getAccountNotificationPreference);
         app.patch("/auth/notification-preference", requireAuthUser, updateAccountNotificationPreference);
+        app.get("/participants/:id/avatar", requireAuthUser, getParticipantCustomAvatar);
         app.get(
           "/admin/auth/notification-preferences",
           requireAdmin,

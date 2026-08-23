@@ -1,5 +1,19 @@
 import { getPool } from "./database.js";
 
+// Marqueur compact conservé pour compatibilité avec le flux de mise à jour du
+// frontend. Il remplace l'ancien contenu Base64 dans les réponses JSON.
+export const REMOTE_CUSTOM_AVATAR_MARKER = "remote";
+
+function avatarMetadata(row, visible = true) {
+  const hasCustomAvatar = Boolean(
+    visible && (row.has_custom_avatar ?? Boolean(row.custom_avatar_image)),
+  );
+  return {
+    hasCustomAvatar,
+    customAvatarImage: hasCustomAvatar ? REMOTE_CUSTOM_AVATAR_MARKER : "",
+  };
+}
+
 /**
  * Sérialisation complète d'un grimpeur, réservée à son propre compte et aux
  * administrateurs. `login_email` est prioritaire : `email` reste une colonne
@@ -23,7 +37,7 @@ export function serializeParticipant(row) {
     avatarId: row.avatar_id || "gecko",
     crestId: row.crest_id || "cristal",
     profilePublic: row.profile_public !== false,
-    customAvatarImage: row.custom_avatar_image || "",
+    ...avatarMetadata(row),
   };
 }
 
@@ -53,7 +67,7 @@ export function serializePublicParticipant(row) {
     avatarId: row.avatar_id || "gecko",
     crestId: row.crest_id || "cristal",
     profilePublic: true,
-    customAvatarImage: row.custom_avatar_image || "",
+    ...avatarMetadata(row),
   };
 }
 
@@ -83,12 +97,16 @@ export function serializePrivateParticipant(row) {
     avatarId: "gecko",
     crestId: "cristal",
     profilePublic: false,
-    customAvatarImage: "",
+    ...avatarMetadata(row, false),
   };
 }
 
 /**
  * Remplace GET /participants du serveur historique.
+ *
+ * Le Base64 n'est plus sélectionné ni renvoyé dans la liste. Seul un booléen
+ * indique qu'une image personnalisée existe ; l'image elle-même passe par
+ * GET /participants/:id/avatar.
  *
  * - administrateur ou propriétaire : vue complète ;
  * - autre membre + profil public : profil d'escalade sans données privées ;
@@ -101,7 +119,8 @@ export async function listParticipantsWithPrivacy(req, res) {
         id, nom, prenom, email, login_email, passport, sexe, cotisation, ffme,
         initiateur_sae, initiateur_sne,
         can_encadrer, can_referer, can_admin, avatar_id, crest_id,
-        profile_public, custom_avatar_image
+        profile_public,
+        (coalesce(custom_avatar_image, '') <> '') as has_custom_avatar
       from participants
       order by prenom asc, nom asc
     `);
