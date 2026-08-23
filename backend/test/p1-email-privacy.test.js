@@ -26,17 +26,19 @@ const participantRow = {
   custom_avatar_image: "data:image/webp;base64,SECRET",
 };
 
-test("la vue complète utilise login_email comme adresse canonique", () => {
+test("la vue complète utilise login_email et remplace le Base64 par un marqueur", () => {
   const participant = serializeParticipant(participantRow);
   assert.equal(participant.email, "alice@example.test");
   assert.equal(participant.avatarId, "lynx");
-  assert.equal(participant.customAvatarImage, "data:image/webp;base64,SECRET");
+  assert.equal(participant.hasCustomAvatar, true);
+  assert.equal(participant.customAvatarImage, "remote");
+  assert.equal(participant.customAvatarImage.includes("base64"), false);
   assert.equal(participant.cotisation, true);
   assert.equal(participant.ffme, true);
   assert.equal(participant.canAdmin, true);
 });
 
-test("la vue publique conserve les données de club sans divulguer les données privées", () => {
+test("la vue publique signale l avatar sans divulguer son Base64", () => {
   const participant = serializePublicParticipant(participantRow);
 
   assert.equal(participant.id, "42");
@@ -45,14 +47,15 @@ test("la vue publique conserve les données de club sans divulguer les données 
   assert.equal(participant.ffme, true);
   assert.equal(participant.avatarId, "lynx");
   assert.equal(participant.crestId, "flamme");
-  assert.equal(participant.customAvatarImage, "data:image/webp;base64,SECRET");
+  assert.equal(participant.hasCustomAvatar, true);
+  assert.equal(participant.customAvatarImage, "remote");
   assert.equal(participant.profilePublic, true);
 
   assert.equal(participant.email, "");
   assert.equal(participant.canAdmin, false);
 });
 
-test("la vue privée conserve passeport, cotisation et FFME mais masque les données privées", () => {
+test("la vue privée conserve les données club mais masque aussi l avatar personnalisé", () => {
   const participant = serializePrivateParticipant({ ...participantRow, profile_public: false });
 
   assert.equal(participant.id, "42");
@@ -69,6 +72,7 @@ test("la vue privée conserve passeport, cotisation et FFME mais masque les donn
   assert.equal(participant.canAdmin, false);
   assert.equal(participant.avatarId, "gecko");
   assert.equal(participant.crestId, "cristal");
+  assert.equal(participant.hasCustomAvatar, false);
   assert.equal(participant.customAvatarImage, "");
   assert.equal(participant.profilePublic, false);
 });
@@ -98,10 +102,13 @@ test("les lectures participants et réalisations utilisent les contrôleurs de c
   );
 
   assert.match(integration, /path === "\/participants"[\s\S]*listParticipantsWithPrivacy/);
+  assert.match(integration, /\/participants\/:id\/avatar/);
   assert.match(integration, /path === "\/realisations"[\s\S]*listRealisationsWithPrivacy/);
   assert.match(privacy, /serializePublicParticipant/);
   assert.match(privacy, /cotisation: Boolean\(row\.cotisation\)/);
   assert.match(privacy, /ffme: Boolean\(row\.ffme\)/);
+  assert.match(privacy, /has_custom_avatar/);
+  assert.doesNotMatch(privacy, /profile_public, custom_avatar_image\s+from participants/);
   assert.match(privacy, /r\.participant_id::text = \$2/);
   assert.match(privacy, /p\.id::text = r\.participant_id::text/);
   assert.match(privacy, /coalesce\(p\.profile_public, false\) = true/);
