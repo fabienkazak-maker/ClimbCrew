@@ -1,17 +1,21 @@
 import express from "express";
+import { CANONICAL_RATE_LIMIT_IP } from "./prebody-rate-limit.js";
 
 const EXPRESS_CLIENT_IP_PATCH = Symbol.for("climbcrew.client-ip-patch");
 const APP_CLIENT_IP_MIDDLEWARE = Symbol.for("climbcrew.client-ip-middleware");
 
 /**
  * Réécrit les en-têtes d'adresse à partir de req.ip, donc après application de
- * la configuration Express `trust proxy`. Les anciennes fonctions du serveur
- * qui lisaient directement le premier X-Forwarded-For reçoivent ainsi une
- * valeur déjà validée par Express et ne peuvent plus être pilotées par une
- * entrée arbitraire placée à gauche de la chaîne par le client.
+ * la configuration Express `trust proxy`. Lorsqu'un garde-fou précoce a déjà
+ * ramené une nouvelle adresse vers la clé d'overflow, cette clé est conservée
+ * afin de borner également les Maps des anciens limiteurs.
  */
 export function trustedClientIpMiddleware(req, _res, next) {
-  const trustedIp = String(req.ip || req.socket?.remoteAddress || "").trim();
+  const boundedIp = req[CANONICAL_RATE_LIMIT_IP];
+  const trustedIp = String(
+    boundedIp || req.ip || req.socket?.remoteAddress || "",
+  ).trim();
+
   if (trustedIp) {
     req.headers["x-forwarded-for"] = trustedIp;
     req.headers["x-real-ip"] = trustedIp;
@@ -22,12 +26,6 @@ export function trustedClientIpMiddleware(req, _res, next) {
   next();
 }
 
-/**
- * Installe le middleware avant le premier app.use() déclaré dans server.js.
- * Ce mécanisme transitoire suit le même modèle de préchargement que les autres
- * adaptations historiques ; il pourra disparaître lorsque server.js sera
- * découpé en routeurs explicites.
- */
 export function installClientIpHardening() {
   if (express.application[EXPRESS_CLIENT_IP_PATCH]) return;
   express.application[EXPRESS_CLIENT_IP_PATCH] = true;

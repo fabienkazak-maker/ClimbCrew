@@ -1,6 +1,7 @@
 import { configureDeploymentEnvironment } from "./deployment-compatibility.js";
 import { installPoolCapture } from "./admin-users/database.js";
 import { installCookieHardening } from "./admin-users/cookie-hardening.js";
+import { installPreBodyRateLimit } from "./admin-users/prebody-rate-limit.js";
 import { installClientIpHardening } from "./admin-users/client-ip-hardening.js";
 import { installRateLimitLogIntegration } from "./admin-users/rate-limit-log-integration.js";
 import { installExpressIntegration } from "./admin-users/express-integration.js";
@@ -9,43 +10,17 @@ import { installInitiatorQualificationIntegration } from "./admin-users/initiato
 
 /**
  * Point d'entrée préchargé par Node avant server.js.
- *
- * Rôle : installer les adaptations transverses avant que le serveur principal
- * ne lise ses variables d'environnement et ne déclare ses routes Express.
- *
- * Impact visuel : aucun composant graphique n'est modifié directement. Cette
- * préparation évite toutefois les écrans vides, les erreurs CORS et les retours
- * à la page de connexion lorsque frontend et backend sont séparés sur Render.
+ * Installe les adaptations transverses avant les middlewares historiques.
  */
 
-// 1. Fusionne les origines autorisées et applique les valeurs Render uniquement
-//    lorsqu'aucune valeur explicite n'a été fournie par le serveur Linux.
 configureDeploymentEnvironment();
-
-// 2. Capture le pool PostgreSQL créé par server.js afin que les modules séparés
-//    de gestion des comptes utilisent exactement la même connexion à la base.
 installPoolCapture();
 
-// 3. Retire les en-têtes Cookie malformés avant les anciens parseurs de server.js.
-//    Une séquence percent-encodée invalide devient ainsi une simple session absente.
+// L'ordre est volontaire : cookie sûr -> limite précoce -> IP canonique -> logs.
 installCookieHardening();
-
-// 4. Normalise l'adresse cliente à partir de req.ip, donc après application de
-//    la politique Express trust proxy, avant les limiteurs et les journaux.
+installPreBodyRateLimit();
 installClientIpHardening();
-
-// 5. Journalise les réponses 429 des limiteurs sans conserver les mots de passe,
-//    jetons ou paramètres de requête potentiellement sensibles.
 installRateLimitLogIntegration();
-
-// 6. Installe les routes complémentaires et la compatibilité CSRF avant que
-//    server.js ne commence à enregistrer ses middlewares et ses contrôleurs.
 installExpressIntegration();
-
-// 7. Enveloppe le démarrage réseau afin d'appliquer les migrations PostgreSQL
-//    versionnées une fois le schéma historique créé mais avant la première requête.
 installMigrationHook();
-
-// 8. Ajoute la route d'administration dédiée aux qualifications Initiateur.
-//    Elle est installée avant l'écoute réseau et reste protégée par requireAdmin.
 installInitiatorQualificationIntegration();
