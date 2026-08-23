@@ -131,7 +131,7 @@ export default function Parametres({
               autoComplete="new-password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              minLength={12}
+              minLength={8}
               required
             />
           </div>
@@ -142,11 +142,11 @@ export default function Parametres({
               autoComplete="new-password"
               value={confirmNewPassword}
               onChange={(e) => setConfirmNewPassword(e.target.value)}
-              minLength={12}
+              minLength={8}
               required
             />
           </div>
-          <div className="small">Au moins 12 caractères, avec majuscule, minuscule, chiffre et caractère spécial.</div>
+          <div className="small">8 caractères minimum, dont 1 majuscule, 1 minuscule, 1 chiffre et 1 caractère spécial.</div>
           {passwordError && <div className="error">{passwordError}</div>}
           {passwordMessage && <div className="success">{passwordMessage}</div>}
           <div>
