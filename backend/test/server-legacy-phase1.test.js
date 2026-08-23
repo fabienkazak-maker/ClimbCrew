@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 
 const serverSource = await readFile(new URL("../server.js", import.meta.url), "utf8");
 const routeManagementSource = await readFile(new URL("../route-management-routes.js", import.meta.url), "utf8");
+const realisationManagementSource = await readFile(new URL("../realisation-management-routes.js", import.meta.url), "utf8");
 
 const replacedRouteShells = [
   `app.post("/admin/import-data", requireAuth, requireAdmin, legacyReplacedRoute);`,
@@ -42,6 +43,9 @@ test("les anciennes implémentations remplacées ne reviennent pas dans server.j
     'const customAvatarImage = String(req.body?.customAvatarImage || "");',
     'const resolvedStatus = status || defaultSessionStatus(date, slot);',
     "sendApprovalNotificationEmail",
+    'app.post("/realisations", requireAuth, async',
+    'app.put("/realisations/:id", requireAuth, async',
+    'app.delete("/realisations/:id", requireAuth, async',
   ];
 
   for (const fragment of forbiddenFragments) {
@@ -52,7 +56,15 @@ test("les anciennes implémentations remplacées ne reviennent pas dans server.j
 test("les routes encore actives restent implémentées ou explicitement extraites", () => {
   assert.match(serverSource, /app\.post\("\/participants", requireAuth, requireAdmin, async/);
   assert.match(serverSource, /app\.get\("\/sessions", requireAuth, async/);
-  assert.match(serverSource, /app\.post\("\/realisations", requireAuth, async/);
+
+  assert.match(serverSource, /app\.get\("\/realisations", requireAuth, legacyReplacedRoute\)/);
+  assert.match(serverSource, /installRealisationManagementRoutes\(app, \{ requireAuth, pool \}\)/);
+  assert.match(realisationManagementSource, /app\.post\("\/realisations", requireAuth, async/);
+  assert.match(realisationManagementSource, /app\.put\("\/realisations\/:id", requireAuth, async/);
+  assert.match(realisationManagementSource, /app\.delete\("\/realisations\/:id", requireAuth, async/);
+  assert.match(realisationManagementSource, /where id = \$1 and participant_id = \$13/);
+  assert.match(realisationManagementSource, /delete from realisations where id = \$1 and participant_id = \$2/);
+
   assert.match(serverSource, /installRouteManagementRoutes\(app, \{ requireAuth, requireAdmin, pool \}\)/);
   assert.match(routeManagementSource, /app\.get\("\/ropes", requireAuth, async/);
   assert.match(routeManagementSource, /app\.get\("\/routes", requireAuth, async/);
