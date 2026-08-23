@@ -1,6 +1,7 @@
 import { configureDeploymentEnvironment } from "./deployment-compatibility.js";
 import { installPoolCapture } from "./admin-users/database.js";
 import { installClientIpHardening } from "./admin-users/client-ip-hardening.js";
+import { installRateLimitLogIntegration } from "./admin-users/rate-limit-log-integration.js";
 import { installExpressIntegration } from "./admin-users/express-integration.js";
 import { installMigrationHook } from "./admin-users/migration-service.js";
 import { installInitiatorQualificationIntegration } from "./admin-users/initiator-qualification-integration.js";
@@ -28,14 +29,18 @@ installPoolCapture();
 //    la politique Express trust proxy, avant les limiteurs et les journaux.
 installClientIpHardening();
 
-// 4. Installe les routes complémentaires et la compatibilité CSRF avant que
+// 4. Journalise les réponses 429 des limiteurs sans conserver les mots de passe,
+//    jetons ou paramètres de requête potentiellement sensibles.
+installRateLimitLogIntegration();
+
+// 5. Installe les routes complémentaires et la compatibilité CSRF avant que
 //    server.js ne commence à enregistrer ses middlewares et ses contrôleurs.
 installExpressIntegration();
 
-// 5. Enveloppe le démarrage réseau afin d'appliquer les migrations PostgreSQL
+// 6. Enveloppe le démarrage réseau afin d'appliquer les migrations PostgreSQL
 //    versionnées une fois le schéma historique créé mais avant la première requête.
 installMigrationHook();
 
-// 6. Ajoute la route d'administration dédiée aux qualifications Initiateur.
+// 7. Ajoute la route d'administration dédiée aux qualifications Initiateur.
 //    Elle est installée avant l'écoute réseau et reste protégée par requireAdmin.
 installInitiatorQualificationIntegration();
