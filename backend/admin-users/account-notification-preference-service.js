@@ -83,19 +83,146 @@ export async function updateAccountNotificationPreference(req, res) {
 }
 
 /**
+ * Retourne les préférences de notification des comptes associés aux participants.
+ * Cet écran est réservé aux administrateurs ; l'adresse e-mail n'est pas nécessaire
+ * au frontend pour piloter la case située dans la gestion des participants.
+ */
+export async function listManagedAccountNotificationPreferences(req, res) {
+  const user = req.enhancementAuth?.user;
+  if (!isAdminUser(user)) {
+    return res.status(403).json({ error: "Accès administrateur requis" });
+  }
+
+  try {
+    const result = await getPool().query(`
+      select u.id as user_id,
+             u.participant_id,
+             u.status,
+             (u.role = 'admin' or u.is_admin = true) as is_admin,
+             p.can_admin,
+             u.receive_account_notifications
+      from users u
+      join participants p on p.id = u.participant_id
+      where u.participant_id is not null
+      order by u.id asc
+    `);
+
+    return res.json({
+      preferences: result.rows.map((row) => ({
+        userId: row.user_id,
+        participantId: row.participant_id,
+        status: row.status,
+        isAdmin: row.is_admin === true,
+        participantCanAdmin: row.can_admin === true,
+        receiveAccountNotifications: row.receive_account_notifications === true,
+      })),
+    });
+  } catch (error) {
+    console.error("Lecture des préférences de notification administrateur impossible :", error);
+    return res.status(500).json({ error: "Lecture des préférences impossible" });
+  }
+}
+
+/**
+ * Permet à un administrateur de piloter la préférence depuis la fiche participant.
+ * L'activation est refusée si le participant n'est pas administrateur ou si son
+ * compte associé n'est pas lui-même actif et administrateur.
+ */
+export async function updateManagedAccountNotificationPreference(req, res) {
+  const actor = req.enhancementAuth?.user;
+  if (!isAdminUser(actor)) {
+    return res.status(403).json({ error: "Accès administrateur requis" });
+  }
+
+  const participantId = String(req.params?.participantId || "").trim();
+  const enabled = req.body?.receiveAccountNotifications;
+  if (!participantId) return res.status(400).json({ error: "Participant requis" });
+  if (typeof enabled !== "boolean") {
+    return res.status(400).json({ error: "Préférence de notification invalide" });
+  }
+
+  try {
+    const targetResult = await getPool().query(
+      `
+        select u.id as user_id,
+               u.status,
+               (u.role = 'admin' or u.is_admin = true) as is_admin,
+               p.can_admin
+        from participants p
+        left join users u on u.participant_id = p.id
+        where p.id = $1
+        order by u.id asc
+        limit 2
+      `,
+      [participantId],
+    );
+
+    if (!targetResult.rowCount) return res.status(404).json({ error: "Participant introuvable" });
+    if (targetResult.rowCount > 1) {
+      return res.status(409).json({ error: "Plusieurs comptes sont associés à ce participant" });
+    }
+
+    const target = targetResult.rows[0];
+    if (!target.user_id) {
+      return res.status(409).json({ error: "Aucun compte n'est associé à ce participant" });
+    }
+
+    if (enabled && (target.can_admin !== true || target.is_admin !== true || target.status !== "active")) {
+      return res.status(409).json({
+        error: "Les e-mails ne peuvent être activés que pour un administrateur ayant un compte actif",
+      });
+    }
+
+    const result = await getPool().query(
+      `
+        update users
+        set receive_account_notifications = $2
+        where id = $1
+        returning receive_account_notifications
+      `,
+      [target.user_id, enabled],
+    );
+
+    await writeAccessLog({
+      userId: actor.id,
+      eventType: "account_notification_preference_changed_by_admin",
+      req,
+      details: {
+        targetUserId: target.user_id,
+        participantId,
+        enabled,
+      },
+    });
+
+    return res.json({
+      ok: true,
+      userId: target.user_id,
+      participantId,
+      receiveAccountNotifications: result.rows[0].receive_account_notifications === true,
+    });
+  } catch (error) {
+    console.error("Mise à jour administrateur de la préférence impossible :", error);
+    return res.status(500).json({ error: "Mise à jour de la préférence impossible" });
+  }
+}
+
+/**
  * Notifie exclusivement les administrateurs actifs qui ont choisi de recevoir
- * les e-mails de demandes de compte. Aucun destinataire n'est codé dans le code.
+ * les e-mails de demandes de compte. La fiche participant doit également porter
+ * le droit Administrateur : retirer ce droit coupe donc immédiatement l'envoi.
  */
 export async function notifyAccountRequestReviewers({ user, req }) {
   const recipients = await getPool().query(
     `
-      select id, email, prenom, nom
-      from users
-      where status = 'active'
-        and (role = 'admin' or is_admin = true)
-        and receive_account_notifications = true
-        and lower(email) <> lower($1)
-      order by id asc
+      select u.id, u.email, u.prenom, u.nom
+      from users u
+      join participants p on p.id = u.participant_id
+      where u.status = 'active'
+        and (u.role = 'admin' or u.is_admin = true)
+        and p.can_admin = true
+        and u.receive_account_notifications = true
+        and lower(u.email) <> lower($1)
+      order by u.id asc
     `,
     [String(user.email || "")],
   );
