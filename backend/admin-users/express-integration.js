@@ -47,6 +47,7 @@ import {
 } from "./participant-privacy-service.js";
 import { updateSessionWithAuthorization } from "./session-authorization-service.js";
 import { startAccessLogRetentionScheduler } from "./access-log-retention.js";
+import { startSecurityRetentionScheduler } from "./security-retention-service.js";
 import { requireAdmin, requireAuthUser } from "./security.js";
 import {
   blockLegacyFileImportInProduction,
@@ -204,6 +205,7 @@ export function installExpressIntegration() {
       const server = originalListen.apply(app, args);
       startBackupScheduler();
       await startAccessLogRetentionScheduler();
+      await startSecurityRetentionScheduler();
       return server;
     };
 
