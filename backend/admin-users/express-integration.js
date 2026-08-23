@@ -35,6 +35,7 @@ import {
   associateExistingAccountsByEmail,
   requestAccessByEmailOnly,
 } from "./email-association-service.js";
+import { importBusinessDataSafely } from "./secure-import-service.js";
 import { exportAllData } from "./export-service.js";
 import {
   listParticipantsWithPrivacy,
@@ -85,6 +86,9 @@ export function installExpressIntegration() {
         blockLegacyFileImportInProduction,
         ...handlers,
       );
+    }
+    if (path === "/admin/import-data" && handlers.length) {
+      return replaceLastHandler(originalPost, this, path, handlers, importBusinessDataSafely);
     }
     if (path === "/auth/login" && handlers.length) {
       return replaceLastHandler(originalPost, this, path, handlers, secureLogin);
