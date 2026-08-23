@@ -73,7 +73,7 @@ export async function findParticipantByEmailOnly(client, { email, userId = null 
                  and ($2::bigint is null or u.id <> $2::bigint)
              ) as already_linked
       from participants p
-      where lower(trim(coalesce(p.login_email, p.email, ''))) = $1
+      where lower(trim(coalesce(nullif(trim(p.login_email), ''), nullif(trim(p.email), ''), ''))) = $1
       order by p.id asc
       limit 3
     `,
