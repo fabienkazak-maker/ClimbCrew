@@ -48,6 +48,13 @@ test("l'export complet est dans le format métier réimportable", () => {
   assert.doesNotMatch(exportSource, /token_hash/);
 });
 
+test("une réalisation historique sans note reste réimportable", () => {
+  assert.match(
+    exportSource,
+    /rating: row\.rating === null \|\| row\.rating === undefined \? "" : Number\(row\.rating\)/,
+  );
+});
+
 test("la route fichier legacy reste bloquée en production", () => {
   assert.match(integrationSource, /blockLegacyFileImportInProduction/);
   assert.match(legacyServerSource, /app\.post\("\/import-data"/);
