@@ -1,8 +1,10 @@
 import { getPool } from "./database.js";
 import { writeAccessLog } from "./access-log-service.js";
 import { hashToken } from "./security.js";
+import { serializeUser } from "./user-serializer.js";
 import { requestAccessWithAssociations } from "./association-service.js";
 import { notifyAccountRequestReviewers } from "./account-notification-preference-service.js";
+import { sendApprovalNotificationEmail } from "./account-service.js";
 
 /**
  * Conserve le contrôleur robuste d'inscription existant mais corrige le message
@@ -128,6 +130,79 @@ export async function verifyEmailPendingAdminApproval(req, res) {
     await client.query("rollback").catch(() => undefined);
     console.error("Confirmation de l’adresse e-mail impossible :", error);
     return res.status(500).send("La confirmation de l’adresse e-mail a échoué.");
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Approuve uniquement une demande dont l'adresse e-mail a déjà été vérifiée.
+ * La route reste protégée par les middlewares d'authentification administrateur
+ * et de CSRF installés dans server.js ; ce contrôleur impose l'invariant métier.
+ */
+export async function approveVerifiedAccount(req, res) {
+  const userId = Number(req.params?.id);
+  if (!Number.isInteger(userId) || userId <= 0) {
+    return res.status(400).json({ error: "Utilisateur invalide" });
+  }
+
+  const client = await getPool().connect();
+  try {
+    await client.query("begin");
+    const targetResult = await client.query(
+      `select * from users where id = $1 for update`,
+      [userId],
+    );
+    const target = targetResult.rows[0];
+
+    if (!target) {
+      await client.query("rollback");
+      return res.status(404).json({ error: "Compte introuvable" });
+    }
+    if (!target.email_verified_at) {
+      await client.query("rollback");
+      return res.status(409).json({
+        error: "L’adresse e-mail doit être confirmée avant l’approbation du compte.",
+      });
+    }
+    if (target.status !== "pending") {
+      await client.query("rollback");
+      return res.status(409).json({
+        error: target.status === "active"
+          ? "Ce compte est déjà actif."
+          : "Un compte révoqué doit être réactivé avec l’action dédiée.",
+      });
+    }
+
+    const updatedResult = await client.query(
+      `
+        update users
+        set status = 'active',
+            approved_at = now(),
+            revoked_at = null,
+            revoked_reason = null
+        where id = $1
+        returning *
+      `,
+      [userId],
+    );
+    await client.query("commit");
+
+    const updatedUser = updatedResult.rows[0];
+    await writeAccessLog({
+      userId,
+      eventType: "account_approved",
+      success: true,
+      req,
+      details: { by: req.auth?.user?.email || req.enhancementAuth?.user?.email || null },
+    });
+
+    await sendApprovalNotificationEmail({ user: updatedUser, req });
+    return res.json({ ok: true, user: serializeUser(updatedUser) });
+  } catch (error) {
+    await client.query("rollback").catch(() => undefined);
+    console.error("Approbation du compte impossible :", error);
+    return res.status(500).json({ error: "Approbation du compte impossible" });
   } finally {
     client.release();
   }
