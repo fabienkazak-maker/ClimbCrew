@@ -2,41 +2,15 @@ import { getPool } from "./database.js";
 import { writeAccessLog } from "./access-log-service.js";
 import { hashToken } from "./security.js";
 import { serializeUser } from "./user-serializer.js";
-import { requestAccessWithAssociations } from "./association-service.js";
 import { notifyAccountRequestReviewers } from "./account-notification-preference-service.js";
 import { sendApprovalNotificationEmail } from "./account-service.js";
 
 /**
- * Conserve le contrôleur robuste d'inscription existant mais corrige le message
- * fonctionnel : la vérification de l'e-mail prouve la possession de l'adresse,
- * elle ne remplace pas l'approbation d'un administrateur du club.
- */
-export async function requestAccessPendingAdminApproval(req, res) {
-  const originalJson = res.json.bind(res);
-
-  res.json = (payload) => {
-    if (payload?.ok && payload?.user?.status === "pending") {
-      const message = payload.emailSent
-        ? "Demande d’accès enregistrée. Confirmez d’abord votre adresse avec l’e-mail reçu. Après cette confirmation, un administrateur devra approuver le compte avant la première connexion."
-        : "Demande d’accès enregistrée, mais l’e-mail de confirmation n’a pas pu être envoyé. Le compte restera en attente tant que l’adresse n’aura pas été confirmée puis le compte approuvé par un administrateur.";
-      return originalJson({ ...payload, message });
-    }
-    return originalJson(payload);
-  };
-
-  try {
-    return await requestAccessWithAssociations(req, res);
-  } finally {
-    res.json = originalJson;
-  }
-}
-
-/**
  * Valide uniquement la propriété de l'adresse e-mail.
  *
- * Le compte reste `pending` jusqu'à l'action explicite d'un administrateur via
- * la route d'approbation existante. Les demandes vérifiées sont ensuite visibles
- * dans Gestion des comptes et peuvent déclencher la notification opt-in.
+ * Le compte reste `pending` jusqu'à l'action explicite d'un administrateur. Les
+ * demandes vérifiées deviennent visibles dans Gestion des comptes et peuvent
+ * déclencher la notification opt-in des administrateurs.
  */
 export async function verifyEmailPendingAdminApproval(req, res) {
   const rawToken = String(req.query?.token || req.body?.token || "").trim();
@@ -136,9 +110,9 @@ export async function verifyEmailPendingAdminApproval(req, res) {
 }
 
 /**
- * Approuve uniquement une demande dont l'adresse e-mail a déjà été vérifiée.
- * La route reste protégée par les middlewares d'authentification administrateur
- * et de CSRF installés dans server.js ; ce contrôleur impose l'invariant métier.
+ * Approuve uniquement une demande dont l'adresse e-mail a été vérifiée et qui
+ * est reliée à une fiche grimpeur. Un compte sans association doit d'abord être
+ * rattaché explicitement dans Gestion des comptes.
  */
 export async function approveVerifiedAccount(req, res) {
   const userId = Number(req.params?.id);
@@ -163,6 +137,12 @@ export async function approveVerifiedAccount(req, res) {
       await client.query("rollback");
       return res.status(409).json({
         error: "L’adresse e-mail doit être confirmée avant l’approbation du compte.",
+      });
+    }
+    if (!target.participant_id) {
+      await client.query("rollback");
+      return res.status(409).json({
+        error: "Associez d’abord ce compte à une fiche grimpeur avant de l’approuver.",
       });
     }
     if (target.status !== "pending") {
