@@ -53,4 +53,25 @@ jobs:
             echo '```'
             sudo find / -maxdepth 4 -iname "*climbcrew*" -type d 2>/dev/null
             echo '```'
+            echo
+            echo "#### 7. Le site nginx climbcrew est-il activé (sites-enabled) ?"
+            echo '```'
+            ls -la /etc/nginx/sites-enabled/ 2>&1
+            echo '```'
+            echo
+            echo "#### 8. IP publique de ce serveur"
+            echo '```'
+            curl -s --max-time 5 https://ifconfig.me 2>&1; echo
+            echo '```'
+            echo
+            echo "#### 9. À quelle IP résout climbcrew.dip-tcs.com et pre-climbcrew.dip-tcs.com (DNS)"
+            echo '```'
+            echo -n "climbcrew.dip-tcs.com -> "; getent hosts climbcrew.dip-tcs.com 2>&1 || echo "non résolu"
+            echo -n "pre-climbcrew.dip-tcs.com -> "; getent hosts pre-climbcrew.dip-tcs.com 2>&1 || echo "non résolu"
+            echo '```'
+            echo
+            echo "#### 10. Certificat HTTPS existant pour climbcrew.dip-tcs.com"
+            echo '```'
+            sudo ls -la /etc/letsencrypt/live/ 2>&1 || echo "aucun répertoire letsencrypt trouvé"
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
