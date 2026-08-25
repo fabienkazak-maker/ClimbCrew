@@ -1,6 +1,17 @@
+import { randomBytes } from "node:crypto";
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import nodemailer from "nodemailer";
 import {
+  encryptedBackupFileName,
+  encryptBackupFile,
+  parseBackupEmailEncryptionKey,
+} from "./backup-encryption.js";
+import {
+  buildAccountApprovedEmail,
   buildAccountRequestConfirmation,
+  buildAdminAccountRequestReadyEmail,
+  buildEmailChangeConfirmationEmail,
   buildPasswordResetCodeEmail,
 } from "./email-templates.js";
 
@@ -53,7 +64,7 @@ function getTransporter() {
   return transporter;
 }
 
-async function sendEmail({ to, subject, text, html }) {
+async function sendEmail({ to, subject, text, html, attachments = [] }) {
   const target = String(to || "").trim().toLowerCase();
   if (!target) throw new Error("Adresse de destination absente");
 
@@ -72,6 +83,7 @@ async function sendEmail({ to, subject, text, html }) {
     subject,
     text,
     html,
+    attachments,
   });
 
   return {
@@ -87,10 +99,24 @@ export function isEmailEnabled() {
   return EMAIL_ENABLED;
 }
 
-export async function sendAccountRequestConfirmation({ email, prenom, nom }) {
+export async function sendAccountRequestConfirmation({ email, prenom, nom, verificationUrl }) {
   return sendEmail({
     to: email,
-    ...buildAccountRequestConfirmation({ prenom, nom, publicUrl: PUBLIC_URL }),
+    ...buildAccountRequestConfirmation({ prenom, nom, publicUrl: PUBLIC_URL, verificationUrl }),
+  });
+}
+
+export async function sendAccountApprovedEmail({ email, prenom, nom }) {
+  return sendEmail({
+    to: email,
+    ...buildAccountApprovedEmail({ prenom, nom, publicUrl: PUBLIC_URL }),
+  });
+}
+
+export async function sendAdminAccountRequestReadyEmail({ email, prenom, nom, applicantEmail }) {
+  return sendEmail({
+    to: email,
+    ...buildAdminAccountRequestReadyEmail({ prenom, nom, email: applicantEmail, publicUrl: PUBLIC_URL }),
   });
 }
 
@@ -99,4 +125,61 @@ export async function sendPasswordResetCode({ email, prenom, code, expiresAt }) 
     to: email,
     ...buildPasswordResetCodeEmail({ prenom, code, expiresAt, publicUrl: PUBLIC_URL }),
   });
+}
+
+export async function sendEmailChangeConfirmation({ email, prenom, newEmail, confirmUrl, expiresAt }) {
+  return sendEmail({
+    to: email,
+    ...buildEmailChangeConfirmationEmail({ prenom, newEmail, confirmUrl, expiresAt, publicUrl: PUBLIC_URL }),
+  });
+}
+
+export async function sendBackupEmail({ to, filePath, fileName, size }) {
+  if (!EMAIL_ENABLED) {
+    return { sent: false, skipped: true, reason: "email_disabled" };
+  }
+
+  // Une sauvegarde complète ne doit jamais quitter le serveur en clair.
+  // La clé est fournie séparément par l'environnement et n'est jamais incluse
+  // dans le message ou dans le fichier chiffré.
+  const encryptionKey = parseBackupEmailEncryptionKey();
+  const encryptedFileName = encryptedBackupFileName(fileName);
+  const temporaryEncryptedPath = path.join(
+    path.dirname(filePath),
+    `.${encryptedFileName}.${process.pid}.${randomBytes(8).toString("hex")}.tmp`,
+  );
+
+  try {
+    const encrypted = await encryptBackupFile({
+      inputPath: filePath,
+      outputPath: temporaryEncryptedPath,
+      key: encryptionKey,
+    });
+    const originalSizeMb = (Number(size || 0) / (1024 * 1024)).toFixed(2);
+    const encryptedSizeMb = (Number(encrypted.size || 0) / (1024 * 1024)).toFixed(2);
+    const now = new Date().toLocaleString("fr-FR", { timeZone: process.env.BACKUP_TIMEZONE || "Europe/Paris" });
+
+    return await sendEmail({
+      to,
+      subject: `Sauvegarde chiffrée ClimbClubCristal — ${encryptedFileName}`,
+      text: [
+        "Sauvegarde PostgreSQL complète de ClimbClubCristal, chiffrée avant envoi.",
+        `Fichier : ${encryptedFileName}`,
+        `Format : ${encrypted.format} — ${encrypted.algorithm}`,
+        `Taille du dump original : ${originalSizeMb} Mo`,
+        `Taille chiffrée : ${encryptedSizeMb} Mo`,
+        `Créée / envoyée : ${now}`,
+        "La clé de déchiffrement BACKUP_EMAIL_ENCRYPTION_KEY n'est jamais envoyée par e-mail.",
+        "Conserver cette clé dans un emplacement distinct et protégé.",
+      ].join("\n"),
+      html: `<p><strong>Sauvegarde PostgreSQL complète de ClimbClubCristal, chiffrée avant envoi.</strong></p><p>Fichier : ${encryptedFileName}<br>Format : ${encrypted.format} — ${encrypted.algorithm}<br>Taille du dump original : ${originalSizeMb} Mo<br>Taille chiffrée : ${encryptedSizeMb} Mo<br>Créée / envoyée : ${now}</p><p>La clé de déchiffrement <code>BACKUP_EMAIL_ENCRYPTION_KEY</code> n'est jamais envoyée par e-mail. Conserver cette clé dans un emplacement distinct et protégé.</p>`,
+      attachments: [{
+        filename: encryptedFileName,
+        path: temporaryEncryptedPath,
+        contentType: "application/octet-stream",
+      }],
+    });
+  } finally {
+    await fs.rm(temporaryEncryptedPath, { force: true }).catch(() => undefined);
+  }
 }

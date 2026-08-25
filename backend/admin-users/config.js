@@ -9,11 +9,59 @@
  * erreurs 401/403 dans les écrans Administration et Gestion des comptes.
  */
 
+function envBoolean(name, fallback = false) {
+  const value = process.env[name];
+  if (value === undefined || value === null || value === "") return fallback;
+  return ["1", "true", "yes", "oui", "on"].includes(String(value).trim().toLowerCase());
+}
+
+/**
+ * Vérifie que le serveur historique est bien démarré avec le préchargement qui
+ * installe les protections de confidentialité, CSRF, IP et migrations.
+ *
+ * Le contrôle ne s'applique qu'au véritable point d'entrée server.js en
+ * production : les tests unitaires et les imports d'outils restent utilisables.
+ */
+export function hasRequiredEnhancementPreload({
+  nodeEnv = process.env.NODE_ENV,
+  argv = process.argv,
+  execArgv = process.execArgv,
+} = {}) {
+  const serverEntrypoint = /(?:^|[\\/])server\.js$/.test(String(argv?.[1] || ""));
+  if (nodeEnv !== "production" || !serverEntrypoint) return true;
+
+  return (execArgv || []).some((value, index, values) => {
+    const arg = String(value || "");
+    if (/^--import=.*admin-user-enhancements\.js(?:$|[?#])/.test(arg)) return true;
+    if (arg === "--import") {
+      return /admin-user-enhancements\.js(?:$|[?#])/.test(String(values?.[index + 1] || ""));
+    }
+    return false;
+  });
+}
+
+if (!hasRequiredEnhancementPreload()) {
+  throw new Error(
+    "Démarrage production refusé : utilise `npm start` afin de précharger admin-user-enhancements.js. " +
+    "Le lancement direct `node server.js` contournerait des protections de sécurité.",
+  );
+}
+
 /** Nom du cookie HttpOnly qui contient le jeton de session utilisateur. */
 export const SESSION_COOKIE_NAME = process.env.SESSION_COOKIE_NAME || "climbcrew_session";
 
 /** Nom du cookie lisible utilisé pour la protection contre les requêtes CSRF. */
 export const CSRF_COOKIE_NAME = process.env.CSRF_COOKIE_NAME || "climbcrew_csrf";
+
+/**
+ * Lorsque cette option vaut false, la vérification de l'adresse e-mail active
+ * automatiquement le compte. Elle reste configurable pour pouvoir rétablir
+ * ultérieurement une approbation manuelle sans modifier le code.
+ */
+export const REQUIRE_ADMIN_ACCOUNT_APPROVAL = envBoolean(
+  "REQUIRE_ADMIN_ACCOUNT_APPROVAL",
+  false,
+);
 
 /**
  * Coût de hachage bcrypt.

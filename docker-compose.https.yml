@@ -20,7 +20,7 @@ services:
       context: ./backend
     image: climbcrew-backend-local:secure-https
     container_name: climbcrew-backend-local
-    command: sh -c "node seed-local.js && npm start"
+    command: npm start
     environment:
       NODE_ENV: local
       PORT: 3000
