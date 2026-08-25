@@ -415,6 +415,25 @@ jobs:
 
           echo "Réglages de sécurité des comptes verrouillés dans .env.production"
 
+      - name: Désactiver un éventuel service historique non-Docker (cible production)
+        if: needs.validate.outputs.deploy_branch == 'production'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Ce dépôt remplace intégralement l'ancien mode de déploiement de la
+          # cible "production" (auparavant un service systemd Node en direct
+          # sur la machine, port 3000). On le désactive systématiquement avant
+          # de laisser Docker Compose reprendre les mêmes ports, que ce
+          # service soit encore actif ou déjà remplacé.
+          SERVICE="climbcrew-backend.service"
+          if systemctl is-active --quiet "$SERVICE" 2>/dev/null; then
+            echo "Service systemd historique actif ($SERVICE), arrêt avant le passage en Docker."
+            sudo systemctl stop "$SERVICE" || echo "AVERTISSEMENT: impossible d'arrêter $SERVICE automatiquement (intervention manuelle nécessaire)."
+            sudo systemctl disable "$SERVICE" 2>/dev/null || true
+          else
+            echo "Aucun service systemd historique actif ($SERVICE) : rien à faire."
+          fi
+
       - name: Construire et démarrer la version validée
         shell: bash
         env:
