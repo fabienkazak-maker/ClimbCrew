@@ -2,7 +2,7 @@
  * Ajustements d'interface ClimbCrew.
  *
  * Ce module complète le composant React sans modifier les données métier :
- * - applique les deux ambiances visuelles validées ;
+ * - applique les dix ambiances visuelles proposées ;
  * - conserve les couleurs fonctionnelles des passeports et des voies ;
  * - garantit que les séances de la vue semaine restent dans leur jour ;
  * - expose le choix d'ambiance uniquement dans le menu latéral.
@@ -10,10 +10,19 @@
 const STYLE_ID = "climbcrew-ui-enhancements";
 const THEME_SELECTOR_ID = "climbcrew-look-selector";
 const SLOT_ORDER = ["midi", "soir", "matin"];
-const SUPPORTED_THEMES = new Set(["light", "dark"]);
+const SUPPORTED_THEMES = new Set(["auto", "craie_ardoise", "ocean_mineral", "foret_mousse", "terre_cuite", "aurore_alpine", "lavande_nocturne", "sable_corde", "bloc_neon", "glacier", "cristal"]);
 const THEME_LABELS = {
-  light: "Craie du matin",
-  dark: "Grès du soir",
+  "auto": "Automatique",
+  "craie_ardoise": "Craie & Ardoise",
+  "ocean_mineral": "Océan minéral",
+  "foret_mousse": "Forêt mousse",
+  "terre_cuite": "Terre cuite",
+  "aurore_alpine": "Aurore alpine",
+  "lavande_nocturne": "Lavande nocturne",
+  "sable_corde": "Sable & Corde",
+  "bloc_neon": "Bloc néon",
+  "glacier": "Glacier",
+  "cristal": "Cristal"
 };
 
 let scheduled = false;
@@ -50,48 +59,8 @@ function injectStyles() {
       --cotis-paid:#22c55e; --cotis-unpaid:#ef4444;
     }
 
-    /* Grès du soir — ambiance sombre. */
-    :root,
-    :root[data-theme="dark"],
-    :root[data-look="dusk"] {
-      --cc-bg:#0b0d10;
-      --cc-surface:#171b1f;
-      --cc-surface-2:#20262b;
-      --cc-ink:#f2ede1;
-      --cc-muted:#97a1a8;
-      --cc-accent:#c9a6ff;
-      --cc-accent-strong:#a873f0;
-      --cc-accent-text:#20132e;
-      --cc-hairline:rgba(242,237,225,.12);
-      --cc-topo-opacity:.16;
-      --theme-page-bg:var(--cc-bg)!important;
-      --theme-app-bg:var(--cc-bg)!important;
-      --theme-card-bg:var(--cc-surface)!important;
-      --theme-card-soft:var(--cc-surface-2)!important;
-      --theme-card-border:var(--cc-hairline)!important;
-      --theme-text:var(--cc-ink)!important;
-      --theme-text-muted:var(--cc-muted)!important;
-      --theme-input-bg:var(--cc-surface-2)!important;
-      --theme-input-border:var(--cc-hairline)!important;
-      --theme-sidebar-bg:var(--cc-surface)!important;
-      --theme-accent:var(--cc-accent)!important;
-      --theme-accent-text:var(--cc-accent-text)!important;
-      --theme-stat-bg:var(--cc-surface-2)!important;
-    }
-
-    /* Craie du matin — ambiance claire. */
-    :root[data-theme="light"],
-    :root[data-look="chalk"] {
-      --cc-bg:#ece9e1;
-      --cc-surface:#fffdf9;
-      --cc-surface-2:#dfd9c9;
-      --cc-ink:#201f1c;
-      --cc-muted:#6f6a60;
-      --cc-accent:#5b2e99;
-      --cc-accent-strong:#3f1f70;
-      --cc-accent-text:#ffffff;
-      --cc-hairline:rgba(32,31,28,.14);
-      --cc-topo-opacity:.22;
+    /* Les composants consomment les mêmes jetons, quelle que soit l'ambiance. */
+    :root {
       --theme-page-bg:var(--cc-bg)!important;
       --theme-app-bg:var(--cc-bg)!important;
       --theme-card-bg:var(--cc-surface)!important;
@@ -105,6 +74,88 @@ function injectStyles() {
       --theme-accent:var(--cc-accent)!important;
       --theme-accent-text:var(--cc-accent-text)!important;
       --theme-stat-bg:var(--cc-surface-2)!important;
+    }
+
+    /* 1. Craie & Ardoise */
+    :root, :root[data-theme="craie_ardoise"] {
+      --cc-bg:#F4F1EA; --cc-surface:#FFFFFB; --cc-surface-2:#E8E3D9;
+      --cc-ink:#252A2E; --cc-muted:#676B6D; --cc-accent:#C56A3D;
+      --cc-accent-strong:#A94F28; --cc-accent-text:#FFFFFF;
+      --cc-hairline:rgba(37,42,46,.16); --cc-topo-opacity:.18;
+    }
+
+    /* 2. Océan minéral */
+    :root[data-theme="ocean_mineral"] {
+      --cc-bg:#EAF4F4; --cc-surface:#F8FFFF; --cc-surface-2:#D5EBEA;
+      --cc-ink:#102A43; --cc-muted:#536C78; --cc-accent:#1F7A8C;
+      --cc-accent-strong:#155E6D; --cc-accent-text:#FFFFFF;
+      --cc-hairline:rgba(16,42,67,.15); --cc-topo-opacity:.17;
+    }
+
+    /* 3. Forêt mousse */
+    :root[data-theme="foret_mousse"] {
+      --cc-bg:#E9EFE7; --cc-surface:#F7FAF4; --cc-surface-2:#D5E1D0;
+      --cc-ink:#1F2D22; --cc-muted:#5E6C60; --cc-accent:#557A46;
+      --cc-accent-strong:#3F6234; --cc-accent-text:#FFFFFF;
+      --cc-hairline:rgba(31,45,34,.16); --cc-topo-opacity:.19;
+    }
+
+    /* 4. Terre cuite */
+    :root[data-theme="terre_cuite"] {
+      --cc-bg:#F7EDE5; --cc-surface:#FFFAF6; --cc-surface-2:#EED8C9;
+      --cc-ink:#3A2620; --cc-muted:#7C6258; --cc-accent:#C65D3B;
+      --cc-accent-strong:#A84327; --cc-accent-text:#FFFFFF;
+      --cc-hairline:rgba(58,38,32,.16); --cc-topo-opacity:.18;
+    }
+
+    /* 5. Aurore alpine */
+    :root[data-theme="aurore_alpine"] {
+      --cc-bg:#EAF0F7; --cc-surface:#F9FBFD; --cc-surface-2:#D9E4EF;
+      --cc-ink:#162B3A; --cc-muted:#587080; --cc-accent:#315D7D;
+      --cc-accent-strong:#244861; --cc-accent-text:#FFFFFF;
+      --cc-hairline:rgba(22,43,58,.16); --cc-topo-opacity:.17;
+    }
+
+    /* 6. Lavande nocturne */
+    :root[data-theme="lavande_nocturne"] {
+      --cc-bg:#171525; --cc-surface:#242039; --cc-surface-2:#302A4A;
+      --cc-ink:#F3EFFF; --cc-muted:#B9B1CC; --cc-accent:#B8A1FF;
+      --cc-accent-strong:#9477F0; --cc-accent-text:#201A30;
+      --cc-hairline:rgba(243,239,255,.16); --cc-topo-opacity:.14;
+      --theme-input-bg:var(--cc-surface-2)!important;
+    }
+
+    /* 7. Sable & Corde */
+    :root[data-theme="sable_corde"] {
+      --cc-bg:#F2E7D5; --cc-surface:#FCF8F1; --cc-surface-2:#E5D2B7;
+      --cc-ink:#352820; --cc-muted:#75665B; --cc-accent:#A56A3F;
+      --cc-accent-strong:#85512D; --cc-accent-text:#FFFFFF;
+      --cc-hairline:rgba(53,40,32,.16); --cc-topo-opacity:.20;
+    }
+
+    /* 8. Bloc néon */
+    :root[data-theme="bloc_neon"] {
+      --cc-bg:#111318; --cc-surface:#1C2028; --cc-surface-2:#282E39;
+      --cc-ink:#F5F7FA; --cc-muted:#AAB2BF; --cc-accent:#C7FF4A;
+      --cc-accent-strong:#A8E522; --cc-accent-text:#162000;
+      --cc-hairline:rgba(245,247,250,.15); --cc-topo-opacity:.13;
+      --theme-input-bg:var(--cc-surface-2)!important;
+    }
+
+    /* 9. Glacier */
+    :root[data-theme="glacier"] {
+      --cc-bg:#EAF7FA; --cc-surface:#FFFFFF; --cc-surface-2:#D8EFF4;
+      --cc-ink:#173B4D; --cc-muted:#607985; --cc-accent:#3AAFC4;
+      --cc-accent-strong:#23899D; --cc-accent-text:#082F38;
+      --cc-hairline:rgba(23,59,77,.15); --cc-topo-opacity:.16;
+    }
+
+    /* 10. Cristal */
+    :root[data-theme="cristal"] {
+      --cc-bg:#F4F0EB; --cc-surface:#FFFFFF; --cc-surface-2:#E8E0D6;
+      --cc-ink:#241F20; --cc-muted:#6C6264; --cc-accent:#9E2A2B;
+      --cc-accent-strong:#7E2021; --cc-accent-text:#FFFFFF;
+      --cc-hairline:rgba(36,31,32,.16); --cc-topo-opacity:.18;
     }
 
     html,body,.app {
@@ -148,13 +199,13 @@ function injectStyles() {
       outline-offset:2px;
     }
 
-    button:not(.danger):not(.remove-button):not(.secondary):not(.ghost),
+    button:not(.danger):not(.remove-button):not(.secondary):not(.ghost):not(.rating-star),
     .side-tab.active,.bottom-tab.active,.tab.active {
       background:var(--cc-accent)!important;
       color:var(--cc-accent-text)!important;
     }
 
-    button:not(.danger):not(.remove-button):not(.secondary):not(.ghost):hover,
+    button:not(.danger):not(.remove-button):not(.secondary):not(.ghost):not(.rating-star):hover,
     .side-tab.active:hover,.bottom-tab.active:hover,.tab.active:hover {
       background:var(--cc-accent-strong)!important;
     }
@@ -173,26 +224,8 @@ function injectStyles() {
 
     a { color:var(--cc-accent)!important; }
 
-    /* Signature commune : ligne topo sous le bandeau. */
-    .hero::after {
-      content:"";
-      display:block;
-      height:12px;
-      margin-top:10px;
-      opacity:var(--cc-topo-opacity);
-      background-repeat:repeat-x;
-      background-position:center;
-      background-size:190px 12px;
-    }
-
-    :root[data-theme="dark"] .hero::after,
-    :root:not([data-theme]) .hero::after {
-      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='190' height='12' viewBox='0 0 190 12'%3E%3Cpath d='M0 7 C18 1 30 11 49 6 S82 2 99 7 S130 11 148 5 S174 2 190 7' fill='none' stroke='%23c9a6ff' stroke-width='2'/%3E%3C/svg%3E");
-    }
-
-    :root[data-theme="light"] .hero::after {
-      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='190' height='12' viewBox='0 0 190 12'%3E%3Cpath d='M0 7 C18 1 30 11 49 6 S82 2 99 7 S130 11 148 5 S174 2 190 7' fill='none' stroke='%235b2e99' stroke-width='2'/%3E%3C/svg%3E");
-    }
+    /* Le bandeau épouse directement son contenu, sans ligne décorative supplémentaire. */
+    .hero::after { content:none!important; display:none!important; }
 
     /* Le choix d'ambiance est visible uniquement dans le menu de gauche. */
     .theme-selector-inline,#header-theme-selector { display:none!important; }
@@ -226,33 +259,128 @@ function injectStyles() {
       margin-top:0!important;
     }
 
-    /* Réglages compacts existants. */
-    .hero { padding:12px 14px!important; }
-    .toolbar,.card { margin-top:8px!important; padding:10px!important; }
-    .subcard,.stat,.modal-panel { padding:8px!important; }
-    .grid { gap:8px!important; }
-    .stack { gap:6px!important; }
-    .card-header { gap:6px!important; margin-bottom:6px!important; }
-    .app h1,.app h2,.app h3,.app p { margin-top:0!important; margin-bottom:4px!important; }
+    /* Tous les cadres sont arrondis et les espaces autour des textes sont réduits d'environ 30 %. */
+    .app :where(button,input,select,textarea,.card,.toolbar,.subcard,.stat,.muted-box,.participant-row,.route-card,.badge,.pill,.modal-panel,.week-day-card) {
+      border-radius:14px!important;
+    }
+    .hero { padding:6px 8px!important; border-radius:14px!important; }
+    .toolbar,.card { margin-top:6px!important; padding:7px!important; }
+    .subcard,.stat,.modal-panel { padding:6px!important; }
+    .app button { padding:7px 10px!important; }
+    .app input,.app select,.app textarea { padding:7px 8px!important; }
+
+    /* Les cases restent compactes quelle que soit l'orientation du téléphone. */
+    .app input[type="checkbox"] {
+      appearance:auto!important;
+      width:18px!important;
+      min-width:18px!important;
+      max-width:18px!important;
+      height:18px!important;
+      min-height:18px!important;
+      max-height:18px!important;
+      padding:0!important;
+      margin:0!important;
+      flex:0 0 18px!important;
+      border-radius:4px!important;
+    }
+    .app label:has(> input[type="checkbox"]) {
+      display:inline-flex!important;
+      align-items:center!important;
+      gap:5px!important;
+      width:auto!important;
+      min-height:24px!important;
+      white-space:nowrap!important;
+    }
+
+    .grid { gap:6px!important; }
+    .stack { gap:4px!important; }
+    .card-header { gap:4px!important; margin-bottom:4px!important; }
+    .app h1,.app h2,.app h3,.app p { margin-top:0!important; margin-bottom:3px!important; }
     .app label { margin:0!important; padding:0!important; line-height:1.1!important; }
-    .participant-row { gap:6px!important; min-height:0!important; padding:3px 8px!important; line-height:1.15!important; }
+    .participant-row { gap:4px!important; min-height:0!important; padding:3px 6px!important; line-height:1.15!important; }
+    .participant-identity { display:inline-flex!important; align-items:center!important; gap:6px!important; min-width:0!important; }
+    .passport-dot { width:14px!important; min-width:14px!important; height:14px!important; border-radius:999px!important; }
     .participant-name { display:block!important; margin:0!important; padding:0!important; line-height:1.05!important; }
-    .session-participant-list { display:grid!important; grid-template-columns:minmax(0,1fr)!important; gap:3px!important; }
-    .session-participant-list .participant-row { min-height:28px!important; padding:2px 4px 2px 8px!important; }
+    .session-participant-list .participant-name {
+      min-width:0!important;
+      overflow:hidden!important;
+      text-overflow:ellipsis!important;
+      white-space:nowrap!important;
+      font-weight:400!important;
+    }
+    .session-participant-list { display:grid!important; grid-template-columns:minmax(0,1fr)!important; gap:2px!important; }
+    .session-participant-list .participant-row { min-height:28px!important; padding:2px 3px 2px 6px!important; }
+    .session-participant-list .participant-identity {
+      min-width:0!important;
+      overflow:hidden!important;
+      white-space:nowrap!important;
+    }
     .session-participant-list .remove-button {
+      display:inline-flex!important; align-items:center!important; justify-content:center!important;
       width:24px!important; min-width:24px!important; height:24px!important; min-height:24px!important;
       padding:0!important; font-size:20px!important; line-height:1!important;
-      color:#000!important; background:transparent!important; border:0!important; box-shadow:none!important;
+      color:inherit!important; background:rgba(148,163,184,.28)!important;
+      border:1px solid rgba(148,163,184,.45)!important; border-radius:999px!important; box-shadow:none!important;
     }
     .app .small,.app strong { margin:0!important; padding:0!important; line-height:1.1!important; }
     .app span,.app .label,.app .value,.app .muted-box { line-height:1.1!important; }
-    .muted-box { padding-top:6px!important; padding-bottom:6px!important; }
-    .badge,.pill { padding-top:2px!important; padding-bottom:2px!important; }
-    .faq-item { padding:7px 0!important; }
-    .session-form-row { gap:8px!important; margin-bottom:8px!important; }
-    .subcard>.stack { margin-top:3px!important; }
-    .passport-row { width:100%!important; box-sizing:border-box!important; justify-content:space-between!important; }
+    .muted-box { padding-top:4px!important; padding-bottom:4px!important; }
+    .badge,.pill { padding:2px 5px!important; border-radius:999px!important; }
+    .faq-item { padding:5px 0!important; }
+    .session-form-row { gap:6px!important; margin-bottom:6px!important; }
+    .subcard>.stack { margin-top:2px!important; }
+    .passport-row {
+      width:100%!important; box-sizing:border-box!important; justify-content:space-between!important;
+      background:transparent!important; border-radius:999px!important;
+    }
     .shell { touch-action:pan-y; overscroll-behavior-x:contain; }
+
+    /* La liste s'adapte à la largeur disponible tout en conservant chaque
+       inscrit sur une seule ligne. */
+    @media (min-width:720px) {
+      .session-participant-list {
+        grid-template-columns:repeat(2,minmax(0,1fr))!important;
+        gap:4px 6px!important;
+      }
+    }
+    @media (min-width:1100px) {
+      .session-participant-list {
+        grid-template-columns:repeat(3,minmax(0,1fr))!important;
+      }
+    }
+    @media (min-width:1500px) {
+      .session-participant-list {
+        grid-template-columns:repeat(4,minmax(0,1fr))!important;
+      }
+    }
+    /* En vue semaine, chaque séance reste étroite : les inscrits sont donc
+       toujours présentés verticalement sur une seule colonne. */
+    .app .session-card-compact .session-participant-list {
+      grid-template-columns:minmax(0,1fr)!important;
+    }
+
+    /* Les flèches et la date forment un seul bloc insécable sur toutes les largeurs. */
+    .date-nav {
+      display:grid!important;
+      grid-template-columns:44px minmax(0,1fr) 44px!important;
+      align-items:center!important;
+      flex-wrap:nowrap!important;
+      width:min(100%,440px)!important;
+      min-width:0!important;
+    }
+    .date-nav .date-input {
+      grid-column:2!important;
+      width:100%!important;
+      min-width:0!important;
+      max-width:none!important;
+    }
+    .date-nav .nav-symbol:first-child { grid-column:1!important; }
+    .date-nav .nav-symbol:last-child { grid-column:3!important; }
+    .date-nav .nav-symbol {
+      width:44px!important;
+      min-width:44px!important;
+      margin:0!important;
+    }
 
     /* Les couleurs de voies et de passeports restent fonctionnelles. */
     .route-card {
@@ -271,8 +399,179 @@ function injectStyles() {
       font-weight:800!important;
     }
     .route-card.moulinette-only {
-      border:3px solid #ef4444!important;
-      box-shadow:0 0 0 2px rgba(239,68,68,.22)!important;
+      border:2px solid #ef4444!important;
+      box-shadow:inset 0 0 0 1px rgba(239,68,68,.18)!important;
+    }
+    .route-summary {
+      display:flex;
+      min-width:0;
+      flex-direction:column;
+      align-items:flex-start;
+      gap:2px;
+    }
+    .route-primary-line {
+      line-height:1.2!important;
+    }
+    .route-secondary-line {
+      display:flex;
+      align-items:center;
+      flex-wrap:wrap;
+      gap:4px 7px;
+      font-size:11px;
+      line-height:1.1;
+      opacity:.9;
+    }
+    .route-characteristics {
+      display:flex;
+      align-items:center;
+      flex-wrap:wrap;
+      gap:3px;
+      margin-top:2px;
+    }
+    .route-characteristics-label,
+    .route-characteristics-empty {
+      font-size:9px;
+      line-height:1.15;
+    }
+    .route-characteristics-label {
+      font-weight:700;
+    }
+    .route-characteristics-empty {
+      font-style:italic;
+      opacity:.8;
+    }
+    .route-characteristic {
+      padding:2px 6px;
+      border:1px solid currentColor;
+      border-radius:999px;
+      background:rgba(255,255,255,.42);
+      color:inherit;
+      font-size:9px;
+      font-weight:700;
+      line-height:1.15;
+    }
+    .route-rating {
+      display:flex;
+      align-items:center;
+      flex-wrap:wrap;
+      gap:3px 7px;
+      margin-top:1px;
+    }
+    .rating-average {
+      min-width:72px;
+      font-size:10px;
+      line-height:1.1;
+    }
+    .rating-stars {
+      display:inline-flex;
+      gap:1px;
+    }
+    .rating-stars .rating-star {
+      min-width:22px!important;
+      min-height:22px!important;
+      width:22px!important;
+      height:22px!important;
+      padding:0!important;
+      border-radius:50%!important;
+      background:rgba(255,255,255,.55)!important;
+      color:#eab308!important;
+      border:1px solid rgba(234,179,8,.55)!important;
+      font-size:15px!important;
+      line-height:1!important;
+    }
+    .rating-stars .rating-star.selected {
+      background:rgba(15,23,42,.82)!important;
+      color:#facc15!important;
+      border-color:#eab308!important;
+      box-shadow:0 0 0 1px rgba(250,204,21,.22)!important;
+    }
+    .realisation-rating .rating-stars {
+      min-height:44px;
+      align-items:center;
+    }
+    .realisation-rating .rating-star {
+      min-width:38px!important;
+      width:38px!important;
+      height:38px!important;
+      font-size:24px!important;
+    }
+    .tag-selector {
+      display:flex;
+      flex-wrap:wrap;
+      gap:5px;
+      margin-top:5px;
+    }
+    .tag-selector .tag-option {
+      min-height:34px!important;
+      padding:5px 9px!important;
+      border:1px solid var(--cc-hairline)!important;
+      background:var(--cc-surface-2)!important;
+      color:var(--cc-ink)!important;
+      font-size:12px!important;
+    }
+    .tag-selector .tag-option.selected {
+      border:2px solid #a16207!important;
+      background:#facc15!important;
+      color:#111827!important;
+      font-weight:800!important;
+      box-shadow:0 0 0 2px rgba(250,204,21,.28)!important;
+    }
+    .checkbox-field {
+      display:flex!important;
+      align-items:center;
+      gap:8px;
+      min-height:44px;
+      margin:0!important;
+      cursor:pointer;
+    }
+    .checkbox-field input[type="checkbox"] {
+      width:22px!important;
+      height:22px!important;
+      min-width:22px!important;
+      margin:0!important;
+      accent-color:var(--cc-accent);
+    }
+    .route-ranking-row {
+      gap:8px!important;
+      background:#334155!important;
+      color:#f8fafc!important;
+    }
+    .route-ranking-row > span {
+      min-width:0;
+      overflow-wrap:anywhere;
+      color:#f8fafc!important;
+    }
+    .route-ranking-row > strong {
+      flex:0 0 auto;
+      white-space:nowrap;
+      color:#ffffff!important;
+    }
+    /* Contraste explicite des statistiques par cotation sur ordinateur.
+       text-fill neutralise les styles de thème propres à certains navigateurs. */
+    .app .card .lead-grade-row {
+      background:#334155!important;
+      color:#ffffff!important;
+      opacity:1!important;
+    }
+    .app .card .lead-grade-row > strong,
+    .app .card .lead-grade-row > span,
+    .app .card .lead-grade-row .small {
+      color:#ffffff!important;
+      -webkit-text-fill-color:#ffffff!important;
+      opacity:1!important;
+      text-shadow:none!important;
+    }
+    .app .card .lead-grade-row > strong {
+      font-weight:800!important;
+    }
+    .app .card .lead-grade-row > span {
+      font-size:13px!important;
+      font-weight:600!important;
+    }
+    .route-card .moulinette-badge {
+      background:#fee2e2!important;
+      border-color:#ef4444!important;
+      color:#991b1b!important;
     }
     .demo-badge {
       display:inline-flex;
@@ -284,6 +583,218 @@ function injectStyles() {
     .passport-warning-hatched {
       background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.32) 0,rgba(255,255,255,.32) 7px,rgba(15,23,42,.18) 7px,rgba(15,23,42,.18) 14px)!important;
       background-blend-mode:overlay;
+    }
+
+    /* Sur téléphone, tout le bandeau de commande précédant les inscrits
+       utilise une échelle typographique homogène et moins de hauteur. */
+    @media (max-width:700px) {
+      .hero {
+        padding:5px 7px!important;
+      }
+      .hero h1 {
+        font-size:18px!important;
+        line-height:1.1!important;
+      }
+      .toolbar {
+        gap:5px!important;
+        padding:5px!important;
+        margin-top:5px!important;
+      }
+      .date-nav {
+        grid-template-columns:38px minmax(0,1fr) 38px!important;
+      }
+      .date-nav .nav-symbol,
+      .date-nav .date-input {
+        min-height:38px!important;
+        height:38px!important;
+        font-size:14px!important;
+        padding:4px 8px!important;
+      }
+      .date-nav .nav-symbol {
+        width:38px!important;
+        min-width:38px!important;
+      }
+      .view-toggle {
+        gap:4px!important;
+        padding:4px!important;
+      }
+      .view-toggle button {
+        min-height:38px!important;
+        padding:5px 8px!important;
+        font-size:14px!important;
+      }
+      /* Tableau des voies : cartes plus denses, sans réduire les informations. */
+      .route-card {
+        min-height:0!important;
+        padding:4px 6px!important;
+        margin:0!important;
+      }
+      .route-card > .card-header {
+        display:grid!important;
+        grid-template-columns:minmax(0,1fr) auto!important;
+        align-items:center!important;
+        gap:5px!important;
+        margin:0!important;
+      }
+      .route-card > .card-header > .route-summary {
+        min-width:0!important;
+        font-size:13px!important;
+        line-height:1.2!important;
+        overflow-wrap:anywhere;
+      }
+      .route-card.moulinette-only > .card-header {
+        grid-template-columns:minmax(0,1fr)!important;
+      }
+      .route-card.moulinette-only > .card-header > .group {
+        width:100%!important;
+        flex-wrap:nowrap!important;
+      }
+      .route-card.moulinette-only > .card-header > .group button {
+        flex:1 1 0!important;
+      }
+      .route-card > .card-header > .group {
+        display:flex!important;
+        justify-content:flex-end!important;
+        align-items:center!important;
+        flex-wrap:wrap!important;
+        gap:3px!important;
+      }
+      .route-card .pill {
+        padding:2px 5px!important;
+        font-size:10px!important;
+        line-height:1.1!important;
+      }
+      .route-card button {
+        min-height:32px!important;
+        padding:3px 7px!important;
+        font-size:12px!important;
+        line-height:1.1!important;
+      }
+
+      .session-card {
+        padding:8px!important;
+      }
+      .session-card > .card-header {
+        margin-bottom:3px!important;
+      }
+      .session-card > .card-header h3 {
+        font-size:16px!important;
+        line-height:1.1!important;
+      }
+      .session-card > .card-header .badge {
+        font-size:13px!important;
+      }
+      .session-card .session-form-row {
+        gap:4px!important;
+        margin-bottom:5px!important;
+      }
+      .session-card .inline-field {
+        grid-template-columns:82px minmax(0,1fr)!important;
+        gap:6px!important;
+      }
+      .session-card .inline-field label {
+        font-size:13px!important;
+        font-weight:700!important;
+        line-height:1.1!important;
+      }
+      .session-card .inline-field select {
+        min-height:38px!important;
+        height:38px!important;
+        padding:4px 9px!important;
+        font-size:14px!important;
+        line-height:1.1!important;
+      }
+    }
+
+    /* Accessibilité : le focus reste clairement visible au clavier sans
+       modifier l'apparence lors d'un appui tactile ou d'un clic classique. */
+    :where(button, a, input, select, textarea, summary):focus-visible {
+      outline:3px solid #f59e0b!important;
+      outline-offset:0!important;
+      box-shadow:0 0 0 2px #ffffff!important;
+    }
+    .progression-filters > div > label {
+      display:block!important;
+      position:relative;
+      z-index:1;
+      margin-bottom:6px!important;
+    }
+    .editable-realisation-card {
+      padding:0!important;
+      overflow:hidden;
+    }
+    .editable-realisation-card > .realisation-summary {
+      padding:7px 10px!important;
+      margin:0!important;
+      cursor:pointer;
+      list-style-position:inside;
+    }
+    .editable-realisation-card[open] > .realisation-summary {
+      margin-bottom:7px!important;
+      border-bottom:1px solid var(--cc-hairline);
+    }
+    .editable-realisation-card > :not(summary) {
+      margin-left:10px!important;
+      margin-right:10px!important;
+    }
+    .editable-realisation-card > :last-child {
+      margin-bottom:10px!important;
+    }
+    .cpr-chart-card h3 { margin:0; }
+    .cpr-chart-scroll { width:100%; max-width:100%; overflow:hidden; }
+    .cpr-chart { display:block; width:100%; max-width:100%; min-width:0; height:auto; }
+    .cpr-grid-line { stroke:rgba(100,116,139,.26); stroke-width:1; }
+    .cpr-axis-label { fill:var(--cc-text); font-size:13px; }
+    .cpr-evolution-line { fill:none; stroke:#0891b2; stroke-width:4; stroke-linejoin:round; stroke-linecap:round; }
+    .cpr-best-line { stroke:#eab308; stroke-width:2; stroke-dasharray:8 6; }
+    .cpr-point { fill:#facc15; stroke:#713f12; stroke-width:2; cursor:pointer; }
+    .cpr-point.selected { fill:#ffffff; stroke:#0891b2; stroke-width:4; }
+    .cpr-point:focus-visible { outline:none; stroke:#ffffff; stroke-width:5; }
+    .cpr-chart-detail { display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:8px; padding:10px 12px; border-radius:12px; background:var(--cc-surface-soft); }
+    .cpr-range-selector button { min-height:36px!important; padding:6px 10px!important; }
+    .realisation-delete-button {
+      min-width:0!important;
+      min-height:34px!important;
+      padding:5px 10px!important;
+      border-radius:10px!important;
+      font-size:13px!important;
+      line-height:1.1!important;
+    }
+    @media (max-width:700px) {
+      .cpr-chart-card > .card-header { align-items:flex-start; }
+      .cpr-range-selector { width:100%; display:grid!important; grid-template-columns:repeat(4,1fr); }
+      .cpr-range-selector button { min-width:0!important; }
+      .cpr-axis-label { font-size:20px; }
+      .cpr-evolution-line { stroke-width:6; }
+      .cpr-point { r:8px; }
+    }
+
+    /* Les commandes composées uniquement d'une icône disposent d'une zone
+       tactile suffisante sur téléphone. */
+    @media (max-width:700px) {
+      .menu-button,
+      .nav-symbol,
+      .remove-button,
+      .modal-close {
+        min-width:44px!important;
+        min-height:44px!important;
+      }
+    }
+
+    /* Renforcement non intrusif pour les appareils demandant plus de contraste. */
+    @media (prefers-contrast:more) {
+      button,
+      input,
+      select,
+      textarea,
+      summary {
+        border-width:2px!important;
+      }
+      .small,
+      .muted,
+      .muted-box {
+        opacity:1!important;
+      }
     }
 
     @media (prefers-reduced-motion:reduce) {
@@ -354,13 +865,13 @@ function preserveFunctionalRouteColors() {
 }
 
 function preferredSystemTheme() {
-  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "lavande_nocturne" : "craie_ardoise";
 }
 
 /**
  * Le select React d'origine reste la source de vérité pour la sauvegarde API.
- * Il est masqué et piloté par un select dédié contenant uniquement les deux
- * ambiances validées, afin de ne pas modifier directement les options React.
+ * Il est masqué et piloté par un select dédié contenant les dix ambiances
+ * et le mode automatique, tout en conservant la sauvegarde React.
  */
 function configureThemeSelector() {
   const root = document.documentElement;
@@ -368,7 +879,7 @@ function configureThemeSelector() {
   const rootTheme = SUPPORTED_THEMES.has(root.dataset.theme) ? root.dataset.theme : preferredSystemTheme();
   const selectedTheme = SUPPORTED_THEMES.has(originalSelector?.value) ? originalSelector.value : rootTheme;
 
-  root.dataset.look = selectedTheme === "dark" ? "dusk" : "chalk";
+  root.dataset.look = rootTheme;
 
   if (!originalSelector) return;
 
@@ -435,9 +946,7 @@ function sessionStatus(card) {
 }
 
 function hasNoPassport(row) {
-  const inline = normalize(row.style.backgroundColor).replace(/\s/g, "");
-  if (inline === "#334155" || inline === "rgb(51,65,85)") return true;
-  return getComputedStyle(row).backgroundColor.replace(/\s/g, "") === "rgb(51,65,85)";
+  return normalize(row.dataset.passport) === "sans";
 }
 
 function updateHatching() {
@@ -455,30 +964,8 @@ function updateHatching() {
 }
 
 function updateFaq() {
-  const heading = [...document.querySelectorAll("h2")]
-    .find((item) => normalize(item.textContent).startsWith("faq"));
-  const card = heading?.closest(".card");
-  if (!card) return;
-
-  card.querySelectorAll(".faq-item").forEach((item) => {
-    const question = normalize(item.querySelector("strong")?.textContent);
-    const answer = item.querySelector(".small");
-
-    if (question.startsWith("quelle version")) {
-      item.remove();
-      return;
-    }
-
-    if (!answer) return;
-
-    if (question.startsWith("que signifient les couleurs")) {
-      setTextIfChanged(answer, "Dans les inscriptions, le fond correspond au passeport. Le cadre vert indique une cotisation réglée et le rouge une cotisation non réglée. Le contour est plein avec une licence FFME ; sans licence, il alterne la couleur significative avec du noir. En séance Libre, un fond hachuré signale une personne déjà inscrite sans passeport requis ; les hachures disparaissent si la séance redevient Encadrée. Pour les voies, le texte est noir sur les fonds blancs et jaunes, et un cadre rouge indique une voie uniquement en moulinette.");
-    }
-
-    if (question.startsWith("que signifie cpr")) {
-      setTextIfChanged(answer, "Le CPR de ClimbCrew représente le niveau récent. Le calcul retient les réalisations des 90 derniers jours, classe les performances selon la cotation de la voie corrigée par le style, puis conserve les 10 meilleures. Coefficients : à vue 1,25 ; flash 1,20 ; en tête 1,00 ; moulinette 0,85 ; travaillée 0,75 ; avec repos 0,60 ; projet 0,30 ; non enchaînée 0,20 ; essai/test 0,10. La moyenne des indices pondérés est arrondie puis reconvertie en cotation. Une voie facile d'échauffement ne fait donc pas baisser le CPR si elle n'entre pas dans les 10 meilleures performances récentes.");
-    }
-  });
+  // Le contenu de la FAQ est maintenant maintenu directement dans le composant React.
+  // Les sections <details> restent fermées par défaut et s'ouvrent au clic sur la question.
 }
 
 function enableHorizontalSwipe() {

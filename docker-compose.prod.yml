@@ -19,20 +19,28 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER manquant}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant}
     volumes:
-      # Volume persistant : une reconstruction des images ne supprime pas les
-      # comptes, séances, voies, inscriptions ni réalisations.
       - climbcrew_pgdata:/var/lib/postgresql/data
     healthcheck:
-      # Le backend n'est démarré que lorsque PostgreSQL accepte les connexions.
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 12
 
   # ---------------------------------------------------------------------------
+  # Prépare le répertoire de sauvegardes du serveur pour l'utilisateur non-root
+  # du backend. Les fichiers sont physiquement conservés dans /opt/climbcrew/backups
+  # lorsque Compose est lancé depuis /opt/climbcrew.
+  # ---------------------------------------------------------------------------
+  backup-init:
+    image: alpine:3.21
+    container_name: climbcrew-backup-init
+    restart: "no"
+    command: ["sh", "-c", "mkdir -p /backups && chown -R 1000:1000 /backups && chmod 750 /backups"]
+    volumes:
+      - ./backups:/backups
+
+  # ---------------------------------------------------------------------------
   # API Node/Express.
-  # Le port est lié uniquement à 127.0.0.1 : seul le reverse proxy du serveur
-  # Linux peut l'exposer publiquement sous /api.
   # ---------------------------------------------------------------------------
   backend:
     build:
@@ -49,14 +57,23 @@ services:
       PORT: 3000
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL manquant}
       TRUST_PROXY: ${TRUST_PROXY:-1}
+      BACKUP_ENABLED: ${BACKUP_ENABLED:-true}
+      BACKUP_DIR: /backups
+      BACKUP_TIMEZONE: ${BACKUP_TIMEZONE:-Europe/Paris}
+      BACKUP_HOUR: ${BACKUP_HOUR:-3}
+      BACKUP_RECIPIENT: ${BACKUP_RECIPIENT:-cristal.climbcrew@gmail.com}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-35}
+      BACKUP_UPLOAD_MAX_BYTES: ${BACKUP_UPLOAD_MAX_BYTES:-52428800}
     ports:
       - "127.0.0.1:${BACKEND_BIND_PORT:-3000}:3000"
+    volumes:
+      - ./backups:/backups
     depends_on:
       db:
         condition: service_healthy
+      backup-init:
+        condition: service_completed_successfully
     healthcheck:
-      # /health vérifie aussi la connexion PostgreSQL. Une réponse non 2xx
-      # empêche le frontend de démarrer sur une API inutilisable.
       test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
       interval: 30s
       timeout: 5s
@@ -65,15 +82,12 @@ services:
 
   # ---------------------------------------------------------------------------
   # Frontend React compilé puis servi par Nginx.
-  # Impact visuel : ce conteneur fournit toutes les pages, feuilles de style et
-  # ressources graphiques visibles par l'utilisateur.
   # ---------------------------------------------------------------------------
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile.prod
       args:
-        # URL relative conservant frontend et API sous le même domaine Linux.
         VITE_API_URL: ${VITE_API_URL:-/api}
     image: climbcrew-frontend:prod
     container_name: climbcrew-frontend
@@ -84,13 +98,11 @@ services:
       backend:
         condition: service_healthy
     healthcheck:
-      # Vérifie que Nginx sert bien la page d'accueil compilée.
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null 2>&1 || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5
       start_period: 10s
 
-# Volume nommé conservé lors des redémarrages et mises à jour des conteneurs.
 volumes:
   climbcrew_pgdata:

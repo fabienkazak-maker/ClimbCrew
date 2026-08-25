@@ -14,6 +14,7 @@ export function serializeUser(row) {
     status: row.status,
     created_at: row.created_at,
     approved_at: row.approved_at,
+    email_verified_at: row.email_verified_at,
     revoked_at: row.revoked_at,
     revoked_reason: row.revoked_reason,
     last_login_at: row.last_login_at,

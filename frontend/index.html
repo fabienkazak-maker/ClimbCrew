@@ -3,11 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#1e3a5f" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <meta name="theme-color" content="#020c25" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/app-icon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
-    <title>ClimbCrew</title>
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ClimbClubCristal" />
+    <title>ClimbClubCristal</title>
     <style>
       [data-login-logo-enhanced="true"] {
         width: clamp(140px, 24vw, 220px) !important;
@@ -191,7 +194,7 @@
         enhanceLoginLogo(loginPanel);
 
         loginPanel.querySelectorAll("h1").forEach((title) => {
-          if (/^climbcrew$/i.test(textOf(title))) {
+          if (/^climbclubcristal$/i.test(textOf(title))) {
             title.remove();
           }
         });
