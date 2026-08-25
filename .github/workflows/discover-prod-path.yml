@@ -1,0 +1,53 @@
+name: Discover production deployment path
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    name: Rechercher le dossier de déploiement de climbcrew.dip-tcs.com
+    runs-on: self-hosted
+    timeout-minutes: 5
+
+    steps:
+      - name: Inspecter le serveur (lecture seule, aucune modification)
+        shell: bash
+        run: |
+          set +e
+          {
+            echo "### Recherche du dossier de déploiement de climbcrew.dip-tcs.com"
+            echo
+            echo "#### 1. Projets Docker Compose actifs"
+            echo '```'
+            docker compose ls 2>&1
+            echo '```'
+            echo
+            echo "#### 2. Service systemd historique (s'il existe encore)"
+            echo '```'
+            systemctl show climbcrew-backend.service --property=WorkingDirectory,ActiveState,FragmentPath 2>&1
+            echo '```'
+            echo
+            echo "#### 3. Processus écoutant sur le port 3000 (API)"
+            echo '```'
+            sudo lsof -i :3000 2>&1 || echo "lsof indisponible ou aucun résultat"
+            echo '```'
+            echo
+            echo "#### 4. Répertoire de travail du processus trouvé ci-dessus (si un PID est identifiable)"
+            PID="$(sudo lsof -t -i :3000 2>/dev/null | head -n1)"
+            if [ -n "$PID" ]; then
+              echo '```'
+              echo "PID: $PID"
+              sudo readlink -f "/proc/$PID/cwd" 2>&1
+              echo '```'
+            else
+              echo "_Aucun PID trouvé sur le port 3000._"
+            fi
+            echo
+            echo "#### 5. Recherche générique de dossiers climbcrew sur le disque"
+            echo '```'
+            sudo find / -maxdepth 4 -iname "*climbcrew*" -type d 2>/dev/null
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
