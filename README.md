@@ -75,7 +75,7 @@ Les commentaires décrivent l'intention sans répéter chaque instruction ligne 
 ```bash
 sudo mkdir -p /opt/climbcrew
 sudo chown "$USER":"$USER" /opt/climbcrew
-git clone https://github.com/fabienkazak-maker/ClimbCrew.git /opt/climbcrew
+git clone https://github.com/thithipetit-hash/ClimbCrewPPD.git /opt/climbcrew
 cd /opt/climbcrew
 cp .env.production.example .env.production
 nano .env.production
@@ -120,6 +120,12 @@ En cas d'échec SMTP :
 - aucune réponse publique ne confirme si une adresse existe ou non.
 
 ## Déploiement Linux
+
+Le déploiement automatisé par GitHub Actions valide d'abord le code sur un runner GitHub, puis déploie exactement le SHA validé avec le runner auto-hébergé du serveur. Le job de production utilise directement le clone persistant `/opt/climbcrew` et ne dépend plus du téléchargement de `actions/checkout`.
+
+La procédure, les prérequis du runner, les retries réseau, le contrôle de santé et le diagnostic sont documentés dans [`docs/deploiement.md`](docs/deploiement.md).
+
+Déploiement manuel :
 
 ```bash
 chmod +x deploy/scripts/*.sh

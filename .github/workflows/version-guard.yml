@@ -1,0 +1,27 @@
+name: Verify application version
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: Vérifier l'incrément de version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Récupérer la branche proposée
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Comparer la version avec main
+        shell: bash
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: bash .github/scripts/verify-version.sh

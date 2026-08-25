@@ -16,9 +16,11 @@ WORKDIR /app
 ARG VITE_API_URL=/api
 ENV VITE_API_URL=${VITE_API_URL}
 
-# Installation reproductible à partir du package-lock, puis copie du code.
-COPY package*.json ./
-RUN npm ci --no-audit --no-fund
+# Le build de production utilise exactement le même lockfile que la CI. npm ci
+# refuse toute divergence package.json/package-lock.json et garantit ainsi que
+# les dépendances validées sont celles réellement déployées.
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund --registry=https://registry.npmjs.org/
 COPY . .
 
 # Génère les fichiers HTML, CSS et JavaScript optimisés dans /app/dist.

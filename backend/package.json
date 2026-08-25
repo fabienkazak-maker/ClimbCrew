@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node --import ./admin-user-enhancements.js server.js",
     "test": "node --test",
-    "seed:local": "node seed-local.js"
+    "backup:decrypt": "node tools/decrypt-backup.mjs"
   },
   "engines": {
     "node": ">=20.18.0 <25"

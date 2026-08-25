@@ -10,6 +10,7 @@ dist/
 .env.local
 .env.production
 .env.*.local
+.npmrc
 *.secret
 *.secrets
 
@@ -17,6 +18,11 @@ dist/
 backend/import-data.json
 backend/*.private.json
 *.private.json
+
+# Sauvegardes PostgreSQL locales : données sensibles, jamais dans Git.
+backups/
+*.dump
+*.dump.mailed
 
 # Certificats locaux auto-signés : ne jamais commiter la clé privée.
 certs/
@@ -35,3 +41,6 @@ npm-debug.log*
 Thumbs.db
 .vscode/
 .idea/
+
+# Outils locaux de développement.
+.claude/

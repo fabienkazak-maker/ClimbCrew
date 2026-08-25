@@ -6,55 +6,76 @@ import {
 } from "./config.js";
 import { ensureAdminUserSchema } from "./database.js";
 import {
-  forgotPassword,
+  changePassword,
+  confirmEmailChange,
   listUsers,
-  requestAccess,
-  updateAdminRight,
+  requestEmailChange,
 } from "./account-service.js";
+import {
+  reactivateAccountSafely,
+  revokeAccountSafely,
+  updateAdminRightSafely,
+} from "./account-lifecycle-service.js";
+import {
+  secureAdminResetToken,
+  secureForgotPassword,
+  secureLogin,
+  secureResetPassword,
+} from "./auth-hardening-service.js";
+import { verifyEmailPendingAdminApproval } from "./account-approval-flow-service.js";
+import { setAccountParticipantAssociation } from "./account-participant-association-service.js";
+import {
+  approveVerifiedAccountWithParticipantRole,
+  updateParticipantWithAdminRight,
+} from "./participant-admin-right-service.js";
+import { deleteParticipantSafely } from "./participant-lifecycle-service.js";
+import {
+  getAccountNotificationPreference,
+  listManagedAccountNotificationPreferences,
+  updateAccountNotificationPreference,
+  updateManagedAccountNotificationPreference,
+} from "./account-notification-preference-service.js";
+import {
+  associateExistingAccountsByEmail,
+  requestAccessByEmailOnly,
+} from "./email-association-service.js";
+import { importBusinessDataSafely } from "./secure-import-service.js";
 import { exportAllData } from "./export-service.js";
-import { requireAdmin } from "./security.js";
+import {
+  listParticipantsWithPrivacy,
+  listRealisationsWithPrivacy,
+} from "./participant-privacy-service.js";
+import {
+  getParticipantCustomAvatar,
+  updateOwnParticipantProfile,
+} from "./participant-avatar-service.js";
+import { updateSessionWithAuthorization } from "./session-authorization-service.js";
+import { startAccessLogRetentionScheduler } from "./access-log-retention.js";
+import { startSecurityRetentionScheduler } from "./security-retention-service.js";
+import { requireAdmin, requireAuthUser } from "./security.js";
+import {
+  blockLegacyFileImportInProduction,
+  rejectMaintenanceTokenInQuery,
+  safeHealthCheck,
+} from "./maintenance-hardening.js";
 import { createCrossOriginCsrfBridge } from "../deployment-compatibility.js";
+import { installBackupRoutes } from "../backup-routes.js";
+import { startBackupScheduler } from "../backup-service.js";
 
-/**
- * Intégration des modules séparés dans l'application Express historique.
- *
- * Rôle : conserver les URL déjà utilisées par le frontend tout en remplaçant
- * certains contrôleurs par des versions plus robustes et mieux découpées.
- *
- * Impact visuel : les écrans restent identiques. Les changements se voient
- * uniquement par une meilleure fiabilité des demandes de compte, de la gestion
- * administrateur et des actions effectuées depuis un frontend Render séparé.
- */
-
-/**
- * Remplace uniquement le dernier gestionnaire d'une route.
- * Les middlewares déjà déclarés dans server.js, comme l'authentification et la
- * limitation de débit, restent ainsi actifs et dans le même ordre.
- */
 function replaceLastHandler(originalMethod, app, path, handlers, replacement) {
   const middlewares = handlers.slice(0, -1);
   return originalMethod.call(app, path, ...middlewares, replacement);
 }
 
 /**
- * Installe les extensions Express avant le chargement de server.js.
- * Les routes historiques gardent leur URL afin de ne pas casser le frontend,
- * les favoris ni les éventuels scripts d'administration existants.
+ * Adapte progressivement le serveur historique sans changer les URL utilisées
+ * par le frontend. Les middlewares historiques d'authentification, de CSRF et de
+ * limitation de débit sont conservés lorsqu'un contrôleur final est remplacé.
  */
 export function installExpressIntegration() {
-  // Le préchargement Node ne devrait s'exécuter qu'une fois. Ce garde-fou évite
-  // néanmoins d'empiler les adaptations lors d'un test ou d'un rechargement.
   if (express.application[EXPRESS_PATCH_FLAG]) return;
   express.application[EXPRESS_PATCH_FLAG] = true;
 
-  /**
-   * Installe le pont CSRF comme tout premier middleware de l'application.
-   *
-   * Il est ajouté avant les middlewares de server.js afin que les contrôles
-   * d'authentification historiques reçoivent un en-tête cohérent. Le pont ne
-   * s'active que sur Render, ou lorsqu'il est explicitement demandé, et ne
-   * traite que les origines figurant dans la liste CORS autorisée.
-   */
   const originalUse = express.application.use;
   express.application.use = function patchedUse(...handlers) {
     if (!this[CSRF_BRIDGE_FLAG]) {
@@ -64,41 +85,100 @@ export function installExpressIntegration() {
     return originalUse.apply(this, handlers);
   };
 
-  /**
-   * Remplace les contrôleurs POST liés à la création et à la récupération des
-   * comptes tout en conservant les protections déjà posées par server.js.
-   */
   const originalPost = express.application.post;
   express.application.post = function patchedPost(path, ...handlers) {
+    if (path === "/import-data" && handlers.length) {
+      return originalPost.call(
+        this,
+        path,
+        rejectMaintenanceTokenInQuery,
+        blockLegacyFileImportInProduction,
+        ...handlers,
+      );
+    }
+    if (path === "/admin/import-data" && handlers.length) {
+      return replaceLastHandler(originalPost, this, path, handlers, importBusinessDataSafely);
+    }
+    if (path === "/auth/login" && handlers.length) {
+      return replaceLastHandler(originalPost, this, path, handlers, secureLogin);
+    }
     if (path === "/auth/request-access" && handlers.length) {
-      return replaceLastHandler(originalPost, this, path, handlers, requestAccess);
+      return replaceLastHandler(originalPost, this, path, handlers, requestAccessByEmailOnly);
     }
     if (path === "/auth/forgot-password" && handlers.length) {
-      return replaceLastHandler(originalPost, this, path, handlers, forgotPassword);
+      return replaceLastHandler(originalPost, this, path, handlers, secureForgotPassword);
+    }
+    if (path === "/auth/reset-password" && handlers.length) {
+      return replaceLastHandler(originalPost, this, path, handlers, secureResetPassword);
+    }
+    if (path === "/admin/auth/users/:id/approve" && handlers.length) {
+      return replaceLastHandler(originalPost, this, path, handlers, approveVerifiedAccountWithParticipantRole);
+    }
+    if (path === "/admin/auth/users/:id/revoke" && handlers.length) {
+      return replaceLastHandler(originalPost, this, path, handlers, revokeAccountSafely);
+    }
+    if (path === "/admin/auth/users/:id/reactivate" && handlers.length) {
+      return replaceLastHandler(originalPost, this, path, handlers, reactivateAccountSafely);
+    }
+    if (path === "/admin/auth/users/:id/reset-token" && handlers.length) {
+      return replaceLastHandler(originalPost, this, path, handlers, secureAdminResetToken);
     }
     return originalPost.call(this, path, ...handlers);
   };
 
-  /**
-   * Remplace les contrôleurs GET de consultation des comptes et d'export des
-   * données par les services spécialisés du dossier admin-users.
-   */
+  const originalPut = express.application.put;
+  express.application.put = function patchedPut(path, ...handlers) {
+    if (path === "/participants/:id" && handlers.length) {
+      return replaceLastHandler(originalPut, this, path, handlers, updateParticipantWithAdminRight);
+    }
+    if (path === "/sessions/:id" && handlers.length) {
+      return replaceLastHandler(originalPut, this, path, handlers, updateSessionWithAuthorization);
+    }
+    return originalPut.call(this, path, ...handlers);
+  };
+
+  const originalPatch = express.application.patch;
+  express.application.patch = function patchedPatch(path, ...handlers) {
+    if (path === "/participants/me/profile" && handlers.length) {
+      return replaceLastHandler(originalPatch, this, path, handlers, updateOwnParticipantProfile);
+    }
+    return originalPatch.call(this, path, ...handlers);
+  };
+
+  const originalDelete = express.application.delete;
+  express.application.delete = function patchedDelete(path, ...handlers) {
+    if (path === "/participants/:id" && handlers.length) {
+      return replaceLastHandler(originalDelete, this, path, handlers, deleteParticipantSafely);
+    }
+    return originalDelete.call(this, path, ...handlers);
+  };
+
   const originalGet = express.application.get;
   express.application.get = function patchedGet(path, ...handlers) {
+    if ((path === "/setup-db" || path === "/db-status") && handlers.length) {
+      return originalGet.call(this, path, rejectMaintenanceTokenInQuery, ...handlers);
+    }
+    if (path === "/health" && handlers.length) {
+      return replaceLastHandler(originalGet, this, path, handlers, safeHealthCheck);
+    }
+    if (path === "/participants" && handlers.length) {
+      return replaceLastHandler(originalGet, this, path, handlers, listParticipantsWithPrivacy);
+    }
+    if (path === "/realisations" && handlers.length) {
+      return replaceLastHandler(originalGet, this, path, handlers, listRealisationsWithPrivacy);
+    }
     if (path === "/admin/auth/users" && handlers.length) {
       return replaceLastHandler(originalGet, this, path, handlers, listUsers);
     }
     if (path === "/admin/export-data" && handlers.length) {
       return replaceLastHandler(originalGet, this, path, handlers, exportAllData);
     }
+    if (path === "/auth/verify-email" && handlers.length) {
+      return replaceLastHandler(originalGet, this, path, handlers, verifyEmailPendingAdminApproval);
+    }
     return originalGet.call(this, path, ...handlers);
   };
 
-  /**
-   * Termine l'initialisation juste avant l'écoute réseau.
-   * Le schéma PostgreSQL complémentaire est créé avant d'accepter des requêtes,
-   * ce qui évite qu'un écran d'administration s'ouvre sur des tables absentes.
-   */
   const originalListen = express.application.listen;
   express.application.listen = function patchedListen(...args) {
     const app = this;
@@ -107,11 +187,39 @@ export function installExpressIntegration() {
       await ensureAdminUserSchema();
 
       if (!app[INSTALL_FLAG]) {
-        app.post("/admin/auth/users/:id/admin", requireAdmin, updateAdminRight);
+        app.post("/admin/auth/users/:id/admin", requireAdmin, updateAdminRightSafely);
+        app.post("/admin/auth/associations/auto", requireAdmin, associateExistingAccountsByEmail);
+        app.put(
+          "/admin/auth/users/:id/participant",
+          requireAdmin,
+          setAccountParticipantAssociation,
+        );
+        app.get("/auth/verify-email", verifyEmailPendingAdminApproval);
+        app.post("/auth/change-password", requireAuthUser, changePassword);
+        app.post("/auth/change-email/request", requireAuthUser, requestEmailChange);
+        app.get("/auth/change-email/confirm", confirmEmailChange);
+        app.get("/auth/notification-preference", requireAuthUser, getAccountNotificationPreference);
+        app.patch("/auth/notification-preference", requireAuthUser, updateAccountNotificationPreference);
+        app.get("/participants/:id/avatar", requireAuthUser, getParticipantCustomAvatar);
+        app.get(
+          "/admin/auth/notification-preferences",
+          requireAdmin,
+          listManagedAccountNotificationPreferences,
+        );
+        app.put(
+          "/admin/participants/:participantId/account-notifications",
+          requireAdmin,
+          updateManagedAccountNotificationPreference,
+        );
+        installBackupRoutes(app);
         app[INSTALL_FLAG] = true;
       }
 
-      return originalListen.apply(app, args);
+      const server = originalListen.apply(app, args);
+      startBackupScheduler();
+      await startAccessLogRetentionScheduler();
+      await startSecurityRetentionScheduler();
+      return server;
     };
 
     startListening().catch((error) => {
@@ -119,8 +227,6 @@ export function installExpressIntegration() {
       process.exitCode = 1;
     });
 
-    // Compatibilité avec le comportement historique : server.js ne réutilise
-    // pas la valeur de retour de listen(). Le démarrage réel reste asynchrone.
     return app;
   };
 }

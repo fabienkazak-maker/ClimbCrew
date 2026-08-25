@@ -1,0 +1,104 @@
+name: Vérifier les sauvegardes
+
+on:
+  workflow_run:
+    workflows:
+      - Validate and Deploy
+    types:
+      - completed
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/verify-backups.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: climbcrew-backup-verification
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Vérifier la sauvegarde PostgreSQL
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: self-hosted
+    timeout-minutes: 10
+
+    steps:
+      - name: Contrôler les outils et le répertoire
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cd /opt/climbcrew
+          test -f .env.production
+          docker ps --format '{{.Names}}' | grep -qx 'climbcrew-backend'
+
+          for command in pg_dump pg_restore psql; do
+            docker exec climbcrew-backend sh -lc "command -v $command >/dev/null"
+          done
+
+          docker exec climbcrew-backend sh -lc 'test -d /backups && test -w /backups'
+          echo "Outils PostgreSQL et répertoire /backups : OK"
+
+      - name: Vérifier le dump journalier après 03h00
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          LOCAL_HOUR="$(TZ=Europe/Paris date +%H)"
+          LOCAL_DATE="$(TZ=Europe/Paris date +%F)"
+          LOCAL_WEEKDAY="$(TZ=Europe/Paris date +%u)"
+
+          if [ "$((10#$LOCAL_HOUR))" -lt 3 ]; then
+            echo "Il est avant 03:00 à Paris : aucun dump journalier n'est encore attendu."
+            exit 0
+          fi
+
+          FILE_NAME="climbcrew-scheduled-${LOCAL_DATE}-030000.dump"
+          HOST_FILE="/opt/climbcrew/backups/${FILE_NAME}"
+
+          FOUND=false
+          for attempt in $(seq 1 18); do
+            if [ -s "$HOST_FILE" ]; then
+              FOUND=true
+              break
+            fi
+            echo "Sauvegarde pas encore visible (${attempt}/18), nouvel essai dans 5s..."
+            sleep 5
+          done
+
+          if [ "$FOUND" != "true" ]; then
+            echo "ERROR: sauvegarde journalière absente : $HOST_FILE"
+            docker logs --tail 100 climbcrew-backend || true
+            exit 1
+          fi
+
+          docker exec climbcrew-backend pg_restore --list "/backups/${FILE_NAME}" >/dev/null
+          SIZE="$(stat -c %s "$HOST_FILE")"
+          echo "Sauvegarde journalière vérifiée : ${FILE_NAME} (${SIZE} octets)"
+
+          if [ "$LOCAL_WEEKDAY" = "1" ]; then
+            if [ -f "${HOST_FILE}.mailed" ]; then
+              echo "Envoi du lundi : marqué comme envoyé avec succès."
+            else
+              echo "::warning::Le dump du lundi est présent mais aucun marqueur d'envoi e-mail réussi n'est encore visible."
+            fi
+          fi
+
+          {
+            echo "### Sauvegarde PostgreSQL"
+            echo "- Dump : \`${FILE_NAME}\`"
+            echo "- Taille : ${SIZE} octets"
+            echo "- Intégrité pg_restore : OK"
+            if [ "$LOCAL_WEEKDAY" = "1" ]; then
+              if [ -f "${HOST_FILE}.mailed" ]; then
+                echo "- E-mail du lundi : OK"
+              else
+                echo "- E-mail du lundi : en attente / à contrôler"
+              fi
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
