@@ -1,5 +1,52 @@
 import React, { useEffect, useMemo, useState } from "react";
 
+import Button from "./components/Button.jsx";
+import FaqSection from "./sections/FaqSection.jsx";
+import Inscriptions from "./pages/Inscriptions.jsx";
+import Voies from "./pages/Voies.jsx";
+import Progression from "./pages/Progression.jsx";
+import Profil from "./pages/Profil.jsx";
+import Parametres from "./pages/Parametres.jsx";
+import Administration from "./pages/Administration.jsx";
+import GestionComptes from "./pages/GestionComptes.jsx";
+import Logs from "./pages/Logs.jsx";
+import Statistiques from "./pages/Statistiques.jsx";
+import WallOfFame from "./pages/WallOfFame.jsx";
+
+import { THEME_OPTIONS, THEME_PREFERENCE_KEY, resolveThemePreference } from "./lib/theme.js";
+import { ROPE_NUMBERS, ROUTE_COLORS, STYLE_LABELS, ROUTE_TAGS, THECRAG_STYLE_BY_CLIMBCREW, TABS } from "./lib/ui-config.js";
+import {
+  GRADES,
+  MAX_PARTICIPANTS,
+  fullName,
+  formatRouteName,
+  formatRouteForRealisation,
+  normalizeRopeNumber,
+  todayIso,
+  defaultSessionStatus,
+  normalizePassport,
+  getPassportStyle,
+  getPassportDotStyle,
+  gradeToIndex,
+  getRouteCardStyle,
+  formatDateFr,
+  formatDateShortFr,
+  formatPoints,
+  nextBusinessDay,
+  calculateSimpleCpr,
+  isSuccessfulLeadRealisation,
+  isSuccessfulRealisation,
+  getRealisationWeight,
+  calculateLeadRealisationStats,
+  calculateLeadPoints,
+  calculateRouteAggregates,
+  calculateWallOfFameCategories,
+} from "./lib/domain.js";
+import { USE_API, apiFetch, authApiFetch, downloadFile } from "./lib/api.js";
+import { normalizeAppData } from "./lib/normalize.js";
+import { APP_VERSION } from "./lib/version.js";
+import { buildCsv, csvFileSlug } from "./lib/csv.js";
+
 // Données de repli volontairement vides : les données legacy sont importées côté backend/PostgreSQL.
 // Cela évite d'exposer les participants dans le bundle JavaScript public.
 const IMPORTED_DATA = {
@@ -15,154 +62,13 @@ const IMPORTED_DATA = {
 };
 const STORAGE_KEY = "climbcrew_local_data_v2";
 const ADMIN_CODE = import.meta.env.VITE_LEGACY_ADMIN_CODE || "";
-const MAX_PARTICIPANTS = 18;
-const API_BASE = (import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
-const USE_API = Boolean(API_BASE);
 
 // La session est conservée uniquement dans un cookie HttpOnly côté backend.
-const APP_VERSION_LABEL = "Version 2026-07-23.1";
-const PASSWORD_RULE_TEXT = "Minimum 12 caractères avec majuscule, minuscule, chiffre et caractère spécial.";
-
-const AUTH_LOGIN_INLINE_STYLE = `
-  .auth-page {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px 14px;
-    background: linear-gradient(180deg, #f6f8fc 0%, #eef2f7 100%);
-  }
-
-  .auth-card {
-    width: min(460px, 100%);
-    padding: 18px;
-    border-radius: 20px;
-    background: rgba(255,255,255,.96);
-    border: 1px solid rgba(148,163,184,.18);
-    box-shadow: 0 18px 50px rgba(15,23,42,.10);
-    color: #0f172a;
-  }
-
-  .auth-brand {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    gap: 10px;
-  }
-
-  .auth-page .app-logo {
-    width: 72px;
-    height: 72px;
-    object-fit: contain;
-    border-radius: 18px;
-    background: #ffffff;
-    padding: 6px;
-    box-shadow: 0 10px 30px rgba(15,23,42,.10);
-  }
-
-  .auth-brand h1,
-  .auth-brand p {
-    margin: 0;
-    text-align: center;
-  }
-
-  .auth-switcher {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-top: 14px;
-  }
-
-  .auth-switcher button {
-    min-height: 40px;
-    padding: 8px 10px;
-    border-radius: 12px;
-  }
-
-  .auth-card .grid.two {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .auth-card label {
-    display: block;
-    margin-bottom: 6px;
-    font-size: 12px;
-    font-weight: 700;
-    color: #64748b;
-    text-transform: none;
-    letter-spacing: 0;
-  }
-
-  .auth-card input,
-  .auth-card select {
-    width: 100%;
-    min-height: 44px;
-    padding: 10px 12px;
-    border-radius: 12px;
-    border: 1px solid rgba(148,163,184,.25);
-    background: #ffffff;
-    color: #0f172a;
-    box-sizing: border-box;
-  }
-
-  .auth-submit-row {
-    grid-column: 1 / -1;
-    display: flex;
-    justify-content: flex-start;
-  }
-
-  .auth-submit-row button {
-    min-width: 160px;
-  }
-
-  @media (max-width: 480px) {
-    .auth-card {
-      width: min(100%, 380px);
-      padding: 14px;
-    }
-
-    .auth-page .app-logo {
-      width: 64px;
-      height: 64px;
-    }
-
-    .auth-switcher {
-      grid-template-columns: 1fr;
-    }
-
-    .auth-submit-row button {
-      width: 100%;
-      min-width: 0;
-    }
-  }
-`;
-
-
-const THEME_PREFERENCE_KEY = "climbcrew-theme-preference";
-const THEME_OPTIONS = [
-  { value: "auto", label: "Automatique" },
-  { value: "light", label: "Clair" },
-  { value: "dark", label: "Sombre" },
-  { value: "fun", label: "Fun" },
-];
-
-function getSystemTheme() {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return "light";
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
-function resolveThemePreference(value) {
-  if (["light", "dark", "fun"].includes(value)) return value;
-  return getSystemTheme();
-}
-
+const PASSWORD_RULE_TEXT = "8 caractères minimum, dont 1 majuscule, 1 minuscule, 1 chiffre et 1 caractère spécial.";
 
 function isStrongPassword(value) {
   return typeof value === "string"
-    && value.length >= 12
+    && value.length >= 8
     && /[a-z]/.test(value)
     && /[A-Z]/.test(value)
     && /\d/.test(value)
@@ -170,290 +76,29 @@ function isStrongPassword(value) {
 }
 
 
-const TABS = [
-  { key: "inscriptions", label: "Inscriptions" },
-  { key: "voies", label: "Voies" },
-  { key: "progression", label: "Progression" },
-  { key: "administration", label: "Administration", adminOnly: true },
-  { key: "gestion_comptes", label: "Gestion des comptes", adminOnly: true },
-  { key: "logs", label: "Log", adminOnly: true },
-  { key: "statistiques", label: "Statistiques" },
-  { key: "faq", label: "FAQ" },
-];
-
-const PASSPORT_STYLES = {
-  sans: { backgroundColor: "#334155", color: "#f8fafc" },
-  jaune: { backgroundColor: "#fde047", color: "#111827" },
-  orange: { backgroundColor: "#fb923c", color: "#111827" },
-  vert: { backgroundColor: "#22c55e", color: "#052e16" },
-  bleu: { backgroundColor: "#60a5fa", color: "#0f172a" },
-
-  // Passeport découverte : fond gris.
-  // Le cadre dépend ensuite du statut cotisation.
-  decouverte: { backgroundColor: "#64748b", color: "#ffffff" },
-  "découverte": { backgroundColor: "#64748b", color: "#ffffff" },
-  decouvertes: { backgroundColor: "#64748b", color: "#ffffff" },
-  "découvertes": { backgroundColor: "#64748b", color: "#ffffff" },
-};
-
-const GRADES = ["4a","4b","4c","5a","5b","5c","6a","6a+","6b","6b+","6c","6c+","7a","7a+","7b"];
-const STYLE_LABELS = {
-  a_vue: "À vue",
-  flash: "Flash",
-  en_tete: "En tête",
-  moulinette: "En moulinette",
-  avec_repos: "Avec repos",
-  travaillee: "Travaillée",
-  projet: "Projet",
-  non_enchainee: "Non enchaînée",
-  test: "Essai / test",
-};
-const STYLE_WEIGHTS = {
-  a_vue: 1.25,
-  flash: 1.2,
-  en_tete: 1,
-  moulinette: 0.85,
-  avec_repos: 0.6,
-  travaillee: 0.75,
-  projet: 0.3,
-  non_enchainee: 0.2,
-  test: 0.1,
-};
-
-function fullName(p) {
-  return p ? `${p.nom} ${p.prenom}`.trim() : "";
-}
-
-function formatRouteName(route) {
-  const opener = String(route?.nomOuvreur || "").trim();
-  const name = String(route?.nomVoie || "").trim();
-  const label = [opener, name].filter(Boolean).join(" · ");
-  return label || (route?.numeroVoieUnique ? `#${route.numeroVoieUnique}` : "Voie");
-}
-
-function toLocalIso(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function todayIso() {
-  const date = new Date();
-  const day = date.getDay();
-
-  // Si l'application est ouverte le week-end, on positionne directement
-  // la vue sur le prochain lundi, car les séances sont en semaine.
-  if (day === 6) date.setDate(date.getDate() + 2);
-  if (day === 0) date.setDate(date.getDate() + 1);
-
-  return toLocalIso(date);
-}
-
-/**
- * Règle de création automatique des séances :
- * - toutes les séances sont libres par défaut ;
- * - les séances du mardi midi et du jeudi midi sont encadrées.
- */
-function defaultSessionStatus(dateStr, slot) {
-  const day = new Date(`${dateStr}T12:00:00`).getDay();
-  return slot === "midi" && (day === 2 || day === 4) ? "encadree" : "libre";
-}
-
-function normalizePassport(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-function isDiscoveryPassport(passport) {
-  const normalized = normalizePassport(passport);
-  return normalized === "decouverte" || normalized === "decouvertes";
-}
-
-function getPassportStyle(participant) {
-  const baseStyle = isDiscoveryPassport(participant?.passport)
-    ? PASSPORT_STYLES.decouverte
-    : PASSPORT_STYLES[participant?.passport] || PASSPORT_STYLES.sans;
-
-  const isCotisant = Boolean(participant?.cotisation);
-  const hasFfmeLicence = Boolean(participant?.ffme);
-  const borderColor = isCotisant ? "#22c55e" : "#ef4444";
-
-  return {
-    ...baseStyle,
-    color: getContrastingTextColor(baseStyle.backgroundColor),
-    border: hasFfmeLicence ? `2px solid ${borderColor}` : "2px solid transparent",
-    borderImage: hasFfmeLicence
-      ? "none"
-      : `repeating-linear-gradient(90deg, ${borderColor} 0 8px, #111827 8px 16px) 1`,
-    boxShadow: isCotisant
-      ? "0 0 0 1px rgba(34,197,94,.25)"
-      : "0 0 0 1px rgba(239,68,68,.25)",
-  };
-}
-function gradeToIndex(grade) {
-  return GRADES.indexOf(grade);
-}
-function indexToGrade(index) {
-  const i = Math.max(0, Math.min(GRADES.length - 1, index));
-  return GRADES[i];
-}
-function getRouteBackgroundColor(color) {
-  const normalized = String(color || "").trim().toLowerCase();
-  const map = {
-    bleu: "#60a5fa", blue: "#60a5fa", rouge: "#f87171", red: "#f87171",
-    vert: "#4ade80", green: "#4ade80", jaune: "#facc15", yellow: "#facc15",
-    orange: "#fb923c", violet: "#a78bfa", purple: "#a78bfa", rose: "#f472b6",
-    pink: "#f472b6", noir: "#94a3b8", black: "#94a3b8", blanc: "#f8fafc",
-    white: "#f8fafc", ocre: "#8b5a2b", ochre: "#8b5a2b", marron: "#8b5a2b", brown: "#8b5a2b",
-    gris: "#cbd5e1", gray: "#cbd5e1", grey: "#cbd5e1",
-  };
-  return map[normalized] || "#f8fafc";
-}
-function getContrastingTextColor(backgroundColor) {
-  const hex = String(backgroundColor || "").trim().replace("#", "");
-  if (!/^[0-9a-fA-F]{6}$/.test(hex)) return "#0f172a";
-  const r = parseInt(hex.slice(0, 2), 16);
-  const g = parseInt(hex.slice(2, 4), 16);
-  const b = parseInt(hex.slice(4, 6), 16);
-  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
-  return yiq >= 160 ? "#0f172a" : "#f8fafc";
-}
-function getRouteCardStyle(color) {
-  const backgroundColor = getRouteBackgroundColor(color);
-  const normalizedColor = normalizePassport(color);
-  return {
-    backgroundColor,
-    color: ["blanc", "white"].includes(normalizedColor)
-      ? "#0f172a"
-      : getContrastingTextColor(backgroundColor),
-  };
-}
-function formatDateFr(dateStr) {
-  const formatted = new Date(`${dateStr}T12:00:00`).toLocaleDateString("fr-FR", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-  });
-  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
-}
-
-function formatDateShortFr(dateStr) {
-  const [year, month, day] = String(dateStr || "").slice(0, 10).split("-");
-  return year && month && day ? `${day}-${month}-${year}` : String(dateStr || "");
-}
-function isWeekend(dateStr) {
-  const d = new Date(`${dateStr}T12:00:00`);
-  const day = d.getDay();
-  return day === 0 || day === 6;
-}
-function nextBusinessDay(dateStr, delta) {
-  const d = new Date(`${dateStr}T12:00:00`);
-  do { d.setDate(d.getDate() + delta); } while (d.getDay() === 0 || d.getDay() === 6);
-  return d.toISOString().slice(0, 10);
-}
-function calculateSimpleCpr(realisations, routesById) {
-  const now = Date.now();
-  const cutoff = now - (90 * 24 * 60 * 60 * 1000);
-
-  const bestRecent = realisations
-    .map((r) => {
-      const route = routesById[r.voieId];
-      const dateTimestamp = new Date(r.dateRealisation).getTime();
-      if (!route || !Number.isFinite(dateTimestamp) || dateTimestamp < cutoff || dateTimestamp > now) return null;
-
-      return {
-        date: r.dateRealisation,
-        grade: route.cotationAjustee,
-        weightedIndex: gradeToIndex(route.cotationAjustee) * (STYLE_WEIGHTS[r.styleRealisation] || 1),
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => b.weightedIndex - a.weightedIndex || b.date.localeCompare(a.date))
-    .slice(0, 10);
-
-  if (!bestRecent.length) return { currentGrade: null, averageIndex: null, timeline: [] };
-
-  const averageIndex = bestRecent.reduce((sum, item) => sum + item.weightedIndex, 0) / bestRecent.length;
-  return { currentGrade: indexToGrade(Math.round(averageIndex)), averageIndex, timeline: bestRecent };
-}
-function weightedMedian(values) {
-  if (!values.length) return null;
-  const sorted = [...values].sort((a, b) => gradeToIndex(a.grade) - gradeToIndex(b.grade));
-  const total = sorted.reduce((sum, item) => sum + item.weight, 0);
-  let cumulative = 0;
-  for (const item of sorted) {
-    cumulative += item.weight;
-    if (cumulative >= total / 2) return item.grade;
-  }
-  return sorted[sorted.length - 1].grade;
-}
-function downloadFile(filename, content, type = "application/json;charset=utf-8;") {
-  const blob = new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function readCookie(name) {
-  return document.cookie
-    .split(";")
-    .map((part) => part.trim())
-    .find((part) => part.startsWith(`${name}=`))
-    ?.slice(name.length + 1) || "";
-}
-
-function csrfHeaders(method = "GET") {
-  const upperMethod = String(method || "GET").toUpperCase();
-  if (["GET", "HEAD", "OPTIONS"].includes(upperMethod)) return {};
-  const csrfToken = readCookie("climbcrew_csrf");
-  return csrfToken ? { "X-CSRF-Token": csrfToken } : {};
-}
-
-async function apiFetch(path, options = {}) {
-  const method = options.method || "GET";
-  const response = await fetch(`${API_BASE}${path}`, {
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...csrfHeaders(method),
-      ...(options.headers || {})
-    },
-    ...options,
-  });
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || `Erreur API ${response.status}`);
-  }
-  if (response.status === 204) return null;
-  return response.json();
-}
-
-async function authApiFetch(path, _token, options = {}) {
-  // Authentification par cookie HttpOnly uniquement : aucun jeton n'est stocké dans localStorage.
-  return apiFetch(path, options);
-}
-
 function App() {
   const [tab, setTab] = useState("inscriptions");
   const [viewMode, setViewMode] = useState("jour");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [statsSortField, setStatsSortField] = useState("name");
   const [statsSortDirection, setStatsSortDirection] = useState("asc");
+  const [wallOfFameSexFilter, setWallOfFameSexFilter] = useState("all");
   const [recentlyAddedParticipantIds, setRecentlyAddedParticipantIds] = useState([]);
   const [state, setState] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       const base = saved ? JSON.parse(saved) : IMPORTED_DATA;
-      return { ...base, selectedDate: todayIso(), selectedParticipantProgress: "" };
+      return normalizeAppData({
+        ...base,
+        selectedDate: todayIso(),
+        selectedParticipantProgress: "",
+      }, IMPORTED_DATA);
     } catch {
-      return { ...IMPORTED_DATA, selectedDate: todayIso(), selectedParticipantProgress: "" };
+      return normalizeAppData({
+        ...IMPORTED_DATA,
+        selectedDate: todayIso(),
+        selectedParticipantProgress: "",
+      }, IMPORTED_DATA);
     }
   });
   const [adminInput, setAdminInput] = useState("");
@@ -462,6 +107,7 @@ function App() {
   const [routeError, setRouteError] = useState("");
   const [importMessage, setImportMessage] = useState("");
   const [, setSyncMessage] = useState(USE_API ? "API activée" : "Mode local");
+  const [confirmationMessage, setConfirmationMessage] = useState("");
   const [isSyncing, setIsSyncing] = useState(false);
 
   const [authToken, setAuthToken] = useState(() => (USE_API ? "cookie" : ""));
@@ -494,12 +140,16 @@ function App() {
   const [adminAuthUsers, setAdminAuthUsers] = useState([]);
   const [adminAccessLogs, setAdminAccessLogs] = useState([]);
   const [generatedResetToken, setGeneratedResetToken] = useState("");
+  const [pendingBroadcastMessages, setPendingBroadcastMessages] = useState([]);
+  const [broadcastMessageError, setBroadcastMessageError] = useState("");
   const [themePreference, setThemePreference] = useState(() => localStorage.getItem(THEME_PREFERENCE_KEY) || "auto");
 
   const [newParticipant, setNewParticipant] = useState({
     nom: "",
     prenom: "",
+    email: "",
     passport: "sans",
+    sexe: "",
     cotisation: false,
     ffme: false,
     canEncadrer: false,
@@ -507,14 +157,19 @@ function App() {
     canAdmin: false,
   });
   const [newRoute, setNewRoute] = useState({
-    numeroVoieUnique: "",
-    numeroCorde: "1",
+    numeroCorde: "",
     couleurPrises: "",
-    cotationReference: "5c",
+    cotationReference: "",
     nomVoie: "",
     nomOuvreur: "",
     moulinetteOnly: false,
+    tags: [],
   });
+  const [editingRouteId, setEditingRouteId] = useState("");
+  const [routeEditDraft, setRouteEditDraft] = useState(null);
+  const [savingRouteId, setSavingRouteId] = useState("");
+  // Le tableau peut être regroupé soit par numéro de corde, soit par niveau de cotation.
+  const [routeSortMode, setRouteSortMode] = useState("corde");
   const [newRealisation, setNewRealisation] = useState({
     participantId: "",
     selectedDay: "",
@@ -523,19 +178,28 @@ function App() {
     styleRealisation: "a_vue",
     commentaire: "",
     cotationProposee: "",
-    nbEssais: "",
+    rating: 0,
+    chute: false,
+    assureurId: "",
   });
 
   // Route sélectionnée pour le popup "Enregistrer une réalisation"
   // depuis l'onglet Voies.
   const [realisationModalRouteId, setRealisationModalRouteId] = useState(null);
 
-  // Réalisation dont les détails sont ouverts dans la Timeline CPR simplifiée.
-  const [openTimelineRealisationId, setOpenTimelineRealisationId] = useState(null);
+  // Filtres de consultation de la progression.
+  const [selectedRouteProgress, setSelectedRouteProgress] = useState("");
+  const [expandedRealisationIds, setExpandedRealisationIds] = useState([]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
+
+  useEffect(() => {
+    if (!confirmationMessage) return undefined;
+    const timeoutId = window.setTimeout(() => setConfirmationMessage(""), 3000);
+    return () => window.clearTimeout(timeoutId);
+  }, [confirmationMessage]);
 
   useEffect(() => {
     const applyTheme = () => {
@@ -645,14 +309,34 @@ function App() {
     };
   }, [authToken]);
 
+  useEffect(() => {
+    if (!USE_API || !authUser?.id) {
+      setPendingBroadcastMessages([]);
+      return;
+    }
+
+    let isMounted = true;
+    authApiFetch("/auth/broadcast-messages/pending", authToken)
+      .then((data) => {
+        if (isMounted) setPendingBroadcastMessages(Array.isArray(data.messages) ? data.messages : []);
+      })
+      .catch((error) => {
+        if (isMounted) setBroadcastMessageError(String(error.message || error));
+      });
+
+    return () => { isMounted = false; };
+  }, [authUser?.id, authToken]);
+
   const canAccessAdminTabs = !USE_API || authUser?.role === "admin";
   const canManageAccountsAndLogs = USE_API && authUser?.role === "admin";
   const visibleTabs = useMemo(
     () => TABS.filter((item) => !item.adminOnly || canAccessAdminTabs),
     [canAccessAdminTabs]
   );
+  const currentPageLabel = TABS.find((item) => item.key === tab)?.label || "";
 
   useEffect(() => {
+    if (tab === "parametres") return;
     if (visibleTabs.some((item) => item.key === tab)) return;
     setTab("inscriptions");
   }, [tab, visibleTabs]);
@@ -671,6 +355,38 @@ function App() {
     () => Object.fromEntries(state.routes.map((r) => [r.id, r])),
     [state.routes]
   );
+
+  // Prépare les groupes du tableau des voies. L'ordre des cotations suit GRADES
+  // afin que 6a+ soit placé entre 6a et 6b.
+  const routeDisplayGroups = useMemo(() => {
+    if (routeSortMode === "cotation") {
+      const gradeRank = new Map(GRADES.map((grade, index) => [grade, index]));
+      const grades = [...new Set(state.routes.map((route) => route.cotationAjustee || route.cotationReference || "nc"))]
+        .sort((gradeA, gradeB) => {
+          const rankA = gradeRank.has(gradeA) ? gradeRank.get(gradeA) : Number.MAX_SAFE_INTEGER;
+          const rankB = gradeRank.has(gradeB) ? gradeRank.get(gradeB) : Number.MAX_SAFE_INTEGER;
+          return rankA - rankB || String(gradeA).localeCompare(String(gradeB), "fr");
+        });
+
+      return grades.map((grade) => ({
+        key: `cotation-${grade}`,
+        label: `Cotation ${grade}`,
+        routes: state.routes.filter((route) => (route.cotationAjustee || route.cotationReference || "nc") === grade),
+      }));
+    }
+
+    return [...new Set(state.routes.map((route) => normalizeRopeNumber(route.numeroCorde)))]
+      .sort((numeroA, numeroB) => numeroA - numeroB)
+      .map((numeroCorde) => {
+        const rope = state.ropes.find((item) => normalizeRopeNumber(item.numeroCorde) === numeroCorde);
+        return {
+          key: `corde-${numeroCorde}`,
+          label: `Corde ${numeroCorde}${rope?.couleurCorde ? ` · ${rope.couleurCorde}` : ""}`,
+          routes: state.routes.filter((route) => normalizeRopeNumber(route.numeroCorde) === numeroCorde),
+        };
+      });
+  }, [routeSortMode, state.routes, state.ropes]);
+
   const sessionsById = useMemo(
     () => Object.fromEntries(state.sessions.map((s) => [s.id, s])),
     [state.sessions]
@@ -687,6 +403,7 @@ function App() {
   }, [state.sessions]);
 
   function isManagedSession(session) {
+    if (["passeport", "challenge", "renouvellement"].includes(session.status)) return true;
     return (session.status === "encadree" && Boolean(session.encadrantId))
       || (session.status === "libre" && Boolean(session.referentId));
   }
@@ -790,33 +507,47 @@ function App() {
   }, [state.realisations, state.selectedParticipantProgress]);
 
   const participantProgressStats = useMemo(() => {
-    const cleanStyles = ["a_vue", "flash", "en_tete"];
     const gradesAll = selectedParticipantRealisations.map((r) => routesById[r.voieId]?.cotationAjustee).filter(Boolean);
-    const gradesClean = selectedParticipantRealisations
-      .filter((r) => cleanStyles.includes(r.styleRealisation))
-      .map((r) => routesById[r.voieId]?.cotationAjustee)
-      .filter(Boolean);
-
     const bestAll = gradesAll.length
       ? gradesAll.reduce((best, current) => (gradeToIndex(current) > gradeToIndex(best) ? current : best))
-      : null;
-
-    const bestClean = gradesClean.length
-      ? gradesClean.reduce((best, current) => (gradeToIndex(current) > gradeToIndex(best) ? current : best))
       : null;
 
     return {
       count: selectedParticipantRealisations.length,
       bestAll,
-      bestClean,
       cpr: calculateSimpleCpr(selectedParticipantRealisations, routesById),
     };
   }, [selectedParticipantRealisations, routesById]);
 
-  const cprTimelineRealisations = useMemo(() => {
-    return [...selectedParticipantRealisations]
+  const selectedRouteRealisations = useMemo(() => {
+    if (!selectedRouteProgress) return [];
+    return state.realisations
+      .filter((realisation) => realisation.voieId === selectedRouteProgress)
       .sort((a, b) => b.dateRealisation.localeCompare(a.dateRealisation));
-  }, [selectedParticipantRealisations]);
+  }, [state.realisations, selectedRouteProgress]);
+
+  const progressViewRealisations = state.selectedParticipantProgress
+    ? [...selectedParticipantRealisations].sort((a, b) => b.dateRealisation.localeCompare(a.dateRealisation))
+    : selectedRouteRealisations;
+
+  const allProgressRealisationsExpanded = progressViewRealisations.length > 0
+    && progressViewRealisations.every((realisation) => expandedRealisationIds.includes(realisation.id));
+
+  function toggleAllProgressRealisations() {
+    const visibleIds = progressViewRealisations.map((realisation) => realisation.id);
+    setExpandedRealisationIds((currentIds) => {
+      if (visibleIds.every((id) => currentIds.includes(id))) {
+        return currentIds.filter((id) => !visibleIds.includes(id));
+      }
+      return [...new Set([...currentIds, ...visibleIds])];
+    });
+  }
+
+  function setRealisationExpanded(realisationId, expanded) {
+    setExpandedRealisationIds((currentIds) => expanded
+      ? [...new Set([...currentIds, realisationId])]
+      : currentIds.filter((id) => id !== realisationId));
+  }
 
   const sessionStats = useMemo(() => {
     const unique = new Set(state.sessions.flatMap((s) => s.participantIds));
@@ -852,6 +583,30 @@ function App() {
       ])
     );
   }, [state.participants, state.realisations, routesById]);
+
+  const pointsByParticipantId = useMemo(
+    () => calculateLeadPoints(state.participants, state.routes, state.realisations),
+    [state.participants, state.routes, state.realisations],
+  );
+
+  const myParticipantId = authUser?.participantId ? String(authUser.participantId) : "";
+  const myParticipant = participantsById[myParticipantId] || null;
+
+  const myRealisations = useMemo(() => {
+    if (!myParticipantId) return [];
+    return state.realisations
+      .filter((r) => String(r.participantId) === myParticipantId)
+      .sort((a, b) => b.dateRealisation.localeCompare(a.dateRealisation));
+  }, [state.realisations, myParticipantId]);
+
+  const myProfileStats = useMemo(() => {
+    const gradesAll = myRealisations.map((r) => routesById[r.voieId]?.cotationAjustee).filter(Boolean);
+    const bestAll = gradesAll.length
+      ? gradesAll.reduce((best, current) => (gradeToIndex(current) > gradeToIndex(best) ? current : best))
+      : null;
+
+    return { count: myRealisations.length, bestAll };
+  }, [myRealisations, routesById]);
 
   const sortedStatsParticipants = useMemo(() => {
     const direction = statsSortDirection === "asc" ? 1 : -1;
@@ -891,6 +646,12 @@ function App() {
         return (normalizedLeft - normalizedRight) * direction;
       }
 
+      if (statsSortField === "points") {
+        left = pointsByParticipantId[a.id] || 0;
+        right = pointsByParticipantId[b.id] || 0;
+        return (left - right) * direction;
+      }
+
       if (statsSortField === "participations") {
         left = sessionStats.participationCount[a.id] || 0;
         right = sessionStats.participationCount[b.id] || 0;
@@ -899,7 +660,7 @@ function App() {
 
       return fullName(a).localeCompare(fullName(b), "fr") * direction;
     });
-  }, [state.participants, sessionStats.participationCount, cprByParticipantId, statsSortField, statsSortDirection]);
+  }, [state.participants, sessionStats.participationCount, cprByParticipantId, pointsByParticipantId, statsSortField, statsSortDirection]);
 
   const adminParticipants = useMemo(() => {
     const recentSet = new Set(recentlyAddedParticipantIds.map(String));
@@ -914,38 +675,80 @@ function App() {
     return [...recentParticipants, ...alphabeticalParticipants];
   }, [state.participants, recentlyAddedParticipantIds]);
 
-  const routeAggregatesById = useMemo(() => {
-    return Object.fromEntries(
-      state.routes.map((route) => {
-        const proposals = state.realisations
-          .filter((r) => r.voieId === route.id && r.cotationProposee)
-          .map((r) => ({ grade: r.cotationProposee, style: r.styleRealisation }));
+  const routeAggregatesById = useMemo(
+    () => calculateRouteAggregates(state.routes, state.realisations, cprByParticipantId),
+    [state.routes, state.realisations, cprByParticipantId],
+  );
 
-        const weightedProposals = proposals.map((p) => ({ grade: p.grade, weight: STYLE_WEIGHTS[p.style] || 1 }));
+  const leadRealisationStats = useMemo(
+    () => calculateLeadRealisationStats(state.routes, state.realisations, routesById),
+    [state.routes, state.realisations, routesById],
+  );
 
-        const distribution = GRADES.filter((g) => proposals.some((p) => p.grade === g)).map((g) => ({
-          grade: g,
-          count: proposals.filter((p) => p.grade === g).length,
-        }));
+  const routeRatingsById = useMemo(() => {
+    const ratings = {};
+    state.realisations.forEach((realisation) => {
+      const rating = Number(realisation.rating);
+      if (!Number.isInteger(rating) || rating < 1 || rating > 5) return;
+      const current = ratings[realisation.voieId] || { total: 0, count: 0, average: 0 };
+      current.total += rating;
+      current.count += 1;
+      current.average = current.total / current.count;
+      ratings[realisation.voieId] = current;
+    });
+    return ratings;
+  }, [state.realisations]);
 
-        const averageIndex = proposals.length
-          ? proposals.reduce((sum, p) => sum + gradeToIndex(p.grade), 0) / proposals.length
-          : null;
+  const topRouteRankings = useMemo(() => {
+    const entries = state.routes.map((route) => {
+      const routeRealisations = state.realisations.filter((item) => item.voieId === route.id);
+      const rating = routeRatingsById[route.id] || { average: 0, count: 0 };
+      return {
+        route,
+        ratingAverage: rating.average,
+        ratingCount: rating.count,
+        realisationCount: routeRealisations.length,
+        leadCount: routeRealisations.filter((item) => isSuccessfulLeadRealisation(item, route)).length,
+      };
+    });
+    const takeFive = (items, compare) => [...items].sort(compare).slice(0, 5);
+    return [
+      {
+        title: "Voies les mieux notées",
+        entries: takeFive(entries.filter((item) => item.ratingCount > 0), (a, b) => b.ratingAverage - a.ratingAverage || b.ratingCount - a.ratingCount),
+        value: (item) => `★ ${item.ratingAverage.toFixed(1)} (${item.ratingCount})`,
+      },
+      {
+        title: "Voies les plus réalisées",
+        entries: takeFive(entries.filter((item) => item.realisationCount > 0), (a, b) => b.realisationCount - a.realisationCount),
+        value: (item) => `${item.realisationCount} réalisation${item.realisationCount > 1 ? "s" : ""}`,
+      },
+      {
+        title: "Voies les plus réalisées en tête",
+        entries: takeFive(entries.filter((item) => item.leadCount > 0), (a, b) => b.leadCount - a.leadCount),
+        value: (item) => `${item.leadCount} en tête`,
+      },
+      {
+        title: "Mieux notées avec au moins 3 avis",
+        entries: takeFive(entries.filter((item) => item.ratingCount >= 3), (a, b) => b.ratingAverage - a.ratingAverage || b.ratingCount - a.ratingCount),
+        value: (item) => `★ ${item.ratingAverage.toFixed(1)} (${item.ratingCount})`,
+      },
+    ];
+  }, [state.routes, state.realisations, routeRatingsById]);
 
-        const medianGrade = proposals.length
-          ? indexToGrade([...proposals].map((p) => gradeToIndex(p.grade)).sort((a, b) => a - b)[Math.floor((proposals.length - 1) / 2)])
-          : null;
-
-        return [route.id, {
-          count: proposals.length,
-          averageGrade: averageIndex === null ? null : indexToGrade(Math.round(averageIndex)),
-          medianGrade,
-          weightedMedianGrade: proposals.length >= 5 ? weightedMedian(weightedProposals) : null,
-          distribution,
-        }];
-      })
-    );
-  }, [state.routes, state.realisations]);
+  const wallOfFameCategories = useMemo(
+    () => calculateWallOfFameCategories({
+      participants: state.participants.filter((participant) => (
+        wallOfFameSexFilter === "all" || participant.sexe === wallOfFameSexFilter
+      )),
+      realisations: state.realisations,
+      routesById,
+      cprByParticipantId,
+      pointsByParticipantId,
+      participationCount: sessionStats.participationCount,
+    }),
+    [state.participants, state.realisations, routesById, cprByParticipantId, pointsByParticipantId, sessionStats.participationCount, wallOfFameSexFilter],
+  );
 
   function setSelectedDate(date) {
     setState((prev) => ({ ...prev, selectedDate: date }));
@@ -974,6 +777,7 @@ function App() {
         body: JSON.stringify(session),
       });
       setSyncMessage("Séance synchronisée via l’API");
+      setConfirmationMessage("Séance enregistrée.");
     } catch (e) {
       setSyncMessage("Erreur synchronisation séance");
       console.error(e);
@@ -1120,8 +924,9 @@ function App() {
         ]);
       }
       setNewParticipant({
-        nom: "", prenom: "", passport: "sans", cotisation: false, ffme: false, canEncadrer: false, canReferer: false, canAdmin: false,
+        nom: "", prenom: "", email: "", passport: "sans", sexe: "", cotisation: false, ffme: false, canEncadrer: false, canReferer: false, canAdmin: false,
       });
+      setConfirmationMessage("Participant ajouté.");
     } catch (e) {
       setSyncMessage(`Erreur ajout participant`);
       console.error(e);
@@ -1153,7 +958,56 @@ function App() {
     }
   }
 
+  async function updateMyProfile(patch) {
+    if (!myParticipant || !USE_API) return;
+    const previous = myParticipant;
+    const optimistic = { ...previous, ...patch };
+    setState((prev) => ({
+      ...prev,
+      participants: prev.participants.map((participant) => String(participant.id) === myParticipantId ? optimistic : participant),
+    }));
+    try {
+      const updated = await apiFetch("/participants/me/profile", {
+        method: "PATCH",
+        body: JSON.stringify({
+          avatarId: optimistic.avatarId || "gecko",
+          crestId: optimistic.crestId || "cristal",
+          profilePublic: optimistic.profilePublic !== false,
+          customAvatarImage: optimistic.customAvatarImage || "",
+        }),
+      });
+      setState((prev) => ({
+        ...prev,
+        participants: prev.participants.map((participant) => String(participant.id) === myParticipantId ? updated : participant),
+      }));
+      setConfirmationMessage("Préférences du profil enregistrées.");
+    } catch (error) {
+      setState((prev) => ({
+        ...prev,
+        participants: prev.participants.map((participant) => String(participant.id) === myParticipantId ? previous : participant),
+      }));
+      setSyncMessage("Erreur d'enregistrement du profil");
+      console.error(error);
+    }
+  }
+
   async function deleteParticipant(id) {
+    const participant = state.participants.find((item) => String(item.id) === String(id));
+    if (!participant) return;
+    const relatedRealisations = state.realisations.filter(
+      (item) => String(item.participantId) === String(id)
+    ).length;
+    const relatedInscriptions = state.sessions.reduce(
+      (count, session) => count + session.participantIds.filter(
+        (participantId) => String(participantId) === String(id)
+      ).length,
+      0
+    );
+    const warning = relatedInscriptions || relatedRealisations
+      ? ` Cette action supprimera aussi ${relatedInscriptions} inscription(s) et ${relatedRealisations} réalisation(s).`
+      : "";
+    if (!window.confirm(`Supprimer définitivement le grimpeur ${fullName(participant)} ?${warning}`)) return;
+
     const previousParticipants = state.participants;
     setState((prev) => ({
       ...prev,
@@ -1168,10 +1022,14 @@ function App() {
     }));
     setRecentlyAddedParticipantIds((prev) => prev.filter((pid) => String(pid) !== String(id)));
 
-    if (!USE_API) return;
+    if (!USE_API) {
+      setConfirmationMessage("Grimpeur supprimé.");
+      return;
+    }
     try {
       await apiFetch(`/participants/${id}`, { method: "DELETE" });
       setSyncMessage("Participant supprimé via l’API");
+      setConfirmationMessage("Grimpeur supprimé.");
     } catch (e) {
       setState((prev) => ({ ...prev, participants: previousParticipants }));
       setSyncMessage("Erreur suppression participant");
@@ -1179,13 +1037,13 @@ function App() {
     }
   }
 
-  function addRoute() {
-    const numeroVoieUnique = newRoute.numeroVoieUnique.trim();
+  async function addRoute() {
+    const numeroVoieUnique = `voie-${Date.now()}`;
     const couleurPrises = newRoute.couleurPrises.trim();
     const nomOuvreur = newRoute.nomOuvreur.trim();
-    if (!numeroVoieUnique) return setRouteError("Le numéro de voie est obligatoire.");
-    if (state.routes.some((r) => r.numeroVoieUnique === numeroVoieUnique)) return setRouteError("Ce numéro de voie existe déjà.");
-    if (!couleurPrises || !nomOuvreur) return setRouteError("Renseigne au moins la couleur et l’ouvreur.");
+    if (!newRoute.numeroCorde || !couleurPrises || !newRoute.cotationReference || !nomOuvreur) {
+      return setRouteError("Renseigne la corde, la couleur, la cotation et l’ouvreur.");
+    }
 
     const route = {
       id: `route-${Date.now()}`,
@@ -1199,29 +1057,112 @@ function App() {
       moulinetteOnly: newRoute.moulinetteOnly,
       active: true,
       dateCreation: selectedDate,
+      tags: newRoute.tags,
     };
 
-    setState((prev) => ({ ...prev, routes: [...prev.routes, route] }));
-    setRouteError("");
-    setNewRoute({
-      numeroVoieUnique: "", numeroCorde: "1", couleurPrises: "", cotationReference: "5c", nomVoie: "", nomOuvreur: "", moulinetteOnly: false,
+    try {
+      const savedRoute = USE_API
+        ? await apiFetch("/routes", { method: "POST", body: JSON.stringify(route) })
+        : route;
+      setState((prev) => ({ ...prev, routes: [...prev.routes, savedRoute] }));
+      setRouteError("");
+      setNewRoute({
+        numeroCorde: "", couleurPrises: "", cotationReference: "", nomVoie: "", nomOuvreur: "", moulinetteOnly: false, tags: [],
+      });
+      setConfirmationMessage("Voie ajoutée.");
+    } catch (error) {
+      setRouteError(error.message || "Création de la voie impossible.");
+    }
+  }
+
+  function startRouteEdition(route) {
+    setEditingRouteId(route.id);
+    setRouteEditDraft({
+      numeroCorde: String(route.numeroCorde ?? 0),
+      couleurPrises: route.couleurPrises || "Blanc",
+      cotationReference: route.cotationReference || route.cotationAjustee || "5c",
+      nomVoie: route.nomVoie || "",
+      nomOuvreur: route.nomOuvreur || "",
+      moulinetteOnly: Boolean(route.moulinetteOnly),
+      tags: route.tags || [],
     });
+    setRouteError("");
   }
 
-  function toggleRouteActive(routeId) {
-    setState((prev) => ({
-      ...prev,
-      routes: prev.routes.map((r) => (r.id === routeId ? { ...r, active: !r.active } : r)),
-    }));
+  function cancelRouteEdition() {
+    setEditingRouteId("");
+    setRouteEditDraft(null);
   }
 
-  function applyAdjustedGrade(routeId) {
-    const aggregate = routeAggregatesById[routeId];
-    if (!aggregate?.weightedMedianGrade) return;
-    setState((prev) => ({
-      ...prev,
-      routes: prev.routes.map((r) => (r.id === routeId ? { ...r, cotationAjustee: aggregate.weightedMedianGrade } : r)),
-    }));
+  async function deleteRoute(route) {
+    if (!route?.id) return;
+    const relatedRealisations = state.realisations.filter(
+      (item) => String(item.voieId) === String(route.id)
+    ).length;
+    const routeLabel = formatRouteName(route);
+    const warning = relatedRealisations
+      ? ` Cette action supprimera aussi ${relatedRealisations} réalisation(s).`
+      : "";
+    if (!window.confirm(`Supprimer définitivement la voie « ${routeLabel} » ?${warning}`)) return;
+
+    try {
+      if (USE_API) {
+        await apiFetch(`/routes/${encodeURIComponent(route.id)}`, { method: "DELETE" });
+      }
+      setState((prev) => ({
+        ...prev,
+        routes: prev.routes.filter((item) => item.id !== route.id),
+        realisations: prev.realisations.filter((item) => item.voieId !== route.id),
+      }));
+      cancelRouteEdition();
+      setConfirmationMessage("Voie supprimée.");
+    } catch (error) {
+      setRouteError(error.message || "Suppression de la voie impossible.");
+    }
+  }
+
+  async function saveRouteEdition(route) {
+    if (!routeEditDraft) return;
+    setRouteError("");
+    const couleurPrises = routeEditDraft.couleurPrises.trim();
+    const nomOuvreur = routeEditDraft.nomOuvreur.trim();
+    if (!couleurPrises || !nomOuvreur) {
+      setRouteError("Renseigne au moins la couleur et l’ouvreur.");
+      return;
+    }
+
+    const routePatch = {
+      numeroCorde: Number(routeEditDraft.numeroCorde),
+      couleurPrises,
+      cotationReference: routeEditDraft.cotationReference,
+      cotationAjustee: routeEditDraft.cotationReference,
+      nomVoie: routeEditDraft.nomVoie.trim(),
+      nomOuvreur,
+      moulinetteOnly: routeEditDraft.moulinetteOnly,
+      tags: routeEditDraft.tags,
+    };
+    const updatedRoute = { ...route, ...routePatch };
+
+    setSavingRouteId(route.id);
+    try {
+      const savedRoute = USE_API
+        ? await apiFetch(`/routes/${encodeURIComponent(route.id)}`, {
+            method: "PUT",
+            body: JSON.stringify(routePatch),
+          })
+        : updatedRoute;
+      setState((prev) => ({
+        ...prev,
+        routes: prev.routes.map((item) => (item.id === route.id ? savedRoute : item)),
+      }));
+      cancelRouteEdition();
+      setSyncMessage("Voie mise à jour.");
+      setConfirmationMessage("Voie modifiée.");
+    } catch (error) {
+      setRouteError(error.message || "Modification de la voie impossible.");
+    } finally {
+      setSavingRouteId("");
+    }
   }
 
   function getParticipantSessions(participantId) {
@@ -1257,6 +1198,11 @@ function App() {
   }
 
   function updateRealisation(realisationId, patch) {
+    const target = state.realisations.find((item) => String(item.id) === String(realisationId));
+    if (!target || String(target.participantId) !== String(myParticipantId)) {
+      alert("Vous pouvez modifier uniquement vos propres réalisations.");
+      return;
+    }
     syncRealisationPatch(realisationId, patch);
     setState((prev) => ({
       ...prev,
@@ -1278,22 +1224,30 @@ function App() {
     }));
   }
 
-  function openRealisationModal(routeId) {
+  function openRealisationModal(routeId, requestedParticipantId = "") {
     const route = routesById[routeId];
+    requestedParticipantId = myParticipantId || "";
+    const requestedParticipant = participantsById[requestedParticipantId];
+    const latestRegisteredDay = requestedParticipant?.cotisation
+      ? getParticipantSessionDays(requestedParticipantId)[0] || ""
+      : "";
+    const defaultParticipantId = latestRegisteredDay ? requestedParticipantId : "";
 
     setNewRealisation((prev) => ({
       ...prev,
-      participantId: "",
-      selectedDay: "",
-      sessionId: "",
-      voieId: routeId,
+      participantId: defaultParticipantId,
+      selectedDay: latestRegisteredDay,
+      sessionId: defaultParticipantId && latestRegisteredDay
+        ? resolveSessionIdForRealisation(defaultParticipantId, latestRegisteredDay) || ""
+        : "",
+      voieId: routeId || "",
       styleRealisation: route?.moulinetteOnly ? "moulinette" : (prev.styleRealisation || "a_vue"),
       cotationProposee: route?.cotationAjustee || route?.cotationReference || "",
       commentaire: "",
-      nbEssais: "",
+      rating: 0,
     }));
 
-    setRealisationModalRouteId(routeId);
+    setRealisationModalRouteId(routeId || "");
   }
 
   function closeRealisationModal() {
@@ -1322,6 +1276,10 @@ async function updateRealisationInApi(realisationId, patch) {
 
 async function deleteRealisation(realisation) {
   if (!realisation?.id) return;
+  if (String(realisation.participantId) !== String(myParticipantId)) {
+    alert("Vous pouvez supprimer uniquement vos propres réalisations.");
+    return;
+  }
 
   const route = routesById[realisation.voieId];
   const routeLabel = route ? formatRouteName(route) : "la voie concernée";
@@ -1336,7 +1294,6 @@ async function deleteRealisation(realisation) {
     ...prev,
     realisations: prev.realisations.filter((item) => item.id !== realisation.id),
   }));
-  setOpenTimelineRealisationId((current) => (current === realisation.id ? null : current));
 
   try {
     if (USE_API) {
@@ -1344,6 +1301,7 @@ async function deleteRealisation(realisation) {
         method: "DELETE",
       });
     }
+    setConfirmationMessage("Réalisation supprimée.");
   } catch (error) {
     setState((prev) => ({ ...prev, realisations: previousRealisations }));
     alert(`Suppression impossible : ${error.message || error}`);
@@ -1351,8 +1309,12 @@ async function deleteRealisation(realisation) {
 }
 
   async function addRealisation() {
-    if (!newRealisation.participantId || !newRealisation.selectedDay || !newRealisation.voieId) {
-      alert("Sélectionne au minimum un jour, un participant et une voie.");
+    if (!myParticipantId || String(newRealisation.participantId) !== String(myParticipantId)) {
+      alert("Vous pouvez enregistrer uniquement vos propres réalisations.");
+      return;
+    }
+    if (!newRealisation.participantId || !newRealisation.selectedDay || !newRealisation.voieId || !newRealisation.rating) {
+      alert("Sélectionne un jour, un participant, une voie et une note de 1 à 5 étoiles.");
       return;
     }
 
@@ -1377,7 +1339,9 @@ async function deleteRealisation(realisation) {
       styleRealisation: newRealisation.styleRealisation,
       commentaire: newRealisation.commentaire,
       cotationProposee: newRealisation.cotationProposee,
-      nbEssais: newRealisation.nbEssais,
+      rating: newRealisation.rating,
+      chute: newRealisation.chute,
+      assureurId: newRealisation.chute ? newRealisation.assureurId : "",
     };
 
     try {
@@ -1390,9 +1354,12 @@ async function deleteRealisation(realisation) {
         sessionId: "",
         commentaire: "",
         cotationProposee: "",
-        nbEssais: "",
+        rating: 0,
+        chute: false,
+        assureurId: "",
       }));
       setRealisationModalRouteId(null);
+      setConfirmationMessage("Réalisation enregistrée.");
     } catch (error) {
       alert(String(error.message || error));
     }
@@ -1408,7 +1375,7 @@ async function deleteRealisation(realisation) {
       ]);
 
       setAdminAuthUsers(usersResponse.users || []);
-      setAdminAccessLogs(logsResponse.logs || []);
+      setAdminAccessLogs((logsResponse.logs || []).filter((log) => log.event_type !== "theme_changed"));
     } catch (error) {
       console.error(error);
       setAuthError("Impossible de charger les accès et les logs.");
@@ -1476,7 +1443,45 @@ async function handleThemePreferenceChange(nextTheme) {
       setGeneratedResetToken("");
       setAdminAuthUsers([]);
       setAdminAccessLogs([]);
+      setPendingBroadcastMessages([]);
+      setBroadcastMessageError("");
     }
+  }
+
+  async function publishBroadcastMessage({ title, body }) {
+    if (!USE_API || authUser?.role !== "admin") {
+      throw new Error("Connexion administrateur requise.");
+    }
+    return authApiFetch("/admin/broadcast-messages", authToken, {
+      method: "POST",
+      body: JSON.stringify({ title, body }),
+    });
+  }
+
+  async function acknowledgeBroadcastMessage(messageId) {
+    try {
+      setBroadcastMessageError("");
+      await authApiFetch(`/auth/broadcast-messages/${messageId}/read`, authToken, { method: "POST" });
+      setPendingBroadcastMessages((messages) => messages.filter(
+        (message) => String(message.id) !== String(messageId)
+      ));
+    } catch (error) {
+      setBroadcastMessageError(String(error.message || error));
+    }
+  }
+
+  async function changePassword(currentPassword, newPassword) {
+    return authApiFetch("/auth/change-password", authToken, {
+      method: "POST",
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+  }
+
+  async function requestEmailChange(newEmail, currentPassword) {
+    return authApiFetch("/auth/change-email/request", authToken, {
+      method: "POST",
+      body: JSON.stringify({ newEmail, currentPassword }),
+    });
   }
 
   async function handleRequestAccess() {
@@ -1597,6 +1602,21 @@ async function handleThemePreferenceChange(nextTheme) {
     }
   }
 
+  async function deleteUserAccount(user) {
+    if (!user?.id) return;
+    if (!window.confirm(
+      `Supprimer définitivement le compte de ${user.prenom} ${user.nom} (${user.email}) ? Le grimpeur associé sera conservé.`
+    )) return;
+
+    try {
+      await authApiFetch(`/admin/auth/users/${user.id}`, authToken, { method: "DELETE" });
+      await loadAdminAccessData();
+      setConfirmationMessage("Compte supprimé.");
+    } catch (error) {
+      setAuthError(String(error.message || error));
+    }
+  }
+
   async function reactivateUserAccess(userId) {
     try {
       await authApiFetch(`/admin/auth/users/${userId}/reactivate`, authToken, { method: "POST" });
@@ -1633,18 +1653,64 @@ async function handleThemePreferenceChange(nextTheme) {
   }
 
   async function exportAllData() {
+    // La version applicative complète la version du format d’export sans la remplacer.
+    // Les anciens imports restent ainsi compatibles, tandis qu’un fichier permet
+    // d’identifier immédiatement la version de ClimbClubCristal qui l’a produit.
+    const buildVersionedExport = (data) => ({
+      ...data,
+      exportedAt: data?.exportedAt || new Date().toISOString(),
+      applicationVersion: APP_VERSION,
+    });
+    const filename = `climbcrew_export_${APP_VERSION}.json`;
+
     if (USE_API && authToken) {
       try {
         const payload = await authApiFetch("/admin/export-data", authToken);
-        downloadFile("climbcrew_export_api.json", JSON.stringify(payload.data || payload, null, 2));
-        setImportMessage("Export API réussi.");
+        const versionedPayload = buildVersionedExport(payload.data || payload);
+        downloadFile(filename, JSON.stringify(versionedPayload, null, 2));
+        setImportMessage(`Export API version ${APP_VERSION} réussi.`);
         return;
       } catch (error) {
         console.error(error);
         setImportMessage("Export API impossible : export local utilisé.");
       }
     }
-    downloadFile("climbcrew_export.json", JSON.stringify(state, null, 2));
+
+    const versionedPayload = buildVersionedExport(state);
+    downloadFile(filename, JSON.stringify(versionedPayload, null, 2));
+    setImportMessage(`Export local version ${APP_VERSION} réussi.`);
+  }
+
+  function exportSelectedParticipantRealisationsCsv() {
+    const participant = participantsById[state.selectedParticipantProgress];
+    if (!participant) return;
+
+    const headers = ["country", "crag", "sector", "route", "grade", "date", "style", "comment"];
+    const rows = selectedParticipantRealisations.map((realisation) => {
+      const route = routesById[realisation.voieId];
+      const ropeNumber = route ? normalizeRopeNumber(route.numeroCorde) : 0;
+      const routeName = route?.nomVoie?.trim() || `Voie corde ${ropeNumber}`;
+      const details = [
+        route?.nomOuvreur ? `Ouvreur : ${route.nomOuvreur}` : "",
+        route?.couleurPrises ? `Couleur : ${route.couleurPrises}` : "",
+        realisation.cotationProposee ? `Cotation proposée : ${realisation.cotationProposee}` : "",
+        route?.tags?.length ? `Caractéristiques : ${route.tags.map((tag) => ROUTE_TAGS.find((item) => item.value === tag)?.label || tag).join(", ")}` : "",
+        realisation.commentaire || "",
+      ].filter(Boolean).join(" · ");
+      return [
+        "France",
+        "ASTC",
+        `Corde ${ropeNumber}`,
+        routeName,
+        route?.cotationAjustee || route?.cotationReference || "",
+        realisation.dateRealisation?.slice(0, 10) || "",
+        THECRAG_STYLE_BY_CLIMBCREW[realisation.styleRealisation] || "Attempt",
+        details,
+      ];
+    });
+    const filename = `thecrag-${csvFileSlug(fullName(participant))}.csv`;
+    downloadFile(filename, buildCsv(headers, rows), "text/csv;charset=utf-8;");
+    setConfirmationMessage("Export theCrag téléchargé.");
   }
 
   async function importJsonFile(event) {
@@ -1652,6 +1718,12 @@ async function handleThemePreferenceChange(nextTheme) {
     if (!file) return;
     try {
       const parsed = JSON.parse(await file.text());
+      const importedApplicationVersion = String(
+        parsed.applicationVersion || parsed.appVersion || parsed.metadata?.applicationVersion || ""
+      ).trim();
+      const importedVersionLabel = importedApplicationVersion
+        ? ` (version source ${importedApplicationVersion})`
+        : " (ancien export sans version applicative)";
 
       if (USE_API && authToken) {
         const result = await authApiFetch("/admin/import-data", authToken, {
@@ -1660,11 +1732,11 @@ async function handleThemePreferenceChange(nextTheme) {
         });
         await reloadApiState();
         setImportMessage(
-          `Import API réussi : ${result.participantsImported || 0} participants, ${result.sessionsImported || 0} séances, ${result.routesImported || 0} voies.`
+          `Import API réussi${importedVersionLabel} : ${result.participantsImported || 0} participants, ${result.sessionsImported || 0} séances, ${result.routesImported || 0} voies.`
         );
       } else {
-        setState(parsed);
-        setImportMessage("Import JSON local réussi.");
+        setState((prev) => normalizeAppData(parsed, prev));
+        setImportMessage(`Import JSON local réussi${importedVersionLabel}.`);
       }
     } catch (error) {
       console.error(error);
@@ -1683,7 +1755,7 @@ async function handleThemePreferenceChange(nextTheme) {
     );
 
     return (
-      <div className={`card session-card ${compact ? "session-card-compact" : ""}`} key={session.id}>
+      <div className={`card session-card session-status-${String(session.status || "fermee").trim().toLowerCase()} ${compact ? "session-card-compact" : ""}`} key={session.id}>
         <div className="card-header">
           <h3>Séance {session.slot}</h3>
           <span className="badge">{occupied}/{MAX_PARTICIPANTS}</span>
@@ -1706,6 +1778,9 @@ async function handleThemePreferenceChange(nextTheme) {
               <option value="fermee">Fermée</option>
               <option value="libre">Libre</option>
               <option value="encadree">Encadrée</option>
+              <option value="passeport">Passeport</option>
+              <option value="challenge">Challenge</option>
+              <option value="renouvellement">Renouvellement</option>
             </select>
           </div>
 
@@ -1772,9 +1847,13 @@ async function handleThemePreferenceChange(nextTheme) {
                 className={`participant-row passport-row ${session.status === "libre" && normalizePassport(p.passport) === "sans" ? "passport-warning-hatched" : ""}`}
                 key={p.id}
                 style={getPassportStyle(p)}
+                data-passport={normalizePassport(p.passport)}
               >
-                <span className="participant-name">{fullName(p)}</span>
-                <button className="remove-button" onClick={() => removeParticipantFromSession(session.id, p.id)} aria-label="Retirer">×</button>
+                <span className="participant-identity">
+                  <span className="passport-dot" style={getPassportDotStyle(p)} aria-hidden="true" />
+                  <span className="participant-name">{fullName(p)}</span>
+                </span>
+                <Button variant="remove" onClick={() => removeParticipantFromSession(session.id, p.id)} aria-label="Retirer">×</Button>
               </div>
             ))
           )}
@@ -1787,12 +1866,11 @@ async function handleThemePreferenceChange(nextTheme) {
   if (USE_API && authLoading) {
     return (
       <div className="auth-page">
-        <style>{AUTH_LOGIN_INLINE_STYLE}</style>
         <div className="auth-card">
           <div className="brand auth-brand">
-            <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="app-logo" />
+            <img src="/logo-climbcrew.png" alt="Logo ClimbClubCristal" className="app-logo" />
             <div>
-              <h1>ClimbCrew</h1>
+              <h1>ClimbClubCristal</h1>
               <p className="small">Chargement de la session…</p>
             </div>
           </div>
@@ -1804,12 +1882,11 @@ async function handleThemePreferenceChange(nextTheme) {
   if (USE_API && !authUser) {
     return (
       <div className="auth-page">
-        <style>{AUTH_LOGIN_INLINE_STYLE}</style>
         <div className="auth-card">
           <div className="brand auth-brand">
-            <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="app-logo" />
+            <img src="/logo-climbcrew.png" alt="Logo ClimbClubCristal" className="app-logo" />
             <div>
-              <h1>ClimbCrew</h1>
+              <h1>ClimbClubCristal</h1>
               <p className="small">Connexion requise pour accéder à l’application.</p>
             </div>
           </div>
@@ -1820,7 +1897,7 @@ async function handleThemePreferenceChange(nextTheme) {
           {authView === "login" && (
             <div className="grid two" style={{ marginTop: 14 }}>
               <div>
-                <label>Email</label>
+                <label>Emails</label>
                 <input value={loginForm.email} onChange={(e) => setLoginForm((p) => ({ ...p, email: e.target.value }))} />
               </div>
               <div>
@@ -1828,7 +1905,7 @@ async function handleThemePreferenceChange(nextTheme) {
                 <input type="password" value={loginForm.password} onChange={(e) => setLoginForm((p) => ({ ...p, password: e.target.value }))} />
               </div>
               <div className="auth-submit-row">
-                <button onClick={handleLogin}>Se connecter</button>
+                <Button onClick={handleLogin}>Se connecter</Button>
               </div>
             </div>
           )}
@@ -1863,7 +1940,7 @@ async function handleThemePreferenceChange(nextTheme) {
                 <label><input type="checkbox" checked={requestAccessForm.acceptTerms} onChange={(e) => setRequestAccessForm((p) => ({ ...p, acceptTerms: e.target.checked }))} /> J’accepte les conditions d’utilisation et la journalisation des accès.</label>
               </div>
               <div className="auth-submit-row">
-                <button onClick={handleRequestAccess}>Envoyer la demande</button>
+                <Button onClick={handleRequestAccess}>Envoyer la demande</Button>
               </div>
             </div>
           )}
@@ -1878,7 +1955,7 @@ async function handleThemePreferenceChange(nextTheme) {
                 La demande sera journalisée. Un administrateur pourra générer un code de réinitialisation.
               </div>
               <div className="auth-submit-row">
-                <button onClick={handleForgotPassword}>Signaler la perte du mot de passe</button>
+                <Button onClick={handleForgotPassword}>Signaler la perte du mot de passsse</Button>
               </div>
             </div>
           )}
@@ -1906,18 +1983,18 @@ async function handleThemePreferenceChange(nextTheme) {
                 <input value={PASSWORD_RULE_TEXT} readOnly />
               </div>
               <div className="auth-submit-row">
-                <button onClick={handleResetPassword}>Mettre à jour le mot de passe</button>
+                <Button onClick={handleResetPassword}>Mettre à jour le mot de passe</Button>
               </div>
             </div>
           )}
 
           <div className="group auth-switcher" style={{ marginTop: 14 }}>
-            <button className={authView === "request" ? "" : "secondary"} onClick={() => { setAuthView("request"); setAuthError(""); setAuthMessage(""); }}>Demander un accès</button>
-            <button className={authView === "forgot" ? "" : "secondary"} onClick={() => { setAuthView("forgot"); setAuthError(""); setAuthMessage(""); }}>Mot de passe perdu</button>
+            <Button variant={authView === "request" ? "primary" : "secondary"} onClick={() => { setAuthView("request"); setAuthError(""); setAuthMessage(""); }}>Demander un accès</Button>
+            <Button variant={authView === "forgot" ? "primary" : "secondary"} onClick={() => { setAuthView("forgot"); setAuthError(""); setAuthMessage(""); }}>Mot de passe perdu</Button>
           </div>
 
           <div className="small" style={{ marginTop: 10, textAlign: "center", color: "#475569" }}>
-            {APP_VERSION_LABEL}
+            Version : {APP_VERSION}
           </div>
         </div>
       </div>
@@ -1927,643 +2004,33 @@ async function handleThemePreferenceChange(nextTheme) {
 
   return (
     <div className="app">
-      <style>{`
-        * { box-sizing: border-box; }
-        body { margin: 0; font-family: Inter, Arial, sans-serif; background: #0f172a; color: #e2e8f0; }
-        .app { min-height: 100vh; padding: 20px; background: linear-gradient(135deg,#020617,#0f172a,#1e293b); }
-        .shell { max-width: 1400px; margin: 0 auto; }
-        .topbar { display: flex; align-items: center; justify-content: flex-start; gap: 16px; }
-        .brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
-        .app-logo { width: 72px; height: 72px; object-fit: contain; border-radius: 18px; background: #fff; padding: 6px; box-shadow: 0 10px 30px rgba(0,0,0,.22); }
-        .menu-button { background: #020617; color: #e2e8f0; border: 1px solid rgba(148,163,184,.45); min-width: 48px; padding: 10px 12px; }
-        .sidebar-backdrop { position: fixed; inset: 0; background: rgba(2,6,23,.62); z-index: 40; }
-        .sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: min(310px, 86vw); z-index: 50; transform: translateX(-110%); transition: transform .22s ease; background: rgba(15,23,42,.98); border-right: 1px solid rgba(148,163,184,.25); padding: 18px; box-shadow: 20px 0 60px rgba(0,0,0,.4); display: flex; flex-direction: column; gap: 14px; }
-        .sidebar.open { transform: translateX(0); }
-        .sidebar-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
-        .sidebar-brand { display: flex; align-items: center; gap: 10px; font-weight: 900; color: #e2e8f0; }
-        .sidebar-logo { width: 44px; height: 44px; object-fit: contain; background: #fff; border-radius: 12px; padding: 4px; }
-        .sidebar-close { background: #020617; color: #e2e8f0; border: 1px solid rgba(148,163,184,.4); }
-        .side-tab { text-align: left; width: 100%; background: #1e293b; color: #cbd5e1; border: 1px solid rgba(148,163,184,.18); }
-        .side-tab.active { background: #22d3ee; color: #082f49; }
-        .sidebar-account { margin-top: 4px; padding-top: 10px; border-top: 1px solid rgba(148,163,184,.2); display: grid; gap: 8px; }
-        .sidebar-account .secondary { width: 100%; }
-        .date-nav { flex: 1 1 440px; justify-content: center; }
-        .date-input { max-width: 220px; text-align: center; font-weight: 800; text-transform: capitalize; }
-        .date-display { cursor: default; }
-        .nav-symbol { min-width: 48px; padding: 10px 12px; font-size: 20px; line-height: 1; }
-        .session-form-row { display: grid; grid-template-columns: minmax(180px,.7fr) minmax(220px,1fr) minmax(280px,1.4fr); gap: 12px; align-items: end; margin-bottom: 14px; }
-        .inline-field { display: grid; grid-template-columns: auto minmax(160px, 1fr); gap: 10px; align-items: center; }
-        .inline-field label { margin-bottom: 0; white-space: nowrap; }
-        .add-participant-field { grid-column: span 1; }
-        .passport-row { color: #111827; border: 1px solid rgba(255,255,255,.28); }
-        .participant-name { font-weight: 800; }
-        .remove-button { background: transparent; color: #000000; border: 0; border-radius: 0; padding: 0 4px; font-size: 20px; line-height: 1; box-shadow: none; }
-        .remove-button:hover { background: transparent; color: #000000; }
-        .hero { background: rgba(15,23,42,.88); border: 1px solid rgba(148,163,184,.25); border-radius: 24px; padding: 22px; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
-        .hero h1 { margin: 0; font-size: 32px; }
-        .hero p { margin: 8px 0 0; color: #94a3b8; }
-        .tabs { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 8px; margin-top: 20px; }
-        .tab { border: 0; border-radius: 14px; padding: 12px 10px; background: #1e293b; color: #cbd5e1; font-weight: 700; cursor: pointer; }
-        .tab.active { background: #22d3ee; color: #082f49; }
-        .toolbar, .card { background: rgba(15,23,42,.88); border: 1px solid rgba(148,163,184,.25); border-radius: 20px; padding: 18px; margin-top: 18px; }
-        .toolbar-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
-        .group { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-        button, select, input { font: inherit; }
-        button { cursor: pointer; border: 0; border-radius: 12px; padding: 10px 14px; font-weight: 700; background: #22d3ee; color: #082f49; }
-        button.secondary { background: #334155; color: #e2e8f0; }
-        button.ghost { background: transparent; color: #e2e8f0; border: 1px solid rgba(148,163,184,.35); }
-        button.danger { background: #ef4444; color: white; }
-        input, select { width: 100%; border-radius: 12px; border: 1px solid rgba(148,163,184,.35); background: #0f172a; color: #e2e8f0; padding: 10px 12px; }
-        label { display: block; font-size: 12px; font-weight: 700; color: #94a3b8; margin-bottom: 6px; text-transform: uppercase; letter-spacing: .04em; }
-        .grid { display: grid; gap: 14px; }
-        .grid.two { grid-template-columns: repeat(2,minmax(0,1fr)); }
-        .grid.three { grid-template-columns: repeat(3,minmax(0,1fr)); }
-        .grid.four { grid-template-columns: repeat(4,minmax(0,1fr)); }
-        .grid.five { grid-template-columns: repeat(5,minmax(0,1fr)); }
-        .stack { display: grid; gap: 10px; }
-        .card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
-        .card-header h3, .card-header h2 { margin: 0; }
-        .badge { display: inline-flex; align-items: center; justify-content: center; min-width: 64px; padding: 6px 10px; border-radius: 999px; border: 1px solid rgba(148,163,184,.35); color: #cbd5e1; }
-        .subcard { padding: 12px; border: 1px solid rgba(148,163,184,.25); border-radius: 14px; background: rgba(2,6,23,.45); }
-        .muted-box { padding: 14px; border: 1px dashed rgba(148,163,184,.35); border-radius: 14px; color: #94a3b8; }
-        .participant-row { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 10px 12px; background: rgba(30,41,59,.9); border-radius: 12px; }
-        .stats-grid { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 12px; }
-        .stat { background: rgba(15,23,42,.88); border: 1px solid rgba(148,163,184,.25); border-radius: 18px; padding: 16px; }
-        .stat .label { font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: .04em; }
-        .stat .value { margin-top: 10px; font-size: 30px; font-weight: 800; }
-        .route-card { color: #111827; border: 1px solid rgba(0,0,0,.1); border-radius: 14px; padding: 12px; }
-        .route-card strong,
-        .passport-row .participant-name { color: inherit !important; }
-        .small { font-size: 12px; color: #94a3b8; }
-        .success { color: #86efac; }
-        .error { color: #fca5a5; }
-        .pill { padding: 4px 8px; border-radius: 999px; background: rgba(255,255,255,.35); font-size: 12px; display: inline-flex; align-items: center; }
-        .faq-item { padding: 12px 0; border-bottom: 1px solid rgba(148,163,184,.2); }
-        .week-grid { display: grid; grid-template-columns: repeat(5, minmax(240px, 1fr)); gap: 12px; align-items: start; overflow-x: auto; padding-bottom: 8px; }
-        .week-day-card { min-width: 0; padding: 12px; border-radius: 18px; background: var(--theme-card-soft); border: 1px solid var(--theme-card-border); }
-        .week-day-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
-        .week-day-header h3 { margin: 0; font-size: 16px; }
-        .week-day-open { padding: 7px 9px; font-size: 12px; white-space: nowrap; }
-        .week-day-sessions { display: grid; gap: 10px; }
-        .session-card-compact { margin-top: 0; padding: 10px; border-radius: 15px; }
-        .session-card-compact .session-form-row { grid-template-columns: 1fr; gap: 7px; margin-bottom: 9px; }
-        .session-card-compact .inline-field { grid-template-columns: 1fr; gap: 5px; }
-        .session-card-compact .inline-field label { font-size: 10px; }
-        .session-card-compact .card-header h3 { font-size: 15px; text-transform: capitalize; }
-        .session-card-compact .session-participant-list { gap: 6px; }
-        .sidebar-theme { margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--theme-card-border); }
-        .sidebar-theme label { margin-bottom: 6px; }
-        @media (min-width: 701px) and (max-width: 1199px) {
-          .week-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); overflow-x: visible; }
-        }
-        @media (max-width: 1100px) {
-          .tabs { grid-template-columns: repeat(3,minmax(0,1fr)); }
-          .stats-grid, .grid.five, .grid.four, .grid.three, .grid.two { grid-template-columns: 1fr; }
-          .topbar { align-items: flex-start; }
-          .app-logo { width: 58px; height: 58px; }
-          .date-nav { width: 100%; }
-          .date-input { flex: 1 1 auto; max-width: none; }
-          .session-form-row { grid-template-columns: 1fr; }
-          .inline-field { grid-template-columns: 1fr; }
-        }
-
-        .mobile-bottom-nav { display: none; }
-        .bottom-tab { flex: 0 0 auto; min-width: 96px; min-height: 48px; padding: 8px 10px; border-radius: 14px; background: rgba(15,23,42,.96); color: #cbd5e1; border: 1px solid rgba(148,163,184,.24); box-shadow: 0 10px 30px rgba(0,0,0,.28); }
-        .bottom-tab.active { background: #22d3ee; color: #082f49; }
-
-        @media (max-width: 700px) {
-          body { overflow-x: hidden; }
-          .app { padding: 8px 8px 86px; }
-          .shell { width: 100%; max-width: 100%; }
-
-          /* Header compact : plus de hauteur utile en salle et sur smartphone. */
-          .hero { position: sticky; top: 0; z-index: 30; padding: 10px 12px; border-radius: 16px; backdrop-filter: blur(10px); }
-          .topbar { gap: 10px; align-items: center; }
-          .brand { gap: 10px; }
-          .app-logo { width: 40px; height: 40px; border-radius: 10px; padding: 4px; }
-          .hero h1 { font-size: 22px; line-height: 1; }
-          .hero .small { font-size: 11px; margin-top: 4px; }
-          .menu-button { min-width: 42px; min-height: 42px; padding: 8px; border-radius: 12px; }
-
-          /* Navigation mobile au pouce. Le menu latéral reste disponible via le bouton à gauche. */
-          .mobile-bottom-nav {
-            position: fixed;
-            left: 8px;
-            right: 8px;
-            bottom: 8px;
-            z-index: 70;
-            display: flex;
-            gap: 8px;
-            overflow-x: auto;
-            padding: 8px;
-            border-radius: 18px;
-            background: rgba(2,6,23,.92);
-            border: 1px solid rgba(148,163,184,.25);
-            box-shadow: 0 18px 50px rgba(0,0,0,.45);
-            -webkit-overflow-scrolling: touch;
-          }
-          .mobile-bottom-nav::-webkit-scrollbar { display: none; }
-          .bottom-tab { min-width: 92px; min-height: 44px; padding: 8px; font-size: 12px; white-space: nowrap; }
-
-          /* Cartes compactes. */
-          .toolbar, .card { margin-top: 10px; padding: 12px; border-radius: 16px; }
-          .toolbar-row { gap: 8px; }
-          .card-header { gap: 8px; margin-bottom: 10px; flex-wrap: wrap; align-items: flex-start; }
-          .card-header h2 { font-size: 18px; }
-          .card-header h3 { font-size: 17px; }
-          .badge { min-width: 50px; padding: 5px 8px; font-size: 12px; }
-
-          /* Date et actions principales faciles à toucher. */
-          .date-nav { width: 100%; flex: 1 1 100%; gap: 8px; justify-content: space-between; }
-          .date-input { flex: 1 1 auto; max-width: none; min-width: 0; min-height: 42px; padding: 8px 10px; font-size: 15px; }
-          .nav-symbol { min-width: 42px; min-height: 42px; padding: 8px 10px; font-size: 18px; }
-          button, input, select { min-height: 44px; }
-          .group button { padding: 8px 10px; }
-
-          /* Séances : champs et inscrits en version compacte. */
-          .session-card { padding: 12px; }
-          .session-form-row { grid-template-columns: 1fr; gap: 8px; margin-bottom: 10px; }
-          .inline-field { grid-template-columns: 92px minmax(0, 1fr); gap: 8px; }
-          .inline-field label { font-size: 11px; }
-          .session-participant-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-          }
-          .session-participant-list .muted-box { width: 100%; }
-          .session-participant-list .participant-row {
-            width: auto;
-            flex: 0 1 auto;
-            min-height: 36px;
-            padding: 5px 6px 5px 10px;
-            border-radius: 999px;
-            gap: 8px;
-          }
-          .participant-name { font-size: 13px; white-space: nowrap; }
-          .remove-button {
-            min-width: 32px;
-            width: 32px;
-            min-height: 32px;
-            height: 32px;
-            padding: 0;
-            border-radius: 999px;
-            font-size: 20px;
-            line-height: 1;
-          }
-
-          /* Statistiques : cartes lisibles au lieu d'une grille trop large. */
-          .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-          .stat { padding: 12px; border-radius: 14px; }
-          .stat .value { font-size: 24px; margin-top: 6px; }
-          .participant-row { padding: 8px 10px; font-size: 14px; }
-
-          /* Le drawer devient plein écran sur mobile. */
-          .sidebar { width: 100vw; max-width: none; padding: 18px 14px; }
-          .side-tab { min-height: 48px; }
-
-          .grid.five, .grid.four, .grid.three, .grid.two { grid-template-columns: 1fr; }
-          .week-grid { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; margin: 0 -8px; padding: 0 8px 10px; -webkit-overflow-scrolling: touch; }
-          .week-day-card { flex: 0 0 min(92vw, 430px); scroll-snap-align: start; }
-          .week-day-header { position: sticky; top: 64px; z-index: 2; padding: 4px 0; background: var(--theme-card-soft); }
-          .theme-selector-inline { display: none; }
-        }
-
-        @media (max-width: 420px) {
-          .stats-grid { grid-template-columns: 1fr; }
-          .bottom-tab { min-width: 84px; font-size: 11px; }
-          .hero h1 { font-size: 20px; }
-          .app-logo { width: 36px; height: 36px; }
-          .inline-field { grid-template-columns: 1fr; }
-        }
-
-
-        /* Priorité A mobile : date en une ligne, champs plus compacts, segment Jour/Semaine. */
-        .view-toggle { flex: 0 0 auto; }
-
-        @media (max-width: 700px) {
-          .toolbar-row {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 8px;
-          }
-
-          .date-nav {
-            display: grid;
-            grid-template-columns: 44px minmax(0, 1fr) 44px;
-            width: 100%;
-            flex: 1 1 100%;
-            gap: 8px;
-            align-items: center;
-            justify-content: stretch;
-            flex-wrap: nowrap;
-          }
-
-          .date-input {
-            max-width: none;
-            width: 100%;
-            min-width: 0;
-            height: 42px;
-            min-height: 42px;
-            padding: 7px 8px;
-            font-size: 15px;
-            text-transform: none;
-          }
-
-          .nav-symbol {
-            width: 44px;
-            min-width: 44px;
-            height: 42px;
-            min-height: 42px;
-            padding: 0;
-            font-size: 18px;
-          }
-
-          .view-toggle {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            width: 100%;
-            gap: 6px;
-            padding: 4px;
-            border-radius: 14px;
-            background: rgba(2, 6, 23, .35);
-            border: 1px solid rgba(148, 163, 184, .18);
-          }
-
-          .view-toggle button {
-            min-height: 38px;
-            padding: 6px 8px;
-            border-radius: 11px;
-            font-size: 14px;
-          }
-
-          .session-form-row {
-            grid-template-columns: 1fr;
-            gap: 6px;
-            margin-bottom: 8px;
-          }
-
-          .inline-field {
-            grid-template-columns: 74px minmax(0, 1fr);
-            gap: 7px;
-          }
-
-          .inline-field label {
-            font-size: 10px;
-            letter-spacing: .03em;
-            overflow: hidden;
-            text-overflow: ellipsis;
-          }
-
-          .inline-field select,
-          .inline-field input {
-            min-height: 40px;
-            padding: 7px 10px;
-            border-radius: 12px;
-          }
-
-          button, input, select {
-            min-height: 40px;
-          }
-
-          .session-card {
-            padding: 10px 12px;
-          }
-        }
-
-
-        .modal-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 100;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 18px;
-          background: rgba(2, 6, 23, .72);
-          backdrop-filter: blur(8px);
-        }
-
-        .modal-panel {
-          width: min(920px, 100%);
-          max-height: calc(100vh - 36px);
-          overflow: auto;
-          padding: 18px;
-          border-radius: 22px;
-          background: #0f172a;
-          border: 1px solid rgba(148, 163, 184, .28);
-          box-shadow: 0 28px 80px rgba(0,0,0,.55);
-        }
-
-        .modal-title {
-          margin: 0;
-        }
-
-        .modal-close {
-          min-width: 42px;
-          height: 42px;
-          border-radius: 999px;
-        }
-
-        .modal-actions {
-          display: flex;
-          justify-content: flex-end;
-          gap: 10px;
-          margin-top: 16px;
-        }
-
-        @media (max-width: 700px) {
-          .modal-overlay {
-            align-items: flex-end;
-            padding: 8px;
-          }
-
-          .modal-panel {
-            max-height: calc(100vh - 16px);
-            border-radius: 20px;
-            padding: 14px;
-          }
-
-          .modal-actions {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-          }
-        }
-
-
-        .editable-realisation-card {
-          border: 1px solid rgba(148, 163, 184, .25);
-          background: rgba(2, 6, 23, .35);
-        }
-
-        @media (max-width: 700px) {
-          .editable-realisation-card .grid.three {
-            grid-template-columns: 1fr;
-          }
-        }
-
-
-        .timeline-realisation-card {
-          border: 1px solid rgba(148, 163, 184, .25);
-          background: rgba(2, 6, 23, .35);
-        }
-
-        .timeline-realisation-summary {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-        }
-
-        .timeline-details-panel {
-          margin-top: 12px;
-          padding-top: 12px;
-          border-top: 1px solid rgba(148, 163, 184, .24);
-        }
-
-        @media (max-width: 700px) {
-          .timeline-realisation-summary {
-            align-items: flex-start;
-            flex-direction: column;
-          }
-
-          .timeline-realisation-summary button {
-            width: 100%;
-          }
-
-          .timeline-details-panel .grid.three {
-            grid-template-columns: 1fr;
-          }
-        }
-
-
-        .auth-page {
-          min-height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 20px;
-          background: linear-gradient(180deg, #020617 0%, #0f172a 100%);
-        }
-
-        .auth-card {
-          width: min(880px, 100%);
-          padding: 22px;
-          border-radius: 24px;
-          background: rgba(15, 23, 42, .96);
-          border: 1px solid rgba(148, 163, 184, .2);
-          box-shadow: 0 24px 80px rgba(0,0,0,.45);
-        }
-
-        .auth-brand {
-          align-items: center;
-          justify-content: flex-start;
-        }
-
-        .auth-switcher {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-        }
-
-        .topbar-user {
-          margin-left: auto;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .badge.danger {
-          background: rgba(239,68,68,.18);
-          color: #fecaca;
-          border-color: rgba(239,68,68,.35);
-        }
-
-        @media (max-width: 700px) {
-          .auth-card {
-            padding: 16px;
-            border-radius: 18px;
-          }
-
-          .topbar-user {
-            width: 100%;
-            justify-content: space-between;
-            margin-left: 0;
-            margin-top: 8px;
-          }
-
-          .auth-switcher {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-          }
-        }
-
-:root {
-  --theme-page-bg: #0f172a;
-  --theme-app-bg: linear-gradient(135deg,#020617,#0f172a,#1e293b);
-  --theme-card-bg: rgba(15, 23, 42, .92);
-  --theme-card-soft: rgba(2, 6, 23, .42);
-  --theme-card-border: rgba(148,163,184,.22);
-  --theme-text: #e2e8f0;
-  --theme-text-muted: #cbd5e1;
-  --theme-input-bg: rgba(2, 6, 23, .55);
-  --theme-input-border: rgba(148,163,184,.32);
-  --theme-sidebar-bg: rgba(2,6,23,.95);
-  --theme-accent: #22d3ee;
-  --theme-accent-text: #082f49;
-  --theme-stat-bg: rgba(2,6,23,.48);
-}
-
-:root[data-theme="light"] {
-  --theme-page-bg: #f4f7fb;
-  --theme-app-bg: linear-gradient(180deg,#f8fbff,#eef2f7);
-  --theme-card-bg: rgba(255,255,255,.94);
-  --theme-card-soft: rgba(248,250,252,.98);
-  --theme-card-border: rgba(148,163,184,.20);
-  --theme-text: #0f172a;
-  --theme-text-muted: #475569;
-  --theme-input-bg: #ffffff;
-  --theme-input-border: rgba(148,163,184,.28);
-  --theme-sidebar-bg: rgba(255,255,255,.98);
-  --theme-accent: #0b4a9d;
-  --theme-accent-text: #ffffff;
-  --theme-stat-bg: rgba(248,250,252,.95);
-}
-
-:root[data-theme="fun"] {
-  --theme-page-bg: #fff7ed;
-  --theme-app-bg: linear-gradient(135deg,#fff7ed,#fef3c7,#fce7f3);
-  --theme-card-bg: rgba(255,255,255,.94);
-  --theme-card-soft: rgba(255,247,237,.96);
-  --theme-card-border: rgba(249,115,22,.28);
-  --theme-text: #292524;
-  --theme-text-muted: #7c2d12;
-  --theme-input-bg: #ffffff;
-  --theme-input-border: rgba(249,115,22,.35);
-  --theme-sidebar-bg: rgba(255,247,237,.98);
-  --theme-accent: #f97316;
-  --theme-accent-text: #ffffff;
-  --theme-stat-bg: rgba(254,243,199,.78);
-}
-
-body {
-  background: var(--theme-page-bg) !important;
-  color: var(--theme-text);
-  transition: background .25s ease, color .25s ease;
-}
-
-.app {
-  background: var(--theme-app-bg) !important;
-  color: var(--theme-text) !important;
-}
-
-.toolbar,
-.card,
-.subcard,
-.muted-box,
-.stat,
-.modal-panel,
-.auth-card,
-.auth-shell,
-.sidebar,
-.mobile-bottom-nav {
-  background: var(--theme-card-bg) !important;
-  border-color: var(--theme-card-border) !important;
-  color: var(--theme-text) !important;
-}
-
-.subcard,
-.muted-box,
-.stat {
-  background: var(--theme-card-soft) !important;
-}
-
-.sidebar {
-  background: var(--theme-sidebar-bg) !important;
-}
-
-input,
-select,
-textarea {
-  background: var(--theme-input-bg) !important;
-  color: var(--theme-text) !important;
-  border-color: var(--theme-input-border) !important;
-}
-
-.small,
-.label,
-.auth-subtitle,
-.auth-helper-text {
-  color: var(--theme-text-muted) !important;
-}
-
-h1, h2, h3, strong, label {
-  color: var(--theme-text) !important;
-}
-
-.menu-button,
-.secondary,
-.sidebar-close,
-.side-tab,
-.bottom-tab {
-  border-color: var(--theme-card-border) !important;
-}
-
-.theme-selector-inline {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-left: 6px;
-}
-
-.theme-selector-inline select {
-  min-width: 130px;
-}
-
-button:not(.danger):not(.secondary):not(.ghost),
-.side-tab.active,
-.bottom-tab.active {
-  background: var(--theme-accent) !important;
-  color: var(--theme-accent-text) !important;
-}
-
-:root[data-theme="fun"] .hero,
-:root[data-theme="fun"] .toolbar,
-:root[data-theme="fun"] .card,
-:root[data-theme="fun"] .week-day-card {
-  box-shadow: 0 16px 40px rgba(249,115,22,.12);
-}
-
-:root[data-theme="light"] .app-logo,
-:root[data-theme="light"] .sidebar-logo,
-:root[data-theme="fun"] .app-logo,
-:root[data-theme="fun"] .sidebar-logo {
-  background: #ffffff;
-  box-shadow: 0 8px 24px rgba(15,23,42,.08);
-}
-
-@media (max-width: 700px) {
-  .theme-selector-inline {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .theme-selector-inline select {
-    min-width: 0;
-    width: 150px;
-  }
-}
-
-      `}</style>
+      {confirmationMessage && (
+        <div className="confirmation-toast" role="status" aria-live="polite">
+          {confirmationMessage}
+        </div>
+      )}
 
       {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
 
-      <aside className={`sidebar ${sidebarOpen ? "open" : ""}`} aria-label="Navigation ClimbCrew">
+      <aside className={`sidebar ${sidebarOpen ? "open" : ""}`} aria-label="Navigation ClimbClubCristal">
         <div className="sidebar-header">
           <div className="sidebar-brand">
-            <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="sidebar-logo" />
-            <span>ClimbCrew</span>
+            <img src="/logo-climbcrew.png" alt="Logo ClimbClubCristal" className="sidebar-logo" />
+            <span>ClimbClubCristal</span>
           </div>
-          <button className="sidebar-close" onClick={() => setSidebarOpen(false)} aria-label="Fermer le menu">×</button>
+          <button
+            className="sidebar-close sidebar-logout"
+            onClick={() => {
+              setSidebarOpen(false);
+              handleLogout();
+            }}
+            aria-label="Se déconnecter"
+            title="Déconnexion"
+          >
+            <svg className="sidebar-logout-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M10 5H5v14h5M14 8l4 4-4 4M8 12h10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
         </div>
         {visibleTabs.map((item) => (
           <button
@@ -2592,30 +2059,61 @@ button:not(.danger):not(.secondary):not(.ghost),
         {authUser && (
           <div className="sidebar-account">
             <div className="small">{authUser.email}</div>
+          </div>
+        )}
+        {authUser && (
+          <div className="sidebar-settings">
             <button
-              className="secondary"
+              className={`side-tab ${tab === "parametres" ? "active" : ""}`}
               onClick={() => {
+                setTab("parametres");
                 setSidebarOpen(false);
-                handleLogout();
               }}
             >
-              Déconnexion
+              ⚙ Paramètres
             </button>
           </div>
         )}
       </aside>
 
-      {realisationModalRoute && (
+      {pendingBroadcastMessages.length > 0 && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="broadcast-message-title">
+          <div className="modal-panel" style={{ maxWidth: 560 }}>
+            <div className="card-header">
+              <div>
+                <div className="small">Message du club</div>
+                <h2 id="broadcast-message-title" className="modal-title">
+                  {pendingBroadcastMessages[0].title}
+                </h2>
+              </div>
+            </div>
+            <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.55, margin: "18px 0" }}>
+              {pendingBroadcastMessages[0].body}
+            </div>
+            {pendingBroadcastMessages.length > 1 && (
+              <div className="small" style={{ marginBottom: 12 }}>
+                {pendingBroadcastMessages.length - 1} autre{pendingBroadcastMessages.length > 2 ? "s" : ""} message{pendingBroadcastMessages.length > 2 ? "s" : ""} à lire ensuite.
+              </div>
+            )}
+            {broadcastMessageError && <div className="error" style={{ marginBottom: 12 }}>{broadcastMessageError}</div>}
+            <div className="group" style={{ justifyContent: "flex-end" }}>
+              <Button onClick={() => acknowledgeBroadcastMessage(pendingBroadcastMessages[0].id)}>J’ai lu</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {realisationModalRouteId !== null && (
         <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="Enregistrer une voie réalisée">
           <div className="modal-panel">
             <div className="card-header">
               <div>
                 <h2 className="modal-title">Enregistrer une voie réalisée</h2>
                 <div className="small">
-                  {formatRouteName(realisationModalRoute)} · Corde {realisationModalRoute.numeroCorde} · {realisationModalRoute.cotationAjustee}
+                  {realisationModalRoute ? formatRouteForRealisation(realisationModalRoute) : "Choisir une voie"}
                 </div>
               </div>
-              <button className="danger ghost modal-close" onClick={closeRealisationModal} aria-label="Fermer">×</button>
+              <Button variant="dangerGhost" className="modal-close" onClick={closeRealisationModal} aria-label="Fermer">×</Button>
             </div>
 
             <div className="grid three">
@@ -2671,7 +2169,25 @@ button:not(.danger):not(.secondary):not(.ghost),
 
               <div>
                 <label>Voie</label>
-                <input value={`${formatRouteName(realisationModalRoute)} · Corde ${realisationModalRoute.numeroCorde} · ${realisationModalRoute.cotationAjustee}`} readOnly />
+                <select
+                  value={newRealisation.voieId}
+                  onChange={(event) => {
+                    const voieId = event.target.value;
+                    const route = routesById[voieId];
+                    setRealisationModalRouteId(voieId);
+                    setNewRealisation((prev) => ({
+                      ...prev,
+                      voieId,
+                      styleRealisation: route?.moulinetteOnly ? "moulinette" : prev.styleRealisation,
+                      cotationProposee: route?.cotationAjustee || route?.cotationReference || "",
+                    }));
+                  }}
+                >
+                  <option value="">Choisir une voie</option>
+                  {state.routes.map((route) => (
+                    <option key={route.id} value={route.id}>{formatRouteForRealisation(route)}</option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -2690,9 +2206,52 @@ button:not(.danger):not(.secondary):not(.ghost),
               </div>
 
               <div>
-                <label>Essais</label>
-                <input type="number" min="1" value={newRealisation.nbEssais} onChange={(e) => setNewRealisation((p) => ({ ...p, nbEssais: e.target.value }))} />
+                <label>Cotation consensus</label>
+                <input value={realisationModalRoute ? routeAggregatesById[realisationModalRoute.id]?.consensusGrade || "Non calculée" : "Choisir une voie"} readOnly />
               </div>
+
+              <div className="realisation-rating">
+                <label>Évaluation de la voie</label>
+                <div className="rating-stars" role="radiogroup" aria-label="Évaluation de la voie de 1 à 5 étoiles">
+                  {[1, 2, 3, 4, 5].map((rating) => (
+                    <button
+                      type="button"
+                      className={rating <= newRealisation.rating ? "rating-star selected" : "rating-star"}
+                      key={rating}
+                      onClick={() => setNewRealisation((prev) => ({ ...prev, rating }))}
+                      role="radio"
+                      aria-checked={newRealisation.rating === rating}
+                      aria-label={`${rating} étoile${rating > 1 ? "s" : ""}`}
+                    >{rating <= newRealisation.rating ? "★" : "☆"}</button>
+                  ))}
+                </div>
+              </div>
+
+              <label className="realisation-flight-toggle">
+                <input
+                  type="checkbox"
+                  checked={newRealisation.chute}
+                  onChange={(event) => setNewRealisation((prev) => ({
+                    ...prev,
+                    chute: event.target.checked,
+                    assureurId: event.target.checked ? prev.assureurId : "",
+                  }))}
+                />
+                <span>Le grimpeur a volé</span>
+              </label>
+
+              {newRealisation.chute && (
+                <div>
+                  <label>Binôme assureur</label>
+                  <select value={newRealisation.assureurId} onChange={(event) => setNewRealisation((prev) => ({ ...prev, assureurId: event.target.value }))}>
+                    <option value="">Choisir le binôme</option>
+                    {alphabeticalParticipants
+                      .filter((participant) => String(participant.id) !== String(newRealisation.participantId))
+                      .map((participant) => <option key={participant.id} value={participant.id}>{fullName(participant)}</option>)}
+                  </select>
+                </div>
+              )}
+
             </div>
 
             <div style={{ marginTop: 12 }}>
@@ -2701,14 +2260,14 @@ button:not(.danger):not(.secondary):not(.ghost),
             </div>
 
             <div className="modal-actions">
-              <button className="secondary" onClick={closeRealisationModal}>Annuler</button>
-              <button onClick={addRealisation} disabled={!newRealisation.selectedDay || !newRealisation.participantId || modalEligibleParticipants.length === 0}>Enregistrer</button>
+              <Button variant="secondary" onClick={closeRealisationModal}>Annuler</Button>
+              <Button onClick={addRealisation} disabled={!newRealisation.selectedDay || !newRealisation.participantId || !newRealisation.voieId || !newRealisation.rating || (newRealisation.chute && !newRealisation.assureurId) || modalEligibleParticipants.length === 0}>Enregistrer</Button>
             </div>
           </div>
         </div>
       )}
 
-      <nav className="mobile-bottom-nav" aria-label="Navigation mobile ClimbCrew">
+      <nav className="mobile-bottom-nav" aria-label="Navigation mobile ClimbClubCristal">
         {visibleTabs.map((item) => (
           <button
             key={item.key}
@@ -2722,709 +2281,208 @@ button:not(.danger):not(.secondary):not(.ghost),
       </nav>
 
       <div className="shell">
-        <div className="hero">
-          <div className="topbar">
-            <button className="menu-button" onClick={() => setSidebarOpen(true)} aria-label="Afficher le menu">
-              ☰
-            </button>
-            <div className="brand">
-              <img src="/logo-climbcrew.png" alt="Logo ClimbCrew" className="app-logo" />
-              <div>
-                <h1>ClimbCrew</h1>
-              </div>
-            </div>
-
-            <div className="theme-selector-inline">
-              <label htmlFor="header-theme-selector">Ambiance</label>
-              <select
-                id="header-theme-selector"
-                value={themePreference}
-                onChange={(event) => handleThemePreferenceChange(event.target.value)}
-              >
-                {THEME_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </div>
+  <div className="hero">
+    <div className="topbar">
+      <button className="menu-button" onClick={() => setSidebarOpen(true)} aria-label="Afficher le menu">
+        ☰
+      </button>
+      <div className="brand">
+        <img src="/logo-climbcrew.png" alt="Logo ClimbClubCristal" className="app-logo" />
+        <div>
+          <div className="brand-title-row">
+            <h1>ClimbClubCristal</h1>
+            <span className="topbar-version" aria-label={`Version ${APP_VERSION}`}>v{APP_VERSION}</span>
           </div>
+          <p>{tab === "parametres" ? "Paramètres" : (visibleTabs.find((item) => item.key === tab)?.label || "ClimbClubCristal")}</p>
         </div>
-
-        {tab === "inscriptions" && (
-          <>
-            <div className="toolbar">
-              <div className="toolbar-row">
-                <div className="group date-nav">
-                  <button className="secondary nav-symbol" title={viewMode === "jour" ? "Jour précédent" : "Semaine précédente"} onClick={() => {
-                    const d = viewMode === "jour" ? nextBusinessDay(selectedDate, -1) : nextBusinessDay(nextBusinessDay(nextBusinessDay(nextBusinessDay(nextBusinessDay(selectedDate,-1),-1),-1),-1),-1);
-                    setSelectedDate(d); ensureSessionsForDate(d);
-                  }}>
-                    &lt;
-                  </button>
-
-                  <input
-                    className="date-input date-display"
-                    type="text"
-                    value={formatDateFr(selectedDate)}
-                    readOnly
-                    aria-label="Date sélectionnée"
-                  />
-
-                  <button className="secondary nav-symbol" title={viewMode === "jour" ? "Jour suivant" : "Semaine suivante"} onClick={() => {
-                    const d = viewMode === "jour" ? nextBusinessDay(selectedDate, 1) : nextBusinessDay(nextBusinessDay(nextBusinessDay(nextBusinessDay(nextBusinessDay(selectedDate,1),1),1),1),1);
-                    setSelectedDate(d); ensureSessionsForDate(d);
-                  }}>
-                    &gt;
-                  </button>
-                </div>
-
-                <div className="group view-toggle">
-                  <button className={viewMode === "jour" ? "" : "secondary"} onClick={() => setViewMode("jour")}>Jour</button>
-                  <button className={viewMode === "semaine" ? "" : "secondary"} onClick={() => setViewMode("semaine")}>Semaine</button>
-                </div>
-              </div>
-            </div>
-
-            {viewMode === "jour" ? (
-              <div className="stack">{daySessions.map((session) => renderSessionCard(session))}</div>
-            ) : (
-              <div className="week-grid" aria-label="Semaine interactive">
-                {weekSessions.map((day) => (
-                  <section className="week-day-card" key={day.date}>
-                    <div className="week-day-header">
-                      <h3>{formatDateFr(day.date)}</h3>
-                      <button
-                        className="secondary week-day-open"
-                        onClick={() => {
-                          setSelectedDate(day.date);
-                          ensureSessionsForDate(day.date);
-                          setViewMode("jour");
-                        }}
-                      >
-                        Ouvrir le jour
-                      </button>
-                    </div>
-                    <div className="week-day-sessions">
-                      {day.sessions.map((session) => renderSessionCard(session, true))}
-                    </div>
-                  </section>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-
-        {tab === "voies" && (
-          <>
-            {adminUnlocked && (
-              <div className="card">
-                <div className="card-header"><h2>Ajouter une voie</h2></div>
-                <div className="grid four">
-                  <div><label>Numéro unique</label><input value={newRoute.numeroVoieUnique} onChange={(e) => setNewRoute((p) => ({ ...p, numeroVoieUnique: e.target.value }))} /></div>
-                  <div><label>Corde</label><select value={newRoute.numeroCorde} onChange={(e) => setNewRoute((p) => ({ ...p, numeroCorde: e.target.value }))}>{state.ropes.map((rope) => <option key={rope.numeroCorde} value={String(rope.numeroCorde)}>Corde {rope.numeroCorde} · {rope.couleurCorde}</option>)}</select></div>
-                  <div><label>Couleur voie</label><input value={newRoute.couleurPrises} onChange={(e) => setNewRoute((p) => ({ ...p, couleurPrises: e.target.value }))} /></div>
-                  <div><label>Cotation</label><select value={newRoute.cotationReference} onChange={(e) => setNewRoute((p) => ({ ...p, cotationReference: e.target.value }))}>{GRADES.map((g) => <option key={g} value={g}>{g}</option>)}</select></div>
-                  <div><label>Nom de la voie</label><input value={newRoute.nomVoie} onChange={(e) => setNewRoute((p) => ({ ...p, nomVoie: e.target.value }))} /></div>
-                  <div><label>Ouvreur</label><input value={newRoute.nomOuvreur} onChange={(e) => setNewRoute((p) => ({ ...p, nomOuvreur: e.target.value }))} /></div>
-                  <div><label>Moulinette uniquement</label><select value={newRoute.moulinetteOnly ? "oui" : "non"} onChange={(e) => setNewRoute((p) => ({ ...p, moulinetteOnly: e.target.value === "oui" }))}><option value="non">Non</option><option value="oui">Oui</option></select></div>
-                  <div style={{ display: "flex", alignItems: "end" }}><button onClick={addRoute}>Ajouter</button></div>
-                </div>
-                {routeError && <div className="error" style={{ marginTop: 10 }}>{routeError}</div>}
-              </div>
-            )}
-
-            <div className="card">
-              <div className="card-header"><h2>Tableau des voies</h2></div>
-              <div className="stack">
-                {state.ropes.filter((rope) => state.routes.some((route) => route.numeroCorde === rope.numeroCorde)).map((rope) => {
-                  const ropeRoutes = state.routes.filter((route) => route.numeroCorde === rope.numeroCorde);
-                  return (
-                    <div className="subcard" key={rope.numeroCorde}>
-                      <div className="card-header">
-                        <strong>Corde {rope.numeroCorde} · {rope.couleurCorde}</strong>
-                        <span className="badge">{ropeRoutes.length} voie(s)</span>
-                      </div>
-                      {ropeRoutes.length === 0 ? (
-                        <div className="small">Aucune voie sur cette corde.</div>
-                      ) : (
-                        <div className="stack">
-                          {ropeRoutes.map((route) => {
-                            const agg = routeAggregatesById[route.id];
-                            return (
-                              <div className={`route-card ${route.moulinetteOnly ? "moulinette-only" : ""}`} key={route.id} style={getRouteCardStyle(route.couleurPrises)}>
-                                <div className="card-header">
-                                  <strong>Corde {route.numeroCorde} · {route.cotationAjustee} · {formatRouteName(route)}</strong>
-                                  <div className="group">
-                                    {route.moulinetteOnly && <span className="pill">Moulinette uniquement</span>}
-                                    {route.active && <button className="secondary" onClick={() => openRealisationModal(route.id)}>Réalisation</button>}
-                                    {adminUnlocked && <>
-                                      <button className="secondary" onClick={() => toggleRouteActive(route.id)}>{route.active ? "Archiver" : "Réactiver"}</button>
-                                      <button className="secondary" disabled={!agg?.weightedMedianGrade} onClick={() => applyAdjustedGrade(route.id)}>Appliquer cotation ajustée</button>
-                                    </>}
-                                  </div>
-                                </div>
-                                {/* Détails de référence retirés de l’affichage. */}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </>
-        )}
-
-        {tab === "progression" && (
-          <div className="card">
-            <div className="card-header"><h2>Suivi individuel</h2></div>
-
-            <div style={{ maxWidth: 360 }}>
-              <label>Grimpeur</label>
-              <select
-                value={state.selectedParticipantProgress || ""}
-                onChange={(e) => setState((prev) => ({ ...prev, selectedParticipantProgress: e.target.value }))}
-              >
-                <option value="">Choisir un grimpeur</option>
-                {alphabeticalParticipants.map((p) => <option key={p.id} value={p.id}>{fullName(p)}</option>)}
-              </select>
-            </div>
-
-            <div className="stats-grid" style={{ marginTop: 14 }}>
-              <div className="stat"><div className="label">Voies réalisées</div><div className="value">{participantProgressStats.count}</div></div>
-              <div className="stat"><div className="label">Meilleure cotation</div><div className="value">{participantProgressStats.bestAll || "-"}</div></div>
-              <div className="stat"><div className="label">Meilleure cotation propre</div><div className="value">{participantProgressStats.bestClean || "-"}</div></div>
-              <div className="stat"><div className="label">CPR actuel</div><div className="value">{participantProgressStats.cpr.currentGrade || "-"}</div></div>
-              <div className="stat"><div className="label">Réalisations prises en compte</div><div className="value">{participantProgressStats.cpr.timeline.length}</div></div>
-            </div>
-
-            <div className="card" style={{ marginTop: 16, background: "rgba(14,165,233,.10)" }}>
-              <div className="card-header">
-                <h3>Timeline CPR simplifiée</h3>
-                <span className="badge">{cprTimelineRealisations.length} réalisation(s)</span>
-              </div>
-              <div className="stack">
-                {!state.selectedParticipantProgress ? (
-                  <div className="muted-box">Choisis un grimpeur pour afficher sa timeline CPR.</div>
-                ) : cprTimelineRealisations.length === 0 ? (
-                  <div className="muted-box">Aucune réalisation enregistrée pour ce grimpeur.</div>
-                ) : (
-                  cprTimelineRealisations.map((realisation) => {
-                    const route = routesById[realisation.voieId];
-                    const session = sessionsById[realisation.sessionId];
-                    const availableSessionsForRealisation = getParticipantSessions(realisation.participantId);
-                    const isOpen = openTimelineRealisationId === realisation.id;
-
-                    return (
-                      <div className="subcard timeline-realisation-card" key={realisation.id}>
-                        <div className="timeline-realisation-summary">
-                          <div>
-                            <strong>{formatDateFr(realisation.dateRealisation.slice(0, 10))}</strong>
-                            <div className="small">
-                              {route ? formatRouteName(route) : "Voie inconnue"}
-                              {" · "}
-                              {route?.cotationAjustee || realisation.cotationProposee || "-"}
-                              {" · "}
-                              {STYLE_LABELS[realisation.styleRealisation] || realisation.styleRealisation}
-                            </div>
-                          </div>
-                          <div className="group">
-                            <button
-                              className="secondary"
-                              onClick={() => setOpenTimelineRealisationId(isOpen ? null : realisation.id)}
-                            >
-                              {isOpen ? "Masquer" : "Détails"}
-                            </button>
-                            <button className="danger" onClick={() => deleteRealisation(realisation)}>
-                              Supprimer
-                            </button>
-                          </div>
-                        </div>
-
-                        {isOpen && (
-                          <div className="timeline-details-panel">
-                            <div className="small" style={{ marginBottom: 10 }}>
-                              Participant : {fullName(participantsById[realisation.participantId])}
-                            </div>
-
-                            <div className="grid three">
-                              <div>
-                                <label>Séance</label>
-                                <select
-                                  value={realisation.sessionId}
-                                  onChange={(e) => updateRealisation(realisation.id, { sessionId: e.target.value })}
-                                >
-                                  {availableSessionsForRealisation.length === 0 ? (
-                                    <option value="">Aucune séance inscrite</option>
-                                  ) : (
-                                    availableSessionsForRealisation.map((s) => <option key={s.id} value={s.id}>{formatDateShortFr(s.date)} · {s.slot}</option>)
-                                  )}
-                                </select>
-                              </div>
-
-                              <div>
-                                <label>Voie</label>
-                                <select
-                                  value={realisation.voieId}
-                                  onChange={(e) => updateRealisation(realisation.id, { voieId: e.target.value })}
-                                >
-                                  {state.routes.map((r) => (
-                                    <option key={r.id} value={r.id}>
-                                      {formatRouteName(r)} · corde {r.numeroCorde} · {r.cotationAjustee}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-
-                              <div>
-                                <label>Style</label>
-                                <select
-                                  value={realisation.styleRealisation}
-                                  onChange={(e) => updateRealisation(realisation.id, { styleRealisation: e.target.value })}
-                                >
-                                  {Object.entries(STYLE_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-                                </select>
-                              </div>
-
-                              <div>
-                                <label>Cotation proposée</label>
-                                <select
-                                  value={realisation.cotationProposee || ""}
-                                  onChange={(e) => updateRealisation(realisation.id, { cotationProposee: e.target.value })}
-                                >
-                                  <option value="">Aucune</option>
-                                  {GRADES.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
-                                </select>
-                              </div>
-
-                              <div>
-                                <label>Essais</label>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  value={realisation.nbEssais || ""}
-                                  onChange={(e) => updateRealisation(realisation.id, { nbEssais: e.target.value })}
-                                />
-                              </div>
-
-                              <div>
-                                <label>Statut CPR</label>
-                                <input
-                                  value={`${STYLE_LABELS[realisation.styleRealisation] || realisation.styleRealisation} · ${route?.cotationAjustee || "-"}`}
-                                  readOnly
-                                />
-                              </div>
-                            </div>
-
-                            <div style={{ marginTop: 12 }}>
-                              <label>Commentaire</label>
-                              <input
-                                value={realisation.commentaire || ""}
-                                onChange={(e) => updateRealisation(realisation.id, { commentaire: e.target.value })}
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-            <div className="card" style={{ marginTop: 16 }}>
-              <div className="card-header"><h3>Historique des réalisations</h3></div>
-              <div className="stack">
-                {!state.selectedParticipantProgress ? (
-                  <div className="muted-box">Choisis un grimpeur pour afficher son historique.</div>
-                ) : selectedParticipantRealisations.length === 0 ? (
-                  <div className="muted-box">Aucune réalisation enregistrée pour ce grimpeur.</div>
-                ) : (
-                  [...selectedParticipantRealisations]
-                    .sort((a, b) => b.dateRealisation.localeCompare(a.dateRealisation))
-                    .map((realisation) => {
-                      const participant = participantsById[realisation.participantId];
-                      const route = routesById[realisation.voieId];
-                      const session = sessionsById[realisation.sessionId];
-
-                      const availableSessionsForRealisation = getParticipantSessions(realisation.participantId);
-
-                      return (
-                        <div className="subcard editable-realisation-card" key={realisation.id}>
-                          <div className="card-header">
-                            <strong>{fullName(participant)} — {route?.nomVoie || `#${route?.numeroVoieUnique}`}</strong>
-                            <span className="badge">{session?.date || "-"} · {session?.slot || "-"}</span>
-                          </div>
-
-                          <div className="grid three">
-                            <div>
-                              <label>Participant</label>
-                              <select
-                                value={realisation.participantId}
-                                onChange={(e) => {
-                                  const participantId = e.target.value;
-                                  const firstSession = getParticipantSessions(participantId)[0];
-
-                                  updateRealisation(realisation.id, {
-                                    participantId,
-                                    sessionId: firstSession?.id || "",
-                                    dateRealisation: firstSession ? `${firstSession.date}T12:00:00` : realisation.dateRealisation,
-                                  });
-                                }}
-                              >
-                                {alphabeticalParticipants.map((p) => <option key={p.id} value={p.id}>{fullName(p)}</option>)}
-                              </select>
-                            </div>
-
-                            <div>
-                              <label>Séance</label>
-                              <select
-                                value={realisation.sessionId}
-                                onChange={(e) => updateRealisation(realisation.id, { sessionId: e.target.value })}
-                              >
-                                {availableSessionsForRealisation.length === 0 ? (
-                                  <option value="">Aucune séance inscrite</option>
-                                ) : (
-                                  availableSessionsForRealisation.map((s) => <option key={s.id} value={s.id}>{formatDateShortFr(s.date)} · {s.slot}</option>)
-                                )}
-                              </select>
-                            </div>
-
-                            <div>
-                              <label>Voie</label>
-                              <select
-                                value={realisation.voieId}
-                                onChange={(e) => updateRealisation(realisation.id, { voieId: e.target.value })}
-                              >
-                                {state.routes.map((r) => (
-                                  <option key={r.id} value={r.id}>
-                                    {r.nomVoie || `#${r.numeroVoieUnique}`} · corde {r.numeroCorde} · {r.cotationAjustee}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-
-                            <div>
-                              <label>Style</label>
-                              <select
-                                value={realisation.styleRealisation}
-                                onChange={(e) => updateRealisation(realisation.id, { styleRealisation: e.target.value })}
-                              >
-                                {Object.entries(STYLE_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-                              </select>
-                            </div>
-
-                            <div>
-                              <label>Cotation proposée</label>
-                              <select
-                                value={realisation.cotationProposee || ""}
-                                onChange={(e) => updateRealisation(realisation.id, { cotationProposee: e.target.value })}
-                              >
-                                <option value="">Aucune</option>
-                                {GRADES.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
-                              </select>
-                            </div>
-
-                            <div>
-                              <label>Essais</label>
-                              <input
-                                type="number"
-                                min="1"
-                                value={realisation.nbEssais || ""}
-                                onChange={(e) => updateRealisation(realisation.id, { nbEssais: e.target.value })}
-                              />
-                            </div>
-                          </div>
-
-                          <div style={{ marginTop: 12 }}>
-                            <label>Commentaire</label>
-                            <input
-                              value={realisation.commentaire || ""}
-                              onChange={(e) => updateRealisation(realisation.id, { commentaire: e.target.value })}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {tab === "administration" && (
-          <>
-            {!adminUnlocked ? (
-              <div className="card">
-                <div className="card-header"><h2>Accès administration</h2></div>
-                <div className="grid two">
-                  <div>
-                    <label>Code administrateur</label>
-                    <input type="password" maxLength={8} value={adminInput} onChange={(e) => setAdminInput(e.target.value.replace(/\D/g, "").slice(0, 8))} />
-                  </div>
-                  <div style={{ display: "flex", alignItems: "end" }}><button onClick={unlockAdmin}>Déverrouiller</button></div>
-                </div>
-                {adminError && <div className="error" style={{ marginTop: 10 }}>{adminError}</div>}
-              </div>
-            ) : (
-              <>
-                <div className="card">
-                  <div className="card-header">
-                    <h2>Administration</h2>
-                    <button className="secondary" onClick={() => setAdminUnlocked(false)}>Verrouiller</button>
-                  </div>
-                  <div className="small" style={{ marginBottom: 12 }}>
-                    Les onglets <strong>Gestion des comptes</strong> et <strong>Log</strong> sont réservés aux administrateurs.
-                  </div>
-                  <div className="group">
-                    <button className="secondary" onClick={() => setTab("gestion_comptes")}>Gestion des comptes</button>
-                    <button className="secondary" onClick={() => setTab("logs")}>Log</button>
-                  </div>
-                </div>
-
-                <div className="card">
-                  <div className="card-header"><h2>Ajouter un participant</h2></div>
-                  <div className="grid four">
-                    <div><label>Nom</label><input value={newParticipant.nom} onChange={(e) => setNewParticipant((p) => ({ ...p, nom: e.target.value }))} /></div>
-                    <div><label>Prénom</label><input value={newParticipant.prenom} onChange={(e) => setNewParticipant((p) => ({ ...p, prenom: e.target.value }))} /></div>
-                    <div><label>Passeport</label><select value={newParticipant.passport} onChange={(e) => setNewParticipant((p) => ({ ...p, passport: e.target.value }))}><option value="sans">Sans</option><option value="jaune">Jaune</option><option value="orange">Orange</option><option value="vert">Vert</option><option value="bleu">Bleu</option><option value="decouverte">Découverte</option></select></div>
-                    <div style={{ display: "flex", alignItems: "end" }}><button onClick={addParticipant}>Ajouter</button></div>
-                  </div>
-                  <div className="group" style={{ marginTop: 12 }}>
-                    <label><input type="checkbox" checked={newParticipant.cotisation} onChange={(e) => setNewParticipant((p) => ({ ...p, cotisation: e.target.checked }))} /> Cotisation</label>
-                    <label><input type="checkbox" checked={newParticipant.ffme} onChange={(e) => setNewParticipant((p) => ({ ...p, ffme: e.target.checked }))} /> FFME</label>
-                    <label><input type="checkbox" checked={newParticipant.canEncadrer} onChange={(e) => setNewParticipant((p) => ({ ...p, canEncadrer: e.target.checked }))} /> Encadrant</label>
-                    <label><input type="checkbox" checked={newParticipant.canReferer} onChange={(e) => setNewParticipant((p) => ({ ...p, canReferer: e.target.checked }))} /> Référent</label>
-                    <label><input type="checkbox" checked={newParticipant.canAdmin} onChange={(e) => setNewParticipant((p) => ({ ...p, canAdmin: e.target.checked }))} /> Administrateur</label>
-                  </div>
-                </div>
-
-                <div className="card">
-                  <div className="card-header"><h2>Gestion des participants</h2></div>
-                  <div className="stack">
-                    {adminParticipants.map((p) => (
-                      <div className="subcard" key={p.id}>
-                        <div className="grid four">
-                          <div><label>Nom</label><input value={p.nom} onChange={(e) => updateParticipant(p.id, { nom: e.target.value })} /></div>
-                          <div><label>Prénom</label><input value={p.prenom} onChange={(e) => updateParticipant(p.id, { prenom: e.target.value })} /></div>
-                          <div><label>Passeport</label><select value={p.passport} onChange={(e) => updateParticipant(p.id, { passport: e.target.value })}><option value="sans">Sans</option><option value="jaune">Jaune</option><option value="orange">Orange</option><option value="vert">Vert</option><option value="bleu">Bleu</option><option value="decouverte">Découverte</option></select></div>
-                          <div style={{ display: "flex", alignItems: "end" }}><button className="danger" onClick={() => deleteParticipant(p.id)}>Supprimer</button></div>
-                        </div>
-                        <div className="group" style={{ marginTop: 12 }}>
-                          <label><input type="checkbox" checked={p.cotisation} onChange={(e) => updateParticipant(p.id, { cotisation: e.target.checked })} /> Cotisation</label>
-                          <label><input type="checkbox" checked={p.ffme} onChange={(e) => updateParticipant(p.id, { ffme: e.target.checked })} /> FFME</label>
-                          <label><input type="checkbox" checked={p.canEncadrer} onChange={(e) => updateParticipant(p.id, { canEncadrer: e.target.checked })} /> Encadrant</label>
-                          <label><input type="checkbox" checked={p.canReferer} onChange={(e) => updateParticipant(p.id, { canReferer: e.target.checked })} /> Référent</label>
-                          <label><input type="checkbox" checked={Boolean(p.canAdmin)} onChange={(e) => updateParticipant(p.id, { canAdmin: e.target.checked })} /> Administrateur</label>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="card">
-                  <div className="card-header"><h2>Import / export</h2></div>
-                  <div className="group">
-                    <button className="secondary" onClick={exportAllData}>Export JSON</button>
-                    <label className="pill" style={{ cursor: "pointer" }}>
-                      Import JSON
-                      <input type="file" accept=".json,application/json" style={{ display: "none" }} onChange={importJsonFile} />
-                    </label>
-                  </div>
-                  {importMessage && <div className="success" style={{ marginTop: 10 }}>{importMessage}</div>}
-                </div>
-              </>
-            )}
-          </>
-        )}
-
-        {tab === "gestion_comptes" && (
-          <>
-            {!USE_API ? (
-              <div className="card"><div className="muted-box">La gestion des comptes est disponible avec le backend API.</div></div>
-            ) : !canManageAccountsAndLogs ? (
-              <div className="card"><div className="muted-box">Cette section est réservée aux administrateurs authentifiés.</div></div>
-            ) : (
-              <div className="card">
-                <div className="card-header">
-                  <h2>Gestion des comptes</h2>
-                  <button className="secondary" onClick={loadAdminAccessData}>Actualiser</button>
-                </div>
-                <div className="small" style={{ marginBottom: 10 }}>
-                  L’administrateur peut approuver une demande, répudier un compte, réactiver un accès et générer un code de réinitialisation.
-                </div>
-                {generatedResetToken && <div className="success" style={{ marginBottom: 12 }}>{generatedResetToken}</div>}
-                <div className="stack">
-                  {adminAuthUsers.length === 0 ? (
-                    <div className="muted-box">Aucun compte utilisateur chargé.</div>
-                  ) : (
-                    adminAuthUsers.map((user) => (
-                      <div className="subcard" key={user.id}>
-                        <div className="card-header">
-                          <div>
-                            <strong>{user.prenom} {user.nom}</strong>
-                            <div className="small">{user.email} · rôle {user.role} · statut {user.status}</div>
-                          </div>
-                          <div className="group">
-                            {user.status === "pending" && <button onClick={() => approveAccessRequest(user.id)}>Approuver</button>}
-                            {user.status !== "revoked" ? (
-                              <button className="danger" onClick={() => revokeUserAccess(user.id)}>Répudier</button>
-                            ) : (
-                              <button onClick={() => reactivateUserAccess(user.id)}>Réactiver</button>
-                            )}
-                            <button className="secondary" onClick={() => generatePasswordResetToken(user.id)}>Code reset</button>
-                          </div>
-                        </div>
-                        <div className="small">
-                          Créé le {user.created_at ? formatDateFr(user.created_at.slice(0, 10)) : "-"}
-                          {user.last_login_at ? ` · dernière connexion le ${formatDateFr(user.last_login_at.slice(0, 10))}` : " · aucune connexion"}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
-          </>
-        )}
-
-        {tab === "logs" && (
-          <>
-            {!USE_API ? (
-              <div className="card"><div className="muted-box">Les logs de connexion sont disponibles avec le backend API.</div></div>
-            ) : !canManageAccountsAndLogs ? (
-              <div className="card"><div className="muted-box">Cette section est réservée aux administrateurs authentifiés.</div></div>
-            ) : (
-              <div className="card">
-                <div className="card-header">
-                  <h2>Logs de connexion</h2>
-                  <span className="badge">{adminAccessLogs.length}</span>
-                </div>
-                <div className="stack">
-                  {adminAccessLogs.length === 0 ? (
-                    <div className="muted-box">Aucun log disponible.</div>
-                  ) : (
-                    adminAccessLogs.map((log) => (
-                      <div className="subcard" key={log.id}>
-                        <div className="card-header">
-                          <strong>{log.event_type}</strong>
-                          <span className={`badge ${log.success ? "" : "danger"}`}>{log.success ? "OK" : "Échec"}</span>
-                        </div>
-                        <div className="small">
-                          {log.email || "utilisateur inconnu"} · {log.created_at ? log.created_at.replace("T", " ").slice(0, 19) : "-"}
-                        </div>
-                        <div className="small">
-                          {log.ip_address || "IP inconnue"} · {log.user_agent || "navigateur inconnu"}
-                        </div>
-                        {log.details_text && <div className="small">Détails : {log.details_text}</div>}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
-          </>
-        )}
-
-        {tab === "statistiques" && (
-          <>
-            <div className="stats-grid">
-              <div className="stat"><div className="label">Inscrits uniques</div><div className="value">{sessionStats.nombreInscrits}</div></div>
-              <div className="stat"><div className="label">Cotisations</div><div className="value">{sessionStats.nombreCotisations}</div></div>
-              <div className="stat"><div className="label">FFME</div><div className="value">{sessionStats.nombreFFME}</div></div>
-              <div className="stat"><div className="label">Voies actives</div><div className="value">{sessionStats.nombreVoiesActives}</div></div>
-              <div className="stat"><div className="label">Réalisations</div><div className="value">{sessionStats.nombreRealisations}</div></div>
-            </div>
-
-            <div className="card">
-              <div className="card-header">
-                <h2>Liste des inscrits</h2>
-                <div className="group">
-                  <div style={{ minWidth: 210 }}>
-                    <label>Trier par</label>
-                    <select value={statsSortField} onChange={(e) => setStatsSortField(e.target.value)}>
-                      <option value="name">Nom</option>
-                      <option value="passport">Passeport</option>
-                      <option value="cotisation">Cotisation</option>
-                      <option value="ffme">Licence FFME</option>
-                      <option value="cpr">CPR</option>
-                      <option value="participations">Participations</option>
-                    </select>
-                  </div>
-                  <button
-                    className="secondary"
-                    onClick={() => setStatsSortDirection((value) => (value === "asc" ? "desc" : "asc"))}
-                    title="Inverser le tri"
-                  >
-                    {statsSortDirection === "asc" ? "↑" : "↓"}
-                  </button>
-                </div>
-              </div>
-              <div className="stack">
-                {sortedStatsParticipants.map((participant) => (
-                  <div className="participant-row passport-row" key={participant.id} style={getPassportStyle(participant)}>
-                    <span className="participant-name">{fullName(participant)}</span>
-                    <span className="small" style={{ color: "inherit" }}>Cotisation : {participant.cotisation ? "Oui" : "Non"} · FFME : {participant.ffme ? "Oui" : "Non"} · CPR : {cprByParticipantId[participant.id]?.currentGrade || "Non calculé"} · Participations : {sessionStats.participationCount[participant.id] || 0} · Passeport : {participant.passport}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
-
-        {tab === "faq" && (
-  <div className="card">
-    <div className="card-header"><h2>FAQ – fonctionnement de ClimbCrew</h2></div>
-
-    {/* La version n’est plus affichée dans la FAQ. */}
-
-    <div className="faq-item">
-      <strong>À quoi sert ClimbCrew ?</strong>
-      <div className="small">
-        ClimbCrew sert à gérer les séances, les inscriptions, les participants, les voies et le suivi de progression des grimpeurs du site SAE de Cristal.
-      </div>
-    </div>
-
-    <div className="faq-item">
-      <strong>Comment enregistrer une voie réalisée ?</strong>
-      <div className="small">
-        Depuis l’onglet Voies, le bouton “Réalisation” ouvre une fenêtre de saisie sans jour ni participant préremplis. Si un jour est choisi, l’application propose uniquement les participants cotisants inscrits ce jour-là. Si un participant est choisi, l’application propose uniquement les jours où il est inscrit. La saisie ne distingue pas midi et soir. Si aucun participant n’est éligible, l’application affiche “Aucun participant éligible”.
-      </div>
-    </div>
-
-    <div className="faq-item">
-      <strong>Que signifient les couleurs des participants et des voies ?</strong>
-      <div className="small">
-        Dans les inscriptions, le fond correspond au passeport. La couleur du cadre indique la cotisation (vert si réglée, rouge sinon). Le cadre est plein avec une licence FFME et alterne la couleur significative avec du noir en l’absence de licence. Lorsqu’une séance encadrée devient libre, les personnes déjà inscrites sans passeport requis restent affichées avec un fond hachuré. Dans les voies, le fond reprend la couleur des prises ; le texte des voies blanches et jaunes est noir et un cadre rouge signale une voie uniquement en moulinette.
-      </div>
-    </div>
-
-    <div className="faq-item">
-      <strong>Qui peut accéder aux onglets Administration, Gestion des comptes et Log ?</strong>
-      <div className="small">
-        Ces onglets sont réservés aux administrateurs. Les utilisateurs standards ne voient pas ces onglets dans la navigation.
-      </div>
-    </div>
-
-    <div className="faq-item">
-      <strong>À quoi servent les onglets Gestion des comptes et Log ?</strong>
-      <div className="small">
-        Gestion des comptes permet d’approuver, révoquer, réactiver et réinitialiser les accès. Log permet de consulter l’historique des connexions et des événements d’authentification.
-      </div>
-    </div>
-
-    <div className="faq-item">
-      <strong>Que signifie CPR ?</strong>
-      <div className="small">
-        Le CPR de ClimbCrew représente le niveau récent. Il utilise les réalisations des 90 derniers jours, pondère la cotation selon le style, conserve les 10 meilleures performances, puis convertit leur moyenne pondérée en cotation. Une voie facile d’échauffement ne réduit donc pas le CPR si elle ne fait pas partie des 10 meilleures performances récentes.
       </div>
     </div>
   </div>
-)}
 
-      </div>
-    </div>
+        {tab === "inscriptions" && (
+          <Inscriptions
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            selectedDate={selectedDate}
+            setSelectedDate={setSelectedDate}
+            ensureSessionsForDate={ensureSessionsForDate}
+            daySessions={daySessions}
+            weekSessions={weekSessions}
+            renderSessionCard={renderSessionCard}
+          />
+        )}
+
+        {tab === "voies" && (
+          <Voies
+            adminUnlocked={adminUnlocked}
+            newRoute={newRoute}
+            setNewRoute={setNewRoute}
+            addRoute={addRoute}
+            routeError={routeError}
+            routeDisplayGroups={routeDisplayGroups}
+            routeSortMode={routeSortMode}
+            setRouteSortMode={setRouteSortMode}
+            routeRatingsById={routeRatingsById}
+            routeAggregatesById={routeAggregatesById}
+            openRealisationModal={openRealisationModal}
+            selectedParticipantProgress={state.selectedParticipantProgress}
+            editingRouteId={editingRouteId}
+            routeEditDraft={routeEditDraft}
+            setRouteEditDraft={setRouteEditDraft}
+            startRouteEdition={startRouteEdition}
+            saveRouteEdition={saveRouteEdition}
+            cancelRouteEdition={cancelRouteEdition}
+            deleteRoute={deleteRoute}
+            savingRouteId={savingRouteId}
+          />
+        )}
+
+        {tab === "progression" && (
+          <Progression
+            selectedParticipantProgress={state.selectedParticipantProgress}
+            selectedParticipant={participantsById[state.selectedParticipantProgress] || null}
+            setState={setState}
+            selectedRouteProgress={selectedRouteProgress}
+            setSelectedRouteProgress={setSelectedRouteProgress}
+            alphabeticalParticipants={alphabeticalParticipants}
+            routes={state.routes}
+            routesById={routesById}
+            openRealisationModal={openRealisationModal}
+            participantProgressStats={participantProgressStats}
+            pointsByParticipantId={pointsByParticipantId}
+            selectedParticipantRealisations={selectedParticipantRealisations}
+            progressViewRealisations={progressViewRealisations}
+            participantsById={participantsById}
+            getParticipantSessions={getParticipantSessions}
+            cprByParticipantId={cprByParticipantId}
+            deleteRealisation={deleteRealisation}
+            updateRealisation={updateRealisation}
+            routeAggregatesById={routeAggregatesById}
+            expandedRealisationIds={expandedRealisationIds}
+            setRealisationExpanded={setRealisationExpanded}
+            allProgressRealisationsExpanded={allProgressRealisationsExpanded}
+            toggleAllProgressRealisations={toggleAllProgressRealisations}
+            exportSelectedParticipantRealisationsCsv={exportSelectedParticipantRealisationsCsv}
+            allRealisations={state.realisations}
+            myParticipantId={myParticipantId}
+          />
+        )}
+
+        {tab === "mon_profil" && (
+          <Profil
+            USE_API={USE_API}
+            authUser={authUser}
+            myParticipant={myParticipant}
+            myParticipantId={myParticipantId}
+            myRealisations={myRealisations}
+            allRealisations={state.realisations}
+            myProfileStats={myProfileStats}
+            cprByParticipantId={cprByParticipantId}
+            pointsByParticipantId={pointsByParticipantId}
+            sessionStats={sessionStats}
+            routesById={routesById}
+            getParticipantSessions={getParticipantSessions}
+            getPassportStyle={getPassportStyle}
+            getPassportDotStyle={getPassportDotStyle}
+            normalizePassport={normalizePassport}
+            updateMyProfile={updateMyProfile}
+          />
+        )}
+
+        {tab === "parametres" && (
+          <Parametres
+            USE_API={USE_API}
+            authUser={authUser}
+            changePassword={changePassword}
+            requestEmailChange={requestEmailChange}
+            myParticipant={myParticipant}
+            updateMyProfile={updateMyProfile}
+          />
+        )}
+
+        {tab === "administration" && (
+          <Administration
+            adminUnlocked={adminUnlocked}
+            adminInput={adminInput}
+            setAdminInput={setAdminInput}
+            unlockAdmin={unlockAdmin}
+            adminError={adminError}
+            newParticipant={newParticipant}
+            setNewParticipant={setNewParticipant}
+            addParticipant={addParticipant}
+            adminParticipants={adminParticipants}
+            updateParticipant={updateParticipant}
+            deleteParticipant={deleteParticipant}
+            exportAllData={exportAllData}
+            importJsonFile={importJsonFile}
+            importMessage={importMessage}
+            publishBroadcastMessage={publishBroadcastMessage}
+          />
+        )}
+
+        {tab === "gestion_comptes" && (
+          <GestionComptes
+            USE_API={USE_API}
+            canManageAccountsAndLogs={canManageAccountsAndLogs}
+            loadAdminAccessData={loadAdminAccessData}
+            generatedResetToken={generatedResetToken}
+            adminAuthUsers={adminAuthUsers}
+            approveAccessRequest={approveAccessRequest}
+            revokeUserAccess={revokeUserAccess}
+            reactivateUserAccess={reactivateUserAccess}
+            generatePasswordResetToken={generatePasswordResetToken}
+            deleteUserAccount={deleteUserAccount}
+            authUser={authUser}
+          />
+        )}
+
+        {tab === "logs" && (
+          <Logs
+            USE_API={USE_API}
+            canManageAccountsAndLogs={canManageAccountsAndLogs}
+            adminAccessLogs={adminAccessLogs}
+          />
+        )}
+
+        {tab === "statistiques" && (
+          <Statistiques
+            sessionStats={sessionStats}
+            topRouteRankings={topRouteRankings}
+            leadRealisationStats={leadRealisationStats}
+            formatRouteName={formatRouteName}
+            statsSortField={statsSortField}
+            setStatsSortField={setStatsSortField}
+            statsSortDirection={statsSortDirection}
+            setStatsSortDirection={setStatsSortDirection}
+            sortedStatsParticipants={sortedStatsParticipants}
+            getPassportStyle={getPassportStyle}
+            getPassportDotStyle={getPassportDotStyle}
+            normalizePassport={normalizePassport}
+            cprByParticipantId={cprByParticipantId}
+            formatPoints={formatPoints}
+            pointsByParticipantId={pointsByParticipantId}
+          />
+        )}
+
+        {tab === "wall_of_fame" && (
+          <WallOfFame
+            wallOfFameCategories={wallOfFameCategories}
+            getPassportStyle={getPassportStyle}
+            getPassportDotStyle={getPassportDotStyle}
+            normalizePassport={normalizePassport}
+            wallOfFameSexFilter={wallOfFameSexFilter}
+            setWallOfFameSexFilter={setWallOfFameSexFilter}
+          />
+        )}
+
+        {tab === "faq" && (
+          <FaqSection APP_VERSION={APP_VERSION} canAccessAdminTabs={canAccessAdminTabs} USE_API={USE_API} authToken={authToken} authUser={authUser} />
+        )}
+
+
+
+</div>
+</div>
   );
 }
 

@@ -6,16 +6,16 @@
   "scripts": {
     "start": "node --import ./admin-user-enhancements.js server.js",
     "test": "node --test",
-    "seed:local": "node seed-local.js"
+    "backup:decrypt": "node tools/decrypt-backup.mjs"
   },
   "engines": {
     "node": ">=20.18.0 <25"
   },
   "dependencies": {
-    "bcryptjs": "^2.4.3",
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^4.21.2",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
     "nodemailer": "^9.0.3",
     "pg": "^8.13.1"
   }
