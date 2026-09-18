@@ -14,6 +14,7 @@ import Profil from "./pages/Profil.jsx";
 import Parametres from "./pages/Parametres.jsx";
 import Administration from "./pages/Administration.jsx";
 import GestionComptes from "./pages/GestionComptes.jsx";
+import DonneesUtilisateurs from "./pages/DonneesUtilisateurs.jsx";
 import Logs from "./pages/Logs.jsx";
 import Statistiques from "./pages/Statistiques.jsx";
 import WallOfFame from "./pages/WallOfFame.jsx";
@@ -1859,7 +1860,7 @@ async function handleThemePreferenceChange(nextTheme) {
           />
         )}
 
-        {tab === "gestion_comptes" && (
+        {tab === "donnees_utilisateurs" && <DonneesUtilisateurs participants={adminParticipants} />}\n\n        {tab === "gestion_comptes" && (
           <GestionComptes
             USE_API={USE_API}
             canManageAccountsAndLogs={canManageAccountsAndLogs}
