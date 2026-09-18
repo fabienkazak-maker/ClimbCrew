@@ -48,5 +48,6 @@ export const TABS = [
   { key: "faq", label: "FAQ" },
   { key: "administration", label: "Administration des inscrits", adminOnly: true },
   { key: "gestion_comptes", label: "Gestion des comptes", adminOnly: true },
+  { key: "donnees_utilisateurs", label: "Données utilisateurs", adminOnly: true },
   { key: "logs", label: "Administration Serveur", adminOnly: true },
 ];
