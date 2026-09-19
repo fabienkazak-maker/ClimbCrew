@@ -92,6 +92,8 @@ function buildFramePose(landmarks, rules) {
     leftHip,
     rightHip,
     shoulderCenter,
+    leftShoulder,
+    rightShoulder,
     leftElbowAngle: angleDegrees(leftShoulder, point(LANDMARK.LEFT_ELBOW), point(LANDMARK.LEFT_WRIST)),
     rightElbowAngle: angleDegrees(rightShoulder, point(LANDMARK.RIGHT_ELBOW), point(LANDMARK.RIGHT_WRIST)),
     leftKneeAngle: angleDegrees(leftHip, point(LANDMARK.LEFT_KNEE), point(LANDMARK.LEFT_ANKLE)),
@@ -301,6 +303,13 @@ export async function analyzeClimbingVideo(video, options = {}) {
   const pauses = [];
   const events = [];
   const hipTrajectory = [];
+  let lastCrossEvent = -Infinity;
+  let lastFlagEvent = -Infinity;
+  let lastFootSwitchEvent = -Infinity;
+  let movementStart = null;
+  let movementPeakTime = null;
+  let movementPeakSpeed = 0;
+  const movementSegments = [];
 
   const finishTrackedIntervals = (endTime) => {
     if (endTime == null) return;
@@ -374,7 +383,15 @@ export async function analyzeClimbingVideo(video, options = {}) {
         const rightAnkleSpeed = normalizeObservedSpeed(previousPose.rightAnkle, pose.rightAnkle, torsoLength, dt);
         const availableSpeeds = [hipSpeed, leftWristSpeed, rightWristSpeed, leftAnkleSpeed, rightAnkleSpeed]
           .filter(Number.isFinite);
-        const bodySpeed = availableSpeeds.reduce((sum, value) => sum + value, 0) / availableSpeeds.length;
+        const bodySpeed = availableSpeeds.length ? availableSpeeds.reduce((sum, value) => sum + value, 0) / availableSpeeds.length : 0;
+        const movementThreshold = Math.max(rules.pauseSpeedTorsoPerSecond * 2.2, 0.18);
+        if (bodySpeed >= movementThreshold) {
+          if (movementStart == null) { movementStart = previousTime; movementPeakTime = time; movementPeakSpeed = bodySpeed; }
+          if (bodySpeed > movementPeakSpeed) { movementPeakSpeed = bodySpeed; movementPeakTime = time; }
+        } else if (movementStart != null && time - movementStart >= 0.35) {
+          movementSegments.push({ start: movementStart, peak: movementPeakTime, end: time, peakSpeed: movementPeakSpeed });
+          movementStart = null; movementPeakTime = null; movementPeakSpeed = 0;
+        }
         if (Number.isFinite(hipSpeed)) {
           hipSpeedSum += hipSpeed;
           hipSpeedSamples += 1;
@@ -430,6 +447,32 @@ export async function analyzeClimbingVideo(video, options = {}) {
           events.push({ type: "dynamic", time, confidence: 0.75 });
         }
         previousDynamic = dynamicNow;
+
+        const shoulderWidth = distance(pose.leftShoulder, pose.rightShoulder);
+        if (shoulderWidth > 0.005 && time - lastCrossEvent >= 1.2) {
+          const leftCross = pose.leftWrist && pose.rightShoulder && pose.leftWrist.x > pose.rightShoulder.x + shoulderWidth * 0.08;
+          const rightCross = pose.rightWrist && pose.leftShoulder && pose.rightWrist.x < pose.leftShoulder.x - shoulderWidth * 0.08;
+          if (leftCross || rightCross) {
+            events.push({ type: "cross", side: leftCross ? "left" : "right", time, confidence: 0.7 });
+            lastCrossEvent = time;
+          }
+        }
+        if (pose.leftAnkle && pose.rightAnkle && time - lastFootSwitchEvent >= 1.0) {
+          const previousOrder = (previousPose.leftAnkle?.x ?? 0) - (previousPose.rightAnkle?.x ?? 0);
+          const currentOrder = pose.leftAnkle.x - pose.rightAnkle.x;
+          if (Math.abs(previousOrder) > 0.025 && Math.abs(currentOrder) > 0.025 && Math.sign(previousOrder) !== Math.sign(currentOrder)) {
+            events.push({ type: "foot-switch", time, confidence: 0.68 });
+            lastFootSwitchEvent = time;
+          }
+        }
+        if (hipWidth > 0.005 && pose.leftAnkle && pose.rightAnkle && time - lastFlagEvent >= 1.2) {
+          const leftFlag = pose.leftAnkle.x > pose.rightHip.x + hipWidth * 0.45;
+          const rightFlag = pose.rightAnkle.x < pose.leftHip.x - hipWidth * 0.45;
+          if (leftFlag || rightFlag) {
+            events.push({ type: "flag-candidate", side: leftFlag ? "left" : "right", time, confidence: 0.58 });
+            lastFlagEvent = time;
+          }
+        }
       }
 
       const accumulateAngleDuration = (angle, threshold, currentStart, setter) => {
@@ -481,6 +524,12 @@ export async function analyzeClimbingVideo(video, options = {}) {
     throw new Error("Le grimpeur n’est pas détecté assez souvent. Utiliser une vidéo où le corps entier reste davantage visible.");
   }
 
+  if (movementStart != null && previousTime != null && previousTime - movementStart >= 0.35) movementSegments.push({ start: movementStart, peak: movementPeakTime, end: previousTime, peakSpeed: movementPeakSpeed });
+  for (const segment of movementSegments.slice(0, 500)) {
+    events.push({ type: "movement", time: segment.start, end: segment.end, confidence: Math.min(0.92, 0.55 + segment.peakSpeed / 8), phase: "preparation" });
+    events.push({ type: "movement-peak", time: segment.peak ?? segment.start, confidence: Math.min(0.95, 0.6 + segment.peakSpeed / 7), phase: "execution" });
+    events.push({ type: "stabilization", time: segment.end, confidence: 0.65, phase: "stabilization" });
+  }
   const longPauses = pauses.filter((pause) => pause.duration >= rules.longPauseMinSeconds);
   const maxBent = Math.max(leftBentSeconds, rightBentSeconds, 0.001);
   const armAsymmetryRatio = Math.abs(leftBentSeconds - rightBentSeconds) / maxBent;
@@ -518,12 +567,13 @@ export async function analyzeClimbingVideo(video, options = {}) {
     },
     observationConfidence,
     events: events.slice(0, 1000),
+    movementSegments: movementSegments.slice(0, 500),
     hipTrajectory,
   };
 
   return {
     engine: "MediaPipe Pose Landmarker Lite",
-    engineVersion: "1.2.0",
+    engineVersion: "1.3.0",
     localProcessing: true,
     rules,
     metrics,

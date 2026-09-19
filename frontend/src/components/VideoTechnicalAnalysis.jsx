@@ -366,10 +366,10 @@ export default function VideoTechnicalAnalysis({
           {motionEvents.length > 0 && (
             <div style={{ marginTop: 12 }}>
               <strong>Timeline technique</strong>
-              <div className="small" style={{ marginTop: 4 }}>Événements détectés automatiquement. Cliquer pour revoir le passage.</div>
+              <div className="small" style={{ marginTop: 4 }}>Préparation → exécution → stabilisation et mouvements candidats. « ? » signifie que la technique doit être confirmée visuellement. Cliquer pour revoir le passage.</div>
               <div className="group" style={{ marginTop: 6 }}>
                 {motionEvents.slice(0, 24).map((event, index) => {
-                  const labels = { pause: "Pause", dynamic: "Dynamique", "foot-adjustment": event.side === "left" ? "Pied G" : "Pied D" };
+                  const labels = { pause: "Pause", dynamic: "Dynamique", "foot-adjustment": event.side === "left" ? "Ajustement pied G" : "Ajustement pied D", cross: event.side === "left" ? "Croisé main G ?" : "Croisé main D ?", "foot-switch": "Changement de pieds ?", "flag-candidate": event.side === "left" ? "Drapeau G ?" : "Drapeau D ?", movement: "Préparation", "movement-peak": "Exécution", stabilization: "Stabilisation" };
                   return videoAvailable ? (
                     <button type="button" className="pill" key={`${event.type}-${event.time}-${index}`} onClick={() => { if (!videoRef.current) return; videoRef.current.currentTime = Math.max(0, event.time - 1); videoRef.current.play().catch(() => {}); }}>
                       {formatTimestamp(event.time)} · {labels[event.type] || event.type}
