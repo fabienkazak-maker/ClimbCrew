@@ -19,6 +19,7 @@ const EXPORT_QUERIES = {
   ropes: `select * from ropes order by numero_corde`,
   routes: `select * from routes order by numero_corde nulls last, numero_voie_unique`,
   realisations: `select * from realisations order by date_realisation, id`,
+  videoAnalysisSettings: `select id, rules, updated_at from video_analysis_settings order by id`,
   accessLogs: `
     select id, user_id, event_type, success, ip_address, user_agent, details, created_at
     from access_logs
@@ -70,6 +71,7 @@ function serializeRoute(row) {
     active: row.active !== false,
     dateCreation: row.date_creation || "",
     tags: Array.isArray(row.tags) ? row.tags : [],
+    videoUrls: Array.isArray(row.video_urls) ? row.video_urls.map(String) : [],
   };
 }
 
@@ -94,6 +96,10 @@ function serializeRealisation(row) {
     rating: row.rating === null || row.rating === undefined ? "" : Number(row.rating),
     chute: Boolean(row.chute),
     assureurId: row.assureur_id ? String(row.assureur_id) : "",
+    videoUrls: Array.isArray(row.video_urls) ? row.video_urls.map(String) : [],
+    technicalAnalysis: row.technical_analysis && typeof row.technical_analysis === "object"
+      ? row.technical_analysis
+      : { version: 1, videos: {} },
   };
 }
 
@@ -129,7 +135,8 @@ export async function exportAllData(_req, res) {
     const data = {
       exportedAt,
       version: "climbcrew-complete-export-v4",
-      securityNotice: "Les mots de passe, jetons de session et jetons de réinitialisation ne sont jamais exportés.",\n      mediaNotice: "Les références et analyses vidéo sont exportées, mais pas les fichiers vidéo binaires.",
+      securityNotice: "Les mots de passe, jetons de session et jetons de réinitialisation ne sont jamais exportés.",
+      mediaNotice: "Les références et analyses vidéo sont exportées, mais pas les fichiers vidéo binaires.",
       participants: entries.participants.map(serializeParticipant),
       sessions: entries.sessions.map((row) => serializeSession(
         row,
@@ -138,6 +145,19 @@ export async function exportAllData(_req, res) {
       ropes: entries.ropes.map(serializeRope),
       routes: entries.routes.map(serializeRoute),
       realisations: entries.realisations.map(serializeRealisation),
+      videoAnalysisSettings: entries.videoAnalysisSettings.map((row) => ({
+        id: Number(row.id),
+        rules: row.rules && typeof row.rules === "object" ? row.rules : {},
+        updatedAt: row.updated_at,
+      })),
+      exportSummary: {
+        participants: entries.participants.length,
+        sessions: entries.sessions.length,
+        registrations: entries.sessionParticipants.length,
+        ropes: entries.ropes.length,
+        routes: entries.routes.length,
+        realisations: entries.realisations.length,
+      },
 
       // Métadonnées de maintenance. L'import métier les ignore volontairement :
       // elles permettent l'audit sans autoriser un JSON à créer/modifier un compte.
