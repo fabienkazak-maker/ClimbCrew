@@ -121,9 +121,9 @@ export async function getPoseLandmarker() {
     baseOptions: { modelAssetPath: POSE_MODEL_URL },
     runningMode: "VIDEO",
     numPoses: 1,
-    minPoseDetectionConfidence: 0.45,
-    minPosePresenceConfidence: 0.45,
-    minTrackingConfidence: 0.45,
+    minPoseDetectionConfidence: 0.3,
+    minPosePresenceConfidence: 0.3,
+    minTrackingConfidence: 0.3,
   });
 }
 
@@ -271,6 +271,7 @@ export async function analyzeClimbingVideo(video, options = {}) {
   let previousPose = null;
   let previousTime = null;
   let validSamples = 0;
+  let partialSamples = 0;
   let pauseStart = null;
   let leftBentStart = null;
   let rightBentStart = null;
@@ -340,7 +341,15 @@ export async function analyzeClimbingVideo(video, options = {}) {
       const time = sampleTimes[index];
       await seekVideo(video, time);
       const result = poseLandmarker.detectForVideo(video, Math.round(time * 1000));
-      const pose = buildFramePose(result?.landmarks?.[0], rules);
+      const landmarks = result?.landmarks?.[0];
+      let pose = buildFramePose(landmarks, rules);
+      if (!pose && landmarks?.length) {
+        // Second passage plus tolérant : utile quand le grimpeur est petit dans
+        // une image large ou brièvement occulté. Les mesures restent marquées
+        // par la confiance globale et ne sont acceptées que si le tronc existe.
+        pose = buildFramePose(landmarks, { ...rules, minVisibility: Math.min(rules.minVisibility, 0.25) });
+        if (pose) partialSamples += 1;
+      }
       options.onProgress?.((index + 1) / sampleTimes.length);
 
       if (!pose) {
@@ -520,8 +529,11 @@ export async function analyzeClimbingVideo(video, options = {}) {
   }
 
   const detectionRatio = sampleTimes.length ? validSamples / sampleTimes.length : 0;
-  if (detectionRatio < 0.35) {
-    throw new Error("Le grimpeur n’est pas détecté assez souvent. Utiliser une vidéo où le corps entier reste davantage visible.");
+  // Une analyse reste exploitable avec des occultations temporaires. Le seuil
+  // historique de 35 % rejetait notamment les plans larges de SAE alors que le
+  // tronc était suivi sur une partie significative de la voie.
+  if (validSamples < Math.min(12, sampleTimes.length) || detectionRatio < 0.15) {
+    throw new Error("Le grimpeur est trop peu détecté pour produire une analyse fiable. Rapprocher le cadrage ou garder le tronc visible plus longtemps.");
   }
 
   if (movementStart != null && previousTime != null && previousTime - movementStart >= 0.35) movementSegments.push({ start: movementStart, peak: movementPeakTime, end: previousTime, peakSpeed: movementPeakSpeed });
@@ -542,6 +554,7 @@ export async function analyzeClimbingVideo(video, options = {}) {
     analyzedSeconds: duration * detectionRatio,
     sampleCount: sampleTimes.length,
     validSamples,
+    partialSamples,
     detectionRatio,
     pauses,
     longPauses,
@@ -573,7 +586,7 @@ export async function analyzeClimbingVideo(video, options = {}) {
 
   return {
     engine: "MediaPipe Pose Landmarker Lite",
-    engineVersion: "1.3.0",
+    engineVersion: "1.3.1",
     localProcessing: true,
     rules,
     metrics,
