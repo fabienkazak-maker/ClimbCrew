@@ -89,6 +89,9 @@ function buildFramePose(landmarks, rules) {
     rightWrist: point(LANDMARK.RIGHT_WRIST),
     leftAnkle: point(LANDMARK.LEFT_ANKLE),
     rightAnkle: point(LANDMARK.RIGHT_ANKLE),
+    leftHip,
+    rightHip,
+    shoulderCenter,
     leftElbowAngle: angleDegrees(leftShoulder, point(LANDMARK.LEFT_ELBOW), point(LANDMARK.LEFT_WRIST)),
     rightElbowAngle: angleDegrees(rightShoulder, point(LANDMARK.RIGHT_ELBOW), point(LANDMARK.RIGHT_WRIST)),
     leftKneeAngle: angleDegrees(leftHip, point(LANDMARK.LEFT_KNEE), point(LANDMARK.LEFT_ANKLE)),
@@ -288,6 +291,13 @@ export async function analyzeClimbingVideo(video, options = {}) {
   let maxHipSpeed = 0;
   let kneeAngleSum = 0;
   let kneeAngleSamples = 0;
+  let hipLateralSum = 0;
+  let hipLateralSamples = 0;
+  let hipLateralMax = 0;
+  let shoulderHipOffsetSum = 0;
+  let shoulderHipOffsetSamples = 0;
+  let shoulderHipOffsetMax = 0;
+  let compactSeconds = 0;
   const pauses = [];
   const events = [];
   const hipTrajectory = [];
@@ -341,6 +351,18 @@ export async function analyzeClimbingVideo(video, options = {}) {
       if (kneeAngles.length) {
         kneeAngleSum += kneeAngles.reduce((sum, value) => sum + value, 0) / kneeAngles.length;
         kneeAngleSamples += 1;
+        if ((kneeAngles.reduce((sum, value) => sum + value, 0) / kneeAngles.length) < 105) compactSeconds += sampleStep;
+      }
+      const hipWidth = distance(pose.leftHip, pose.rightHip);
+      if (hipWidth > 0.005) {
+        const lateral = Math.abs((pose.hipCenter.x || 0) - (pose.shoulderCenter.x || 0)) / hipWidth;
+        hipLateralSum += lateral;
+        hipLateralSamples += 1;
+        hipLateralMax = Math.max(hipLateralMax, lateral);
+        const offset = distance(pose.hipCenter, pose.shoulderCenter) / Math.max(0.01, pose.torsoLength);
+        shoulderHipOffsetSum += offset;
+        shoulderHipOffsetSamples += 1;
+        shoulderHipOffsetMax = Math.max(shoulderHipOffsetMax, offset);
       }
       if (previousPose && previousTime != null) {
         const dt = Math.max(0.001, time - previousTime);
@@ -487,6 +509,13 @@ export async function analyzeClimbingVideo(video, options = {}) {
       maxSpeedTorsoPerSecond: maxHipSpeed,
     },
     meanKneeAngleDegrees: kneeAngleSamples ? kneeAngleSum / kneeAngleSamples : null,
+    bodyPosition: {
+      meanHipLateralOffsetHipWidths: hipLateralSamples ? hipLateralSum / hipLateralSamples : 0,
+      maxHipLateralOffsetHipWidths: hipLateralMax,
+      meanShoulderHipOffsetTorso: shoulderHipOffsetSamples ? shoulderHipOffsetSum / shoulderHipOffsetSamples : 0,
+      maxShoulderHipOffsetTorso: shoulderHipOffsetMax,
+      compactSeconds: Math.min(duration, compactSeconds),
+    },
     observationConfidence,
     events: events.slice(0, 1000),
     hipTrajectory,
@@ -494,7 +523,7 @@ export async function analyzeClimbingVideo(video, options = {}) {
 
   return {
     engine: "MediaPipe Pose Landmarker Lite",
-    engineVersion: "1.1.0",
+    engineVersion: "1.2.0",
     localProcessing: true,
     rules,
     metrics,
