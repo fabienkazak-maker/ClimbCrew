@@ -29,6 +29,8 @@ export function buildClimbingCoach(metrics = {}, rules = {}) {
   const observationConfidence = Math.max(0, Math.min(1, finite(metrics.observationConfidence, detectionRatio)));
   const hipPathEfficiency = Math.max(0, Math.min(1, finite(metrics.hipMotion?.pathEfficiency, 0)));
   const hipTravel = Math.max(0, finite(metrics.hipMotion?.travelTorso, 0));
+  const hipLateral = Math.max(0, finite(metrics.bodyPosition?.meanHipLateralOffsetHipWidths, 0));
+  const compactRatio = ratio(metrics.bodyPosition?.compactSeconds, analyzedSeconds);
   const candidates = [];
 
   if (longPauses.length > 0 || pauses.length >= 3) {
@@ -94,6 +96,32 @@ export function buildClimbingCoach(metrics = {}, rules = {}) {
       "Revoir les pics repérés et, sur une voie facile, refaire les mouvements concernés en décidant à l’avance s’ils doivent être statiques ou dynamiques.",
       "1 passage d’observation puis 1 passage ciblé.",
       "Un pic de vitesse n’est pas une erreur : il peut correspondre à un mouvement dynamique efficace.",
+    ));
+  }
+
+  if (hipLateral >= 0.55) {
+    candidates.push(priority(
+      "coach-hip-position",
+      78 + Math.min(12, Math.round((hipLateral - 0.55) * 20)),
+      "Placement du bassin",
+      `Le bassin est fréquemment décalé latéralement par rapport aux épaules (indice moyen ${hipLateral.toFixed(2)} largeur de bassin).`,
+      "Observer si ce décalage sert une opposition, un drapeau ou une prise latérale ; sinon tester un recentrage ou une rotation du bassin.",
+      "Sur 2 passages faciles, comparer volontairement une version bassin recentré et une version avec rotation de hanche, puis conserver celle qui réduit l’effort des bras.",
+      "2 passages comparés.",
+      "Un décalage latéral peut être techniquement excellent : le tracé et les prises doivent confirmer l’interprétation.",
+    ));
+  }
+
+  if (compactRatio >= 0.35) {
+    candidates.push(priority(
+      "coach-leg-extension",
+      68 + Math.min(12, Math.round(compactRatio * 20)),
+      "Extension des jambes",
+      `Les genoux restent fortement fléchis environ ${Math.round(compactRatio * 100)} % du temps analysable.`,
+      "Chercher les moments où une poussée de jambe peut remplacer une traction prolongée des bras.",
+      "Sur une voie facile, marquer chaque mouvement en initiant la montée par la poussée du pied avant de tirer avec le bras.",
+      "2 voies faciles.",
+      "Une position compacte peut être nécessaire en toit, en dévers ou avant un mouvement dynamique.",
     ));
   }
 
