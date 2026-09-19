@@ -1,4 +1,4 @@
-const COACH_VERSION = 1;
+const COACH_VERSION = 2;
 
 function finite(value, fallback = 0) {
   const number = Number(value);
@@ -26,6 +26,9 @@ export function buildClimbingCoach(metrics = {}, rules = {}) {
   const bentSide = bentLeftRatio > bentRightRatio ? "gauche" : "droit";
   const armAsymmetryRatio = Math.max(0, finite(metrics.armAsymmetryRatio, 0));
   const dynamicMoves = Math.max(0, finite(metrics.dynamicMoves, 0));
+  const observationConfidence = Math.max(0, Math.min(1, finite(metrics.observationConfidence, detectionRatio)));
+  const hipPathEfficiency = Math.max(0, Math.min(1, finite(metrics.hipMotion?.pathEfficiency, 0)));
+  const hipTravel = Math.max(0, finite(metrics.hipMotion?.travelTorso, 0));
   const candidates = [];
 
   if (longPauses.length > 0 || pauses.length >= 3) {
@@ -94,6 +97,19 @@ export function buildClimbingCoach(metrics = {}, rules = {}) {
     ));
   }
 
+  if (hipTravel >= 1.5 && hipPathEfficiency > 0 && hipPathEfficiency < 0.42) {
+    candidates.push(priority(
+      "coach-hip-trajectory",
+      72 + Math.min(15, Math.round((0.42 - hipPathEfficiency) * 100)),
+      "Trajectoire du bassin",
+      `La trajectoire observée du bassin est assez indirecte (indice de progression ${Math.round(hipPathEfficiency * 100)} %).`,
+      "Revoir les changements de direction du bassin et chercher si certains déplacements latéraux peuvent être préparés plus tôt.",
+      "Sur une voie facile, grimper lentement en observant le chemin du bassin et chercher une trajectoire plus continue, sans imposer une position unique.",
+      "2 passages comparés en vidéo.",
+      "Cet indice décrit une trajectoire 2D du bassin, pas le centre de gravité réel ni la distance à la paroi.",
+    ));
+  }
+
   candidates.sort((a, b) => b.score - a.score || a.code.localeCompare(b.code));
   const priorities = candidates.slice(0, 2);
 
@@ -119,8 +135,10 @@ export function buildClimbingCoach(metrics = {}, rules = {}) {
       ? `Priorité entraîneur : ${titles[0]}.`
       : `Priorités entraîneur : ${titles[0]}, puis ${titles[1]}.`,
     priorities,
+    confidence: observationConfidence,
+    confidenceLabel: observationConfidence >= 0.8 ? "élevée" : observationConfidence >= 0.6 ? "moyenne" : "faible",
     note: lowDetection
       ? "La détection du corps est partielle : utiliser ces priorités comme pistes à confirmer visuellement ou sur une autre vidéo."
-      : "Les priorités sont déduites des mesures de cette vidéo et doivent être interprétées avec le contexte de la voie.",
+      : "Les priorités sont déduites des mesures de cette vidéo et doivent être interprétées avec le contexte de la voie. La trajectoire du bassin reste une mesure 2D et ne mesure pas directement le centre de gravité ni les forces.",
   };
 }
