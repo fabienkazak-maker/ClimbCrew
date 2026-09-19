@@ -128,8 +128,8 @@ export async function exportAllData(_req, res) {
     const exportedAt = new Date().toISOString();
     const data = {
       exportedAt,
-      version: "climbcrew-complete-export-v3",
-      securityNotice: "Les mots de passe, jetons de session et jetons de réinitialisation ne sont jamais exportés.",
+      version: "climbcrew-complete-export-v4",
+      securityNotice: "Les mots de passe, jetons de session et jetons de réinitialisation ne sont jamais exportés.",\n      mediaNotice: "Les références et analyses vidéo sont exportées, mais pas les fichiers vidéo binaires.",
       participants: entries.participants.map(serializeParticipant),
       sessions: entries.sessions.map((row) => serializeSession(
         row,
