@@ -386,7 +386,7 @@ export async function analyzeClimbingVideo(video, options = {}) {
         ) {
           leftFootAdjustments += 1;
           lastLeftFootAdjustment = time;
-          events.push({ type: "foot-adjustment", side: "left", time, confidence: Math.min(1, detectionRatio || 0.8) });
+          events.push({ type: "foot-adjustment", side: "left", time, confidence: 0.8 });
         }
         if (
           feetContextIsStable
@@ -398,7 +398,7 @@ export async function analyzeClimbingVideo(video, options = {}) {
         ) {
           rightFootAdjustments += 1;
           lastRightFootAdjustment = time;
-          events.push({ type: "foot-adjustment", side: "right", time, confidence: Math.min(1, detectionRatio || 0.8) });
+          events.push({ type: "foot-adjustment", side: "right", time, confidence: 0.8 });
         }
 
         const dynamicSpeeds = [hipSpeed, leftWristSpeed, rightWristSpeed].filter(Number.isFinite);
