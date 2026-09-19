@@ -297,6 +297,7 @@ export async function analyzeClimbingVideo(video, options = {}) {
   let hipLateralSum = 0;
   let hipLateralSamples = 0;
   let hipLateralMax = 0;
+  const hipLateralValues = [];
   let shoulderHipOffsetSum = 0;
   let shoulderHipOffsetSamples = 0;
   let shoulderHipOffsetMax = 0;
@@ -372,11 +373,15 @@ export async function analyzeClimbingVideo(video, options = {}) {
         if ((kneeAngles.reduce((sum, value) => sum + value, 0) / kneeAngles.length) < 105) compactSeconds += sampleStep;
       }
       const hipWidth = distance(pose.leftHip, pose.rightHip);
-      if (hipWidth > 0.005) {
+      const hipWidthToTorso = hipWidth / Math.max(0.01, pose.torsoLength);
+      if (hipWidth > 0.005 && hipWidthToTorso >= 0.25 && hipWidthToTorso <= 1.6) {
         const lateral = Math.abs((pose.hipCenter.x || 0) - (pose.shoulderCenter.x || 0)) / hipWidth;
-        hipLateralSum += lateral;
-        hipLateralSamples += 1;
-        hipLateralMax = Math.max(hipLateralMax, lateral);
+        if (Number.isFinite(lateral) && lateral <= 6) {
+          hipLateralSum += lateral;
+          hipLateralSamples += 1;
+          hipLateralValues.push(lateral);
+          hipLateralMax = Math.max(hipLateralMax, lateral);
+        }
         const offset = distance(pose.hipCenter, pose.shoulderCenter) / Math.max(0.01, pose.torsoLength);
         shoulderHipOffsetSum += offset;
         shoulderHipOffsetSamples += 1;
@@ -549,6 +554,13 @@ export async function analyzeClimbingVideo(video, options = {}) {
   events.sort((a, b) => a.time - b.time);
   const hipPathEfficiency = hipTravelTorso > 0 ? Math.min(1, hipVerticalProgressTorso / hipTravelTorso) : 0;
   const observationConfidence = Math.max(0, Math.min(1, detectionRatio * (validSamples >= 20 ? 1 : validSamples / 20)));
+  // Un maximum brut est très sensible à une seule frame MediaPipe aberrante.
+  // On conserve donc un maximum robuste (98e percentile) sur les observations
+  // anatomiquement plausibles ; la moyenne utilise le même ensemble filtré.
+  if (hipLateralValues.length) {
+    const sortedHipLateral = [...hipLateralValues].sort((a, b) => a - b);
+    hipLateralMax = sortedHipLateral[Math.min(sortedHipLateral.length - 1, Math.floor((sortedHipLateral.length - 1) * 0.98))];
+  }
   const metrics = {
     duration,
     analyzedSeconds: duration * detectionRatio,
@@ -586,7 +598,7 @@ export async function analyzeClimbingVideo(video, options = {}) {
 
   return {
     engine: "MediaPipe Pose Landmarker Lite",
-    engineVersion: "1.3.1",
+    engineVersion: "1.3.2",
     localProcessing: true,
     rules,
     metrics,
