@@ -1860,7 +1860,7 @@ async function handleThemePreferenceChange(nextTheme) {
           />
         )}
 
-        {tab === "donnees_utilisateurs" && <DonneesUtilisateurs participants={adminParticipants} />}\n\n        {tab === "gestion_comptes" && (
+        {tab === "donnees_utilisateurs" && <DonneesUtilisateurs participants={adminParticipants} onSaved={reloadApiState} />}\n\n        {tab === "gestion_comptes" && (
           <GestionComptes
             USE_API={USE_API}
             canManageAccountsAndLogs={canManageAccountsAndLogs}
