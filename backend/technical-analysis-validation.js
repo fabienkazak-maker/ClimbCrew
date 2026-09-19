@@ -148,6 +148,16 @@ function normalizeMotionExtras(metrics, duration) {
       maxSpeedTorsoPerSecond: finiteNumber(hip.maxSpeedTorsoPerSecond, "metrics.hipMotion.maxSpeedTorsoPerSecond", { min: 0, max: 100 }),
     };
   }
+  if (metrics.bodyPosition !== undefined) {
+    const body = objectValue(metrics.bodyPosition, "metrics.bodyPosition");
+    output.bodyPosition = {
+      meanHipLateralOffsetHipWidths: finiteNumber(body.meanHipLateralOffsetHipWidths, "metrics.bodyPosition.meanHipLateralOffsetHipWidths", { min: 0, max: 20 }),
+      maxHipLateralOffsetHipWidths: finiteNumber(body.maxHipLateralOffsetHipWidths, "metrics.bodyPosition.maxHipLateralOffsetHipWidths", { min: 0, max: 20 }),
+      meanShoulderHipOffsetTorso: finiteNumber(body.meanShoulderHipOffsetTorso, "metrics.bodyPosition.meanShoulderHipOffsetTorso", { min: 0, max: 20 }),
+      maxShoulderHipOffsetTorso: finiteNumber(body.maxShoulderHipOffsetTorso, "metrics.bodyPosition.maxShoulderHipOffsetTorso", { min: 0, max: 20 }),
+      compactSeconds: finiteNumber(body.compactSeconds, "metrics.bodyPosition.compactSeconds", { min: 0, max: duration }),
+    };
+  }
   if (metrics.meanKneeAngleDegrees !== undefined && metrics.meanKneeAngleDegrees !== null) output.meanKneeAngleDegrees = finiteNumber(metrics.meanKneeAngleDegrees, "metrics.meanKneeAngleDegrees", { min: 0, max: 180 });
   if (metrics.observationConfidence !== undefined) output.observationConfidence = finiteNumber(metrics.observationConfidence, "metrics.observationConfidence", { min: 0, max: 1 });
   if (metrics.events !== undefined) {
