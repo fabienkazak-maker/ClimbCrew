@@ -284,6 +284,9 @@ export default function VideoTechnicalAnalysis({
             <Metric label="Pics dynamiques" value={Number(metrics.dynamicMoves || 0)} />
             <Metric label="Confiance observation" value={`${Math.round((Number(metrics.observationConfidence ?? metrics.detectionRatio) || 0) * 100)} %`} />
             <Metric label="Trajectoire bassin" value={metrics.hipMotion ? `${Math.round((Number(metrics.hipMotion.pathEfficiency) || 0) * 100)} % directe` : "—"} />
+            <Metric label="Décalage bassin" value={metrics.bodyPosition ? `${Number(metrics.bodyPosition.meanHipLateralOffsetHipWidths || 0).toFixed(2)} × largeur bassin` : "—"} />
+            <Metric label="Position compacte" value={metrics.bodyPosition ? `${Math.round((Number(metrics.bodyPosition.compactSeconds || 0) / Math.max(1, Number(metrics.analyzedSeconds || 1))) * 100)} %` : "—"} />
+            <Metric label="Angle moyen genoux" value={Number.isFinite(Number(metrics.meanKneeAngleDegrees)) ? `${Math.round(Number(metrics.meanKneeAngleDegrees))}°` : "—"} />
             <Metric label="Bras gauche fléchi" value={analysis.display?.bentLeft || formatTimestamp(metrics.bentArmSeconds?.left)} />
             <Metric label="Bras droit fléchi" value={analysis.display?.bentRight || formatTimestamp(metrics.bentArmSeconds?.right)} />
           </div>
