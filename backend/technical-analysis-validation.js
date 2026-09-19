@@ -4,6 +4,7 @@ const MAX_INTERVALS = 2000;
 const MAX_RECOMMENDATIONS = 20;
 const MAX_EVENTS = 1000;
 const MAX_TRAJECTORY_POINTS = 240;
+const MAX_MOVEMENT_SEGMENTS = 500;
 const EXPECTED_ENGINE = "MediaPipe Pose Landmarker Lite";
 
 const RULE_LIMITS = Object.freeze({
@@ -165,15 +166,29 @@ function normalizeMotionExtras(metrics, duration) {
     output.events = metrics.events.map((item, index) => {
       const event = objectValue(item, `metrics.events[${index}]`);
       const type = boundedString(event.type, `metrics.events[${index}].type`, 40, { required: true });
-      if (!["pause", "dynamic", "foot-adjustment"].includes(type)) throw badRequest(`metrics.events[${index}].type est invalide.`);
+      if (!["pause", "dynamic", "foot-adjustment", "cross", "foot-switch", "flag-candidate", "movement", "movement-peak", "stabilization"].includes(type)) throw badRequest(`metrics.events[${index}].type est invalide.`);
       const normalized = { type, time: finiteNumber(event.time, `metrics.events[${index}].time`, { min: 0, max: duration }), confidence: finiteNumber(event.confidence, `metrics.events[${index}].confidence`, { min: 0, max: 1 }) };
       if (event.end !== undefined) normalized.end = finiteNumber(event.end, `metrics.events[${index}].end`, { min: normalized.time, max: duration });
+      if (event.phase !== undefined) {
+        const phase = boundedString(event.phase, `metrics.events[${index}].phase`, 20);
+        if (!["preparation", "execution", "stabilization"].includes(phase)) throw badRequest(`metrics.events[${index}].phase est invalide.`);
+        normalized.phase = phase;
+      }
       if (event.side !== undefined) {
         const side = boundedString(event.side, `metrics.events[${index}].side`, 10);
         if (!["left", "right"].includes(side)) throw badRequest(`metrics.events[${index}].side est invalide.`);
         normalized.side = side;
       }
       return normalized;
+    });
+  }
+  if (metrics.movementSegments !== undefined) {
+    if (!Array.isArray(metrics.movementSegments) || metrics.movementSegments.length > MAX_MOVEMENT_SEGMENTS) throw badRequest("metrics.movementSegments est invalide.");
+    output.movementSegments = metrics.movementSegments.map((item, index) => {
+      const segment = objectValue(item, `metrics.movementSegments[${index}]`);
+      const start = finiteNumber(segment.start, `metrics.movementSegments[${index}].start`, { min: 0, max: duration });
+      const end = finiteNumber(segment.end, `metrics.movementSegments[${index}].end`, { min: start, max: duration });
+      return { start, peak: finiteNumber(segment.peak ?? start, `metrics.movementSegments[${index}].peak`, { min: start, max: end }), end, peakSpeed: finiteNumber(segment.peakSpeed, `metrics.movementSegments[${index}].peakSpeed`, { min: 0, max: 100 }) };
     });
   }
   if (metrics.hipTrajectory !== undefined) {
