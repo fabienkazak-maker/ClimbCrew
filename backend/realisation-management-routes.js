@@ -194,13 +194,25 @@ function normalizeTheCragToken(value) {
     .trim();
 }
 
+function normalizeTheCragColor(value) {
+  const token = normalizeTheCragToken(value);
+  const aliases = {
+    blanche: "blanc",
+    bleue: "bleu",
+    noire: "noir",
+    verte: "vert",
+    violette: "violet",
+  };
+  return aliases[token] || token;
+}
+
 function parseTheCragRouteName(value) {
   const text = String(value || "").trim();
   const match = text.match(/^(\d+)[_-]([^\s-]+)(?:\s*-\s*(.*))?$/);
   if (!match) return null;
   return {
     rope: Number.parseInt(match[1], 10),
-    color: normalizeTheCragToken(match[2]),
+    color: normalizeTheCragColor(match[2]),
     name: normalizeTheCragToken(match[3] || ""),
   };
 }
@@ -233,7 +245,7 @@ function findTheCragRoute(routes, row) {
   if (!parsed) return null;
   const candidates = routes.filter((route) =>
     Number(route.numero_corde) === parsed.rope
-    && normalizeTheCragToken(route.couleur_prises) === parsed.color
+    && normalizeTheCragColor(route.couleur_prises) === parsed.color
   );
   if (candidates.length <= 1) return candidates[0] || null;
   if (!parsed.name) return candidates[0];
