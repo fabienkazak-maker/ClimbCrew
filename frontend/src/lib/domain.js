@@ -197,11 +197,20 @@ export function calculateSimpleCpr(realisations, routesById, now = Date.now()) {
       const dateTimestamp = new Date(r.dateRealisation).getTime();
       if (!route || !Number.isFinite(dateTimestamp) || dateTimestamp < cutoff || dateTimestamp > now) return null;
 
+      if (!isSuccessfulRealisation(r)) return null;
+
+      const grade = route.cotationAjustee || route.cotationReference;
+      const gradeIndex = gradeToIndex(grade);
+      if (gradeIndex < 0) return null;
+
       return {
         id: r.id,
         date: r.dateRealisation,
-        grade: route.cotationAjustee,
-        weightedIndex: gradeToIndex(route.cotationAjustee) * getRealisationWeight(r, route),
+        grade,
+        // Le CPR mesure la cotation des voies réellement réussies.
+        // Les coefficients de style restent disponibles pour les autres calculs,
+        // mais ne doivent pas gonfler artificiellement le niveau CPR.
+        weightedIndex: gradeIndex,
       };
     })
     .filter(Boolean)
