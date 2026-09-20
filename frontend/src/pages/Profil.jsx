@@ -6,7 +6,7 @@ import ProfileGecko from "../components/ProfileGecko.jsx";
 import ProfileRealisationRecorder from "../components/ProfileRealisationRecorder.jsx";
 import RealisationVideoAnalysis from "../components/RealisationVideoAnalysis.jsx";
 import CprEvolutionChart from "../sections/CprEvolutionChart.jsx";
-import { apiFetch } from "../lib/api.js";
+import { apiFetch, apiUpload } from "../lib/api.js";
 import {
   fullName,
   formatPoints,
@@ -73,12 +73,15 @@ export default function Profil({
   normalizePassport,
   updateMyProfile,
   exportMyRealisationsCsv,
+  onTheCragImported,
 }) {
   const [participants, setParticipants] = React.useState(() => myParticipant ? [myParticipant] : []);
   const [selectedParticipantId, setSelectedParticipantId] = React.useState(() => String(myParticipantId || ""));
   const [realisations, setRealisations] = React.useState(() => Array.isArray(allRealisations) ? allRealisations : []);
   const [realisationSort, setRealisationSort] = React.useState("date");
   const [profileError, setProfileError] = React.useState("");
+  const [theCragImporting, setTheCragImporting] = React.useState(false);
+  const [theCragImportStatus, setTheCragImportStatus] = React.useState(null);
 
   React.useEffect(() => {
     setRealisations(Array.isArray(allRealisations) ? allRealisations : []);
@@ -142,6 +145,34 @@ export default function Profil({
   async function refreshRealisations() {
     const data = await apiFetch("/realisations");
     if (Array.isArray(data)) setRealisations(data);
+  }
+
+  async function importTheCragFile(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !isOwnProfile) return;
+    try {
+      setProfileError("");
+      setTheCragImportStatus(null);
+      setTheCragImporting(true);
+      const result = await apiUpload("/realisations/import-thecrag", file, {
+        headers: { "Content-Type": "application/vnd.ms-excel" },
+      });
+      await refreshRealisations();
+      if (typeof onTheCragImported === "function") await onTheCragImported();
+      const details = [
+        `${result.imported || 0} réalisation(s) importée(s)`,
+        result.duplicates ? `${result.duplicates} déjà présente(s)` : "",
+        result.unmatched ? `${result.unmatched} voie(s) non reconnue(s)` : "",
+        result.invalid ? `${result.invalid} ligne(s) invalide(s)` : "",
+      ].filter(Boolean).join(" · ");
+      setTheCragImportStatus({ type: "success", message: `Import theCrag réussi : ${details || "import terminé."}` });
+    } catch (error) {
+      const message = String(error.message || error);
+      setTheCragImportStatus({ type: "error", message: `Problème lors de l’import theCrag : ${message}` });
+    } finally {
+      setTheCragImporting(false);
+    }
   }
 
   async function updateOwnRealisation(realisationId, patch) {
@@ -368,9 +399,39 @@ export default function Profil({
               {isOwnProfile && (
                 <div className="card">
                   <div className="card-header">
-                    <h3>Export</h3>
-                    <Button variant="secondary" onClick={exportMyRealisationsCsv} disabled={myRealisations.length === 0}>Exporter pour theCrag</Button>
+                    <h3>theCrag</h3>
+                    <div className="group">
+                      <input
+                        id="thecrag-import-file"
+                        type="file"
+                        accept=".xls,application/vnd.ms-excel"
+                        style={{ display: "none" }}
+                        onChange={importTheCragFile}
+                        disabled={theCragImporting}
+                      />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        disabled={theCragImporting}
+                        onClick={() => document.getElementById("thecrag-import-file")?.click()}
+                      >
+                        {theCragImporting ? "Import en cours…" : "Importer depuis theCrag (.xls)"}
+                      </Button>
+                      <Button variant="secondary" onClick={exportMyRealisationsCsv} disabled={myRealisations.length === 0}>Exporter pour theCrag</Button>
+                    </div>
                   </div>
+                  <div className="small">Format attendu : export du carnet theCrag, feuille « Ascents » au format Excel .xls.</div>
+                  {theCragImporting && <div className="muted-box" role="status" style={{ marginTop: 8 }}>Import theCrag en cours…</div>}
+                  {theCragImportStatus && (
+                    <div
+                      className={theCragImportStatus.type === "success" ? "success" : "error"}
+                      role={theCragImportStatus.type === "success" ? "status" : "alert"}
+                      style={{ marginTop: 8 }}
+                    >
+                      {theCragImportStatus.type === "success" ? "✅ " : "❌ "}
+                      {theCragImportStatus.message}
+                    </div>
+                  )}
                 </div>
               )}
             </>

@@ -31,6 +31,16 @@ export function fullName(p) {
   return p ? `${p.nom} ${p.prenom}`.trim() : "";
 }
 
+export function sortParticipantsCurrentUserFirst(participants, currentParticipantId) {
+  const currentId = String(currentParticipantId || "");
+  return [...participants].sort((a, b) => {
+    const aIsCurrent = String(a.id) === currentId;
+    const bIsCurrent = String(b.id) === currentId;
+    if (aIsCurrent !== bIsCurrent) return aIsCurrent ? -1 : 1;
+    return fullName(a).localeCompare(fullName(b), "fr");
+  });
+}
+
 export function formatRouteName(route) {
   const opener = String(route?.nomOuvreur || "").trim();
   const name = String(route?.nomVoie || "").trim();

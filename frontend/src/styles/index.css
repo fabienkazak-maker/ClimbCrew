@@ -39,7 +39,7 @@
         .participant-name { font-weight: 800; }
         .remove-button { display: inline-flex; align-items: center; justify-content: center; width: 26px; min-width: 26px; height: 26px; min-height: 26px; background: rgba(148,163,184,.28); color: inherit; border: 1px solid rgba(148,163,184,.45); border-radius: 999px; padding: 0; font-size: 20px; line-height: 1; box-shadow: none; }
         .remove-button:hover { background: rgba(148,163,184,.45); color: inherit; }
-        .hero { background: rgba(15,23,42,.88); border: 1px solid rgba(148,163,184,.25); border-radius: 18px; padding: 10px; box-shadow: 0 14px 36px rgba(0,0,0,.25); }
+        .hero { position: sticky; top: max(0px, env(safe-area-inset-top)); z-index: 30; background: rgba(15,23,42,.88); border: 1px solid rgba(148,163,184,.25); border-radius: 18px; padding: 10px; box-shadow: 0 14px 36px rgba(0,0,0,.25); }
         .hero h1 { margin: 0; font-size: 24px; line-height: 1.05; }
         .brand-title-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
         .topbar-version { display: inline-flex; align-items: center; flex: 0 0 auto; padding: 3px 7px; border: 1px solid var(--theme-card-border); border-radius: 999px; background: var(--theme-card-soft); color: var(--theme-text-muted); font-size: 10px; font-weight: 800; line-height: 1; letter-spacing: .02em; }

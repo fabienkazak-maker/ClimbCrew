@@ -45,6 +45,7 @@ import {
   calculateLeadPoints,
   calculateRouteAggregates,
   calculateWallOfFameCategories,
+  sortParticipantsCurrentUserFirst,
 } from "./lib/domain.js";
 import { USE_API, apiFetch, downloadFile } from "./lib/api.js";
 import { normalizeAppData } from "./lib/normalize.js";
@@ -231,11 +232,13 @@ function App() {
   }, [sortedSessionsByDate]);
 
   const modalAllEligibleParticipants = useMemo(() => {
-    return [...state.participants]
-      .filter((participant) => Boolean(participant.cotisation))
-      .filter((participant) => getParticipantSessionDays(state.sessions, participant.id).length > 0)
-      .sort((a, b) => fullName(a).localeCompare(fullName(b), "fr"));
-  }, [state.participants, state.sessions]);
+    return sortParticipantsCurrentUserFirst(
+      state.participants
+        .filter((participant) => Boolean(participant.cotisation))
+        .filter((participant) => getParticipantSessionDays(state.sessions, participant.id).length > 0),
+      authUser?.participantId
+    );
+  }, [state.participants, state.sessions, authUser?.participantId]);
 
   const modalAvailableDays = useMemo(() => {
     if (!newRealisation.participantId) return modalAllAvailableDays;
@@ -372,8 +375,8 @@ function App() {
   }, [state]);
 
   const alphabeticalParticipants = useMemo(() => {
-    return [...state.participants].sort((a, b) => fullName(a).localeCompare(fullName(b), "fr"));
-  }, [state.participants]);
+    return sortParticipantsCurrentUserFirst(state.participants, authUser?.participantId);
+  }, [state.participants, authUser?.participantId]);
 
   const cprByParticipantId = useMemo(() => {
     return Object.fromEntries(
@@ -1607,8 +1610,7 @@ async function handleThemePreferenceChange(nextTheme) {
               <option value="">
                 {availableParticipants.length === 0 ? "Aucune personne disponible" : "S'inscrire"}
               </option>
-              {availableParticipants
-                .sort((a, b) => fullName(a).localeCompare(fullName(b), "fr"))
+              {sortParticipantsCurrentUserFirst(availableParticipants, authUser?.participantId)
                 .map((p) => (
                   <option key={p.id} value={p.id}>{fullName(p)}</option>
                 ))}
@@ -1772,6 +1774,7 @@ async function handleThemePreferenceChange(nextTheme) {
             cancelRouteEdition={cancelRouteEdition}
             deleteRoute={deleteRoute}
             savingRouteId={savingRouteId}
+            participants={state.participants}
           />
         )}
 
@@ -1824,6 +1827,7 @@ async function handleThemePreferenceChange(nextTheme) {
             normalizePassport={normalizePassport}
             updateMyProfile={updateMyProfile}
             exportMyRealisationsCsv={exportMyRealisationsCsv}
+            onTheCragImported={() => reloadApiState({ isMounted: () => true })}
           />
         )}
 
@@ -1856,7 +1860,7 @@ async function handleThemePreferenceChange(nextTheme) {
           />
         )}
 
-        {tab === "donnees_utilisateurs" && <DonneesUtilisateurs participants={adminParticipants} onSaved={reloadApiState} newParticipant={newParticipant} setNewParticipant={setNewParticipant} addParticipant={addParticipant} />}
+        {tab === "donnees_utilisateurs" && <DonneesUtilisateurs participants={adminParticipants} sessions={state.sessions} onSaved={reloadApiState} newParticipant={newParticipant} setNewParticipant={setNewParticipant} addParticipant={addParticipant} />}
 
         {tab === "gestion_comptes" && (
           <GestionComptes

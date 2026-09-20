@@ -5,9 +5,13 @@ const BOOLEAN_KEYS = new Set(["cotisation","ffme","canEncadrer","canReferer","ca
 const COLUMNS = [
   ["nom","Nom"],["prenom","Prénom"],["email","E-mail"],["sexe","Sexe"],["passport","Passeport"],
   ["cotisation","Cotisation"],["ffme","FFME"],["canEncadrer","Encadrant"],["canReferer","Référent"],
-  ["canAdmin","Administrateur"],["initiateurSae","Initiateur SAE"],["initiateurSne","Initiateur SNE"],
+  ["canAdmin","Administrateur"],["initiateurSae","Initiateur SAE"],["initiateurSne","Initiateur SNE"],["sessions","Séances"],
 ];
 const PASSPORTS = ["sans","decouverte","jaune","orange","vert","bleu"];
+const FILTER_CHOICES = {
+  sexe: [["h","H"],["f","F"]],
+  passport: PASSPORTS.map((value) => [value, value]),
+};
 
 function yesNo(value) { return value ? "Oui" : "Non"; }
 function display(p,key) {
@@ -16,7 +20,38 @@ function display(p,key) {
   return p[key] ?? "";
 }
 
-export default function DonneesUtilisateurs({ participants = [], onSaved, newParticipant, setNewParticipant, addParticipant }) {
+const COLUMN_WIDTHS = {
+  nom: "8%",
+  prenom: "8%",
+  email: "18%",
+  sexe: "4%",
+  passport: "7%",
+  cotisation: "5%",
+  ffme: "4%",
+  canEncadrer: "5%",
+  canReferer: "5%",
+  canAdmin: "6%",
+  initiateurSae: "6%",
+  initiateurSne: "6%",
+  sessions: "5%",
+};
+
+function compactWidth(key) {
+  return COLUMN_WIDTHS[key] || "6%";
+}
+
+function stickyColumnStyle(key, header = false) {
+  if (key !== "nom" && key !== "prenom") return {};
+  return {
+    position: "sticky",
+    left: key === "nom" ? 0 : COLUMN_WIDTHS.nom,
+    zIndex: header ? 5 : 3,
+    background: header ? "var(--card-bg, #eee)" : "var(--surface, white)",
+    boxShadow: key === "prenom" ? "2px 0 0 var(--border, #bbb)" : undefined,
+  };
+}
+
+export default function DonneesUtilisateurs({ participants = [], sessions = [], onSaved, newParticipant, setNewParticipant, addParticipant }) {
   const [sortKey, setSortKey] = useState("nom");
   const [ascending, setAscending] = useState(true);
   const [filters, setFilters] = useState({});
@@ -24,14 +59,27 @@ export default function DonneesUtilisateurs({ participants = [], onSaved, newPar
   const [savingId, setSavingId] = useState(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const sessionCountByParticipantId = useMemo(() => {
+    const counts = {};
+    sessions.forEach((session) => {
+      (session.participantIds || []).forEach((id) => { counts[String(id)] = (counts[String(id)] || 0) + 1; });
+    });
+    return counts;
+  }, [sessions]);
 
+  const valueFor = (p,key) => key === "sessions" ? (sessionCountByParticipantId[String(p.id)] || 0) : display(p,key);
   const rows = useMemo(() => participants.filter((p) =>
     COLUMNS.every(([key]) => {
+      if (BOOLEAN_KEYS.has(key)) {
+        const filter = filters[key];
+        if (filter !== "oui" && filter !== "non") return true;
+        return Boolean(p[key]) === (filter === "oui");
+      }
       const q = String(filters[key] ?? "").trim().toLocaleLowerCase("fr");
-      return !q || String(display(p,key)).toLocaleLowerCase("fr").includes(q);
+      return !q || String(valueFor(p,key)).toLocaleLowerCase("fr").includes(q);
     })
-  ).slice().sort((a,b) => String(display(a,sortKey)).localeCompare(String(display(b,sortKey)), "fr", {numeric:true}) * (ascending ? 1 : -1)),
-  [participants, filters, sortKey, ascending]);
+  ).slice().sort((a,b) => String(valueFor(a,sortKey)).localeCompare(String(valueFor(b,sortKey)), "fr", {numeric:true}) * (ascending ? 1 : -1)),
+  [participants, filters, sortKey, ascending, sessionCountByParticipantId]);
 
   function draftFor(p) { return drafts[p.id] || p; }
   function setField(p,key,value) {
@@ -76,11 +124,13 @@ export default function DonneesUtilisateurs({ participants = [], onSaved, newPar
     finally { setSavingId(null); }
   }
   function editor(p,key) {
+    if (key === "sessions") return sessionCountByParticipantId[String(p.id)] || 0;
     const d=draftFor(p), value=d[key];
     if (BOOLEAN_KEYS.has(key)) return <input type="checkbox" checked={Boolean(value)} onChange={e=>setField(p,key,e.target.checked)} aria-label={`${COLUMNS.find(c=>c[0]===key)?.[1]} ${p.prenom} ${p.nom}`} />;
-    if (key==="sexe") return <select value={value||""} onChange={e=>setField(p,key,e.target.value)}><option value="">-</option><option value="h">H</option><option value="f">F</option></select>;
-    if (key==="passport") return <select value={value||"sans"} onChange={e=>setField(p,key,e.target.value)}>{PASSPORTS.map(v=><option key={v} value={v}>{v}</option>)}</select>;
-    return <input value={value??""} onChange={e=>setField(p,key,e.target.value)} style={{minWidth:key==="email"?190:110}} />;
+    if (key==="sexe") return <select value={value||""} onChange={e=>setField(p,key,e.target.value)} style={{width:"100%",minWidth:0,fontSize:"inherit",padding:"4px 2px"}}><option value="">-</option><option value="h">H</option><option value="f">F</option></select>;
+    if (key==="passport") return <select value={value||"sans"} onChange={e=>setField(p,key,e.target.value)} style={{width:"100%",minWidth:0,fontSize:"inherit",padding:"4px 2px"}}>{PASSPORTS.map(v=><option key={v} value={v}>{v}</option>)}</select>;
+    const text = String(value ?? "");
+    return <input value={text} onChange={e=>setField(p,key,e.target.value)} style={{width:"100%",minWidth:0,boxSizing:"border-box",fontSize:"inherit",padding:"4px 5px"}} />;
   }
   function exportCsv() {
     const quote=v=>`"${String(v??"").replaceAll('"','""')}"`;
@@ -111,17 +161,30 @@ export default function DonneesUtilisateurs({ participants = [], onSaved, newPar
       <button type="button" onClick={exportCsv}>Export CSV</button></div>
     {message && <div className="success" style={{marginBottom:10}}>{message}</div>}
     {error && <div className="error" style={{marginBottom:10}}>{error}</div>}
-    <div style={{overflow:"auto",maxHeight:"70vh",border:"1px solid var(--border, #bbb)",borderRadius:8}}>
-      <table style={{borderCollapse:"collapse",width:"max-content",minWidth:"100%",background:"var(--surface, white)"}}>
-        <thead style={{position:"sticky",top:0,zIndex:2}}>
-          <tr>{COLUMNS.map(([key,label])=><th key={key} style={{padding:"8px 10px",whiteSpace:"nowrap",border:"1px solid #bbb",background:"var(--card-bg, #eee)",cursor:"pointer"}}
-            onClick={()=>{if(sortKey===key)setAscending(v=>!v);else{setSortKey(key);setAscending(true);}}}>{label}{sortKey===key?(ascending?" ▲":" ▼"):""}</th>)}<th>Action</th></tr>
-          <tr>{COLUMNS.map(([key,label])=><th key={key} style={{padding:4,background:"var(--card-bg, #eee)",border:"1px solid #bbb"}}>
-            <input aria-label={`Filtrer ${label}`} placeholder="Filtrer…" value={filters[key]||""} onChange={e=>setFilters(v=>({...v,[key]:e.target.value}))} onClick={e=>e.stopPropagation()} style={{width:"100%",minWidth:80}} />
-          </th>)}<th style={{background:"var(--card-bg, #eee)",border:"1px solid #bbb"}}><button type="button" onClick={()=>setFilters({})}>Effacer</button></th></tr>
+    <div style={{overflowY:"auto",overflowX:"hidden",maxHeight:"70vh",border:"1px solid var(--border, #bbb)",borderRadius:8}}>
+      <table style={{borderCollapse:"collapse",width:"100%",tableLayout:"fixed",background:"var(--surface, white)",fontSize:"clamp(.68rem, .75vw, .82rem)"}}>
+        <thead style={{position:"sticky",top:0,zIndex:10,background:"var(--card-bg, #eee)"}}>
+          <tr>{COLUMNS.map(([key,label])=><th key={key} style={{padding:BOOLEAN_KEYS.has(key)?"5px 2px":"6px 3px",whiteSpace:"normal",overflowWrap:"anywhere",textAlign:"center",lineHeight:1.05,border:"1px solid #bbb",background:"var(--card-bg, #eee)",cursor:"pointer",width:compactWidth(key),...stickyColumnStyle(key,true)}}
+            title={`Trier par ${label}`}
+            onClick={()=>{if(sortKey===key)setAscending(v=>!v);else{setSortKey(key);setAscending(true);}}}>
+              <span style={{display:"inline-flex",alignItems:"center",gap:4}}>{label}<span aria-hidden="true" style={{opacity:sortKey===key?1:.45,fontSize:".85em"}}>{sortKey===key?(ascending?"↑":"↓"):"↕"}</span></span>
+            </th>)}<th style={{whiteSpace:"nowrap"}}>Action</th></tr>
+          <tr>{COLUMNS.map(([key,label])=><th key={key} style={{padding:2,background:"var(--card-bg, #eee)",border:"1px solid #bbb",width:compactWidth(key),...stickyColumnStyle(key,true)}}>
+            {BOOLEAN_KEYS.has(key)
+              ? <select aria-label={`Filtrer ${label}`} value={filters[key] || ""} onChange={e=>setFilters(v=>({...v,[key]:e.target.value}))} onClick={e=>e.stopPropagation()} style={{width:"100%",minWidth:0,boxSizing:"border-box",fontSize:"inherit",padding:"3px 2px"}}>
+                  <option value="">Tout</option>
+                  <option value="oui">Oui</option>
+                  <option value="non">Non</option>
+                </select>
+              : FILTER_CHOICES[key]
+                ? <select aria-label={`Filtrer ${label}`} value={filters[key] || ""} onChange={e=>setFilters(v=>({...v,[key]:e.target.value}))} onClick={e=>e.stopPropagation()} style={{width:"100%",minWidth:0,boxSizing:"border-box",fontSize:"inherit",padding:"3px 2px"}}>
+                    <option value="">Tous</option>{FILTER_CHOICES[key].map(([value,text])=><option key={value} value={value}>{text}</option>)}
+                  </select>
+                : <input aria-label={`Filtrer ${label}`} placeholder="Filtrer" value={filters[key]||""} onChange={e=>setFilters(v=>({...v,[key]:e.target.value}))} onClick={e=>e.stopPropagation()} style={{width:"100%",minWidth:0,boxSizing:"border-box",fontSize:"inherit",padding:"3px 2px"}} />}
+          </th>)}<th style={{background:"var(--card-bg, #eee)",border:"1px solid #bbb",width:"12%"}}><button type="button" onClick={()=>setFilters({})} style={{width:"100%",padding:"4px 2px",fontSize:"inherit"}}>Effacer</button></th></tr>
         </thead>
-        <tbody>{rows.map(p=><tr key={p.id}>{COLUMNS.map(([key])=><td key={key} style={{padding:"5px",whiteSpace:"nowrap",border:"1px solid #ccc"}}>{editor(p,key)}</td>)}
-          <td style={{padding:5,border:"1px solid #ccc"}}><div className="group"><button type="button" disabled={!drafts[p.id] || savingId===p.id} onClick={()=>save(p)}>{savingId===p.id?"Enregistrement…":"Enregistrer"}</button><button type="button" className="danger" disabled={savingId===p.id} onClick={()=>removeParticipant(p)}>Supprimer</button></div></td></tr>)}</tbody>
+        <tbody>{rows.map(p=><tr key={p.id}>{COLUMNS.map(([key])=><td key={key} style={{padding:(BOOLEAN_KEYS.has(key) || key==="sessions")?"2px":"3px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textAlign:(BOOLEAN_KEYS.has(key) || key==="sessions")?"center":"left",border:"1px solid #ccc",width:compactWidth(key),...stickyColumnStyle(key,false)}}>{editor(p,key)}</td>)}
+          <td style={{padding:2,border:"1px solid #ccc",width:"12%"}}><div style={{display:"grid",gridTemplateColumns:"1fr",gap:3}}><button type="button" disabled={!drafts[p.id] || savingId===p.id} onClick={()=>save(p)} style={{padding:"4px 2px",fontSize:"inherit",minWidth:0}}>{savingId===p.id?"Enregistrement…":"Enregistrer"}</button><button type="button" className="danger" disabled={savingId===p.id} onClick={()=>removeParticipant(p)} style={{padding:"4px 2px",fontSize:"inherit",minWidth:0}}>Supprimer</button></div></td></tr>)}</tbody>
       </table>
     </div>
   </div>;

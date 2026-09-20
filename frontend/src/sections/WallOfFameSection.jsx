@@ -45,7 +45,7 @@ export default function WallOfFameSection({
 
             return (
               <div className="subcard" key={category.title}>
-                <div className="card-header">
+                <div className="card-header wall-of-fame-category-header">
                   <h3>
                     {canExpand ? (
                       <button
@@ -58,8 +58,11 @@ export default function WallOfFameSection({
                           all: "unset",
                           display: "inline-flex",
                           alignItems: "center",
-                          gap: "0.4rem",
+                          gap: "0.3rem",
                           cursor: "pointer",
+                          minHeight: "28px",
+                          padding: "2px 6px",
+                          lineHeight: 1.05,
                         }}
                       >
                         <span>{category.title}</span>
