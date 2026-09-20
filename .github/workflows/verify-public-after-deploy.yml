@@ -28,7 +28,7 @@ jobs:
         run: |
           set -euo pipefail
           EXPECTED_VERSION="$(tr -d '\r\n' < VERSION)"
-          MARKER_URL="${PUBLIC_BASE_URL}/deployment-version.json?verify=${EXPECTED_SHA}"
+          MARKER_URL="${PUBLIC_BASE_URL}/api/version?verify=${EXPECTED_SHA}"
           for attempt in $(seq 1 24); do
             echo "Tentative ${attempt}/24: ${MARKER_URL}"
             RESPONSE="$(curl --fail --silent --show-error --location --connect-timeout 5 --max-time 10 --header 'Cache-Control: no-cache' "$MARKER_URL" || true)"
