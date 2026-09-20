@@ -46,7 +46,6 @@ export const TABS = [
   { key: "mon_profil", label: "Profil" },
   { key: "statistiques", label: "Statistiques / Tableau d’honneur" },
   { key: "faq", label: "FAQ" },
-  { key: "administration", label: "Administration des inscrits", adminOnly: true },
   { key: "gestion_comptes", label: "Gestion des comptes", adminOnly: true },
   { key: "donnees_utilisateurs", label: "Données utilisateurs", adminOnly: true },
   { key: "logs", label: "Administration", adminOnly: true },
