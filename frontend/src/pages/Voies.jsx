@@ -54,6 +54,7 @@ export default function Voies({
   cancelRouteEdition,
   deleteRoute,
   savingRouteId,
+  participants = [],
 }) {
   const [videoRouteId, setVideoRouteId] = React.useState("");
   const [videoDraftByRouteId, setVideoDraftByRouteId] = React.useState({});
@@ -344,7 +345,7 @@ export default function Voies({
             <div><label>Couleur voie</label><select value={newRoute.couleurPrises} onChange={(e) => setNewRoute((p) => ({ ...p, couleurPrises: e.target.value }))}><option value="" disabled>Choisir une couleur</option>{ROUTE_COLORS.map((couleur) => <option key={couleur} value={couleur}>{couleur}</option>)}</select></div>
             <div><label>Cotation</label><select value={newRoute.cotationReference} onChange={(e) => setNewRoute((p) => ({ ...p, cotationReference: e.target.value }))}><option value="" disabled>Choisir une cotation</option>{GRADES.map((g) => <option key={g} value={g}>{g}</option>)}</select></div>
             <div><label>Nom de la voie</label><input value={newRoute.nomVoie} onChange={(e) => setNewRoute((p) => ({ ...p, nomVoie: e.target.value }))} /></div>
-            <div><label>Ouvreur</label><input value={newRoute.nomOuvreur} onChange={(e) => setNewRoute((p) => ({ ...p, nomOuvreur: e.target.value }))} /></div>
+            <div><label>Ouvreur</label><input list="climbcrew-opener-users" placeholder="Choisir un utilisateur ou saisir un nom" value={newRoute.nomOuvreur} onChange={(e) => setNewRoute((p) => ({ ...p, nomOuvreur: e.target.value }))} /><datalist id="climbcrew-opener-users">{participants.map((p) => { const name = `${p.prenom || ""} ${p.nom || ""}`.trim(); return name ? <option key={p.id || name} value={name} /> : null; })}</datalist></div>
             <div><label className="checkbox-field"><input type="checkbox" checked={newRoute.moulinetteOnly} onChange={(event) => setNewRoute((p) => ({ ...p, moulinetteOnly: event.target.checked }))} /><span>Moulinette uniquement</span></label></div>
           </div>
           <div className="realisation-tags" style={{ marginTop: 10 }}>
@@ -379,7 +380,7 @@ export default function Voies({
                               <div><label>Couleur</label><select value={routeEditDraft.couleurPrises} onChange={(event) => setRouteEditDraft((draft) => ({ ...draft, couleurPrises: event.target.value }))}>{ROUTE_COLORS.map((couleur) => <option key={couleur} value={couleur}>{couleur}</option>)}</select></div>
                               <div><label>Cotation</label><select value={routeEditDraft.cotationReference} onChange={(event) => setRouteEditDraft((draft) => ({ ...draft, cotationReference: event.target.value }))}>{GRADES.map((grade) => <option key={grade} value={grade}>{grade}</option>)}</select></div>
                               <div><label>Nom de la voie</label><input value={routeEditDraft.nomVoie} onChange={(event) => setRouteEditDraft((draft) => ({ ...draft, nomVoie: event.target.value }))} /></div>
-                              <div><label>Ouvreur</label><input value={routeEditDraft.nomOuvreur} onChange={(event) => setRouteEditDraft((draft) => ({ ...draft, nomOuvreur: event.target.value }))} /></div>
+                              <div><label>Ouvreur</label><input list="climbcrew-opener-users" placeholder="Choisir un utilisateur ou saisir un nom" value={routeEditDraft.nomOuvreur} onChange={(event) => setRouteEditDraft((draft) => ({ ...draft, nomOuvreur: event.target.value }))} /></div>
                               <div><label className="checkbox-field"><input type="checkbox" checked={routeEditDraft.moulinetteOnly} onChange={(event) => setRouteEditDraft((draft) => ({ ...draft, moulinetteOnly: event.target.checked }))} /><span>Moulinette uniquement</span></label></div>
                             </div>
                             <div className="realisation-tags" style={{ marginTop: 8 }}>
