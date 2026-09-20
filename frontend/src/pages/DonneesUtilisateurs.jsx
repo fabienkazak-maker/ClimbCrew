@@ -38,6 +38,18 @@ export default function DonneesUtilisateurs({ participants = [], onSaved, newPar
     setDrafts(current => ({...current,[p.id]:{...p,...(current[p.id] || {}),[key]:value}}));
     setMessage(""); setError("");
   }
+  async function removeParticipant(p) {
+    const label = `${p.prenom || ""} ${p.nom || ""}`.trim() || "cet utilisateur";
+    if (!window.confirm(`Supprimer ${label} ? Cette action est irréversible.`)) return;
+    setSavingId(p.id); setMessage(""); setError("");
+    try {
+      await apiFetch(`/participants/${encodeURIComponent(p.id)}`, { method:"DELETE" });
+      setDrafts(current => { const next={...current}; delete next[p.id]; return next; });
+      if (onSaved) await onSaved();
+      setMessage(`${label} supprimé.`);
+    } catch (e) { setError(String(e.message || e)); }
+    finally { setSavingId(null); }
+  }
   async function save(p) {
     const d=draftFor(p);
     setSavingId(p.id); setMessage(""); setError("");
@@ -77,7 +89,7 @@ export default function DonneesUtilisateurs({ participants = [], onSaved, newPar
     const url=URL.createObjectURL(blob), a=document.createElement("a"); a.href=url; a.download="utilisateurs-climbcrew.csv"; a.click(); URL.revokeObjectURL(url);
   }
   return <div className="card">
-    {newParticipant && setNewParticipant && addParticipant && <details className="subcard" open style={{marginBottom:12}}>
+    {newParticipant && setNewParticipant && addParticipant && <details className="subcard" style={{marginBottom:12}}>
       <summary style={{cursor:"pointer",fontWeight:700}}>Nouvel utilisateur</summary>
       <div className="grid four" style={{marginTop:10}}>
         <div><label>Nom</label><input value={newParticipant.nom || ""} onChange={e=>setNewParticipant(p=>({...p,nom:e.target.value}))} /></div>
@@ -109,7 +121,7 @@ export default function DonneesUtilisateurs({ participants = [], onSaved, newPar
           </th>)}<th style={{background:"var(--card-bg, #eee)",border:"1px solid #bbb"}}><button type="button" onClick={()=>setFilters({})}>Effacer</button></th></tr>
         </thead>
         <tbody>{rows.map(p=><tr key={p.id}>{COLUMNS.map(([key])=><td key={key} style={{padding:"5px",whiteSpace:"nowrap",border:"1px solid #ccc"}}>{editor(p,key)}</td>)}
-          <td style={{padding:5,border:"1px solid #ccc"}}><button type="button" disabled={!drafts[p.id] || savingId===p.id} onClick={()=>save(p)}>{savingId===p.id?"Enregistrement…":"Enregistrer"}</button></td></tr>)}</tbody>
+          <td style={{padding:5,border:"1px solid #ccc"}}><div className="group"><button type="button" disabled={!drafts[p.id] || savingId===p.id} onClick={()=>save(p)}>{savingId===p.id?"Enregistrement…":"Enregistrer"}</button><button type="button" className="danger" disabled={savingId===p.id} onClick={()=>removeParticipant(p)}>Supprimer</button></div></td></tr>)}</tbody>
       </table>
     </div>
   </div>;
