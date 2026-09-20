@@ -22,8 +22,9 @@
 }
 
 .climber-profile-card { margin-top: 12px; }
-.climber-profile-layout { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
-.climber-profile-skills { display: grid; gap: 14px; }
+.climber-profile-layout { display: grid; grid-template-columns: minmax(0,1fr); gap: 14px; }
+.climber-profile-skills { display: grid; gap: 14px; justify-items: center; }
+.climber-profile-skills .climber-kiviat { width: min(100%, 700px); margin-inline: auto; }
 .climber-recommendations { display: grid; gap: 10px; align-content: start; }
 .climber-recommendations-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .climber-recommendations-header strong { display: block; font-size: 16px; line-height: 1.2; }
