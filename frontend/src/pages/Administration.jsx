@@ -34,6 +34,25 @@ export default function Administration({
   const [notificationPreferences, setNotificationPreferences] = useState({});
   const [savingControl, setSavingControl] = useState("");
   const [nativeAdminError, setNativeAdminError] = useState("");
+  const [resetting, setResetting] = useState("");
+  const [resetMessage, setResetMessage] = useState("");
+
+  async function resetData(type, label) {
+    if (!window.confirm(`Confirmer ${label} ? Cette action est irréversible.`)) return;
+    setResetting(type);
+    setResetMessage("");
+    setNativeAdminError("");
+    try {
+      if (!USE_API) throw new Error("Réinitialisation disponible uniquement avec le serveur.");
+      const result = await apiFetch(`/admin/reset/${type}`, { method: "POST" });
+      setResetMessage(`${label} effectué${result?.affected != null ? ` (${result.affected} élément(s) modifié(s))` : ""}.`);
+      window.location.reload();
+    } catch (error) {
+      setNativeAdminError(String(error.message || error));
+    } finally {
+      setResetting("");
+    }
+  }
 
   useEffect(() => {
     if (!USE_API || !adminUnlocked) return;
@@ -165,6 +184,17 @@ export default function Administration({
           <label><input type="checkbox" checked={newParticipant.canReferer} onChange={(event) => setNewParticipant((participant) => ({ ...participant, canReferer: event.target.checked }))} /> Référent</label>
           <label><input type="checkbox" checked={newParticipant.canAdmin} onChange={(event) => setNewParticipant((participant) => ({ ...participant, canAdmin: event.target.checked }))} /> Administrateur</label>
         </div>
+      </AdminSection>
+
+      <AdminSection title="Réinitialisation annuelle / données" summary="Actions administrateur irréversibles">
+        <div className="group">
+          <Button variant="danger" disabled={Boolean(resetting)} onClick={() => resetData("statistiques", "le reset des statistiques")}>Reset statistiques</Button>
+          <Button variant="danger" disabled={Boolean(resetting)} onClick={() => resetData("realisations", "le reset des réalisations")}>Reset réalisations</Button>
+          <Button variant="danger" disabled={Boolean(resetting)} onClick={() => resetData("cotisations", "le reset des cotisations")}>Reset cotisations</Button>
+          <Button variant="danger" disabled={Boolean(resetting)} onClick={() => resetData("ffme", "le reset des licences FFME")}>Reset licences FFME</Button>
+        </div>
+        {resetMessage && <div className="success" style={{ marginTop: 10 }}>{resetMessage}</div>}
+        <div className="small" style={{ marginTop: 10 }}>Chaque action demande une confirmation avant modification des données.</div>
       </AdminSection>
 
       <AdminSection title="Gestion des participants" summary={`${adminParticipants.length} participant${adminParticipants.length > 1 ? "s" : ""}`}>
