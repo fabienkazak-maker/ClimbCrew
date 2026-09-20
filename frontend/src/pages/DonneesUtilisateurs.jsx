@@ -66,6 +66,10 @@ export default function DonneesUtilisateurs({ participants = [], sessions = [], 
   const valueFor = (p,key) => key === "sessions" ? (sessionCountByParticipantId[String(p.id)] || 0) : display(p,key);
   const rows = useMemo(() => participants.filter((p) =>
     COLUMNS.every(([key]) => {
+      if (BOOLEAN_KEYS.has(key)) {
+        const filter = filters[key];
+        return filter === undefined || filter === null || Boolean(p[key]) === Boolean(filter);
+      }
       const q = String(filters[key] ?? "").trim().toLocaleLowerCase("fr");
       return !q || String(valueFor(p,key)).toLocaleLowerCase("fr").includes(q);
     })
@@ -161,7 +165,9 @@ export default function DonneesUtilisateurs({ participants = [], sessions = [], 
               <span style={{display:"inline-flex",alignItems:"center",gap:4}}>{label}<span aria-hidden="true" style={{opacity:sortKey===key?1:.45,fontSize:".85em"}}>{sortKey===key?(ascending?"↑":"↓"):"↕"}</span></span>
             </th>)}<th style={{whiteSpace:"nowrap"}}>Action</th></tr>
           <tr>{COLUMNS.map(([key,label])=><th key={key} style={{padding:2,background:"var(--card-bg, #eee)",border:"1px solid #bbb",width:compactWidth(key),...stickyColumnStyle(key,true)}}>
-            <input aria-label={`Filtrer ${label}`} placeholder="Filtrer" value={filters[key]||""} onChange={e=>setFilters(v=>({...v,[key]:e.target.value}))} onClick={e=>e.stopPropagation()} style={{width:"100%",minWidth:0,boxSizing:"border-box",fontSize:"inherit",padding:"3px 2px"}} />
+            {BOOLEAN_KEYS.has(key)
+              ? <input type="checkbox" aria-label={`Filtrer ${label}`} checked={filters[key] === true} onChange={e=>setFilters(v=>{const next={...v}; if(e.target.checked) next[key]=true; else delete next[key]; return next;})} onClick={e=>e.stopPropagation()} title={filters[key] === true ? "Afficher uniquement les valeurs cochées" : "Tous"} />
+              : <input aria-label={`Filtrer ${label}`} placeholder="Filtrer" value={filters[key]||""} onChange={e=>setFilters(v=>({...v,[key]:e.target.value}))} onClick={e=>e.stopPropagation()} style={{width:"100%",minWidth:0,boxSizing:"border-box",fontSize:"inherit",padding:"3px 2px"}} />}
           </th>)}<th style={{background:"var(--card-bg, #eee)",border:"1px solid #bbb",width:"12%"}}><button type="button" onClick={()=>setFilters({})} style={{width:"100%",padding:"4px 2px",fontSize:"inherit"}}>Effacer</button></th></tr>
         </thead>
         <tbody>{rows.map(p=><tr key={p.id}>{COLUMNS.map(([key])=><td key={key} style={{padding:(BOOLEAN_KEYS.has(key) || key==="sessions")?"2px":"3px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textAlign:(BOOLEAN_KEYS.has(key) || key==="sessions")?"center":"left",border:"1px solid #ccc",width:compactWidth(key),...stickyColumnStyle(key,false)}}>{editor(p,key)}</td>)}
