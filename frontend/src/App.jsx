@@ -1853,14 +1853,11 @@ async function handleThemePreferenceChange(nextTheme) {
             adminParticipants={adminParticipants}
             updateParticipant={updateParticipant}
             deleteParticipant={deleteParticipant}
-            exportAllData={exportAllData}
-            importJsonFile={importJsonFile}
-            importMessage={importMessage}
             publishBroadcastMessage={publishBroadcastMessage}
           />
         )}
 
-        {tab === "donnees_utilisateurs" && <DonneesUtilisateurs participants={adminParticipants} onSaved={reloadApiState} />}\n\n        {tab === "gestion_comptes" && (
+        {tab === "donnees_utilisateurs" && <DonneesUtilisateurs participants={adminParticipants} onSaved={reloadApiState} newParticipant={newParticipant} setNewParticipant={setNewParticipant} addParticipant={addParticipant} />}\n\n        {tab === "gestion_comptes" && (
           <GestionComptes
             USE_API={USE_API}
             canManageAccountsAndLogs={canManageAccountsAndLogs}
@@ -1881,6 +1878,9 @@ async function handleThemePreferenceChange(nextTheme) {
             USE_API={USE_API}
             canManageAccountsAndLogs={canManageAccountsAndLogs}
             adminAccessLogs={adminAccessLogs}
+            exportAllData={exportAllData}
+            importJsonFile={importJsonFile}
+            importMessage={importMessage}
           />
         )}
 
