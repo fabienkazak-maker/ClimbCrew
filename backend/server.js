@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { readFileSync } from "node:fs";
 import express from "express";
 import { installRouteManagementRoutes } from "./route-management-routes.js";
 import { installRealisationManagementRoutes } from "./realisation-management-routes.js";
@@ -42,6 +43,16 @@ import {
 const config = createRuntimeConfig();
 const pool = createDatabasePool(config);
 const app = express();
+
+const applicationVersion = (() => {
+  try {
+    return readFileSync(new URL("./VERSION", import.meta.url), "utf8").trim();
+  } catch {
+    return process.env.APP_VERSION || "unknown";
+  }
+})();
+const deploymentCommit = process.env.DEPLOYMENT_COMMIT || process.env.GITHUB_SHA || "unknown";
+const deploymentEnvironment = process.env.DEPLOYMENT_ENVIRONMENT || (process.env.NODE_ENV === "production" ? "production" : process.env.NODE_ENV || "development");
 
 const getRequestToken = createRequestTokenReader(config.sessionCookieName);
 const { setCsrfCookie, clearSessionCookie } = createCookieWriters(config);
@@ -124,6 +135,16 @@ installRouteManagementRoutes(app, { requireAuth, requireAdmin, pool });
 
 app.get("/", (_req, res) => {
   res.send("ClimbCrew API running");
+});
+
+app.get("/version", (_req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json({
+    application: "ClimbCrew",
+    version: applicationVersion,
+    environment: deploymentEnvironment,
+    commit: deploymentCommit,
+  });
 });
 
 installDatabaseMaintenanceRoutes(app, {
