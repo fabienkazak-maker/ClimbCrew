@@ -31,6 +31,7 @@ RUN npm ci --omit=dev --no-audit --no-fund --registry=https://registry.npmjs.org
 # Copie du code backend et des règles métier communes. Le ré-export
 # /app/session-default-status.js résout ../shared vers /shared.
 COPY backend/ ./
+COPY VERSION ./VERSION
 COPY shared/ /shared/
 
 # Exécution avec l'utilisateur non-root fourni par l'image Node.
