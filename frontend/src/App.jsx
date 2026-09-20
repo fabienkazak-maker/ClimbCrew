@@ -45,6 +45,7 @@ import {
   calculateLeadPoints,
   calculateRouteAggregates,
   calculateWallOfFameCategories,
+  sortParticipantsCurrentUserFirst,
 } from "./lib/domain.js";
 import { USE_API, apiFetch, downloadFile } from "./lib/api.js";
 import { normalizeAppData } from "./lib/normalize.js";
@@ -69,16 +70,6 @@ import {
 } from "./lib/realisation-workflow.js";
 
 const ADMIN_CODE = import.meta.env.VITE_LEGACY_ADMIN_CODE || "";
-
-function sortParticipantsCurrentUserFirst(participants, currentParticipantId) {
-  const currentId = String(currentParticipantId || "");
-  return [...participants].sort((a, b) => {
-    const aIsCurrent = String(a.id) === currentId;
-    const bIsCurrent = String(b.id) === currentId;
-    if (aIsCurrent !== bIsCurrent) return aIsCurrent ? -1 : 1;
-    return fullName(a).localeCompare(fullName(b), "fr");
-  });
-}
 
 function App() {
   const {
