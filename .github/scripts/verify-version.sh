@@ -37,10 +37,19 @@ non_runtime_change() {
   local changed_files=""
 
   if [ -n "$BASE_REF" ]; then
-    git fetch --no-tags --depth=1 origin \
-      "refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
-    diff_base="refs/remotes/origin/${BASE_REF}"
-    changed_files="$(git diff --name-only "${diff_base}...HEAD")"
+    # Sur pull_request, HEAD est le merge virtuel GitHub. Son premier parent
+    # est exactement la branche de base au moment où la PR a été évaluée.
+    # Utiliser origin/main ici est instable : après fusion, main peut déjà
+    # contenir la version proposée et produire un faux échec.
+    if [ "${GITHUB_EVENT_NAME:-}" = "pull_request" ] && git rev-parse HEAD^1 >/dev/null 2>&1; then
+      diff_base="HEAD^1"
+      changed_files="$(git diff --name-only "${diff_base}..HEAD")"
+    else
+      git fetch --no-tags --depth=1 origin \
+        "refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+      diff_base="refs/remotes/origin/${BASE_REF}"
+      changed_files="$(git diff --name-only "${diff_base}...HEAD")"
+    fi
   elif [ -n "$BEFORE_SHA" ] && [[ ! "$BEFORE_SHA" =~ ^0+$ ]]; then
     if ! git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; then
       git fetch --no-tags --depth=1 origin "$BEFORE_SHA"
@@ -97,10 +106,15 @@ BASE_VERSION=""
 BASE_LABEL=""
 
 if [ -n "$BASE_REF" ]; then
-  git fetch --no-tags --depth=1 origin \
-    "refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
-  BASE_LABEL="origin/${BASE_REF}"
-  BASE_VERSION="$(extract_version_from_ref "refs/remotes/origin/${BASE_REF}" || true)"
+  if [ "${GITHUB_EVENT_NAME:-}" = "pull_request" ] && git rev-parse HEAD^1 >/dev/null 2>&1; then
+    BASE_LABEL="HEAD^1"
+    BASE_VERSION="$(extract_version_from_ref HEAD^1 || true)"
+  else
+    git fetch --no-tags --depth=1 origin \
+      "refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+    BASE_LABEL="origin/${BASE_REF}"
+    BASE_VERSION="$(extract_version_from_ref "refs/remotes/origin/${BASE_REF}" || true)"
+  fi
 elif [ -n "$BEFORE_SHA" ] && [[ ! "$BEFORE_SHA" =~ ^0+$ ]]; then
   if ! git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; then
     git fetch --no-tags --depth=1 origin "$BEFORE_SHA"
