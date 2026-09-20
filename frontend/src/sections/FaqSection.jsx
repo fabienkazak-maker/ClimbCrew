@@ -36,7 +36,7 @@ const HELP_ITEMS = [
   },
   {
     title: "Comment fonctionnent les vidéos associées aux voies ?",
-    content: "Une voie peut contenir plusieurs vidéos accessibles depuis son titre. Les administrateurs les gèrent depuis Modifier : liens HTTP/HTTPS ou fichiers locaux MP4, WebM, OGG et MOV. Les chargements locaux sont tracés dans les journaux administrateur.",
+    content: "Une voie peut contenir plusieurs vidéos accessibles depuis son titre. Les formats vidéo pris en charge permettent de consulter les séquences associées aux voies et aux réalisations lorsqu’elles sont disponibles.",
   },
   {
     title: "Comment fonctionnent les badges ?",
@@ -48,7 +48,7 @@ const HELP_ITEMS = [
   },
   {
     title: "Que signifie CPR ?",
-    content: "Le CPR représente le niveau récent du grimpeur. Il utilise les réalisations des 90 derniers jours, pondérées par cotation, mode et critère, puis conserve les dix meilleures performances. Une voie facile d'échauffement n'abaisse donc pas le CPR si elle ne fait pas partie de ces dix performances.",
+    content: "Le CPR représente le niveau récent du grimpeur. Il utilise les voies réussies au cours des 90 derniers jours et conserve jusqu’aux dix meilleures réalisations. Seules les réussites sont prises en compte : le mode ou le critère de réalisation ne gonfle pas artificiellement la cotation. Une voie facile d'échauffement n'abaisse donc pas le CPR si elle ne fait pas partie de ces dix meilleures réalisations.",
   },
   {
     title: "Comment est calculée la cotation consensus ?",
@@ -72,17 +72,6 @@ const HELP_ITEMS = [
   },
 ];
 
-const ADMIN_ITEMS = [
-  {
-    title: "Qui peut accéder à Administration, Gestion des comptes et Administration Serveur ?",
-    content: "Ces pages sont réservées aux administrateurs et ne sont pas affichées dans la navigation des utilisateurs standards.",
-  },
-  {
-    title: "A quoi servent Gestion des comptes et Administration Serveur ?",
-    content: "Gestion des comptes permet d'approuver, révoquer, réactiver, associer et administrer les accès. Administration Serveur regroupe notamment sauvegardes, restauration, messagerie, diffusion et journaux techniques. Les actions sensibles sont tracées.",
-  },
-];
-
 function FaqItem({ title, content }) {
   return (
     <details className="faq-item">
@@ -92,7 +81,7 @@ function FaqItem({ title, content }) {
   );
 }
 
-export default function FaqSection({ APP_VERSION, canAccessAdminTabs, USE_API, authUser }) {
+export default function FaqSection({ APP_VERSION, USE_API, authUser }) {
   const [activeSection, setActiveSection] = useState("aide");
 
   return (
@@ -126,7 +115,6 @@ export default function FaqSection({ APP_VERSION, canAccessAdminTabs, USE_API, a
       {activeSection === "aide" && (
         <>
           {HELP_ITEMS.map((item) => <FaqItem key={item.title} {...item} />)}
-          {canAccessAdminTabs && ADMIN_ITEMS.map((item) => <FaqItem key={item.title} {...item} />)}
         </>
       )}
 
