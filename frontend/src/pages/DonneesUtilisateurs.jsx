@@ -72,7 +72,8 @@ export default function DonneesUtilisateurs({ participants = [], sessions = [], 
     COLUMNS.every(([key]) => {
       if (BOOLEAN_KEYS.has(key)) {
         const filter = filters[key];
-        return filter === undefined || filter === null || Boolean(p[key]) === Boolean(filter);
+        if (filter !== "oui" && filter !== "non") return true;
+        return Boolean(p[key]) === (filter === "oui");
       }
       const q = String(filters[key] ?? "").trim().toLocaleLowerCase("fr");
       return !q || String(valueFor(p,key)).toLocaleLowerCase("fr").includes(q);
@@ -170,7 +171,11 @@ export default function DonneesUtilisateurs({ participants = [], sessions = [], 
             </th>)}<th style={{whiteSpace:"nowrap"}}>Action</th></tr>
           <tr>{COLUMNS.map(([key,label])=><th key={key} style={{padding:2,background:"var(--card-bg, #eee)",border:"1px solid #bbb",width:compactWidth(key),...stickyColumnStyle(key,true)}}>
             {BOOLEAN_KEYS.has(key)
-              ? <input type="checkbox" aria-label={`Filtrer ${label}`} checked={filters[key] === true} onChange={e=>setFilters(v=>{const next={...v}; if(e.target.checked) next[key]=true; else delete next[key]; return next;})} onClick={e=>e.stopPropagation()} title={filters[key] === true ? "Afficher uniquement les valeurs cochées" : "Tous"} />
+              ? <select aria-label={`Filtrer ${label}`} value={filters[key] || ""} onChange={e=>setFilters(v=>({...v,[key]:e.target.value}))} onClick={e=>e.stopPropagation()} style={{width:"100%",minWidth:0,boxSizing:"border-box",fontSize:"inherit",padding:"3px 2px"}}>
+                  <option value="">Tout</option>
+                  <option value="oui">Oui</option>
+                  <option value="non">Non</option>
+                </select>
               : FILTER_CHOICES[key]
                 ? <select aria-label={`Filtrer ${label}`} value={filters[key] || ""} onChange={e=>setFilters(v=>({...v,[key]:e.target.value}))} onClick={e=>e.stopPropagation()} style={{width:"100%",minWidth:0,boxSizing:"border-box",fontSize:"inherit",padding:"3px 2px"}}>
                     <option value="">Tous</option>{FILTER_CHOICES[key].map(([value,text])=><option key={value} value={value}>{text}</option>)}

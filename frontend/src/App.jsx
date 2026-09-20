@@ -1827,6 +1827,7 @@ async function handleThemePreferenceChange(nextTheme) {
             normalizePassport={normalizePassport}
             updateMyProfile={updateMyProfile}
             exportMyRealisationsCsv={exportMyRealisationsCsv}
+            onTheCragImported={() => reloadApiState({ isMounted: () => true })}
           />
         )}
 
