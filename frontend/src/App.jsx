@@ -70,6 +70,16 @@ import {
 
 const ADMIN_CODE = import.meta.env.VITE_LEGACY_ADMIN_CODE || "";
 
+function sortParticipantsCurrentUserFirst(participants, currentParticipantId) {
+  const currentId = String(currentParticipantId || "");
+  return [...participants].sort((a, b) => {
+    const aIsCurrent = String(a.id) === currentId;
+    const bIsCurrent = String(b.id) === currentId;
+    if (aIsCurrent !== bIsCurrent) return aIsCurrent ? -1 : 1;
+    return fullName(a).localeCompare(fullName(b), "fr");
+  });
+}
+
 function App() {
   const {
     tab, setTab,
@@ -231,11 +241,13 @@ function App() {
   }, [sortedSessionsByDate]);
 
   const modalAllEligibleParticipants = useMemo(() => {
-    return [...state.participants]
-      .filter((participant) => Boolean(participant.cotisation))
-      .filter((participant) => getParticipantSessionDays(state.sessions, participant.id).length > 0)
-      .sort((a, b) => fullName(a).localeCompare(fullName(b), "fr"));
-  }, [state.participants, state.sessions]);
+    return sortParticipantsCurrentUserFirst(
+      state.participants
+        .filter((participant) => Boolean(participant.cotisation))
+        .filter((participant) => getParticipantSessionDays(state.sessions, participant.id).length > 0),
+      authUser?.participantId
+    );
+  }, [state.participants, state.sessions, authUser?.participantId]);
 
   const modalAvailableDays = useMemo(() => {
     if (!newRealisation.participantId) return modalAllAvailableDays;
@@ -372,8 +384,8 @@ function App() {
   }, [state]);
 
   const alphabeticalParticipants = useMemo(() => {
-    return [...state.participants].sort((a, b) => fullName(a).localeCompare(fullName(b), "fr"));
-  }, [state.participants]);
+    return sortParticipantsCurrentUserFirst(state.participants, authUser?.participantId);
+  }, [state.participants, authUser?.participantId]);
 
   const cprByParticipantId = useMemo(() => {
     return Object.fromEntries(
@@ -1607,8 +1619,7 @@ async function handleThemePreferenceChange(nextTheme) {
               <option value="">
                 {availableParticipants.length === 0 ? "Aucune personne disponible" : "S'inscrire"}
               </option>
-              {availableParticipants
-                .sort((a, b) => fullName(a).localeCompare(fullName(b), "fr"))
+              {sortParticipantsCurrentUserFirst(availableParticipants, authUser?.participantId)
                 .map((p) => (
                   <option key={p.id} value={p.id}>{fullName(p)}</option>
                 ))}
