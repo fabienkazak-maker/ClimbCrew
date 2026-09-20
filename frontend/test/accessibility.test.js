@@ -32,13 +32,14 @@ test("la liste des inscrits devient multicolonne sans couper les noms sur plusie
   assert.match(styles, /\.app \.session-card-compact \.session-participant-list[\s\S]*grid-template-columns:minmax\(0,1fr\)!important/);
 });
 
-test("les pages administratives sont placées après la FAQ", async () => {
-  // Le test vérifie l'ordre à partir des clés stables, indépendamment du libellé affiché.
+test("les pages administratives visibles sont placées après la FAQ", async () => {
+  // L'ancien onglet "Administration des inscrits" a été supprimé.
+  // Les deux pages administratives restantes doivent rester après la FAQ.
   const source = await readFile(new URL("../src/lib/ui-config.js", import.meta.url), "utf8");
   const faq = source.indexOf('key: "faq"');
-  const administration = source.indexOf('key: "administration"');
   const accounts = source.indexOf('key: "gestion_comptes"');
   const logs = source.indexOf('key: "logs"');
-  assert.ok(faq >= 0 && administration >= 0 && accounts >= 0 && logs >= 0);
-  assert.ok(faq < administration && administration < accounts && accounts < logs);
+  assert.ok(faq >= 0 && accounts >= 0 && logs >= 0);
+  assert.ok(faq < accounts && accounts < logs);
+  assert.equal(source.indexOf('label: "Administration des inscrits"'), -1);
 });
