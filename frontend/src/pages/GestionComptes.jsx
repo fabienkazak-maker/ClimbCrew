@@ -23,6 +23,7 @@ export default function GestionComptes({
   const [associationBusy, setAssociationBusy] = useState(false);
   const [approvingUserId, setApprovingUserId] = useState(null);
   const [adminRoleSavingId, setAdminRoleSavingId] = useState(null);
+  const [resendingConfirmationId, setResendingConfirmationId] = useState(null);
 
   async function handleApprove(userId) {
     setApprovingUserId(userId);
@@ -30,6 +31,24 @@ export default function GestionComptes({
       await approveAccessRequest(userId);
     } finally {
       setApprovingUserId(null);
+    }
+  }
+
+  async function resendConfirmationEmail(user) {
+    setResendingConfirmationId(user.id);
+    setAssociationError("");
+    setAssociationMessage("");
+    try {
+      const result = await apiFetch(`/admin/auth/users/${user.id}/resend-confirmation`, {
+        method: "POST",
+      });
+      setAssociationMessage(result.message || `E-mail de confirmation renvoyé à ${user.email}.`);
+      await loadAdminAccessData();
+    } catch (error) {
+      setAssociationError(String(error.message || error));
+      await loadAdminAccessData().catch(() => undefined);
+    } finally {
+      setResendingConfirmationId(null);
     }
   }
 
@@ -182,7 +201,16 @@ export default function GestionComptes({
           onChange={(event) => setAdminRole(user, event.target.checked)}
         /> Administrateur
       </label>
-      {user.status === "pending" && <Button onClick={() => handleApprove(user.id)} disabled={approvingUserId === user.id}>{approvingUserId === user.id ? "Approbation…" : "Approuver"}</Button>}
+      {user.status === "pending" && !user.email_verified_at && (
+        <Button
+          variant="secondary"
+          onClick={() => resendConfirmationEmail(user)}
+          disabled={resendingConfirmationId === user.id}
+        >
+          {resendingConfirmationId === user.id ? "Envoi…" : "Renvoyer confirmation"}
+        </Button>
+      )}
+      {user.status === "pending" && user.email_verified_at && <Button onClick={() => handleApprove(user.id)} disabled={approvingUserId === user.id}>{approvingUserId === user.id ? "Approbation…" : "Approuver"}</Button>}
       {user.status !== "revoked" ? <Button variant="danger" onClick={() => revokeUserAccess(user.id)}>Répudier</Button> : <Button onClick={() => reactivateUserAccess(user.id)}>Réactiver</Button>}
       <Button variant="secondary" onClick={() => generatePasswordResetToken(user.id)}>Code reset</Button>
       {Number(authUser?.id) !== Number(user.id) && <Button variant="danger" onClick={() => deleteUserAccount(user)}>Supprimer le compte</Button>}
@@ -208,13 +236,32 @@ export default function GestionComptes({
     );
   };
 
-  const renderAccountBody = (user) => (
-    <div style={{ marginTop: 10 }}>
-      <div className="card-header"><div className="small">{user.email} · rôle {user.role} · statut {user.status}</div>{renderAccountActions(user)}</div>
-      <div className="small">Créé le {user.created_at ? formatDateFr(user.created_at.slice(0, 10)) : "-"}{user.last_login_at ? ` · dernière connexion le ${formatDateFr(user.last_login_at.slice(0, 10))}` : " · aucune connexion"}</div>
-      {renderAssociation(user)}
-    </div>
-  );
+  function confirmationEmailLabel(user) {
+    if (user.email_verified_at) return { label: "Adresse e-mail confirmée", className: "success" };
+    const status = user.confirmationEmail?.status;
+    if (status === "sent") return { label: "E-mail de confirmation envoyé", className: "success" };
+    if (status === "skipped") {
+      const reason = user.confirmationEmail?.reason === "email_disabled" ? "messagerie serveur désactivée" : "envoi ignoré";
+      return { label: `E-mail non envoyé — ${reason}`, className: "error" };
+    }
+    if (status === "failed") return { label: "Échec d’envoi de l’e-mail de confirmation", className: "error" };
+    return { label: "Aucun e-mail de confirmation enregistré", className: "small" };
+  }
+
+  const renderAccountBody = (user) => {
+    const confirmation = confirmationEmailLabel(user);
+    return (
+      <div style={{ marginTop: 10 }}>
+        <div className="card-header"><div className="small">{user.email} · rôle {user.role} · statut {user.status}</div>{renderAccountActions(user)}</div>
+        <div className="small">Créé le {user.created_at ? formatDateFr(user.created_at.slice(0, 10)) : "-"}{user.last_login_at ? ` · dernière connexion le ${formatDateFr(user.last_login_at.slice(0, 10))}` : " · aucune connexion"}</div>
+        <div className={confirmation.className} style={{ marginTop: 6 }}>
+          {confirmation.label}
+          {user.confirmationEmail?.at ? ` · ${new Date(user.confirmationEmail.at).toLocaleString("fr-FR")}` : ""}
+        </div>
+        {renderAssociation(user)}
+      </div>
+    );
+  };
 
   return (
     <div className="card">
