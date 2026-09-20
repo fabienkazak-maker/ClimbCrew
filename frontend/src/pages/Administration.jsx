@@ -186,7 +186,7 @@ export default function Administration({
         </div>
       </AdminSection>
 
-      <AdminSection title="Réinitialisation annuelle / données" summary="Actions administrateur irréversibles">
+      <AdminSection title="Réinitialisation annuelle / données" summary="Réinitialisation et recalcul des données">
         <div className="group">
           <Button variant="danger" disabled={Boolean(resetting)} onClick={() => resetData("statistiques", "le reset des statistiques")}>Reset statistiques</Button>
           <Button variant="danger" disabled={Boolean(resetting)} onClick={() => resetData("realisations", "le reset des réalisations")}>Reset réalisations</Button>
