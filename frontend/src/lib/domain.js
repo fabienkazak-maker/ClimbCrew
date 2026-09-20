@@ -7,7 +7,7 @@ import {
 } from "./realisation-mode.js";
 export { getDefaultSessionStatus as defaultSessionStatus } from "../../../shared/session-default-status.js";
 
-export const GRADES = ["4","4a","4b","4c","5a","5a+","5b","5b+","5c","5c+","6a","6a+","6b","6b+","6c","6c+","7a","7a+","7b","7c"];
+export const GRADES = ["4","4a","4a+","4b","4b+","4c","4c+","5a","5a+","5b","5b+","5c","5c+","6a","6a+","6b","6b+","6c","6c+","7a","7a+","7b","7b+","7c","7c+"];
 
 // Conservé pour compatibilité avec les anciens imports/tests.
 // Le coefficient moderne est calculé par getRealisationWeight afin de tenir
@@ -197,11 +197,20 @@ export function calculateSimpleCpr(realisations, routesById, now = Date.now()) {
       const dateTimestamp = new Date(r.dateRealisation).getTime();
       if (!route || !Number.isFinite(dateTimestamp) || dateTimestamp < cutoff || dateTimestamp > now) return null;
 
+      if (!isSuccessfulRealisation(r)) return null;
+
+      const grade = route.cotationAjustee || route.cotationReference;
+      const gradeIndex = gradeToIndex(grade);
+      if (gradeIndex < 0) return null;
+
       return {
         id: r.id,
         date: r.dateRealisation,
-        grade: route.cotationAjustee,
-        weightedIndex: gradeToIndex(route.cotationAjustee) * getRealisationWeight(r, route),
+        grade,
+        // Le CPR mesure la cotation des voies réellement réussies.
+        // Les coefficients de style restent disponibles pour les autres calculs,
+        // mais ne doivent pas gonfler artificiellement le niveau CPR.
+        weightedIndex: gradeIndex,
       };
     })
     .filter(Boolean)

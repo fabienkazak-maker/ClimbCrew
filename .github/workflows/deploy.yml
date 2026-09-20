@@ -385,27 +385,12 @@ jobs:
             exit 1
           }
 
-          PUBLIC_OK=false
-          for attempt in $(seq 1 12); do
-            PUBLIC_MARKER="$(
-              curl --fail --silent --show-error --location \
-                --connect-timeout 5 --max-time 15 \
-                -H 'Cache-Control: no-cache' \
-                "https://${PPD_DOMAIN}/deployment-version.json?sha=${VALIDATED_SHA}&attempt=${attempt}" \
-                || true
-            )"
-            if printf '%s' "$PUBLIC_MARKER" | grep -Fq "\"version\": \"${EXPECTED_VERSION}\"" \
-              && printf '%s' "$PUBLIC_MARKER" | grep -Fq "\"commit\": \"${VALIDATED_SHA}\""; then
-              PUBLIC_OK=true
-              break
-            fi
-            [ "$attempt" -eq 12 ] || sleep 5
-          done
-          [ "$PUBLIC_OK" = true ] || {
-            echo "ERROR: le frontal PPD ne sert pas le SHA attendu avec un certificat TLS valide"
-            echo "${PUBLIC_MARKER:-}"
-            exit 1
-          }
+          # Le runner self-hosted est derrière le frontal Stormshield : une
+          # requête HTTPS publique effectuée ici peut recevoir le certificat
+          # d'inspection du runner et ne représente donc pas le TLS vu depuis
+          # Internet. La bascule est validée ici par le marqueur local exact.
+          # Le workflow Verify Public After Deploy effectue séparément le
+          # contrôle public HTTPS après un déploiement réussi.
 
           {
             echo '### Déploiement préproduction ClimbCrew'
@@ -416,7 +401,7 @@ jobs:
             echo '- PostgreSQL sauvegardé et dump vérifié avant bascule'
             echo '- Backend: OK'
             echo '- Frontend: OK'
-            echo '- Marqueur public HTTPS/TLS: OK'
+            echo '- Marqueur local version/SHA: OK'\n            echo '- Vérification HTTPS publique: déléguée au workflow post-déploiement'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Restaurer automatiquement la PPD en cas d'échec

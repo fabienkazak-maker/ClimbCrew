@@ -14,9 +14,9 @@ import Profil from "./pages/Profil.jsx";
 import Parametres from "./pages/Parametres.jsx";
 import Administration from "./pages/Administration.jsx";
 import GestionComptes from "./pages/GestionComptes.jsx";
+import DonneesUtilisateurs from "./pages/DonneesUtilisateurs.jsx";
 import Logs from "./pages/Logs.jsx";
 import Statistiques from "./pages/Statistiques.jsx";
-import WallOfFame from "./pages/WallOfFame.jsx";
 
 import { THEME_OPTIONS, THEME_PREFERENCE_KEY, resolveThemePreference } from "./lib/theme.js";
 import { ROPE_NUMBERS, ROUTE_COLORS, STYLE_LABELS, ROUTE_TAGS, TABS } from "./lib/ui-config.js";
@@ -1852,12 +1852,11 @@ async function handleThemePreferenceChange(nextTheme) {
             adminParticipants={adminParticipants}
             updateParticipant={updateParticipant}
             deleteParticipant={deleteParticipant}
-            exportAllData={exportAllData}
-            importJsonFile={importJsonFile}
-            importMessage={importMessage}
             publishBroadcastMessage={publishBroadcastMessage}
           />
         )}
+
+        {tab === "donnees_utilisateurs" && <DonneesUtilisateurs participants={adminParticipants} onSaved={reloadApiState} newParticipant={newParticipant} setNewParticipant={setNewParticipant} addParticipant={addParticipant} />}
 
         {tab === "gestion_comptes" && (
           <GestionComptes
@@ -1880,6 +1879,9 @@ async function handleThemePreferenceChange(nextTheme) {
             USE_API={USE_API}
             canManageAccountsAndLogs={canManageAccountsAndLogs}
             adminAccessLogs={adminAccessLogs}
+            exportAllData={exportAllData}
+            importJsonFile={importJsonFile}
+            importMessage={importMessage}
           />
         )}
 
@@ -1900,15 +1902,7 @@ async function handleThemePreferenceChange(nextTheme) {
             cprByParticipantId={cprByParticipantId}
             formatPoints={formatPoints}
             pointsByParticipantId={pointsByParticipantId}
-          />
-        )}
-
-        {tab === "wall_of_fame" && (
-          <WallOfFame
             wallOfFameCategories={wallOfFameCategories}
-            getPassportStyle={getPassportStyle}
-            getPassportDotStyle={getPassportDotStyle}
-            normalizePassport={normalizePassport}
             wallOfFameSexFilter={wallOfFameSexFilter}
             setWallOfFameSexFilter={setWallOfFameSexFilter}
           />

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Button from "../components/Button.jsx";
+import VideoAnalysisRulesAdmin from "../components/VideoAnalysisRulesAdmin.jsx";
 import { API_BASE, apiFetch, readCookie } from "../lib/api.js";
 
 function formatBackupSize(bytes) {
@@ -33,7 +34,7 @@ function ServerSection({ title, summary, children }) {
   );
 }
 
-export default function Logs({ USE_API, canManageAccountsAndLogs, adminAccessLogs }) {
+export default function Logs({ USE_API, canManageAccountsAndLogs, adminAccessLogs, exportAllData, importJsonFile, importMessage }) {
   const [backups, setBackups] = useState([]);
   const [backupConfig, setBackupConfig] = useState(null);
   const [backupStatus, setBackupStatus] = useState("");
@@ -41,6 +42,22 @@ export default function Logs({ USE_API, canManageAccountsAndLogs, adminAccessLog
   const [broadcastDraft, setBroadcastDraft] = useState({ title: "", body: "" });
   const [broadcastStatus, setBroadcastStatus] = useState("");
   const [broadcastSending, setBroadcastSending] = useState(false);
+  const [resetting, setResetting] = useState("");
+  const [resetStatus, setResetStatus] = useState("");
+
+  async function resetData(type, label) {
+    if (!window.confirm(`Confirmer ${label} ? Cette action est irréversible.`)) return;
+    try {
+      setResetting(type);
+      setResetStatus("");
+      const result = await apiFetch(`/admin/reset/${type}`, { method: "POST" });
+      setResetStatus(`${label} effectué${result?.affected != null ? ` (${result.affected} élément(s) modifié(s))` : ""}.`);
+    } catch (error) {
+      setResetStatus(`Échec : ${error.message || error}`);
+    } finally {
+      setResetting("");
+    }
+  }
 
   async function loadBackups() {
     const result = await apiFetch("/admin/backups");
@@ -188,6 +205,28 @@ export default function Logs({ USE_API, canManageAccountsAndLogs, adminAccessLog
 
   return (
     <>
+      <ServerSection title="Réinitialisation annuelle / données" summary="Actions administratives sur les données">
+        <div className="group">
+          <Button variant="danger" disabled={Boolean(resetting)} onClick={() => resetData("statistiques", "le reset et recalcul des statistiques")}>Reset statistiques</Button>
+          <Button variant="danger" disabled={Boolean(resetting)} onClick={() => resetData("realisations", "la suppression de toutes les réalisations")}>Reset réalisations</Button>
+          <Button variant="danger" disabled={Boolean(resetting)} onClick={() => resetData("cotisations", "le reset des cotisations")}>Reset cotisations</Button>
+          <Button variant="danger" disabled={Boolean(resetting)} onClick={() => resetData("ffme", "le reset des licences FFME")}>Reset licences FFME</Button>
+        </div>
+        {resetStatus && <div className="muted-box" style={{ marginTop: 10 }}>{resetStatus}</div>}
+      </ServerSection>
+
+      <ServerSection title="Analyse technique" summary="Règles et seuils de l’analyse vidéo MediaPipe">
+        <VideoAnalysisRulesAdmin />
+      </ServerSection>
+
+      <ServerSection title="Import / export des données métier">
+        <div className="group">
+          <Button variant="secondary" onClick={exportAllData}>Export JSON</Button>
+          <label className="pill" style={{ cursor: "pointer" }}>Import JSON<input type="file" accept=".json,application/json" style={{ display: "none" }} onChange={importJsonFile} /></label>
+        </div>
+        {importMessage && <div className="success" style={{ marginTop: 10 }}>{importMessage}</div>}
+      </ServerSection>
+
       <ServerSection title="Logs" summary={`${adminAccessLogs.length} événement${adminAccessLogs.length > 1 ? "s" : ""}`}>
         <div className="stack" style={{ minWidth: 0, maxWidth: "100%" }}>
           {adminAccessLogs.length === 0 ? (

@@ -50,6 +50,32 @@ import { safeHealthCheck } from "./maintenance-hardening.js";
 import { installBackupRoutes } from "../backup-routes.js";
 import { startBackupScheduler } from "../backup-service.js";
 import { installVideoAnalysisSettingsRoutes } from "../video-analysis-settings-routes.js";
+import { getPool } from "./database.js";
+
+async function resetAdminData(req, res) {
+  const type = String(req.params.type || "");
+  const pool = getPool();
+  if (type === "realisations") {
+    const result = await pool.query("delete from realisations");
+    return res.json({ ok: true, type, affected: result.rowCount });
+  }
+  if (type === "statistiques") {
+    // Les statistiques ClimbCrew sont dérivées à la volée des données métier
+    // (réalisations, séances, participants et voies). Il n’existe donc aucune
+    // donnée statistique persistée à supprimer : demander leur reset force le
+    // client à recharger les sources et à recalculer tous les agrégats.
+    return res.json({ ok: true, type, recalculated: true, affected: 0 });
+  }
+  if (type === "cotisations") {
+    const result = await pool.query("update participants set cotisation = false where cotisation is distinct from false");
+    return res.json({ ok: true, type, affected: result.rowCount });
+  }
+  if (type === "ffme") {
+    const result = await pool.query("update participants set ffme = false where ffme is distinct from false");
+    return res.json({ ok: true, type, affected: result.rowCount });
+  }
+  return res.status(400).json({ error: "Type de réinitialisation inconnu" });
+}
 
 export function installExplicitAdminUserRoutes(app, {
   requireAuth,
@@ -75,6 +101,7 @@ export function installExplicitAdminUserRoutes(app, {
   app.get("/realisations", requireAuth, listRealisationsWithPrivacy);
   app.put("/sessions/:id", requireAuth, updateSessionWithAuthorization);
   app.post("/admin/import-data", requireAuth, requireAdmin, importBusinessDataSafely);
+  app.post("/admin/reset/:type", requireAuth, requireAdmin, resetAdminData);
   app.get("/admin/export-data", requireAuth, requireAdmin, exportAllData);
   app.post("/admin/auth/users/:id/admin", requireAuth, requireAdmin, updateAdminRightSafely);
   app.post("/admin/auth/associations/auto", requireAuth, requireAdmin, associateExistingAccountsByEmail);

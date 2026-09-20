@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import Button from "../components/Button.jsx";
-import VideoAnalysisRulesAdmin from "../components/VideoAnalysisRulesAdmin.jsx";
 import { apiFetch, USE_API } from "../lib/api.js";
 import { fullName } from "../lib/domain.js";
 
@@ -30,9 +29,6 @@ export default function Administration({
   adminParticipants,
   updateParticipant,
   deleteParticipant,
-  exportAllData,
-  importJsonFile,
-  importMessage,
 }) {
   const [qualificationOverrides, setQualificationOverrides] = useState({});
   const [notificationPreferences, setNotificationPreferences] = useState({});
@@ -171,6 +167,8 @@ export default function Administration({
         </div>
       </AdminSection>
 
+
+
       <AdminSection title="Gestion des participants" summary={`${adminParticipants.length} participant${adminParticipants.length > 1 ? "s" : ""}`}>
         <div className="stack">
           {adminParticipants.map((participant) => {
@@ -222,17 +220,6 @@ export default function Administration({
         </div>
       </AdminSection>
 
-      <AdminSection title="Analyse technique" summary="Règles et seuils de l’analyse vidéo MediaPipe">
-        <VideoAnalysisRulesAdmin />
-      </AdminSection>
-
-      <AdminSection title="Import / export des données métier">
-        <div className="group">
-          <Button variant="secondary" onClick={exportAllData}>Export JSON</Button>
-          <label className="pill" style={{ cursor: "pointer" }}>Import JSON<input type="file" accept=".json,application/json" style={{ display: "none" }} onChange={importJsonFile} /></label>
-        </div>
-        {importMessage && <div className="success" style={{ marginTop: 10 }}>{importMessage}</div>}
-      </AdminSection>
     </>
   );
 }

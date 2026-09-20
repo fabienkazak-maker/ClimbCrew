@@ -1,6 +1,6 @@
 import React from "react";
 import Button from "../components/Button.jsx";
-import { API_BASE, apiFetch, apiUpload } from "../lib/api.js";
+import { API_BASE, apiFetch, apiUploadVideoInChunks } from "../lib/api.js";
 import { GRADES, formatRouteName, getRouteCardStyle, normalizeRopeNumber } from "../lib/domain.js";
 import { ROPE_NUMBERS, ROUTE_COLORS, ROUTE_TAGS } from "../lib/ui-config.js";
 
@@ -109,7 +109,9 @@ export default function Voies({
     try {
       setVideoUploadingRouteId(route.id);
       setVideoSaveStatus("");
-      const result = await apiUpload(`/routes/${encodeURIComponent(route.id)}/videos`, file);
+      const result = await apiUploadVideoInChunks(`/routes/${encodeURIComponent(route.id)}/video-uploads`, file, {
+        onProgress: ({ uploadedParts, totalParts }) => setVideoSaveStatus(`Chargement vidéo… ${uploadedParts}/${totalParts}`),
+      });
       const savedUrls = Array.isArray(result?.route?.videoUrls)
         ? result.route.videoUrls
         : [...effectiveVideoUrls(route), result.url].filter(Boolean);

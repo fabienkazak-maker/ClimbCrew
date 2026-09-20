@@ -47,6 +47,23 @@ test("le CPR conserve les dix meilleures réalisations des 90 derniers jours", (
   assert.equal(cpr.timeline[0].id, "r1");
 });
 
+test("une seule 6a réussie à vue donne un CPR 6a et les essais sont exclus", () => {
+  const now = new Date("2026-09-20T12:00:00Z").getTime();
+  const routesById = {
+    v1: { id: "v1", cotationAjustee: "6a" },
+    v2: { id: "v2", cotationAjustee: "7a" },
+  };
+  const realisations = [
+    { id: "r1", voieId: "v1", dateRealisation: "2026-09-19", modeRealisation: "en_tete", styleRealisation: "a_vue" },
+    { id: "r2", voieId: "v2", dateRealisation: "2026-09-19", modeRealisation: "en_tete", styleRealisation: "projet" },
+  ];
+
+  const cpr = calculateSimpleCpr(realisations, routesById, now);
+  assert.equal(cpr.currentGrade, "6a");
+  assert.equal(cpr.timeline.length, 1);
+  assert.equal(cpr.timeline[0].id, "r1");
+});
+
 test("l'historique CPR restitue le niveau après chaque journée de réalisation", () => {
   const routesById = { v1: { id: "v1", cotationAjustee: "6a" }, v2: { id: "v2", cotationAjustee: "6b" } };
   const realisations = [

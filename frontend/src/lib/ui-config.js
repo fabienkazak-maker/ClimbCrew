@@ -31,6 +31,7 @@ export const STYLE_LABELS = {
 export const ROUTE_TAGS = [
   { value: "dalle", label: "Dalle" },
   { value: "devers", label: "Dévers" },
+  { value: "diedre", label: "Dièdre" },
   { value: "physique", label: "Physique" },
   { value: "technique", label: "Technique" },
   { value: "a_doigts", label: "À doigts" },
@@ -43,10 +44,9 @@ export const TABS = [
   { key: "inscriptions", label: "Inscriptions" },
   { key: "voies", label: "Voies" },
   { key: "mon_profil", label: "Profil" },
-  { key: "statistiques", label: "Statistiques" },
-  { key: "wall_of_fame", label: "Tableau d’honneur" },
+  { key: "statistiques", label: "Statistiques / Tableau d’honneur" },
   { key: "faq", label: "FAQ" },
-  { key: "administration", label: "Administration des inscrits", adminOnly: true },
   { key: "gestion_comptes", label: "Gestion des comptes", adminOnly: true },
-  { key: "logs", label: "Administration Serveur", adminOnly: true },
+  { key: "donnees_utilisateurs", label: "Données utilisateurs", adminOnly: true },
+  { key: "logs", label: "Administration", adminOnly: true },
 ];
