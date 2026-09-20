@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Button from "../components/Button.jsx";
+import VideoAnalysisRulesAdmin from "../components/VideoAnalysisRulesAdmin.jsx";
 import { API_BASE, apiFetch, readCookie } from "../lib/api.js";
 
 function formatBackupSize(bytes) {
@@ -33,7 +34,7 @@ function ServerSection({ title, summary, children }) {
   );
 }
 
-export default function Logs({ USE_API, canManageAccountsAndLogs, adminAccessLogs }) {
+export default function Logs({ USE_API, canManageAccountsAndLogs, adminAccessLogs, exportAllData, importJsonFile, importMessage }) {
   const [backups, setBackups] = useState([]);
   const [backupConfig, setBackupConfig] = useState(null);
   const [backupStatus, setBackupStatus] = useState("");
@@ -188,6 +189,18 @@ export default function Logs({ USE_API, canManageAccountsAndLogs, adminAccessLog
 
   return (
     <>
+      <ServerSection title="Analyse technique" summary="Règles et seuils de l’analyse vidéo MediaPipe">
+        <VideoAnalysisRulesAdmin />
+      </ServerSection>
+
+      <ServerSection title="Import / export des données métier">
+        <div className="group">
+          <Button variant="secondary" onClick={exportAllData}>Export JSON</Button>
+          <label className="pill" style={{ cursor: "pointer" }}>Import JSON<input type="file" accept=".json,application/json" style={{ display: "none" }} onChange={importJsonFile} /></label>
+        </div>
+        {importMessage && <div className="success" style={{ marginTop: 10 }}>{importMessage}</div>}
+      </ServerSection>
+
       <ServerSection title="Logs" summary={`${adminAccessLogs.length} événement${adminAccessLogs.length > 1 ? "s" : ""}`}>
         <div className="stack" style={{ minWidth: 0, maxWidth: "100%" }}>
           {adminAccessLogs.length === 0 ? (
