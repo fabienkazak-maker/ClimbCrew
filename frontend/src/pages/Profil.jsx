@@ -81,7 +81,7 @@ export default function Profil({
   const [realisationSort, setRealisationSort] = React.useState("date");
   const [profileError, setProfileError] = React.useState("");
   const [theCragImporting, setTheCragImporting] = React.useState(false);
-  const [theCragImportMessage, setTheCragImportMessage] = React.useState("");
+  const [theCragImportStatus, setTheCragImportStatus] = React.useState(null);
 
   React.useEffect(() => {
     setRealisations(Array.isArray(allRealisations) ? allRealisations : []);
@@ -153,7 +153,7 @@ export default function Profil({
     if (!file || !isOwnProfile) return;
     try {
       setProfileError("");
-      setTheCragImportMessage("");
+      setTheCragImportStatus(null);
       setTheCragImporting(true);
       const result = await apiUpload("/realisations/import-thecrag", file, {
         headers: { "Content-Type": "application/vnd.ms-excel" },
@@ -166,9 +166,10 @@ export default function Profil({
         result.unmatched ? `${result.unmatched} voie(s) non reconnue(s)` : "",
         result.invalid ? `${result.invalid} ligne(s) invalide(s)` : "",
       ].filter(Boolean).join(" · ");
-      setTheCragImportMessage(details || "Import theCrag terminé.");
+      setTheCragImportStatus({ type: "success", message: `Import theCrag réussi : ${details || "import terminé."}` });
     } catch (error) {
-      setProfileError(String(error.message || error));
+      const message = String(error.message || error);
+      setTheCragImportStatus({ type: "error", message: `Problème lors de l’import theCrag : ${message}` });
     } finally {
       setTheCragImporting(false);
     }
@@ -420,7 +421,17 @@ export default function Profil({
                     </div>
                   </div>
                   <div className="small">Format attendu : export du carnet theCrag, feuille « Ascents » au format Excel .xls.</div>
-                  {theCragImportMessage && <div className="success" style={{ marginTop: 8 }}>{theCragImportMessage}</div>}
+                  {theCragImporting && <div className="muted-box" role="status" style={{ marginTop: 8 }}>Import theCrag en cours…</div>}
+                  {theCragImportStatus && (
+                    <div
+                      className={theCragImportStatus.type === "success" ? "success" : "error"}
+                      role={theCragImportStatus.type === "success" ? "status" : "alert"}
+                      style={{ marginTop: 8 }}
+                    >
+                      {theCragImportStatus.type === "success" ? "✅ " : "❌ "}
+                      {theCragImportStatus.message}
+                    </div>
+                  )}
                 </div>
               )}
             </>
