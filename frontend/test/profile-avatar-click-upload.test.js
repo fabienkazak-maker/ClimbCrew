@@ -27,3 +27,11 @@ test("le changement d'avatar force le rechargement de l'image affichée", async 
   assert.match(source, /refreshableImageSource/);
   assert.match(source, /reload=/);
 });
+
+
+test("le profil local se resynchronise avec l'avatar sauvegardé", async () => {
+  const source = await readFile(new URL("../src/pages/Profil.jsx", import.meta.url), "utf8");
+  assert.match(source, /setParticipants\(\(current\) =>/);
+  assert.match(source, /participant\.id\) === participantId \? myParticipant : participant/);
+  assert.match(source, /\[myParticipant, \.\.\.current\]/);
+});

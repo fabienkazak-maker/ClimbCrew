@@ -94,6 +94,18 @@ export default function Profil({
   }, [myParticipantId, selectedParticipantId]);
 
   React.useEffect(() => {
+    if (!myParticipant?.id) return;
+    setParticipants((current) => {
+      const participantId = String(myParticipant.id);
+      const exists = current.some((participant) => String(participant.id) === participantId);
+      const next = exists
+        ? current.map((participant) => String(participant.id) === participantId ? myParticipant : participant)
+        : [myParticipant, ...current];
+      return sortParticipantsForProfile(next, myParticipantId);
+    });
+  }, [myParticipant, myParticipantId]);
+
+  React.useEffect(() => {
     if (!USE_API) return;
     let mounted = true;
     apiFetch("/participants")
