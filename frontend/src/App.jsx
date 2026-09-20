@@ -785,6 +785,7 @@ function App() {
         participants: prev.participants.map((participant) => String(participant.id) === myParticipantId ? updated : participant),
       }));
       setConfirmationMessage("Préférences du profil enregistrées.");
+      return updated;
     } catch (error) {
       setState((prev) => ({
         ...prev,
@@ -792,6 +793,7 @@ function App() {
       }));
       setSyncMessage("Erreur d'enregistrement du profil");
       console.error(error);
+      throw error;
     }
   }
 
