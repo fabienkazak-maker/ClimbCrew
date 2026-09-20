@@ -46,7 +46,7 @@ function stickyColumnStyle(key, header = false) {
   };
 }
 
-export default function DonneesUtilisateurs({ participants = [], onSaved, newParticipant, setNewParticipant, addParticipant }) {
+export default function DonneesUtilisateurs({ participants = [], sessions = [], onSaved, newParticipant, setNewParticipant, addParticipant }) {
   const [sortKey, setSortKey] = useState("nom");
   const [ascending, setAscending] = useState(true);
   const [filters, setFilters] = useState({});
@@ -54,6 +54,13 @@ export default function DonneesUtilisateurs({ participants = [], onSaved, newPar
   const [savingId, setSavingId] = useState(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const sessionCountByParticipantId = useMemo(() => {
+    const counts = {};
+    sessions.forEach((session) => {
+      (session.participantIds || []).forEach((id) => { counts[String(id)] = (counts[String(id)] || 0) + 1; });
+    });
+    return counts;
+  }, [sessions]);
 
   const rows = useMemo(() => participants.filter((p) =>
     COLUMNS.every(([key]) => {
@@ -149,12 +156,13 @@ export default function DonneesUtilisateurs({ participants = [], onSaved, newPar
             title={`Trier par ${label}`}
             onClick={()=>{if(sortKey===key)setAscending(v=>!v);else{setSortKey(key);setAscending(true);}}}>
               <span style={{display:"inline-flex",alignItems:"center",gap:4}}>{label}<span aria-hidden="true" style={{opacity:sortKey===key?1:.45,fontSize:".85em"}}>{sortKey===key?(ascending?"▲":"▼"):"↕"}</span></span>
-            </th>)}<th style={{whiteSpace:"nowrap"}}>Action</th></tr>
+            </th>)}<th style={{whiteSpace:"nowrap",width:"5%"}}>Séances</th><th style={{whiteSpace:"nowrap"}}>Action</th></tr>
           <tr>{COLUMNS.map(([key,label])=><th key={key} style={{padding:2,background:"var(--card-bg, #eee)",border:"1px solid #bbb",width:compactWidth(key),...stickyColumnStyle(key,true)}}>
             <input aria-label={`Filtrer ${label}`} placeholder="Filtrer" value={filters[key]||""} onChange={e=>setFilters(v=>({...v,[key]:e.target.value}))} onClick={e=>e.stopPropagation()} style={{width:"100%",minWidth:0,boxSizing:"border-box",fontSize:"inherit",padding:"3px 2px"}} />
-          </th>)}<th style={{background:"var(--card-bg, #eee)",border:"1px solid #bbb",width:"12%"}}><button type="button" onClick={()=>setFilters({})} style={{width:"100%",padding:"4px 2px",fontSize:"inherit"}}>Effacer</button></th></tr>
+          </th>)}<th style={{background:"var(--card-bg, #eee)",border:"1px solid #bbb",width:"5%"}}></th><th style={{background:"var(--card-bg, #eee)",border:"1px solid #bbb",width:"12%"}}><button type="button" onClick={()=>setFilters({})} style={{width:"100%",padding:"4px 2px",fontSize:"inherit"}}>Effacer</button></th></tr>
         </thead>
         <tbody>{rows.map(p=><tr key={p.id}>{COLUMNS.map(([key])=><td key={key} style={{padding:BOOLEAN_KEYS.has(key)?"2px":"3px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textAlign:BOOLEAN_KEYS.has(key)?"center":"left",border:"1px solid #ccc",width:compactWidth(key),...stickyColumnStyle(key,false)}}>{editor(p,key)}</td>)}
+          <td style={{padding:3,textAlign:"center",border:"1px solid #ccc",width:"5%"}}>{sessionCountByParticipantId[String(p.id)] || 0}</td>
           <td style={{padding:2,border:"1px solid #ccc",width:"12%"}}><div style={{display:"grid",gridTemplateColumns:"1fr",gap:3}}><button type="button" disabled={!drafts[p.id] || savingId===p.id} onClick={()=>save(p)} style={{padding:"4px 2px",fontSize:"inherit",minWidth:0}}>{savingId===p.id?"Enregistrement…":"Enregistrer"}</button><button type="button" className="danger" disabled={savingId===p.id} onClick={()=>removeParticipant(p)} style={{padding:"4px 2px",fontSize:"inherit",minWidth:0}}>Supprimer</button></div></td></tr>)}</tbody>
       </table>
     </div>
