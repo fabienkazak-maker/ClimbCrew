@@ -55,9 +55,16 @@ import { getPool } from "./database.js";
 async function resetAdminData(req, res) {
   const type = String(req.params.type || "");
   const pool = getPool();
-  if (type === "realisations" || type === "statistiques") {
+  if (type === "realisations") {
     const result = await pool.query("delete from realisations");
     return res.json({ ok: true, type, affected: result.rowCount });
+  }
+  if (type === "statistiques") {
+    // Les statistiques ClimbCrew sont dérivées à la volée des données métier
+    // (réalisations, séances, participants et voies). Il n’existe donc aucune
+    // donnée statistique persistée à supprimer : demander leur reset force le
+    // client à recharger les sources et à recalculer tous les agrégats.
+    return res.json({ ok: true, type, recalculated: true, affected: 0 });
   }
   if (type === "cotisations") {
     const result = await pool.query("update participants set cotisation = false where cotisation is distinct from false");
