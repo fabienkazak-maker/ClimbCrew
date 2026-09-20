@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import express from "express";
-import { validateRealisationPayload } from "./validation.js";
+import { GRADES, validateRealisationPayload } from "./validation.js";
 import { assertRealisationIntegrity } from "./realisation-integrity.js";
 import { parseTheCragXls } from "./thecrag-xls.js";
 
@@ -224,6 +224,16 @@ function excelSerialToIsoDate(value) {
   return new Date(milliseconds).toISOString().slice(0, 10);
 }
 
+function normalizeTheCragGrade(value, route) {
+  const raw = String(value || "").trim().toLowerCase().replace(/\s+/g, "");
+  const direct = GRADES.find((grade) => grade.toLowerCase() === raw);
+  if (direct) return direct;
+  const match = raw.match(/^(4|[5-7][abc]\+?)/);
+  if (match && GRADES.includes(match[1])) return match[1];
+  const routeGrade = String(route?.cotation_ajustee || route?.cotation_reference || "").trim();
+  return GRADES.includes(routeGrade) ? routeGrade : "";
+}
+
 function mapTheCragCriterion(value) {
   const type = normalizeTheCragToken(value);
   if (type.includes("onsight")) return "a_vue";
@@ -385,7 +395,7 @@ export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
               `${date}T12:00:00`,
               criterion,
               commentParts.join(" · "),
-              String(row["Ascent Grade"] || row["Route Grade"] || route.cotation_ajustee || route.cotation_reference || ""),
+              normalizeTheCragGrade(row["Ascent Grade"] || row["Route Grade"], route),
               mode,
             ],
           );
