@@ -4,13 +4,11 @@ import { readFile } from "node:fs/promises";
 
 test("les commandes composées d'une icône possèdent un libellé accessible", async () => {
   // La navigation jour/semaine précédent-suivant vit désormais dans Inscriptions.jsx,
-  // et le tri des statistiques dans StatisticsSection.jsx (App.jsx ne rend plus ce JSX).
+  // Le tri de la liste des inscrits a été supprimé avec cette liste de la page Statistiques.
   const inscriptions = await readFile(new URL("../src/pages/Inscriptions.jsx", import.meta.url), "utf8");
-  const statistics = await readFile(new URL("../src/sections/StatisticsSection.jsx", import.meta.url), "utf8");
 
   assert.match(inscriptions, /aria-label=\{viewMode[^\n]+jour précédent/);
   assert.match(inscriptions, /aria-label=\{viewMode[^\n]+jour suivant/);
-  assert.match(statistics, /aria-label=\{statsSortDirection[^\n]+ordre décroissant/);
 });
 
 test("le clavier et les zones tactiles disposent de styles accessibles", async () => {
