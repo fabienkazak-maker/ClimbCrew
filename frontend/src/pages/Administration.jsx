@@ -34,6 +34,105 @@ export default function Administration({
   const [notificationPreferences, setNotificationPreferences] = useState({});
   const [savingControl, setSavingControl] = useState("");
   const [nativeAdminError, setNativeAdminError] = useState("");
+
+  useEffect(() => {
+    if (!USE_API || !adminUnlocked) return;
+    apiFetch("/admin/auth/notification-preferences")
+      .then((result) => {
+        const preferences = Array.isArray(result?.preferences) ? result.preferences : [];
+        setNotificationPreferences(Object.fromEntries(
+          preferences.map((preference) => [String(preference.participantId || ""), preference])
+        ));
+      })
+      .catch((error) => setNativeAdminError(String(error.message || error)));
+  }, [adminUnlocked]);
+
+  function qualificationFor(participant) {
+    return qualificationOverrides[String(participant.id)] || {
+      initiateurSae: Boolean(participant.initiateurSae),
+      initiateurSne: Boolean(participant.initiateurSne),
+    };
+  }
+
+  async function saveQualification(participant, key, checked) {
+    const participantId = String(participant.id);
+    const previous = qualificationFor(participant);
+    const next = { ...previous, [key]: checked };
+    setQualificationOverrides((current) => ({ ...current, [participantId]: next }));
+    if (!USE_API) return;
+
+    setSavingControl(`qualification:${participantId}`);
+    setNativeAdminError("");
+    try {
+      const saved = await apiFetch(`/admin/participants/${encodeURIComponent(participantId)}/qualifications`, {
+        method: "PUT",
+        body: JSON.stringify(next),
+      });
+      setQualificationOverrides((current) => ({
+        ...current,
+        [participantId]: {
+          initiateurSae: Boolean(saved.initiateurSae),
+          initiateurSne: Boolean(saved.initiateurSne),
+        },
+      }));
+    } catch (error) {
+      setQualificationOverrides((current) => ({ ...current, [participantId]: previous }));
+      setNativeAdminError(String(error.message || error));
+    } finally {
+      setSavingControl("");
+    }
+  }
+
+  function notificationPreferenceFor(participant) {
+    return notificationPreferences[String(participant.id)] || {
+      participantId: participant.id,
+      userId: null,
+      status: null,
+      isAdmin: false,
+      receiveAccountNotifications: false,
+    };
+  }
+
+  async function saveNotificationPreference(participant, enabled) {
+    const participantId = String(participant.id);
+    const previous = notificationPreferenceFor(participant);
+    const optimistic = { ...previous, receiveAccountNotifications: enabled };
+    setNotificationPreferences((current) => ({ ...current, [participantId]: optimistic }));
+    setSavingControl(`notification:${participantId}`);
+    setNativeAdminError("");
+    try {
+      const saved = await apiFetch(`/admin/participants/${encodeURIComponent(participantId)}/account-notifications`, {
+        method: "PUT",
+        body: JSON.stringify({ receiveAccountNotifications: enabled }),
+      });
+      setNotificationPreferences((current) => ({
+        ...current,
+        [participantId]: { ...optimistic, receiveAccountNotifications: Boolean(saved.receiveAccountNotifications) },
+      }));
+    } catch (error) {
+      setNotificationPreferences((current) => ({ ...current, [participantId]: previous }));
+      setNativeAdminError(String(error.message || error));
+    } finally {
+      setSavingControl("");
+    }
+  }
+
+  if (!adminUnlocked) {
+    return (
+      <div className="card">
+        <div className="card-header"><h2>Accès administration</h2></div>
+        <div className="grid two">
+          <div>
+            <label>Code administrateur</label>
+            <input type="password" maxLength={8} value={adminInput} onChange={(event) => setAdminInput(event.target.value.replace(/\D/g, "").slice(0, 8))} />
+          </div>
+          <div style={{ display: "flex", alignItems: "end" }}><Button onClick={unlockAdmin}>Déverrouiller</Button></div>
+        </div>
+        {adminError && <div className="error" style={{ marginTop: 10 }}>{adminError}</div>}
+      </div>
+    );
+  }
+
   return (
     <>
       {nativeAdminError && <div className="error" style={{ marginBottom: 10 }}>{nativeAdminError}</div>}
