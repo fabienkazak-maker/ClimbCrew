@@ -5,7 +5,7 @@ const BOOLEAN_KEYS = new Set(["cotisation","ffme","canEncadrer","canReferer","ca
 const COLUMNS = [
   ["nom","Nom"],["prenom","Prénom"],["email","E-mail"],["sexe","Sexe"],["passport","Passeport"],
   ["cotisation","Cotisation"],["ffme","FFME"],["canEncadrer","Encadrant"],["canReferer","Référent"],
-  ["canAdmin","Administrateur"],["initiateurSae","Initiateur SAE"],["initiateurSne","Initiateur SNE"],
+  ["canAdmin","Administrateur"],["initiateurSae","Initiateur SAE"],["initiateurSne","Initiateur SNE"],["sessions","Séances"],
 ];
 const PASSPORTS = ["sans","decouverte","jaune","orange","vert","bleu"];
 
@@ -29,6 +29,7 @@ const COLUMN_WIDTHS = {
   canAdmin: "6%",
   initiateurSae: "6%",
   initiateurSne: "6%",
+  sessions: "5%",
 };
 
 function compactWidth(key) {
@@ -62,13 +63,14 @@ export default function DonneesUtilisateurs({ participants = [], sessions = [], 
     return counts;
   }, [sessions]);
 
+  const valueFor = (p,key) => key === "sessions" ? (sessionCountByParticipantId[String(p.id)] || 0) : display(p,key);
   const rows = useMemo(() => participants.filter((p) =>
     COLUMNS.every(([key]) => {
       const q = String(filters[key] ?? "").trim().toLocaleLowerCase("fr");
-      return !q || String(display(p,key)).toLocaleLowerCase("fr").includes(q);
+      return !q || String(valueFor(p,key)).toLocaleLowerCase("fr").includes(q);
     })
-  ).slice().sort((a,b) => String(display(a,sortKey)).localeCompare(String(display(b,sortKey)), "fr", {numeric:true}) * (ascending ? 1 : -1)),
-  [participants, filters, sortKey, ascending]);
+  ).slice().sort((a,b) => String(valueFor(a,sortKey)).localeCompare(String(valueFor(b,sortKey)), "fr", {numeric:true}) * (ascending ? 1 : -1)),
+  [participants, filters, sortKey, ascending, sessionCountByParticipantId]);
 
   function draftFor(p) { return drafts[p.id] || p; }
   function setField(p,key,value) {
@@ -113,6 +115,7 @@ export default function DonneesUtilisateurs({ participants = [], sessions = [], 
     finally { setSavingId(null); }
   }
   function editor(p,key) {
+    if (key === "sessions") return sessionCountByParticipantId[String(p.id)] || 0;
     const d=draftFor(p), value=d[key];
     if (BOOLEAN_KEYS.has(key)) return <input type="checkbox" checked={Boolean(value)} onChange={e=>setField(p,key,e.target.checked)} aria-label={`${COLUMNS.find(c=>c[0]===key)?.[1]} ${p.prenom} ${p.nom}`} />;
     if (key==="sexe") return <select value={value||""} onChange={e=>setField(p,key,e.target.value)} style={{width:"100%",minWidth:0,fontSize:"inherit",padding:"4px 2px"}}><option value="">-</option><option value="h">H</option><option value="f">F</option></select>;
@@ -155,14 +158,13 @@ export default function DonneesUtilisateurs({ participants = [], sessions = [], 
           <tr>{COLUMNS.map(([key,label])=><th key={key} style={{padding:BOOLEAN_KEYS.has(key)?"5px 2px":"6px 3px",whiteSpace:"normal",overflowWrap:"anywhere",textAlign:"center",lineHeight:1.05,border:"1px solid #bbb",background:"var(--card-bg, #eee)",cursor:"pointer",width:compactWidth(key),...stickyColumnStyle(key,true)}}
             title={`Trier par ${label}`}
             onClick={()=>{if(sortKey===key)setAscending(v=>!v);else{setSortKey(key);setAscending(true);}}}>
-              <span style={{display:"inline-flex",alignItems:"center",gap:4}}>{label}<span aria-hidden="true" style={{opacity:sortKey===key?1:.45,fontSize:".85em"}}>{sortKey===key?(ascending?"▲":"▼"):"↕"}</span></span>
-            </th>)}<th style={{whiteSpace:"nowrap",width:"5%"}}>Séances</th><th style={{whiteSpace:"nowrap"}}>Action</th></tr>
+              <span style={{display:"inline-flex",alignItems:"center",gap:4}}>{label}<span aria-hidden="true" style={{opacity:sortKey===key?1:.45,fontSize:".85em"}}>{sortKey===key?(ascending?"↑":"↓"):"↕"}</span></span>
+            </th>)}<th style={{whiteSpace:"nowrap"}}>Action</th></tr>
           <tr>{COLUMNS.map(([key,label])=><th key={key} style={{padding:2,background:"var(--card-bg, #eee)",border:"1px solid #bbb",width:compactWidth(key),...stickyColumnStyle(key,true)}}>
             <input aria-label={`Filtrer ${label}`} placeholder="Filtrer" value={filters[key]||""} onChange={e=>setFilters(v=>({...v,[key]:e.target.value}))} onClick={e=>e.stopPropagation()} style={{width:"100%",minWidth:0,boxSizing:"border-box",fontSize:"inherit",padding:"3px 2px"}} />
-          </th>)}<th style={{background:"var(--card-bg, #eee)",border:"1px solid #bbb",width:"5%"}}></th><th style={{background:"var(--card-bg, #eee)",border:"1px solid #bbb",width:"12%"}}><button type="button" onClick={()=>setFilters({})} style={{width:"100%",padding:"4px 2px",fontSize:"inherit"}}>Effacer</button></th></tr>
+          </th>)}<th style={{background:"var(--card-bg, #eee)",border:"1px solid #bbb",width:"12%"}}><button type="button" onClick={()=>setFilters({})} style={{width:"100%",padding:"4px 2px",fontSize:"inherit"}}>Effacer</button></th></tr>
         </thead>
-        <tbody>{rows.map(p=><tr key={p.id}>{COLUMNS.map(([key])=><td key={key} style={{padding:BOOLEAN_KEYS.has(key)?"2px":"3px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textAlign:BOOLEAN_KEYS.has(key)?"center":"left",border:"1px solid #ccc",width:compactWidth(key),...stickyColumnStyle(key,false)}}>{editor(p,key)}</td>)}
-          <td style={{padding:3,textAlign:"center",border:"1px solid #ccc",width:"5%"}}>{sessionCountByParticipantId[String(p.id)] || 0}</td>
+        <tbody>{rows.map(p=><tr key={p.id}>{COLUMNS.map(([key])=><td key={key} style={{padding:(BOOLEAN_KEYS.has(key) || key==="sessions")?"2px":"3px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textAlign:(BOOLEAN_KEYS.has(key) || key==="sessions")?"center":"left",border:"1px solid #ccc",width:compactWidth(key),...stickyColumnStyle(key,false)}}>{editor(p,key)}</td>)}
           <td style={{padding:2,border:"1px solid #ccc",width:"12%"}}><div style={{display:"grid",gridTemplateColumns:"1fr",gap:3}}><button type="button" disabled={!drafts[p.id] || savingId===p.id} onClick={()=>save(p)} style={{padding:"4px 2px",fontSize:"inherit",minWidth:0}}>{savingId===p.id?"Enregistrement…":"Enregistrer"}</button><button type="button" className="danger" disabled={savingId===p.id} onClick={()=>removeParticipant(p)} style={{padding:"4px 2px",fontSize:"inherit",minWidth:0}}>Supprimer</button></div></td></tr>)}</tbody>
       </table>
     </div>
