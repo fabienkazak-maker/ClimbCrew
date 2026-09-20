@@ -31,6 +31,7 @@ export const STYLE_LABELS = {
 export const ROUTE_TAGS = [
   { value: "dalle", label: "Dalle" },
   { value: "devers", label: "Dévers" },
+  { value: "diedre", label: "Dièdre" },
   { value: "physique", label: "Physique" },
   { value: "technique", label: "Technique" },
   { value: "a_doigts", label: "À doigts" },
@@ -49,5 +50,5 @@ export const TABS = [
   { key: "administration", label: "Administration des inscrits", adminOnly: true },
   { key: "gestion_comptes", label: "Gestion des comptes", adminOnly: true },
   { key: "donnees_utilisateurs", label: "Données utilisateurs", adminOnly: true },
-  { key: "logs", label: "Administration Serveur", adminOnly: true },
+  { key: "logs", label: "Administration", adminOnly: true },
 ];
