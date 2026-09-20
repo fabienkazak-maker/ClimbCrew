@@ -23,6 +23,7 @@ const COLUMN_WIDTHS = {
 };
 
 function compactWidth(key, label = "") {
+  if (BOOLEAN_KEYS.has(key)) return key === "ffme" ? "4.5rem" : "5.5rem";
   return COLUMN_WIDTHS[key] || `${Math.max(5, Math.min(11, String(label || key).length + 2))}rem`;
 }
 
@@ -136,7 +137,7 @@ export default function DonneesUtilisateurs({ participants = [], onSaved, newPar
     <div style={{overflow:"auto",maxHeight:"70vh",border:"1px solid var(--border, #bbb)",borderRadius:8}}>
       <table style={{borderCollapse:"collapse",width:"max-content",minWidth:"100%",background:"var(--surface, white)"}}>
         <thead style={{position:"sticky",top:0,zIndex:2}}>
-          <tr>{COLUMNS.map(([key,label])=><th key={key} style={{padding:"8px 8px",whiteSpace:"nowrap",border:"1px solid #bbb",background:"var(--card-bg, #eee)",cursor:"pointer",width:compactWidth(key,label),minWidth:compactWidth(key,label),...stickyColumnStyle(key,true)}}
+          <tr>{COLUMNS.map(([key,label])=><th key={key} style={{padding:BOOLEAN_KEYS.has(key)?"6px 4px":"8px 8px",whiteSpace:BOOLEAN_KEYS.has(key)?"normal":"nowrap",textAlign:"center",lineHeight:1.1,border:"1px solid #bbb",background:"var(--card-bg, #eee)",cursor:"pointer",width:compactWidth(key,label),minWidth:compactWidth(key,label),maxWidth:compactWidth(key,label),...stickyColumnStyle(key,true)}}
             title={`Trier par ${label}`}
             onClick={()=>{if(sortKey===key)setAscending(v=>!v);else{setSortKey(key);setAscending(true);}}}>
               <span style={{display:"inline-flex",alignItems:"center",gap:4}}>{label}<span aria-hidden="true" style={{opacity:sortKey===key?1:.45,fontSize:".85em"}}>{sortKey===key?(ascending?"▲":"▼"):"↕"}</span></span>
@@ -145,7 +146,7 @@ export default function DonneesUtilisateurs({ participants = [], onSaved, newPar
             <input aria-label={`Filtrer ${label}`} placeholder="Filtrer…" value={filters[key]||""} onChange={e=>setFilters(v=>({...v,[key]:e.target.value}))} onClick={e=>e.stopPropagation()} style={{width:"100%",minWidth:0,boxSizing:"border-box"}} />
           </th>)}<th style={{background:"var(--card-bg, #eee)",border:"1px solid #bbb"}}><button type="button" onClick={()=>setFilters({})}>Effacer</button></th></tr>
         </thead>
-        <tbody>{rows.map(p=><tr key={p.id}>{COLUMNS.map(([key,label])=><td key={key} style={{padding:"5px",whiteSpace:"nowrap",border:"1px solid #ccc",width:compactWidth(key,label),minWidth:compactWidth(key,label),...stickyColumnStyle(key,false)}}>{editor(p,key)}</td>)}
+        <tbody>{rows.map(p=><tr key={p.id}>{COLUMNS.map(([key,label])=><td key={key} style={{padding:BOOLEAN_KEYS.has(key)?"3px":"5px",whiteSpace:"nowrap",textAlign:BOOLEAN_KEYS.has(key)?"center":"left",border:"1px solid #ccc",width:compactWidth(key,label),minWidth:compactWidth(key,label),maxWidth:compactWidth(key,label),...stickyColumnStyle(key,false)}}>{editor(p,key)}</td>)}
           <td style={{padding:5,border:"1px solid #ccc"}}><div className="group"><button type="button" disabled={!drafts[p.id] || savingId===p.id} onClick={()=>save(p)}>{savingId===p.id?"Enregistrement…":"Enregistrer"}</button><button type="button" className="danger" disabled={savingId===p.id} onClick={()=>removeParticipant(p)}>Supprimer</button></div></td></tr>)}</tbody>
       </table>
     </div>
