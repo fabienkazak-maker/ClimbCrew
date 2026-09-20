@@ -1774,6 +1774,7 @@ async function handleThemePreferenceChange(nextTheme) {
             cancelRouteEdition={cancelRouteEdition}
             deleteRoute={deleteRoute}
             savingRouteId={savingRouteId}
+            participants={state.participants}
           />
         )}
 
