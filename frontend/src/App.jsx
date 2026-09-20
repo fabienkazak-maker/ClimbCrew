@@ -1858,7 +1858,7 @@ async function handleThemePreferenceChange(nextTheme) {
           />
         )}
 
-        {tab === "donnees_utilisateurs" && <DonneesUtilisateurs participants={adminParticipants} onSaved={reloadApiState} newParticipant={newParticipant} setNewParticipant={setNewParticipant} addParticipant={addParticipant} />}
+        {tab === "donnees_utilisateurs" && <DonneesUtilisateurs participants={adminParticipants} sessions={state.sessions} onSaved={reloadApiState} newParticipant={newParticipant} setNewParticipant={setNewParticipant} addParticipant={addParticipant} />}
 
         {tab === "gestion_comptes" && (
           <GestionComptes
