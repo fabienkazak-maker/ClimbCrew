@@ -16,6 +16,27 @@ function display(p,key) {
   return p[key] ?? "";
 }
 
+const COLUMN_WIDTHS = {
+  nom: "9rem",
+  prenom: "9rem",
+  email: "18rem",
+};
+
+function compactWidth(key, label = "") {
+  return COLUMN_WIDTHS[key] || `${Math.max(5, Math.min(11, String(label || key).length + 2))}rem`;
+}
+
+function stickyColumnStyle(key, header = false) {
+  if (key !== "nom" && key !== "prenom") return {};
+  return {
+    position: "sticky",
+    left: key === "nom" ? 0 : COLUMN_WIDTHS.nom,
+    zIndex: header ? 5 : 3,
+    background: header ? "var(--card-bg, #eee)" : "var(--surface, white)",
+    boxShadow: key === "prenom" ? "2px 0 0 var(--border, #bbb)" : undefined,
+  };
+}
+
 export default function DonneesUtilisateurs({ participants = [], onSaved, newParticipant, setNewParticipant, addParticipant }) {
   const [sortKey, setSortKey] = useState("nom");
   const [ascending, setAscending] = useState(true);
@@ -80,7 +101,8 @@ export default function DonneesUtilisateurs({ participants = [], onSaved, newPar
     if (BOOLEAN_KEYS.has(key)) return <input type="checkbox" checked={Boolean(value)} onChange={e=>setField(p,key,e.target.checked)} aria-label={`${COLUMNS.find(c=>c[0]===key)?.[1]} ${p.prenom} ${p.nom}`} />;
     if (key==="sexe") return <select value={value||""} onChange={e=>setField(p,key,e.target.value)}><option value="">-</option><option value="h">H</option><option value="f">F</option></select>;
     if (key==="passport") return <select value={value||"sans"} onChange={e=>setField(p,key,e.target.value)}>{PASSPORTS.map(v=><option key={v} value={v}>{v}</option>)}</select>;
-    return <input value={value??""} onChange={e=>setField(p,key,e.target.value)} style={{minWidth:key==="email"?190:110}} />;
+    const text = String(value ?? "");
+    return <input value={text} onChange={e=>setField(p,key,e.target.value)} size={key==="email"?24:Math.max(4,Math.min(16,text.length || 4))} style={{width:key==="email"?"100%":"auto",minWidth:key==="email"?220:0,maxWidth:key==="email"?320:"16ch"}} />;
   }
   function exportCsv() {
     const quote=v=>`"${String(v??"").replaceAll('"','""')}"`;
@@ -114,13 +136,16 @@ export default function DonneesUtilisateurs({ participants = [], onSaved, newPar
     <div style={{overflow:"auto",maxHeight:"70vh",border:"1px solid var(--border, #bbb)",borderRadius:8}}>
       <table style={{borderCollapse:"collapse",width:"max-content",minWidth:"100%",background:"var(--surface, white)"}}>
         <thead style={{position:"sticky",top:0,zIndex:2}}>
-          <tr>{COLUMNS.map(([key,label])=><th key={key} style={{padding:"8px 10px",whiteSpace:"nowrap",border:"1px solid #bbb",background:"var(--card-bg, #eee)",cursor:"pointer"}}
-            onClick={()=>{if(sortKey===key)setAscending(v=>!v);else{setSortKey(key);setAscending(true);}}}>{label}{sortKey===key?(ascending?" ▲":" ▼"):""}</th>)}<th>Action</th></tr>
-          <tr>{COLUMNS.map(([key,label])=><th key={key} style={{padding:4,background:"var(--card-bg, #eee)",border:"1px solid #bbb"}}>
-            <input aria-label={`Filtrer ${label}`} placeholder="Filtrer…" value={filters[key]||""} onChange={e=>setFilters(v=>({...v,[key]:e.target.value}))} onClick={e=>e.stopPropagation()} style={{width:"100%",minWidth:80}} />
+          <tr>{COLUMNS.map(([key,label])=><th key={key} style={{padding:"8px 8px",whiteSpace:"nowrap",border:"1px solid #bbb",background:"var(--card-bg, #eee)",cursor:"pointer",width:compactWidth(key,label),minWidth:compactWidth(key,label),...stickyColumnStyle(key,true)}}
+            title={`Trier par ${label}`}
+            onClick={()=>{if(sortKey===key)setAscending(v=>!v);else{setSortKey(key);setAscending(true);}}}>
+              <span style={{display:"inline-flex",alignItems:"center",gap:4}}>{label}<span aria-hidden="true" style={{opacity:sortKey===key?1:.45,fontSize:".85em"}}>{sortKey===key?(ascending?"▲":"▼"):"↕"}</span></span>
+            </th>)}<th style={{whiteSpace:"nowrap"}}>Action</th></tr>
+          <tr>{COLUMNS.map(([key,label])=><th key={key} style={{padding:4,background:"var(--card-bg, #eee)",border:"1px solid #bbb",width:compactWidth(key,label),minWidth:compactWidth(key,label),...stickyColumnStyle(key,true)}}>
+            <input aria-label={`Filtrer ${label}`} placeholder="Filtrer…" value={filters[key]||""} onChange={e=>setFilters(v=>({...v,[key]:e.target.value}))} onClick={e=>e.stopPropagation()} style={{width:"100%",minWidth:0,boxSizing:"border-box"}} />
           </th>)}<th style={{background:"var(--card-bg, #eee)",border:"1px solid #bbb"}}><button type="button" onClick={()=>setFilters({})}>Effacer</button></th></tr>
         </thead>
-        <tbody>{rows.map(p=><tr key={p.id}>{COLUMNS.map(([key])=><td key={key} style={{padding:"5px",whiteSpace:"nowrap",border:"1px solid #ccc"}}>{editor(p,key)}</td>)}
+        <tbody>{rows.map(p=><tr key={p.id}>{COLUMNS.map(([key,label])=><td key={key} style={{padding:"5px",whiteSpace:"nowrap",border:"1px solid #ccc",width:compactWidth(key,label),minWidth:compactWidth(key,label),...stickyColumnStyle(key,false)}}>{editor(p,key)}</td>)}
           <td style={{padding:5,border:"1px solid #ccc"}}><div className="group"><button type="button" disabled={!drafts[p.id] || savingId===p.id} onClick={()=>save(p)}>{savingId===p.id?"Enregistrement…":"Enregistrer"}</button><button type="button" className="danger" disabled={savingId===p.id} onClick={()=>removeParticipant(p)}>Supprimer</button></div></td></tr>)}</tbody>
       </table>
     </div>
