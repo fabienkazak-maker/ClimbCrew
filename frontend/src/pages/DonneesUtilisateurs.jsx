@@ -16,7 +16,7 @@ function display(p,key) {
   return p[key] ?? "";
 }
 
-export default function DonneesUtilisateurs({ participants = [], onSaved }) {
+export default function DonneesUtilisateurs({ participants = [], onSaved, newParticipant, setNewParticipant, addParticipant }) {
   const [sortKey, setSortKey] = useState("nom");
   const [ascending, setAscending] = useState(true);
   const [filters, setFilters] = useState({});
@@ -77,6 +77,24 @@ export default function DonneesUtilisateurs({ participants = [], onSaved }) {
     const url=URL.createObjectURL(blob), a=document.createElement("a"); a.href=url; a.download="utilisateurs-climbcrew.csv"; a.click(); URL.revokeObjectURL(url);
   }
   return <div className="card">
+    {newParticipant && setNewParticipant && addParticipant && <details className="subcard" open style={{marginBottom:12}}>
+      <summary style={{cursor:"pointer",fontWeight:700}}>Nouvel utilisateur</summary>
+      <div className="grid four" style={{marginTop:10}}>
+        <div><label>Nom</label><input value={newParticipant.nom || ""} onChange={e=>setNewParticipant(p=>({...p,nom:e.target.value}))} /></div>
+        <div><label>Prénom</label><input value={newParticipant.prenom || ""} onChange={e=>setNewParticipant(p=>({...p,prenom:e.target.value}))} /></div>
+        <div><label>E-mail</label><input type="email" value={newParticipant.email || ""} onChange={e=>setNewParticipant(p=>({...p,email:e.target.value}))} /></div>
+        <div><label>Passeport</label><select value={newParticipant.passport || "sans"} onChange={e=>setNewParticipant(p=>({...p,passport:e.target.value}))}>{PASSPORTS.map(v=><option key={v} value={v}>{v}</option>)}</select></div>
+        <div><label>Sexe</label><select value={newParticipant.sexe || ""} onChange={e=>setNewParticipant(p=>({...p,sexe:e.target.value}))}><option value="">-</option><option value="h">H</option><option value="f">F</option></select></div>
+      </div>
+      <div className="group" style={{marginTop:10}}>
+        <label><input type="checkbox" checked={Boolean(newParticipant.cotisation)} onChange={e=>setNewParticipant(p=>({...p,cotisation:e.target.checked}))} /> Cotisation</label>
+        <label><input type="checkbox" checked={Boolean(newParticipant.ffme)} onChange={e=>setNewParticipant(p=>({...p,ffme:e.target.checked}))} /> FFME</label>
+        <label><input type="checkbox" checked={Boolean(newParticipant.canEncadrer)} onChange={e=>setNewParticipant(p=>({...p,canEncadrer:e.target.checked}))} /> Encadrant</label>
+        <label><input type="checkbox" checked={Boolean(newParticipant.canReferer)} onChange={e=>setNewParticipant(p=>({...p,canReferer:e.target.checked}))} /> Référent</label>
+        <label><input type="checkbox" checked={Boolean(newParticipant.canAdmin)} onChange={e=>setNewParticipant(p=>({...p,canAdmin:e.target.checked}))} /> Administrateur</label>
+        <button type="button" onClick={addParticipant}>Ajouter l’utilisateur</button>
+      </div>
+    </details>}
     <div className="card-header"><div><h2>Données utilisateurs</h2><div className="small">{rows.length} utilisateur{rows.length>1?"s":""}</div></div>
       <button type="button" onClick={exportCsv}>Export CSV</button></div>
     {message && <div className="success" style={{marginBottom:10}}>{message}</div>}
