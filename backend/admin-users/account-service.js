@@ -479,19 +479,158 @@ export async function forgotPassword(req, res) {
 export async function listUsers(_req, res) {
   try {
     const result = await getPool().query(`
-      select id, participant_id, email, prenom, nom, role, is_admin, status,
-             must_reset_password, created_at, approved_at, revoked_at,
-             revoked_reason, last_login_at, theme_preference, email_verified_at
-      from users
-      where status <> 'pending'
-         or email_verified_at is not null
-         or participant_id is not null
-      order by case status when 'pending' then 0 when 'active' then 1 when 'revoked' then 2 else 3 end,
-               created_at desc, email asc
+      select
+        u.id, u.participant_id, u.email, u.prenom, u.nom, u.role, u.is_admin, u.status,
+        u.must_reset_password, u.created_at, u.approved_at, u.revoked_at,
+        u.revoked_reason, u.last_login_at, u.theme_preference, u.email_verified_at,
+        mail.event_type as confirmation_email_event,
+        mail.success as confirmation_email_success,
+        mail.created_at as confirmation_email_at,
+        mail.details as confirmation_email_details
+      from users u
+      left join lateral (
+        select al.event_type, al.success, al.created_at, al.details
+        from access_logs al
+        where al.user_id = u.id
+          and al.event_type in (
+            'account_request_confirmation_email_sent',
+            'account_request_confirmation_email_skipped',
+            'account_request_confirmation_email_failed'
+          )
+        order by al.created_at desc, al.id desc
+        limit 1
+      ) mail on true
+      order by case u.status when 'pending' then 0 when 'active' then 1 when 'revoked' then 2 else 3 end,
+               u.created_at desc, u.email asc
     `);
-    res.json({ ok: true, users: result.rows.map(serializeUser) });
+    res.json({
+      ok: true,
+      users: result.rows.map((row) => ({
+        ...serializeUser(row),
+        confirmationEmail: row.confirmation_email_event ? {
+          status: row.confirmation_email_event.endsWith('_sent')
+            ? 'sent'
+            : row.confirmation_email_event.endsWith('_skipped')
+              ? 'skipped'
+              : 'failed',
+          success: Boolean(row.confirmation_email_success),
+          at: row.confirmation_email_at,
+          reason: row.confirmation_email_details?.reason || null,
+          messageId: row.confirmation_email_details?.messageId || null,
+        } : null,
+      })),
+    });
   } catch (error) {
     res.status(500).json({ error: String(error.message || error) });
+  }
+}
+
+export async function resendAccountConfirmationEmail(req, res) {
+  const userId = Number(req.params?.id);
+  if (!Number.isInteger(userId) || userId <= 0) {
+    return res.status(400).json({ error: "Utilisateur invalide" });
+  }
+
+  const client = await getPool().connect();
+  try {
+    await client.query("begin");
+    const userResult = await client.query(
+      `
+        select id, email, prenom, nom, status, email_verified_at
+        from users
+        where id = $1
+        for update
+      `,
+      [userId],
+    );
+    const user = userResult.rows[0];
+    if (!user) {
+      await client.query("rollback");
+      return res.status(404).json({ error: "Compte introuvable" });
+    }
+    if (user.email_verified_at) {
+      await client.query("rollback");
+      return res.status(409).json({ error: "Cette adresse e-mail est déjà confirmée." });
+    }
+    if (user.status !== "pending") {
+      await client.query("rollback");
+      return res.status(409).json({ error: "Seul un compte en attente peut recevoir un nouvel e-mail de confirmation." });
+    }
+
+    const verificationToken = crypto.randomBytes(24).toString("hex");
+    const verificationTokenHash = hashToken(verificationToken);
+    const verificationExpiresAt = new Date(Date.now() + EMAIL_VERIFICATION_DURATION_MS).toISOString();
+
+    await client.query(
+      `
+        update email_verification_tokens
+        set used_at = coalesce(used_at, now())
+        where user_id = $1 and used_at is null
+      `,
+      [userId],
+    );
+    await client.query(
+      `
+        insert into email_verification_tokens (user_id, token_hash, expires_at)
+        values ($1, $2, $3)
+      `,
+      [userId, verificationTokenHash, verificationExpiresAt],
+    );
+    await client.query("commit");
+
+    try {
+      const emailResult = await sendAccountRequestConfirmation({
+        email: user.email,
+        prenom: user.prenom,
+        nom: user.nom,
+        verificationUrl: buildEmailVerificationUrl(verificationToken),
+      });
+      await writeAccessLog({
+        userId,
+        eventType: emailResult.sent
+          ? "account_request_confirmation_email_sent"
+          : "account_request_confirmation_email_skipped",
+        success: Boolean(emailResult.sent || emailResult.skipped),
+        req,
+        details: {
+          ...emailLogDetails(emailResult, user.email),
+          verificationExpiresAt,
+          resentByAdmin: req.auth?.user?.email || req.enhancementAuth?.user?.email || null,
+        },
+      });
+      if (!emailResult.sent) {
+        return res.status(503).json({
+          ok: false,
+          error: emailResult.reason === "email_disabled"
+            ? "L’envoi d’e-mail est désactivé sur le serveur."
+            : "Le serveur n’a pas envoyé l’e-mail de confirmation.",
+        });
+      }
+      return res.json({
+        ok: true,
+        message: `E-mail de confirmation renvoyé à ${user.email}.`,
+        sentAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Renvoi de l’e-mail de confirmation impossible :", error);
+      await writeAccessLog({
+        userId,
+        eventType: "account_request_confirmation_email_failed",
+        success: false,
+        req,
+        details: {
+          email: user.email,
+          error: String(error.message || error),
+          resentByAdmin: req.auth?.user?.email || req.enhancementAuth?.user?.email || null,
+        },
+      });
+      return res.status(502).json({ error: "L’envoi SMTP de l’e-mail de confirmation a échoué." });
+    }
+  } catch (error) {
+    await client.query("rollback").catch(() => undefined);
+    return res.status(500).json({ error: "Le renvoi de l’e-mail de confirmation a échoué." });
+  } finally {
+    client.release();
   }
 }
 
