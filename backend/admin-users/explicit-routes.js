@@ -50,6 +50,25 @@ import { safeHealthCheck } from "./maintenance-hardening.js";
 import { installBackupRoutes } from "../backup-routes.js";
 import { startBackupScheduler } from "../backup-service.js";
 import { installVideoAnalysisSettingsRoutes } from "../video-analysis-settings-routes.js";
+import { getPool } from "./database.js";
+
+async function resetAdminData(req, res) {
+  const type = String(req.params.type || "");
+  const pool = getPool();
+  if (type === "realisations" || type === "statistiques") {
+    const result = await pool.query("delete from realisations");
+    return res.json({ ok: true, type, affected: result.rowCount });
+  }
+  if (type === "cotisations") {
+    const result = await pool.query("update participants set cotisation = false where cotisation is distinct from false");
+    return res.json({ ok: true, type, affected: result.rowCount });
+  }
+  if (type === "ffme") {
+    const result = await pool.query("update participants set ffme = false where ffme is distinct from false");
+    return res.json({ ok: true, type, affected: result.rowCount });
+  }
+  return res.status(400).json({ error: "Type de réinitialisation inconnu" });
+}
 
 export function installExplicitAdminUserRoutes(app, {
   requireAuth,
@@ -75,6 +94,7 @@ export function installExplicitAdminUserRoutes(app, {
   app.get("/realisations", requireAuth, listRealisationsWithPrivacy);
   app.put("/sessions/:id", requireAuth, updateSessionWithAuthorization);
   app.post("/admin/import-data", requireAuth, requireAdmin, importBusinessDataSafely);
+  app.post("/admin/reset/:type", requireAuth, requireAdmin, resetAdminData);
   app.get("/admin/export-data", requireAuth, requireAdmin, exportAllData);
   app.post("/admin/auth/users/:id/admin", requireAuth, requireAdmin, updateAdminRightSafely);
   app.post("/admin/auth/associations/auto", requireAuth, requireAdmin, associateExistingAccountsByEmail);
