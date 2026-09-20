@@ -8,6 +8,10 @@ const COLUMNS = [
   ["canAdmin","Administrateur"],["initiateurSae","Initiateur SAE"],["initiateurSne","Initiateur SNE"],["sessions","Séances"],
 ];
 const PASSPORTS = ["sans","decouverte","jaune","orange","vert","bleu"];
+const FILTER_CHOICES = {
+  sexe: [["h","H"],["f","F"]],
+  passport: PASSPORTS.map((value) => [value, value]),
+};
 
 function yesNo(value) { return value ? "Oui" : "Non"; }
 function display(p,key) {
@@ -158,7 +162,7 @@ export default function DonneesUtilisateurs({ participants = [], sessions = [], 
     {error && <div className="error" style={{marginBottom:10}}>{error}</div>}
     <div style={{overflowY:"auto",overflowX:"hidden",maxHeight:"70vh",border:"1px solid var(--border, #bbb)",borderRadius:8}}>
       <table style={{borderCollapse:"collapse",width:"100%",tableLayout:"fixed",background:"var(--surface, white)",fontSize:"clamp(.68rem, .75vw, .82rem)"}}>
-        <thead style={{position:"sticky",top:0,zIndex:2}}>
+        <thead style={{position:"sticky",top:0,zIndex:10,background:"var(--card-bg, #eee)"}}>
           <tr>{COLUMNS.map(([key,label])=><th key={key} style={{padding:BOOLEAN_KEYS.has(key)?"5px 2px":"6px 3px",whiteSpace:"normal",overflowWrap:"anywhere",textAlign:"center",lineHeight:1.05,border:"1px solid #bbb",background:"var(--card-bg, #eee)",cursor:"pointer",width:compactWidth(key),...stickyColumnStyle(key,true)}}
             title={`Trier par ${label}`}
             onClick={()=>{if(sortKey===key)setAscending(v=>!v);else{setSortKey(key);setAscending(true);}}}>
@@ -167,7 +171,11 @@ export default function DonneesUtilisateurs({ participants = [], sessions = [], 
           <tr>{COLUMNS.map(([key,label])=><th key={key} style={{padding:2,background:"var(--card-bg, #eee)",border:"1px solid #bbb",width:compactWidth(key),...stickyColumnStyle(key,true)}}>
             {BOOLEAN_KEYS.has(key)
               ? <input type="checkbox" aria-label={`Filtrer ${label}`} checked={filters[key] === true} onChange={e=>setFilters(v=>{const next={...v}; if(e.target.checked) next[key]=true; else delete next[key]; return next;})} onClick={e=>e.stopPropagation()} title={filters[key] === true ? "Afficher uniquement les valeurs cochées" : "Tous"} />
-              : <input aria-label={`Filtrer ${label}`} placeholder="Filtrer" value={filters[key]||""} onChange={e=>setFilters(v=>({...v,[key]:e.target.value}))} onClick={e=>e.stopPropagation()} style={{width:"100%",minWidth:0,boxSizing:"border-box",fontSize:"inherit",padding:"3px 2px"}} />}
+              : FILTER_CHOICES[key]
+                ? <select aria-label={`Filtrer ${label}`} value={filters[key] || ""} onChange={e=>setFilters(v=>({...v,[key]:e.target.value}))} onClick={e=>e.stopPropagation()} style={{width:"100%",minWidth:0,boxSizing:"border-box",fontSize:"inherit",padding:"3px 2px"}}>
+                    <option value="">Tous</option>{FILTER_CHOICES[key].map(([value,text])=><option key={value} value={value}>{text}</option>)}
+                  </select>
+                : <input aria-label={`Filtrer ${label}`} placeholder="Filtrer" value={filters[key]||""} onChange={e=>setFilters(v=>({...v,[key]:e.target.value}))} onClick={e=>e.stopPropagation()} style={{width:"100%",minWidth:0,boxSizing:"border-box",fontSize:"inherit",padding:"3px 2px"}} />}
           </th>)}<th style={{background:"var(--card-bg, #eee)",border:"1px solid #bbb",width:"12%"}}><button type="button" onClick={()=>setFilters({})} style={{width:"100%",padding:"4px 2px",fontSize:"inherit"}}>Effacer</button></th></tr>
         </thead>
         <tbody>{rows.map(p=><tr key={p.id}>{COLUMNS.map(([key])=><td key={key} style={{padding:(BOOLEAN_KEYS.has(key) || key==="sessions")?"2px":"3px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textAlign:(BOOLEAN_KEYS.has(key) || key==="sessions")?"center":"left",border:"1px solid #ccc",width:compactWidth(key),...stickyColumnStyle(key,false)}}>{editor(p,key)}</td>)}
