@@ -1856,7 +1856,9 @@ async function handleThemePreferenceChange(nextTheme) {
           />
         )}
 
-        {tab === "donnees_utilisateurs" && <DonneesUtilisateurs participants={adminParticipants} onSaved={reloadApiState} newParticipant={newParticipant} setNewParticipant={setNewParticipant} addParticipant={addParticipant} />}\n\n        {tab === "gestion_comptes" && (
+        {tab === "donnees_utilisateurs" && <DonneesUtilisateurs participants={adminParticipants} onSaved={reloadApiState} newParticipant={newParticipant} setNewParticipant={setNewParticipant} addParticipant={addParticipant} />}
+
+        {tab === "gestion_comptes" && (
           <GestionComptes
             USE_API={USE_API}
             canManageAccountsAndLogs={canManageAccountsAndLogs}
