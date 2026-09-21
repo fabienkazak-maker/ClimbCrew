@@ -74,6 +74,7 @@ export default function Profil({
   updateMyProfile,
   exportMyRealisationsCsv,
   onTheCragImported,
+  onRealisationsChanged,
 }) {
   const [participants, setParticipants] = React.useState(() => myParticipant ? [myParticipant] : []);
   const [selectedParticipantId, setSelectedParticipantId] = React.useState(() => String(myParticipantId || ""));
@@ -158,6 +159,24 @@ export default function Profil({
   async function refreshRealisations() {
     const data = await apiFetch("/realisations");
     if (Array.isArray(data)) setRealisations(data);
+    if (typeof onRealisationsChanged === "function") {
+      await onRealisationsChanged();
+    }
+  }
+
+  async function resetOwnRealisations() {
+    if (!isOwnProfile || selectedRealisations.length === 0) return;
+    if (!window.confirm(`Supprimer définitivement vos ${selectedRealisations.length} réalisation(s) ? Cette action est irréversible.`)) return;
+    try {
+      setProfileError("");
+      await apiFetch("/realisations/me", { method: "DELETE" });
+      setRealisations((current) => current.filter(
+        (realisation) => String(realisation.participantId) !== String(myParticipantId),
+      ));
+      await refreshRealisations();
+    } catch (error) {
+      setProfileError(String(error.message || error));
+    }
   }
 
   async function importTheCragFile(event) {
@@ -321,6 +340,13 @@ export default function Profil({
                   <span className="small">Cliquer pour afficher</span>
                 </summary>
                 <div style={{ marginTop: 10 }}>
+                  {isOwnProfile && selectedRealisations.length > 0 && (
+                    <div className="group" style={{ justifyContent: "flex-end", marginBottom: 10 }}>
+                      <Button type="button" variant="danger" onClick={resetOwnRealisations}>
+                        Reset mes réalisations
+                      </Button>
+                    </div>
+                  )}
                   {selectedRealisations.length > 1 && (
                     <div className="group" style={{ justifyContent: "flex-end", marginBottom: 10 }}>
                       <label className="group" htmlFor="profile-realisation-sort">

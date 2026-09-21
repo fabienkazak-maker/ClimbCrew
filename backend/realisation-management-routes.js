@@ -894,6 +894,43 @@ export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
     }
   });
 
+  app.delete("/realisations/me", requireAuth, async (req, res) => {
+    const participantId = req.auth?.user?.participantId;
+    if (!participantId) return res.status(403).json({ error: "Compte non relié à un grimpeur" });
+
+    let client;
+    try {
+      client = await pool.connect();
+      await client.query("begin");
+      await client.query(
+        `delete from route_video_upload_chunks where participant_id = $1`,
+        [String(participantId)],
+      );
+      await client.query(
+        `
+          delete from route_videos
+          where source_realisation_id in (
+            select id from realisations where participant_id = $1
+          )
+        `,
+        [String(participantId)],
+      );
+      const result = await client.query(
+        `delete from realisations where participant_id = $1`,
+        [String(participantId)],
+      );
+      await client.query("commit");
+      return res.json({ ok: true, affected: result.rowCount });
+    } catch (error) {
+      if (client) {
+        try { await client.query("rollback"); } catch { /* transaction déjà terminée */ }
+      }
+      return res.status(error.status || 500).json({ error: error.message || "Reset des réalisations impossible." });
+    } finally {
+      client?.release();
+    }
+  });
+
   app.delete("/realisations/:id", requireAuth, async (req, res) => {
     try {
       const participantId = req.auth?.user?.participantId;
