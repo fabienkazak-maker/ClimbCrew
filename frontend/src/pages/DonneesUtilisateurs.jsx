@@ -3,7 +3,7 @@ import { apiFetch } from "../lib/api.js";
 
 const BOOLEAN_KEYS = new Set(["cotisation","ffme","canEncadrer","canReferer","canAdmin","initiateurSae","initiateurSne"]);
 const COLUMNS = [
-  ["nom","Nom"],["prenom","Prénom"],["email","E-mail"],["sexe","Sexe"],["passport","Passeport"],
+  ["nom","Nom"],["prenom","Prénom"],["email","E-mail"],["sexe","Sexe"],["passport","Passeport FFME"],
   ["cotisation","Cotisation"],["ffme","FFME"],["canEncadrer","Encadrant"],["canReferer","Référent"],
   ["canAdmin","Administrateur"],["initiateurSae","Initiateur SAE"],["initiateurSne","Initiateur SNE"],["sessions","Séances"],
 ];
@@ -145,7 +145,7 @@ export default function DonneesUtilisateurs({ participants = [], sessions = [], 
         <div><label>Nom</label><input value={newParticipant.nom || ""} onChange={e=>setNewParticipant(p=>({...p,nom:e.target.value}))} /></div>
         <div><label>Prénom</label><input value={newParticipant.prenom || ""} onChange={e=>setNewParticipant(p=>({...p,prenom:e.target.value}))} /></div>
         <div><label>E-mail</label><input type="email" value={newParticipant.email || ""} onChange={e=>setNewParticipant(p=>({...p,email:e.target.value}))} /></div>
-        <div><label>Passeport</label><select value={newParticipant.passport || "sans"} onChange={e=>setNewParticipant(p=>({...p,passport:e.target.value}))}>{PASSPORTS.map(v=><option key={v} value={v}>{v}</option>)}</select></div>
+        <div><label>Passeport FFME</label><select value={newParticipant.passport || "sans"} onChange={e=>setNewParticipant(p=>({...p,passport:e.target.value}))}>{PASSPORTS.map(v=><option key={v} value={v}>{v}</option>)}</select></div>
         <div><label>Sexe</label><select value={newParticipant.sexe || ""} onChange={e=>setNewParticipant(p=>({...p,sexe:e.target.value}))}><option value="">-</option><option value="h">H</option><option value="f">F</option></select></div>
       </div>
       <div className="group" style={{marginTop:10}}>
