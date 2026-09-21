@@ -43,7 +43,7 @@ export default function StatisticsSection({
 
       <div className="card">
         <div className="card-header">
-          <h2>Grimpeurs par couleur de passeport</h2>
+          <h2>Grimpeurs par couleur de passeport FFME</h2>
           <span className="badge">{sortedStatsParticipants.length} grimpeur{sortedStatsParticipants.length > 1 ? "s" : ""}</span>
         </div>
         <div
