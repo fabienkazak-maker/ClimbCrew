@@ -82,6 +82,7 @@ export default function Profil({
   const [profileError, setProfileError] = React.useState("");
   const [theCragImporting, setTheCragImporting] = React.useState(false);
   const [theCragImportStatus, setTheCragImportStatus] = React.useState(null);
+  const [theCragStartDate, setTheCragStartDate] = React.useState("");
 
   React.useEffect(() => {
     setRealisations(Array.isArray(allRealisations) ? allRealisations : []);
@@ -167,7 +168,8 @@ export default function Profil({
       setProfileError("");
       setTheCragImportStatus(null);
       setTheCragImporting(true);
-      const result = await apiUpload("/realisations/import-thecrag", file, {
+      if (!theCragStartDate) throw new Error("Choisissez une date de début pour l’import theCrag.");
+      const result = await apiUpload(`/realisations/import-thecrag?startDate=${encodeURIComponent(theCragStartDate)}`, file, {
         headers: { "Content-Type": "application/vnd.ms-excel" },
       });
       await refreshRealisations();
@@ -177,6 +179,7 @@ export default function Profil({
         result.duplicates ? `${result.duplicates} déjà présente(s)` : "",
         result.unmatched ? `${result.unmatched} voie(s) non reconnue(s)` : "",
         result.invalid ? `${result.invalid} ligne(s) invalide(s)` : "",
+        result.filteredBeforeStart ? `${result.filteredBeforeStart} antérieure(s) à la date de début ignorée(s)` : "",
       ].filter(Boolean).join(" · ");
       setTheCragImportStatus({ type: "success", message: `Import theCrag réussi : ${details || "import terminé."}` });
     } catch (error) {
@@ -249,7 +252,7 @@ export default function Profil({
               </div>
             </div>
             <div className="group" style={{ marginTop: 10 }}>
-              <span className="pill">Passeport : {selectedParticipant.passport || "-"}</span>
+              <span className="pill">Passeport FFME : {selectedParticipant.passport || "-"}</span>
               <span className="pill">Cotisation : {selectedParticipant.cotisation ? "Oui" : "Non"}</span>
               <span className="pill">Licence FFME : {selectedParticipant.ffme ? "Oui" : "Non"}</span>
               <span className="pill">Sexe : {selectedParticipant.sexe ? String(selectedParticipant.sexe).toUpperCase() : "Non précisé"}</span>
@@ -413,26 +416,40 @@ export default function Profil({
                   <div className="card-header">
                     <h3>theCrag</h3>
                     <div className="group">
+                      <label className="inline-field">
+                        <span>Date de début</span>
+                        <input
+                          type="date"
+                          value={theCragStartDate}
+                          onChange={(event) => setTheCragStartDate(event.target.value)}
+                        />
+                      </label>
                       <input
                         id="thecrag-import-file"
                         type="file"
                         accept=".xls,application/vnd.ms-excel"
                         style={{ display: "none" }}
                         onChange={importTheCragFile}
-                        disabled={theCragImporting}
+                        disabled={theCragImporting || !theCragStartDate}
                       />
                       <Button
                         type="button"
                         variant="secondary"
-                        disabled={theCragImporting}
+                        disabled={theCragImporting || !theCragStartDate}
                         onClick={() => document.getElementById("thecrag-import-file")?.click()}
                       >
                         {theCragImporting ? "Import en cours…" : "Importer depuis theCrag (.xls)"}
                       </Button>
-                      <Button variant="secondary" onClick={exportMyRealisationsCsv} disabled={myRealisations.length === 0}>Exporter pour theCrag</Button>
+                      <Button
+                        variant="secondary"
+                        onClick={() => exportMyRealisationsCsv(theCragStartDate)}
+                        disabled={myRealisations.length === 0 || !theCragStartDate}
+                      >
+                        Exporter pour theCrag
+                      </Button>
                     </div>
                   </div>
-                  <div className="small">Format attendu : export du carnet theCrag, feuille « Ascents » au format Excel .xls.</div>
+                  <div className="small">La date de début est appliquée à l’import et à l’export. Seules les réalisations à compter de cette date sont prises en compte. Format d’import : feuille « Ascents » au format Excel .xls.</div>
                   {theCragImporting && <div className="muted-box" role="status" style={{ marginTop: 8 }}>Import theCrag en cours…</div>}
                   {theCragImportStatus && (
                     <div
