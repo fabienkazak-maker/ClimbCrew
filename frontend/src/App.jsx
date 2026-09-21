@@ -1463,11 +1463,17 @@ async function handleThemePreferenceChange(nextTheme) {
     setImportMessage(`Export local version ${APP_VERSION} réussi.`);
   }
 
-  function exportMyRealisationsCsv() {
+  function exportMyRealisationsCsv(startDate = "") {
     if (!myParticipant) return;
+    const normalizedStartDate = String(startDate || "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedStartDate)) {
+      setConfirmationMessage("Choisissez une date de début valide pour l’export theCrag.");
+      return;
+    }
 
     const headers = ["country", "crag", "sector", "route", "grade", "date", "style", "comment"];
     const rows = [...myRealisations]
+      .filter((realisation) => String(realisation.dateRealisation || "").slice(0, 10) >= normalizedStartDate)
       .sort((a, b) => a.dateRealisation.localeCompare(b.dateRealisation))
       .map((realisation) => {
         const route = routesById[realisation.voieId];
@@ -1491,9 +1497,9 @@ async function handleThemePreferenceChange(nextTheme) {
           details,
         ];
       });
-    const filename = `thecrag-${csvFileSlug(fullName(myParticipant))}.csv`;
+    const filename = `thecrag-${csvFileSlug(fullName(myParticipant))}-depuis-${normalizedStartDate}.csv`;
     downloadFile(filename, buildCsv(headers, rows), "text/csv;charset=utf-8;");
-    setConfirmationMessage("Export theCrag téléchargé.");
+    setConfirmationMessage(`${rows.length} réalisation(s) exportée(s) vers theCrag depuis le ${normalizedStartDate}.`);
   }
 
   async function importJsonFile(event) {
