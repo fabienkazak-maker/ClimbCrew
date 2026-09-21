@@ -18,3 +18,20 @@ test("Mon profil ouvre les choix avatar image et sexe en cliquant sur l'avatar",
   assert.match(source, /PNG, JPEG ou WebP · 5 Mo maximum/);
   assert.match(source, /style=\{\{ display: "none" \}\}/);
 });
+
+
+test("le changement d'avatar force le rechargement de l'image affichée", async () => {
+  const source = await readFile(new URL("../src/components/ProfileGecko.jsx", import.meta.url), "utf8");
+  assert.match(source, /avatarImageRevision/);
+  assert.match(source, /setAvatarImageRevision\(\(revision\) => revision \+ 1\)/);
+  assert.match(source, /refreshableImageSource/);
+  assert.match(source, /reload=/);
+});
+
+
+test("le profil local se resynchronise avec l'avatar sauvegardé", async () => {
+  const source = await readFile(new URL("../src/pages/Profil.jsx", import.meta.url), "utf8");
+  assert.match(source, /setParticipants\(\(current\) =>/);
+  assert.match(source, /participant\.id\) === participantId \? myParticipant : participant/);
+  assert.match(source, /\[myParticipant, \.\.\.current\]/);
+});

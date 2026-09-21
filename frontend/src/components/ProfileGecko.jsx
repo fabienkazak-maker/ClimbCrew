@@ -116,6 +116,7 @@ export default function ProfileGecko({ grade, sexe, participant, onProfileUpdate
   const [showEvolutionHistory, setShowEvolutionHistory] = useState(false);
   const [showAvatarEditor, setShowAvatarEditor] = useState(false);
   const [customImageError, setCustomImageError] = useState("");
+  const [avatarImageRevision, setAvatarImageRevision] = useState(0);
   const fileInputRef = useRef(null);
   const accent = variant === "feminine" ? "#db2777" : LEVEL_ACCENTS[level - 1];
   const avatar = useMemo(
@@ -133,6 +134,7 @@ export default function ProfileGecko({ grade, sexe, participant, onProfileUpdate
     try {
       const preparedImage = await prepareCustomImage(file);
       await onProfileUpdate?.({ customAvatarImage: preparedImage });
+      setAvatarImageRevision((revision) => revision + 1);
       setShowEvolutionHistory(false);
     } catch (error) {
       setCustomImageError(error.message || "Impossible de charger cette image.");
@@ -141,10 +143,31 @@ export default function ProfileGecko({ grade, sexe, participant, onProfileUpdate
     }
   }
 
-  function removeCustomImage() {
-    onProfileUpdate?.({ customAvatarImage: "" });
+  async function removeCustomImage() {
+    try {
+      setCustomImageError("");
+      await onProfileUpdate?.({ customAvatarImage: "" });
+      setAvatarImageRevision((revision) => revision + 1);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    } catch (error) {
+      setCustomImageError(error.message || "Impossible de retirer cette image.");
+    }
+  }
+
+  async function changeAvatar(avatarId) {
     setCustomImageError("");
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    try {
+      await onProfileUpdate?.({ avatarId });
+      setAvatarImageRevision((revision) => revision + 1);
+    } catch (error) {
+      setCustomImageError(error.message || "Impossible de changer l’avatar.");
+    }
+  }
+
+  function refreshableImageSource(source) {
+    if (!source) return source;
+    const separator = source.includes("?") ? "&" : "?";
+    return `${source}${separator}reload=${avatarImageRevision}`;
   }
 
   function handleAvatarImageClick() {
@@ -173,7 +196,7 @@ export default function ProfileGecko({ grade, sexe, participant, onProfileUpdate
           onClick={handleAvatarImageClick}
           title={editable ? "Cliquer pour modifier l’avatar, l’image ou le sexe" : undefined}
         >
-          <img className={`profile-animal-image${customImage ? " profile-custom-image" : ""}`} src={customImage || imageForLevel(avatar, level, variant)} alt="" draggable="false" />
+          <img key={`${avatar.id}-${level}-${variant}-${avatarImageRevision}-${customImage ? "custom" : "standard"}`} className={`profile-animal-image${customImage ? " profile-custom-image" : ""}`} src={refreshableImageSource(customImage || imageForLevel(avatar, level, variant))} alt="" draggable="false" />
         </button>
 
         {editable && showAvatarEditor && (
@@ -183,7 +206,7 @@ export default function ProfileGecko({ grade, sexe, participant, onProfileUpdate
             <div className="grid two" style={{ marginTop: 8 }}>
               <label>
                 <span>Avatar</span>
-                <select value={avatar.id} onChange={(event) => onProfileUpdate?.({ avatarId: event.target.value })}>
+                <select value={avatar.id} onChange={(event) => changeAvatar(event.target.value)}>
                   {AVATAR_GROUPS.map((group) => (
                     <optgroup key={group} label={group}>
                       {AVATAR_OPTIONS.filter((option) => option.group === group).map((option) => (

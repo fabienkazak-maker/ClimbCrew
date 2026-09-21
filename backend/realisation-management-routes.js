@@ -314,6 +314,10 @@ export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
       if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
         return res.status(400).json({ error: "Fichier theCrag vide." });
       }
+      const startDate = String(req.query.startDate || req.headers["x-thecrag-start-date"] || "").trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+        return res.status(400).json({ error: "Date de début theCrag obligatoire (AAAA-MM-JJ)." });
+      }
 
       let client;
       try {
@@ -346,19 +350,24 @@ export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
         let invalid = 0;
         let sessionsCreated = 0;
         let registrationsAdded = 0;
+        let filteredBeforeStart = 0;
         const unmatchedRoutes = new Set();
 
         for (const row of rows) {
-          const route = findTheCragRoute(routes, row);
-          if (!route) {
-            unmatched += 1;
-            unmatchedRoutes.add(String(row["Route Name"] || "Voie inconnue"));
-            continue;
-          }
           const date = excelSerialToIsoDate(row["Ascent Date"]);
           const ascentId = String(row["Ascent ID"] || "").replace(/\.0$/, "").trim();
           if (!date || !ascentId) {
             invalid += 1;
+            continue;
+          }
+          if (date < startDate) {
+            filteredBeforeStart += 1;
+            continue;
+          }
+          const route = findTheCragRoute(routes, row);
+          if (!route) {
+            unmatched += 1;
+            unmatchedRoutes.add(String(row["Route Name"] || "Voie inconnue"));
             continue;
           }
 
@@ -413,6 +422,8 @@ export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
           invalid,
           sessionsCreated,
           registrationsAdded,
+          filteredBeforeStart,
+          startDate,
           unmatchedRoutes: [...unmatchedRoutes].slice(0, 20),
         });
       } catch (error) {
@@ -880,6 +891,43 @@ export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
       res.json({ ok: true, videoUrls: videoUrlsForUpdate });
     } catch (error) {
       res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
+    }
+  });
+
+  app.delete("/realisations/me", requireAuth, async (req, res) => {
+    const participantId = req.auth?.user?.participantId;
+    if (!participantId) return res.status(403).json({ error: "Compte non relié à un grimpeur" });
+
+    let client;
+    try {
+      client = await pool.connect();
+      await client.query("begin");
+      await client.query(
+        `delete from route_video_upload_chunks where participant_id = $1`,
+        [String(participantId)],
+      );
+      await client.query(
+        `
+          delete from route_videos
+          where source_realisation_id in (
+            select id from realisations where participant_id = $1
+          )
+        `,
+        [String(participantId)],
+      );
+      const result = await client.query(
+        `delete from realisations where participant_id = $1`,
+        [String(participantId)],
+      );
+      await client.query("commit");
+      return res.json({ ok: true, affected: result.rowCount });
+    } catch (error) {
+      if (client) {
+        try { await client.query("rollback"); } catch { /* transaction déjà terminée */ }
+      }
+      return res.status(error.status || 500).json({ error: error.message || "Reset des réalisations impossible." });
+    } finally {
+      client?.release();
     }
   });
 

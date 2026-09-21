@@ -65,8 +65,13 @@ test("un compte pending déjà vérifié peut être activé après changement de
   assert.match(approvalSource, /if \(!tokenRow\.used_at\)/);
 });
 
-test("les demandes pending exceptionnelles restent visibles dans Gestion des comptes", () => {
-  assert.match(accountSource, /where status <> 'pending'[\s\S]*or email_verified_at is not null/);
+test("toutes les demandes pending restent visibles dans Gestion des comptes avec leur statut d'envoi", () => {
+  assert.match(accountSource, /from users u/);
+  assert.doesNotMatch(accountSource, /where status <> 'pending'/);
+  assert.match(accountSource, /confirmation_email_event/);
+  assert.match(accountSource, /account_request_confirmation_email_sent/);
+  assert.match(accountSource, /account_request_confirmation_email_skipped/);
+  assert.match(accountSource, /account_request_confirmation_email_failed/);
 });
 
 test("l'approbation manuelle reste disponible pour une régularisation exceptionnelle", () => {

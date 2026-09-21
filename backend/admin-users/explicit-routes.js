@@ -3,6 +3,7 @@ import {
   confirmEmailChange,
   listUsers,
   requestEmailChange,
+  resendAccountConfirmationEmail,
 } from "./account-service.js";
 import {
   reactivateAccountSafely,
@@ -90,6 +91,7 @@ export function installExplicitAdminUserRoutes(app, {
   app.post("/auth/reset-password", resetRateLimit, secureResetPassword);
   app.get("/auth/verify-email", verifyEmailPendingAdminApproval);
   app.get("/admin/auth/users", requireAuth, requireAdmin, listUsers);
+  app.post("/admin/auth/users/:id/resend-confirmation", requireAuth, requireAdmin, resetRateLimit, resendAccountConfirmationEmail);
   app.post("/admin/auth/users/:id/approve", requireAuth, requireAdmin, approveVerifiedAccountWithParticipantRole);
   app.post("/admin/auth/users/:id/revoke", requireAuth, requireAdmin, revokeAccountSafely);
   app.post("/admin/auth/users/:id/reactivate", requireAuth, requireAdmin, reactivateAccountSafely);

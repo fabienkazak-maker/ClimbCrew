@@ -74,6 +74,7 @@ export default function Profil({
   updateMyProfile,
   exportMyRealisationsCsv,
   onTheCragImported,
+  onRealisationsChanged,
 }) {
   const [participants, setParticipants] = React.useState(() => myParticipant ? [myParticipant] : []);
   const [selectedParticipantId, setSelectedParticipantId] = React.useState(() => String(myParticipantId || ""));
@@ -82,6 +83,7 @@ export default function Profil({
   const [profileError, setProfileError] = React.useState("");
   const [theCragImporting, setTheCragImporting] = React.useState(false);
   const [theCragImportStatus, setTheCragImportStatus] = React.useState(null);
+  const [theCragStartDate, setTheCragStartDate] = React.useState("");
 
   React.useEffect(() => {
     setRealisations(Array.isArray(allRealisations) ? allRealisations : []);
@@ -92,6 +94,18 @@ export default function Profil({
       setSelectedParticipantId(String(myParticipantId));
     }
   }, [myParticipantId, selectedParticipantId]);
+
+  React.useEffect(() => {
+    if (!myParticipant?.id) return;
+    setParticipants((current) => {
+      const participantId = String(myParticipant.id);
+      const exists = current.some((participant) => String(participant.id) === participantId);
+      const next = exists
+        ? current.map((participant) => String(participant.id) === participantId ? myParticipant : participant)
+        : [myParticipant, ...current];
+      return sortParticipantsForProfile(next, myParticipantId);
+    });
+  }, [myParticipant, myParticipantId]);
 
   React.useEffect(() => {
     if (!USE_API) return;
@@ -145,6 +159,24 @@ export default function Profil({
   async function refreshRealisations() {
     const data = await apiFetch("/realisations");
     if (Array.isArray(data)) setRealisations(data);
+    if (typeof onRealisationsChanged === "function") {
+      await onRealisationsChanged();
+    }
+  }
+
+  async function resetOwnRealisations() {
+    if (!isOwnProfile || selectedRealisations.length === 0) return;
+    if (!window.confirm(`Supprimer définitivement vos ${selectedRealisations.length} réalisation(s) ? Cette action est irréversible.`)) return;
+    try {
+      setProfileError("");
+      await apiFetch("/realisations/me", { method: "DELETE" });
+      setRealisations((current) => current.filter(
+        (realisation) => String(realisation.participantId) !== String(myParticipantId),
+      ));
+      await refreshRealisations();
+    } catch (error) {
+      setProfileError(String(error.message || error));
+    }
   }
 
   async function importTheCragFile(event) {
@@ -155,8 +187,9 @@ export default function Profil({
       setProfileError("");
       setTheCragImportStatus(null);
       setTheCragImporting(true);
-      const result = await apiUpload("/realisations/import-thecrag", file, {
-        headers: { "Content-Type": "application/vnd.ms-excel" },
+      if (!theCragStartDate) throw new Error("Choisissez une date de début pour l’import theCrag.");
+      const result = await apiUpload(`/realisations/import-thecrag?startDate=${encodeURIComponent(theCragStartDate)}`, file, {
+        headers: { "Content-Type": "application/vnd.ms-excel", "X-TheCrag-Start-Date": theCragStartDate },
       });
       await refreshRealisations();
       if (typeof onTheCragImported === "function") await onTheCragImported();
@@ -165,6 +198,7 @@ export default function Profil({
         result.duplicates ? `${result.duplicates} déjà présente(s)` : "",
         result.unmatched ? `${result.unmatched} voie(s) non reconnue(s)` : "",
         result.invalid ? `${result.invalid} ligne(s) invalide(s)` : "",
+        result.filteredBeforeStart ? `${result.filteredBeforeStart} antérieure(s) à la date de début ignorée(s)` : "",
       ].filter(Boolean).join(" · ");
       setTheCragImportStatus({ type: "success", message: `Import theCrag réussi : ${details || "import terminé."}` });
     } catch (error) {
@@ -237,7 +271,8 @@ export default function Profil({
               </div>
             </div>
             <div className="group" style={{ marginTop: 10 }}>
-              <span className="pill">Passeport : {selectedParticipant.passport || "-"}</span>
+              <span className="pill">Couleur de passeport : {selectedParticipant.passport || "-"}</span>
+              <span className="pill">Passeport FFME : {selectedParticipant.passeportFfme ? "Oui" : "Non"}</span>
               <span className="pill">Cotisation : {selectedParticipant.cotisation ? "Oui" : "Non"}</span>
               <span className="pill">Licence FFME : {selectedParticipant.ffme ? "Oui" : "Non"}</span>
               <span className="pill">Sexe : {selectedParticipant.sexe ? String(selectedParticipant.sexe).toUpperCase() : "Non précisé"}</span>
@@ -305,6 +340,13 @@ export default function Profil({
                   <span className="small">Cliquer pour afficher</span>
                 </summary>
                 <div style={{ marginTop: 10 }}>
+                  {isOwnProfile && selectedRealisations.length > 0 && (
+                    <div className="group" style={{ justifyContent: "flex-end", marginBottom: 10 }}>
+                      <Button type="button" variant="danger" onClick={resetOwnRealisations}>
+                        Reset mes réalisations
+                      </Button>
+                    </div>
+                  )}
                   {selectedRealisations.length > 1 && (
                     <div className="group" style={{ justifyContent: "flex-end", marginBottom: 10 }}>
                       <label className="group" htmlFor="profile-realisation-sort">
@@ -401,26 +443,40 @@ export default function Profil({
                   <div className="card-header">
                     <h3>theCrag</h3>
                     <div className="group">
+                      <label className="inline-field">
+                        <span>Date de début</span>
+                        <input
+                          type="date"
+                          value={theCragStartDate}
+                          onChange={(event) => setTheCragStartDate(event.target.value)}
+                        />
+                      </label>
                       <input
                         id="thecrag-import-file"
                         type="file"
                         accept=".xls,application/vnd.ms-excel"
                         style={{ display: "none" }}
                         onChange={importTheCragFile}
-                        disabled={theCragImporting}
+                        disabled={theCragImporting || !theCragStartDate}
                       />
                       <Button
                         type="button"
                         variant="secondary"
-                        disabled={theCragImporting}
+                        disabled={theCragImporting || !theCragStartDate}
                         onClick={() => document.getElementById("thecrag-import-file")?.click()}
                       >
                         {theCragImporting ? "Import en cours…" : "Importer depuis theCrag (.xls)"}
                       </Button>
-                      <Button variant="secondary" onClick={exportMyRealisationsCsv} disabled={myRealisations.length === 0}>Exporter pour theCrag</Button>
+                      <Button
+                        variant="secondary"
+                        onClick={() => exportMyRealisationsCsv(theCragStartDate)}
+                        disabled={myRealisations.length === 0 || !theCragStartDate}
+                      >
+                        Exporter pour theCrag
+                      </Button>
                     </div>
                   </div>
-                  <div className="small">Format attendu : export du carnet theCrag, feuille « Ascents » au format Excel .xls.</div>
+                  <div className="small">La date de début est appliquée à l’import et à l’export. Seules les réalisations à compter de cette date sont prises en compte. Format d’import : feuille « Ascents » au format Excel .xls.</div>
                   {theCragImporting && <div className="muted-box" role="status" style={{ marginTop: 8 }}>Import theCrag en cours…</div>}
                   {theCragImportStatus && (
                     <div
