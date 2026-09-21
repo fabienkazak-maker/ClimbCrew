@@ -19,7 +19,7 @@ import Logs from "./pages/Logs.jsx";
 import Statistiques from "./pages/Statistiques.jsx";
 
 import { THEME_OPTIONS, THEME_PREFERENCE_KEY, resolveThemePreference } from "./lib/theme.js";
-import { ROPE_NUMBERS, ROUTE_COLORS, STYLE_LABELS, ROUTE_TAGS, TABS } from "./lib/ui-config.js";
+import { ROPE_NUMBERS, ROUTE_COLORS, STYLE_LABELS, TABS } from "./lib/ui-config.js";
 import {
   MAX_PARTICIPANTS,
   fullName,
@@ -50,7 +50,6 @@ import {
 import { USE_API, apiFetch, downloadFile } from "./lib/api.js";
 import { normalizeAppData } from "./lib/normalize.js";
 import { APP_VERSION } from "./lib/version.js";
-import { buildCsv, csvFileSlug } from "./lib/csv.js";
 import { EMPTY_APP_DATA, useAppBusinessState } from "./hooks/useAppBusinessState.js";
 import { useAppUiState } from "./hooks/useAppUiState.js";
 import { useAuthState } from "./hooks/useAuthState.js";
@@ -60,7 +59,7 @@ import { useRouteEditorState } from "./hooks/useRouteEditorState.js";
 import { useRealisationEditorState } from "./hooks/useRealisationEditorState.js";
 import { PASSWORD_RULE_TEXT, isStrongPassword } from "./lib/password-policy.js";
 import { buildRouteDisplayGroups } from "./lib/route-display-groups.js";
-import { theCragStyleForRealisation } from "./lib/thecrag.js";
+import { buildTheCragExport } from "./lib/thecrag.js";
 import {
   buildRealisationDraft,
   buildRealisationPayload,
@@ -1465,41 +1464,18 @@ async function handleThemePreferenceChange(nextTheme) {
 
   function exportMyRealisationsCsv(startDate = "") {
     if (!myParticipant) return;
-    const normalizedStartDate = String(startDate || "").trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedStartDate)) {
-      setConfirmationMessage("Choisissez une date de début valide pour l’export theCrag.");
-      return;
-    }
-
-    const headers = ["country", "crag", "sector", "route", "grade", "date", "style", "comment"];
-    const rows = [...myRealisations]
-      .filter((realisation) => String(realisation.dateRealisation || "").slice(0, 10) >= normalizedStartDate)
-      .sort((a, b) => a.dateRealisation.localeCompare(b.dateRealisation))
-      .map((realisation) => {
-        const route = routesById[realisation.voieId];
-        const ropeNumber = route ? normalizeRopeNumber(route.numeroCorde) : 0;
-        const routeName = route?.nomVoie?.trim() || `Voie corde ${ropeNumber}`;
-        const details = [
-          route?.nomOuvreur ? `Ouvreur : ${route.nomOuvreur}` : "",
-          route?.couleurPrises ? `Couleur : ${route.couleurPrises}` : "",
-          realisation.cotationProposee ? `Cotation proposée : ${realisation.cotationProposee}` : "",
-          route?.tags?.length ? `Caractéristiques : ${route.tags.map((tag) => ROUTE_TAGS.find((item) => item.value === tag)?.label || tag).join(", ")}` : "",
-          realisation.commentaire || "",
-        ].filter(Boolean).join(" · ");
-        return [
-          "France",
-          "ASTC",
-          `Corde ${ropeNumber}`,
-          routeName,
-          route?.cotationAjustee || route?.cotationReference || "",
-          realisation.dateRealisation?.slice(0, 10) || "",
-          theCragStyleForRealisation(realisation, route),
-          details,
-        ];
+    try {
+      const exported = buildTheCragExport({
+        participant: myParticipant,
+        realisations: myRealisations,
+        routesById,
+        startDate,
       });
-    const filename = `thecrag-${csvFileSlug(fullName(myParticipant))}-depuis-${normalizedStartDate}.csv`;
-    downloadFile(filename, buildCsv(headers, rows), "text/csv;charset=utf-8;");
-    setConfirmationMessage(`${rows.length} réalisation(s) exportée(s) vers theCrag depuis le ${normalizedStartDate}.`);
+      downloadFile(exported.filename, exported.csv, "text/csv;charset=utf-8;");
+      setConfirmationMessage(`${exported.count} réalisation(s) exportée(s) vers theCrag depuis le ${exported.startDate}.`);
+    } catch (error) {
+      setConfirmationMessage(String(error.message || error));
+    }
   }
 
   async function importJsonFile(event) {
