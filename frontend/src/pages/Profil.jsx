@@ -252,7 +252,8 @@ export default function Profil({
               </div>
             </div>
             <div className="group" style={{ marginTop: 10 }}>
-              <span className="pill">Passeport FFME : {selectedParticipant.passport || "-"}</span>
+              <span className="pill">Couleur de passeport : {selectedParticipant.passport || "-"}</span>
+              <span className="pill">Passeport FFME : {selectedParticipant.passeportFfme ? "Oui" : "Non"}</span>
               <span className="pill">Cotisation : {selectedParticipant.cotisation ? "Oui" : "Non"}</span>
               <span className="pill">Licence FFME : {selectedParticipant.ffme ? "Oui" : "Non"}</span>
               <span className="pill">Sexe : {selectedParticipant.sexe ? String(selectedParticipant.sexe).toUpperCase() : "Non précisé"}</span>

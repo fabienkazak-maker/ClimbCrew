@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from "react";
 import { apiFetch } from "../lib/api.js";
 
-const BOOLEAN_KEYS = new Set(["cotisation","ffme","canEncadrer","canReferer","canAdmin","initiateurSae","initiateurSne"]);
+const BOOLEAN_KEYS = new Set(["cotisation","passeportFfme","ffme","canEncadrer","canReferer","canAdmin","initiateurSae","initiateurSne"]);
 const COLUMNS = [
-  ["nom","Nom"],["prenom","Prénom"],["email","E-mail"],["sexe","Sexe"],["passport","Passeport FFME"],
-  ["cotisation","Cotisation"],["ffme","FFME"],["canEncadrer","Encadrant"],["canReferer","Référent"],
+  ["nom","Nom"],["prenom","Prénom"],["email","E-mail"],["sexe","Sexe"],["passport","Couleur passeport"],
+  ["passeportFfme","Passeport FFME"],["cotisation","Cotisation"],["ffme","FFME"],["canEncadrer","Encadrant"],["canReferer","Référent"],
   ["canAdmin","Administrateur"],["initiateurSae","Initiateur SAE"],["initiateurSne","Initiateur SNE"],["sessions","Séances"],
 ];
 const PASSPORTS = ["sans","decouverte","jaune","orange","vert","bleu"];
@@ -26,6 +26,7 @@ const COLUMN_WIDTHS = {
   email: "18%",
   sexe: "4%",
   passport: "7%",
+  passeportFfme: "6%",
   cotisation: "5%",
   ffme: "4%",
   canEncadrer: "5%",
@@ -107,7 +108,7 @@ export default function DonneesUtilisateurs({ participants = [], sessions = [], 
         body:JSON.stringify({
           ...p,...d,
           nom:String(d.nom||"").trim(), prenom:String(d.prenom||"").trim(), email:String(d.email||"").trim(),
-          sexe:d.sexe||"", passport:d.passport||"sans",
+          sexe:d.sexe||"", passport:d.passport||"sans", passeportFfme:Boolean(d.passeportFfme),
           cotisation:Boolean(d.cotisation), ffme:Boolean(d.ffme), canEncadrer:Boolean(d.canEncadrer),
           canReferer:Boolean(d.canReferer), canAdmin:Boolean(d.canAdmin),
         }),
@@ -145,10 +146,11 @@ export default function DonneesUtilisateurs({ participants = [], sessions = [], 
         <div><label>Nom</label><input value={newParticipant.nom || ""} onChange={e=>setNewParticipant(p=>({...p,nom:e.target.value}))} /></div>
         <div><label>Prénom</label><input value={newParticipant.prenom || ""} onChange={e=>setNewParticipant(p=>({...p,prenom:e.target.value}))} /></div>
         <div><label>E-mail</label><input type="email" value={newParticipant.email || ""} onChange={e=>setNewParticipant(p=>({...p,email:e.target.value}))} /></div>
-        <div><label>Passeport FFME</label><select value={newParticipant.passport || "sans"} onChange={e=>setNewParticipant(p=>({...p,passport:e.target.value}))}>{PASSPORTS.map(v=><option key={v} value={v}>{v}</option>)}</select></div>
+        <div><label>Couleur passeport</label><select value={newParticipant.passport || "sans"} onChange={e=>setNewParticipant(p=>({...p,passport:e.target.value}))}>{PASSPORTS.map(v=><option key={v} value={v}>{v}</option>)}</select></div>
         <div><label>Sexe</label><select value={newParticipant.sexe || ""} onChange={e=>setNewParticipant(p=>({...p,sexe:e.target.value}))}><option value="">-</option><option value="h">H</option><option value="f">F</option></select></div>
       </div>
       <div className="group" style={{marginTop:10}}>
+        <label><input type="checkbox" checked={Boolean(newParticipant.passeportFfme)} onChange={e=>setNewParticipant(p=>({...p,passeportFfme:e.target.checked}))} /> Passeport FFME</label>
         <label><input type="checkbox" checked={Boolean(newParticipant.cotisation)} onChange={e=>setNewParticipant(p=>({...p,cotisation:e.target.checked}))} /> Cotisation</label>
         <label><input type="checkbox" checked={Boolean(newParticipant.ffme)} onChange={e=>setNewParticipant(p=>({...p,ffme:e.target.checked}))} /> FFME</label>
         <label><input type="checkbox" checked={Boolean(newParticipant.canEncadrer)} onChange={e=>setNewParticipant(p=>({...p,canEncadrer:e.target.checked}))} /> Encadrant</label>
