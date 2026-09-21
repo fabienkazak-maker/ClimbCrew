@@ -314,6 +314,10 @@ export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
       if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
         return res.status(400).json({ error: "Fichier theCrag vide." });
       }
+      const startDate = String(req.query.startDate || "").trim();
+      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(startDate)) {
+        return res.status(400).json({ error: "Date de début theCrag obligatoire (AAAA-MM-JJ)." });
+      }
 
       let client;
       try {
@@ -346,19 +350,24 @@ export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
         let invalid = 0;
         let sessionsCreated = 0;
         let registrationsAdded = 0;
+        let filteredBeforeStart = 0;
         const unmatchedRoutes = new Set();
 
         for (const row of rows) {
-          const route = findTheCragRoute(routes, row);
-          if (!route) {
-            unmatched += 1;
-            unmatchedRoutes.add(String(row["Route Name"] || "Voie inconnue"));
-            continue;
-          }
           const date = excelSerialToIsoDate(row["Ascent Date"]);
           const ascentId = String(row["Ascent ID"] || "").replace(/\.0$/, "").trim();
           if (!date || !ascentId) {
             invalid += 1;
+            continue;
+          }
+          if (date < startDate) {
+            filteredBeforeStart += 1;
+            continue;
+          }
+          const route = findTheCragRoute(routes, row);
+          if (!route) {
+            unmatched += 1;
+            unmatchedRoutes.add(String(row["Route Name"] || "Voie inconnue"));
             continue;
           }
 
@@ -413,6 +422,8 @@ export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
           invalid,
           sessionsCreated,
           registrationsAdded,
+          filteredBeforeStart,
+          startDate,
           unmatchedRoutes: [...unmatchedRoutes].slice(0, 20),
         });
       } catch (error) {
