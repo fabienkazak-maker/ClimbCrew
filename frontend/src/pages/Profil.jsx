@@ -170,7 +170,7 @@ export default function Profil({
       setTheCragImporting(true);
       if (!theCragStartDate) throw new Error("Choisissez une date de début pour l’import theCrag.");
       const result = await apiUpload(`/realisations/import-thecrag?startDate=${encodeURIComponent(theCragStartDate)}`, file, {
-        headers: { "Content-Type": "application/vnd.ms-excel" },
+        headers: { "Content-Type": "application/vnd.ms-excel", "X-TheCrag-Start-Date": theCragStartDate },
       });
       await refreshRealisations();
       if (typeof onTheCragImported === "function") await onTheCragImported();
