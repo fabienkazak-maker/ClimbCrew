@@ -730,7 +730,7 @@ function App() {
         ]);
       }
       setNewParticipant({
-        nom: "", prenom: "", email: "", passport: "sans", sexe: "", cotisation: false, ffme: false, canEncadrer: false, canReferer: false, canAdmin: false,
+        nom: "", prenom: "", email: "", passport: "sans", passeportFfme: false, sexe: "", cotisation: false, ffme: false, canEncadrer: false, canReferer: false, canAdmin: false,
       });
       setConfirmationMessage("Participant ajouté.");
     } catch (e) {
