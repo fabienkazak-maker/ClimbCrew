@@ -315,7 +315,7 @@ export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
         return res.status(400).json({ error: "Fichier theCrag vide." });
       }
       const startDate = String(req.query.startDate || req.headers["x-thecrag-start-date"] || "").trim();
-      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(startDate)) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
         return res.status(400).json({ error: "Date de début theCrag obligatoire (AAAA-MM-JJ)." });
       }
 
