@@ -1812,6 +1812,7 @@ async function handleThemePreferenceChange(nextTheme) {
             updateMyProfile={updateMyProfile}
             exportMyRealisationsCsv={exportMyRealisationsCsv}
             onTheCragImported={() => reloadApiState({ isMounted: () => true })}
+            onRealisationsChanged={() => reloadApiState({ isMounted: () => true })}
           />
         )}
 
