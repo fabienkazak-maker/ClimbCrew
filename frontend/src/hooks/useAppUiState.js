@@ -1,6 +1,12 @@
 import { useState } from "react";
 
 const PLANNING_VIEW_KEY = "climbcrew-planning-view";
+const ACTIVE_TAB_KEY = "climbcrew-active-tab";
+
+function getInitialTab() {
+  if (typeof window === "undefined") return "inscriptions";
+  return window.sessionStorage.getItem(ACTIVE_TAB_KEY) || "inscriptions";
+}
 
 function getInitialPlanningView() {
   if (typeof window === "undefined") return "jour";
@@ -14,7 +20,12 @@ function getInitialPlanningView() {
 }
 
 export function useAppUiState({ useApi }) {
-  const [tab, setTab] = useState("inscriptions");
+  const [tabState, setTabState] = useState(getInitialTab);
+  const setTab = (nextTab) => {
+    setTabState(nextTab);
+    if (typeof window !== "undefined") window.sessionStorage.setItem(ACTIVE_TAB_KEY, nextTab);
+  };
+  const tab = tabState;
   const [viewModeState, setViewModeState] = useState(getInitialPlanningView);
   const setViewMode = (mode) => {
     setViewModeState(mode);
