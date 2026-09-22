@@ -21,7 +21,7 @@ export const REALISATION_STYLES = [
   "travaillee", "projet", "non_enchainee", "test",
 ];
 export const ROUTE_TAGS = [
-  "dalle", "devers", "physique", "technique", "a_doigts",
+  "dalle", "devers", "diedre", "physique", "technique", "a_doigts",
   "continuite", "morphologique", "engagee",
 ];
 
