@@ -1,8 +1,28 @@
 import { useState } from "react";
 
+const PLANNING_VIEW_KEY = "climbcrew-planning-view";
+
+function getInitialPlanningView() {
+  if (typeof window === "undefined") return "jour";
+
+  const savedView = window.localStorage.getItem(PLANNING_VIEW_KEY);
+  if (savedView === "jour" || savedView === "semaine") return savedView;
+
+  return typeof window.matchMedia === "function" && window.matchMedia("(min-width: 1200px)").matches
+    ? "semaine"
+    : "jour";
+}
+
 export function useAppUiState({ useApi }) {
   const [tab, setTab] = useState("inscriptions");
-  const [viewMode, setViewMode] = useState("jour");
+  const [viewModeState, setViewModeState] = useState(getInitialPlanningView);
+  const setViewMode = (mode) => {
+    setViewModeState(mode);
+    if (typeof window !== "undefined" && (mode === "jour" || mode === "semaine")) {
+      window.localStorage.setItem(PLANNING_VIEW_KEY, mode);
+    }
+  };
+  const viewMode = viewModeState;
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [statsSortField, setStatsSortField] = useState("name");
   const [statsSortDirection, setStatsSortDirection] = useState("asc");
