@@ -41,12 +41,11 @@
 }
 
 
-/* Une séance libre sans référent ou encadrée sans encadrant conserve sa couleur
- * métier, mais dans une teinte plus foncée. Aucun hachurage n'est appliqué. */
-.session-card.session-status-libre.session-card-missing-supervisor {
-  background: linear-gradient(135deg, rgba(20, 83, 45, .62), rgba(5, 46, 22, .78)) !important;
-}
-
+/* Une séance libre sans référent ou encadrée sans encadrant est neutralisée
+ * en gris. Cette règle doit rester après les couleurs de statut afin de gagner
+ * la cascade, y compris avec les !important du thème. */
+.session-card.session-status-libre.session-card-missing-supervisor,
 .session-card.session-status-encadree.session-card-missing-supervisor {
-  background: linear-gradient(135deg, rgba(30, 64, 175, .62), rgba(23, 37, 84, .78)) !important;
+  background: #6b7280 !important;
+  border-color: #9ca3af !important;
 }
