@@ -42,8 +42,11 @@
 
 
 /* Une séance libre sans référent ou encadrée sans encadrant conserve sa couleur
- * métier, mais un motif hachuré signale immédiatement qu'elle est incomplète. */
-.session-card.session-card-missing-supervisor {
-  background-image: repeating-linear-gradient(135deg, rgba(255,255,255,.24) 0, rgba(255,255,255,.24) 8px, rgba(15,23,42,.20) 8px, rgba(15,23,42,.20) 16px) !important;
-  background-blend-mode: overlay;
+ * métier, mais dans une teinte plus foncée. Aucun hachurage n'est appliqué. */
+.session-card.session-status-libre.session-card-missing-supervisor {
+  background: linear-gradient(135deg, rgba(20, 83, 45, .62), rgba(5, 46, 22, .78)) !important;
+}
+
+.session-card.session-status-encadree.session-card-missing-supervisor {
+  background: linear-gradient(135deg, rgba(30, 64, 175, .62), rgba(23, 37, 84, .78)) !important;
 }
