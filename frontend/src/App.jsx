@@ -1513,14 +1513,14 @@ async function handleThemePreferenceChange(nextTheme) {
   function renderSessionCard(session, compact = false) {
     const inscrits = session.participantIds.map((id) => participantsById[id]).filter(Boolean);
     const occupied = inscrits.length + (session.encadrantId ? 1 : 0) + (session.referentId ? 1 : 0);
-    const freeSessionPassports = new Set(["jaune", "orange", "vert", "bleu"]);
+    const missingSupervisor = (session.status === "encadree" && !session.encadrantId)\n      || (session.status === "libre" && !session.referentId);\n    const freeSessionPassports = new Set(["jaune", "orange", "vert", "bleu"]);
     const availableParticipants = state.participants.filter((p) =>
       !session.participantIds.includes(p.id)
       && (session.status !== "libre" || freeSessionPassports.has(normalizePassport(p.passport)))
     );
 
     return (
-      <div className={`card session-card session-status-${String(session.status || "fermee").trim().toLowerCase()} ${compact ? "session-card-compact" : ""}`} key={session.id}>
+      <div className={`card session-card session-status-${String(session.status || "fermee").trim().toLowerCase()} ${missingSupervisor ? "session-card-missing-supervisor" : ""} ${compact ? "session-card-compact" : ""}`} key={session.id}>
         <div className="card-header">
           <h3>Séance {session.slot}</h3>
           <span className="badge">{occupied}/{MAX_PARTICIPANTS}</span>
