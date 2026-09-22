@@ -64,6 +64,7 @@ import {
   buildRealisationDraft,
   buildRealisationPayload,
   getParticipantSessionDays,
+  getSessionParticipantIds,
   isManagedSession,
   resolveSessionIdForRealisation,
 } from "./lib/realisation-workflow.js";
@@ -251,7 +252,7 @@ function App() {
       state.sessions
         .filter((session) => session.date === newRealisation.selectedDay)
         .filter(isManagedSession)
-        .flatMap((session) => session.participantIds || [])
+        .flatMap((session) => getSessionParticipantIds(session))
     );
 
     return modalAllEligibleParticipants.filter((participant) => participantIdsForSelectedDay.has(participant.id));
@@ -355,10 +356,10 @@ function App() {
   }
 
   const sessionStats = useMemo(() => {
-    const unique = new Set(state.sessions.flatMap((s) => s.participantIds));
+    const unique = new Set(state.sessions.flatMap((session) => getSessionParticipantIds(session)));
     const participationCount = {};
     state.sessions.forEach((session) => {
-      session.participantIds.forEach((id) => {
+      getSessionParticipantIds(session).forEach((id) => {
         participationCount[id] = (participationCount[id] || 0) + 1;
       });
     });
@@ -974,7 +975,7 @@ function App() {
     if (!participantId) return [];
 
     return state.sessions
-      .filter((session) => session.participantIds?.includes(participantId))
+      .filter((session) => getSessionParticipantIds(session).includes(String(participantId)))
       .sort((a, b) => {
         const dateCompare = b.date.localeCompare(a.date);
         if (dateCompare !== 0) return dateCompare;
@@ -1104,19 +1105,19 @@ async function deleteRealisation(realisation) {
       return;
     }
     if (!newRealisation.participantId || !newRealisation.selectedDay || !newRealisation.voieId) {
-      alert("Sélectionne un jour, un participant et une voie.");
+      alert("Sélectionne un jour et une voie.");
       return;
     }
 
     const participant = participantsById[newRealisation.participantId];
     if (!participant?.cotisation) {
-      alert("Le participant doit avoir payé sa cotisation pour enregistrer une réalisation.");
+      alert("Votre cotisation doit être à jour pour enregistrer une réalisation.");
       return;
     }
 
     const sessionId = resolveSessionIdForRealisation(state.sessions, newRealisation.participantId, newRealisation.selectedDay);
     if (!sessionId) {
-      alert("Le participant doit être inscrit à au moins une séance ce jour-là pour enregistrer une réalisation.");
+      alert("Vous devez participer à au moins une séance ce jour-là pour enregistrer une réalisation.");
       return;
     }
 
@@ -1511,13 +1512,14 @@ async function handleThemePreferenceChange(nextTheme) {
   }
 
   function renderSessionCard(session, compact = false) {
-    const inscrits = session.participantIds.map((id) => participantsById[id]).filter(Boolean);
-    const occupied = inscrits.length + (session.encadrantId ? 1 : 0) + (session.referentId ? 1 : 0);
+    const sessionParticipantIds = getSessionParticipantIds(session);
+    const inscrits = sessionParticipantIds.map((id) => participantsById[id]).filter(Boolean);
+    const occupied = inscrits.length;
     const missingSupervisor = (session.status === "encadree" && !session.encadrantId)
       || (session.status === "libre" && !session.referentId);
     const freeSessionPassports = new Set(["jaune", "orange", "vert", "bleu"]);
     const availableParticipants = state.participants.filter((p) =>
-      !session.participantIds.includes(p.id)
+      !sessionParticipantIds.includes(String(p.id))
       && (session.status !== "libre" || freeSessionPassports.has(normalizePassport(p.passport)))
     );
 
