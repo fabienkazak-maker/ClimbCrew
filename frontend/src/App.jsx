@@ -1809,6 +1809,7 @@ async function handleThemePreferenceChange(nextTheme) {
             toggleAllProgressRealisations={toggleAllProgressRealisations}
             allRealisations={state.realisations}
             myParticipantId={myParticipantId}
+            onKudosChanged={() => reloadApiState({ isMounted: () => true })}
           />
         )}
 
