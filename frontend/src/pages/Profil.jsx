@@ -84,6 +84,21 @@ export default function Profil({
   const [theCragImporting, setTheCragImporting] = React.useState(false);
   const [theCragImportStatus, setTheCragImportStatus] = React.useState(null);
   const [theCragStartDate, setTheCragStartDate] = React.useState("");
+  const [kudosPendingId, setKudosPendingId] = React.useState("");
+
+  async function toggleKudo(realisation) {
+    if (!myParticipantId || kudosPendingId) return;
+    setKudosPendingId(realisation.id);
+    try {
+      await apiFetch(`/realisations/${encodeURIComponent(realisation.id)}/kudos`, {
+        method: realisation.kudosByMe ? "DELETE" : "POST",
+      });
+      await refreshRealisations();
+    } finally {
+      setKudosPendingId("");
+    }
+  }
+
 
   React.useEffect(() => {
     setRealisations(Array.isArray(allRealisations) ? allRealisations : []);
@@ -315,6 +330,7 @@ export default function Profil({
                   <div className="stat"><div className="label">CPR actuel</div><div className="value">{cpr.currentGrade || "-"}</div></div>
                   <div className="stat"><div className="label">Points</div><div className="value">{formatPoints(points)}</div></div>
                   <div className="stat"><div className="label">Séances</div><div className="value">{participations}</div></div>
+                  <div className="stat"><div className="label">Kudos reçus</div><div className="value">{selectedRealisations.reduce((total, item) => total + Number(item.kudosCount || 0), 0)}</div></div>
                 </div>
               </div>
 
@@ -382,8 +398,10 @@ export default function Profil({
                             <div>
                               <strong>{route ? formatRouteForRealisation(route) : "Voie inconnue"}</strong>
                               <div className="small">{formatDateShortFr(realisation.dateRealisation?.slice(0, 10))} · {modeLabel} · {criterionLabel}</div>
+                              <div className="small">👍 {Number(realisation.kudosCount || 0)} Kudo{Number(realisation.kudosCount || 0) > 1 ? "s" : ""}</div>
                             </div>
                           </summary>
+                          <div className="group" style={{ justifyContent: "flex-end", marginBottom: 8 }}><Button variant="secondary" disabled={!myParticipantId || kudosPendingId === realisation.id} aria-pressed={Boolean(realisation.kudosByMe)} onClick={() => void toggleKudo(realisation)}>👍 {realisation.kudosByMe ? "Kudo donné" : "Kudo"} · {Number(realisation.kudosCount || 0)}</Button></div>
                           {isOwnProfile && (
                             <div className="group" style={{ justifyContent: "flex-end", marginBottom: 8 }}>
                               <Button variant="danger" onClick={() => deleteOwnRealisation(realisation)}>Supprimer</Button>
