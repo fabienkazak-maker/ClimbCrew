@@ -44,6 +44,7 @@ export const TABS = [
   { key: "inscriptions", label: "Planning" },
   { key: "voies", label: "Voies" },
   { key: "mon_profil", label: "Profil" },
+  { key: "chat", label: "Chat" },
   { key: "statistiques", label: "Statistiques / Tableau d’honneur" },
   { key: "faq", label: "FAQ" },
   { key: "gestion_comptes", label: "Gestion des comptes", adminOnly: true },
