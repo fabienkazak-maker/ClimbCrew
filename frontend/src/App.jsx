@@ -241,8 +241,15 @@ function App() {
   }, [state.participants, state.sessions, authUser?.participantId]);
 
   const modalAvailableDays = useMemo(() => {
-    if (!newRealisation.participantId) return modalAllAvailableDays;
-    return getParticipantSessionDays(state.sessions, newRealisation.participantId);
+    const today = todayIso();
+    const days = newRealisation.participantId
+      ? getParticipantSessionDays(state.sessions, newRealisation.participantId)
+      : modalAllAvailableDays;
+
+    return days
+      .filter((day) => day <= today)
+      .sort((a, b) => b.localeCompare(a))
+      .slice(0, 5);
   }, [newRealisation.participantId, modalAllAvailableDays, state.sessions]);
 
   const modalEligibleParticipants = useMemo(() => {
