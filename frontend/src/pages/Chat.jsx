@@ -1,5 +1,6 @@
 import React from "react";
-import { API_BASE, apiFetch, apiUpload } from "../lib/api.js";\nimport "../styles/chat.css";
+import { API_BASE, apiFetch, apiUpload } from "../lib/api.js";
+import "../styles/chat.css";
 
 const EMOJIS = ["😀","😂","😊","😍","👍","👏","💪","🧗","🔥","🎉","❤️","🤔","😅","🙌","👋","✅","📸","🏆"];
 
