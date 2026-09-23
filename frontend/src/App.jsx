@@ -185,7 +185,7 @@ function App() {
   }, [tab, visibleTabs]);
 
   useEffect(() => {
-    if (canManageAccountsAndLogs && ["administration", "gestion_comptes", "logs"].includes(tab)) {
+    if (canManageAccountsAndLogs && ["administration", "gestion_comptes", "logs", "statistiques"].includes(tab)) {
       loadAdminAccessData();
     }
   }, [tab, canManageAccountsAndLogs, authUser?.id]);
@@ -372,6 +372,7 @@ function App() {
     });
     return {
       nombreInscrits: unique.size,
+      nombreComptesActifs: adminAuthUsers.filter((user) => user.status === "active").length,
       nombreCotisations: state.participants.filter((p) => p.cotisation).length,
       nombreFFME: state.participants.filter((p) => p.ffme).length,
       nombreRealisations: state.realisations.length,
@@ -379,7 +380,7 @@ function App() {
       participationCount,
       sortedParticipants: [...state.participants].sort((a, b) => fullName(a).localeCompare(fullName(b), "fr")),
     };
-  }, [state]);
+  }, [state, adminAuthUsers]);
 
   const alphabeticalParticipants = useMemo(() => {
     return sortParticipantsCurrentUserFirst(state.participants, authUser?.participantId);
