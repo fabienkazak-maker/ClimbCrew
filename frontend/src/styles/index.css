@@ -1327,3 +1327,20 @@ button:not(.danger):not(.secondary):not(.ghost),
   background: #6b7280 !important;
   border-color: #9ca3af !important;
 }
+
+
+.chat-page { min-height: 65vh; display: flex; flex-direction: column; gap: 12px; }
+.chat-thread { flex: 1; min-height: 360px; max-height: 65vh; overflow-y: auto; padding: 12px; border-radius: 14px; background: rgba(127,127,127,.08); }
+.chat-row { display: flex; justify-content: flex-start; margin: 7px 0; }
+.chat-row-mine { justify-content: flex-end; }
+.chat-bubble { max-width: min(78%, 620px); padding: 9px 12px; border-radius: 8px 16px 16px 16px; background: var(--card-bg, #fff); box-shadow: 0 1px 3px rgba(0,0,0,.12); overflow-wrap: anywhere; }
+.chat-bubble-mine { border-radius: 16px 8px 16px 16px; background: #d9fdd3; color: #172117; }
+.chat-composer { display: flex; gap: 8px; align-items: center; }
+.chat-composer input { flex: 1; min-width: 0; }
+.profile-physical-collapsible > summary { list-style: none; }
+.profile-physical-collapsible > summary::-webkit-details-marker { display: none; }
+@media (max-width: 640px) {
+  .chat-page { min-height: calc(100vh - 190px); }
+  .chat-thread { min-height: 300px; max-height: calc(100vh - 300px); }
+  .chat-bubble { max-width: 88%; }
+}
