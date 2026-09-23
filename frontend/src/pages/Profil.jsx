@@ -321,7 +321,17 @@ export default function Profil({
             </div>
           )}
 
-          {profileIsVisible && <PhysicalProfileCard participant={selectedParticipant} editable={isOwnProfile} onUpdate={handleProfileUpdate} />}
+          {profileIsVisible && (
+            <details className="card profile-physical-collapsible">
+              <summary className="card-header" style={{ cursor: "pointer" }}>
+                <h3 style={{ margin: 0 }}>Profil physique</h3>
+                <span className="small">Cliquer pour compacter / étendre</span>
+              </summary>
+              <div style={{ marginTop: 10 }}>
+                <PhysicalProfileCard participant={selectedParticipant} editable={isOwnProfile} onUpdate={handleProfileUpdate} />
+              </div>
+            </details>
+          )}
           {!profileIsVisible ? (
             <div className="muted-box private-profile-notice">Ce grimpeur a choisi de conserver son profil privé.</div>
           ) : (

@@ -11,6 +11,7 @@ import Inscriptions from "./pages/Inscriptions.jsx";
 import Voies from "./pages/Voies.jsx";
 import Progression from "./pages/Progression.jsx";
 import Profil from "./pages/Profil.jsx";
+import Chat from "./pages/Chat.jsx";
 import Parametres from "./pages/Parametres.jsx";
 import Administration from "./pages/Administration.jsx";
 import GestionComptes from "./pages/GestionComptes.jsx";
@@ -1789,6 +1790,13 @@ async function handleThemePreferenceChange(nextTheme) {
             exportMyRealisationsCsv={exportMyRealisationsCsv}
             onTheCragImported={() => reloadApiState({ isMounted: () => true })}
             onRealisationsChanged={() => reloadApiState({ isMounted: () => true })}
+          />
+        )}
+
+        {tab === "chat" && (
+          <Chat
+            myParticipantId={myParticipantId}
+            participants={state.participants}
           />
         )}
 
