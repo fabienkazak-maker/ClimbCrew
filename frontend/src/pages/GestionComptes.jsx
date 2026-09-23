@@ -24,6 +24,7 @@ export default function GestionComptes({
   const [approvingUserId, setApprovingUserId] = useState(null);
   const [adminRoleSavingId, setAdminRoleSavingId] = useState(null);
   const [resendingConfirmationId, setResendingConfirmationId] = useState(null);
+  const [accountSort, setAccountSort] = useState("name");
 
   async function handleApprove(userId) {
     setApprovingUserId(userId);
@@ -110,8 +111,19 @@ export default function GestionComptes({
     return <div className="card"><div className="muted-box">Cette section est réservée aux administrateurs authentifiés.</div></div>;
   }
 
-  const pendingUsers = adminAuthUsers.filter((user) => user.status === "pending");
-  const otherUsers = adminAuthUsers.filter((user) => user.status !== "pending");
+  const sortAccounts = (users) => [...users].sort((a, b) => {
+    if (accountSort === "created") {
+      const left = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const right = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return right - left;
+    }
+    const lastName = String(a.nom || "").localeCompare(String(b.nom || ""), "fr", { sensitivity: "base" });
+    if (lastName !== 0) return lastName;
+    return String(a.prenom || "").localeCompare(String(b.prenom || ""), "fr", { sensitivity: "base" });
+  });
+
+  const pendingUsers = sortAccounts(adminAuthUsers.filter((user) => user.status === "pending"));
+  const otherUsers = sortAccounts(adminAuthUsers.filter((user) => user.status !== "pending"));
 
   function participantOptionsForUser(user) {
     const currentParticipantId = String(user.participantId || "");
@@ -269,6 +281,13 @@ export default function GestionComptes({
         <h2>Gestion des comptes</h2>
         <div className="group">
           <Button onClick={runAutomaticAssociations} disabled={associationBusy}>Associations</Button>
+          <Button
+            variant="secondary"
+            onClick={() => setAccountSort((current) => current === "name" ? "created" : "name")}
+            title="Changer le critère de tri des comptes"
+          >
+            Tri : {accountSort === "name" ? "Nom" : "Date de création"}
+          </Button>
           <Button variant="secondary" onClick={refreshAccountData} disabled={associationBusy}>Actualiser</Button>
           <Button variant="secondary" onClick={exportApprovedLinkedEmailsOutlook} disabled={approvedLinkedEmails.length === 0}>Exporter les e-mails (Outlook)</Button>
         </div>

@@ -1320,3 +1320,10 @@ button:not(.danger):not(.secondary):not(.ghost),
     flex-basis: 13px;
   }
 }
+
+
+/* Séance sans encadrant/référent requis : neutralisation visuelle. */
+.app .session-card.session-card-missing-supervisor {
+  background: #6b7280 !important;
+  border-color: #9ca3af !important;
+}

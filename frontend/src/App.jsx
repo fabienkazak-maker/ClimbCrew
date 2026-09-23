@@ -64,6 +64,7 @@ import {
   buildRealisationDraft,
   buildRealisationPayload,
   getParticipantSessionDays,
+  getSessionParticipantIds,
   isManagedSession,
   resolveSessionIdForRealisation,
 } from "./lib/realisation-workflow.js";
@@ -184,7 +185,7 @@ function App() {
   }, [tab, visibleTabs]);
 
   useEffect(() => {
-    if (canManageAccountsAndLogs && ["administration", "gestion_comptes", "logs"].includes(tab)) {
+    if (canManageAccountsAndLogs && ["administration", "gestion_comptes", "logs", "statistiques"].includes(tab)) {
       loadAdminAccessData();
     }
   }, [tab, canManageAccountsAndLogs, authUser?.id]);
@@ -240,8 +241,15 @@ function App() {
   }, [state.participants, state.sessions, authUser?.participantId]);
 
   const modalAvailableDays = useMemo(() => {
-    if (!newRealisation.participantId) return modalAllAvailableDays;
-    return getParticipantSessionDays(state.sessions, newRealisation.participantId);
+    const today = todayIso();
+    const days = newRealisation.participantId
+      ? getParticipantSessionDays(state.sessions, newRealisation.participantId)
+      : modalAllAvailableDays;
+
+    return days
+      .filter((day) => day <= today)
+      .sort((a, b) => b.localeCompare(a))
+      .slice(0, 5);
   }, [newRealisation.participantId, modalAllAvailableDays, state.sessions]);
 
   const modalEligibleParticipants = useMemo(() => {
@@ -251,7 +259,7 @@ function App() {
       state.sessions
         .filter((session) => session.date === newRealisation.selectedDay)
         .filter(isManagedSession)
-        .flatMap((session) => session.participantIds || [])
+        .flatMap((session) => getSessionParticipantIds(session))
     );
 
     return modalAllEligibleParticipants.filter((participant) => participantIdsForSelectedDay.has(participant.id));
@@ -355,15 +363,16 @@ function App() {
   }
 
   const sessionStats = useMemo(() => {
-    const unique = new Set(state.sessions.flatMap((s) => s.participantIds));
+    const unique = new Set(state.sessions.flatMap((session) => getSessionParticipantIds(session)));
     const participationCount = {};
     state.sessions.forEach((session) => {
-      session.participantIds.forEach((id) => {
+      getSessionParticipantIds(session).forEach((id) => {
         participationCount[id] = (participationCount[id] || 0) + 1;
       });
     });
     return {
       nombreInscrits: unique.size,
+      nombreComptesActifs: adminAuthUsers.filter((user) => user.status === "active").length,
       nombreCotisations: state.participants.filter((p) => p.cotisation).length,
       nombreFFME: state.participants.filter((p) => p.ffme).length,
       nombreRealisations: state.realisations.length,
@@ -371,7 +380,7 @@ function App() {
       participationCount,
       sortedParticipants: [...state.participants].sort((a, b) => fullName(a).localeCompare(fullName(b), "fr")),
     };
-  }, [state]);
+  }, [state, adminAuthUsers]);
 
   const alphabeticalParticipants = useMemo(() => {
     return sortParticipantsCurrentUserFirst(state.participants, authUser?.participantId);
@@ -624,7 +633,15 @@ function App() {
       state.sessions.find((s) => s.id === sessionId) ||
       buildDefaultSession(sessionId);
 
-    const updatedSession = { ...currentSession, ...patch };
+    const patchedSession = { ...currentSession, ...patch };
+    const updatedSession = {
+      ...patchedSession,
+      participantIds: [...new Set([
+        ...(patchedSession.participantIds || []).map(String),
+        patchedSession.encadrantId ? String(patchedSession.encadrantId) : null,
+        patchedSession.referentId ? String(patchedSession.referentId) : null,
+      ].filter(Boolean))],
+    };
 
     setState((prev) => {
       const exists = prev.sessions.some((s) => s.id === sessionId);
@@ -648,10 +665,7 @@ function App() {
       buildDefaultSession(sessionId);
 
     const currentParticipantIds = currentSession.participantIds.map(String);
-    const occupied =
-      currentParticipantIds.length +
-      (currentSession.encadrantId ? 1 : 0) +
-      (currentSession.referentId ? 1 : 0);
+    const occupied = currentParticipantIds.length;
 
     if (occupied >= MAX_PARTICIPANTS || currentParticipantIds.includes(requestedId)) return;
 
@@ -678,9 +692,12 @@ function App() {
       state.sessions.find((s) => s.id === sessionId) ||
       buildDefaultSession(sessionId);
 
+    const removedId = String(participantId);
     const updatedSession = {
       ...currentSession,
-      participantIds: currentSession.participantIds.filter((id) => id !== participantId),
+      encadrantId: String(currentSession.encadrantId || "") === removedId ? null : currentSession.encadrantId,
+      referentId: String(currentSession.referentId || "") === removedId ? null : currentSession.referentId,
+      participantIds: currentSession.participantIds.filter((id) => String(id) !== removedId),
     };
 
     setState((prev) => {
@@ -974,7 +991,7 @@ function App() {
     if (!participantId) return [];
 
     return state.sessions
-      .filter((session) => session.participantIds?.includes(participantId))
+      .filter((session) => getSessionParticipantIds(session).includes(String(participantId)))
       .sort((a, b) => {
         const dateCompare = b.date.localeCompare(a.date);
         if (dateCompare !== 0) return dateCompare;
@@ -1104,19 +1121,19 @@ async function deleteRealisation(realisation) {
       return;
     }
     if (!newRealisation.participantId || !newRealisation.selectedDay || !newRealisation.voieId) {
-      alert("Sélectionne un jour, un participant et une voie.");
+      alert("Sélectionne un jour et une voie.");
       return;
     }
 
     const participant = participantsById[newRealisation.participantId];
     if (!participant?.cotisation) {
-      alert("Le participant doit avoir payé sa cotisation pour enregistrer une réalisation.");
+      alert("Votre cotisation doit être à jour pour enregistrer une réalisation.");
       return;
     }
 
     const sessionId = resolveSessionIdForRealisation(state.sessions, newRealisation.participantId, newRealisation.selectedDay);
     if (!sessionId) {
-      alert("Le participant doit être inscrit à au moins une séance ce jour-là pour enregistrer une réalisation.");
+      alert("Vous devez participer à au moins une séance ce jour-là pour enregistrer une réalisation.");
       return;
     }
 
@@ -1511,16 +1528,19 @@ async function handleThemePreferenceChange(nextTheme) {
   }
 
   function renderSessionCard(session, compact = false) {
-    const inscrits = session.participantIds.map((id) => participantsById[id]).filter(Boolean);
-    const occupied = inscrits.length + (session.encadrantId ? 1 : 0) + (session.referentId ? 1 : 0);
+    const sessionParticipantIds = getSessionParticipantIds(session);
+    const inscrits = sessionParticipantIds.map((id) => participantsById[id]).filter(Boolean);
+    const occupied = inscrits.length;
+    const missingSupervisor = (session.status === "encadree" && !session.encadrantId)
+      || (session.status === "libre" && !session.referentId);
     const freeSessionPassports = new Set(["jaune", "orange", "vert", "bleu"]);
     const availableParticipants = state.participants.filter((p) =>
-      !session.participantIds.includes(p.id)
+      !sessionParticipantIds.includes(String(p.id))
       && (session.status !== "libre" || freeSessionPassports.has(normalizePassport(p.passport)))
     );
 
     return (
-      <div className={`card session-card session-status-${String(session.status || "fermee").trim().toLowerCase()} ${compact ? "session-card-compact" : ""}`} key={session.id}>
+      <div className={`card session-card session-status-${String(session.status || "fermee").trim().toLowerCase()} ${missingSupervisor ? "session-card-missing-supervisor" : ""} ${compact ? "session-card-compact" : ""}`} key={session.id}>
         <div className="card-header">
           <h3>Séance {session.slot}</h3>
           <span className="badge">{occupied}/{MAX_PARTICIPANTS}</span>

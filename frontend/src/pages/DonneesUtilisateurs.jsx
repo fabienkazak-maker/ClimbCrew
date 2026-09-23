@@ -58,6 +58,7 @@ export default function DonneesUtilisateurs({ participants = [], sessions = [], 
   const [filters, setFilters] = useState({});
   const [drafts, setDrafts] = useState({});
   const [savingId, setSavingId] = useState(null);
+  const [savingAll, setSavingAll] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const sessionCountByParticipantId = useMemo(() => {
@@ -99,30 +100,37 @@ export default function DonneesUtilisateurs({ participants = [], sessions = [], 
     } catch (e) { setError(String(e.message || e)); }
     finally { setSavingId(null); }
   }
-  async function save(p) {
-    const d=draftFor(p);
-    setSavingId(p.id); setMessage(""); setError("");
+  async function saveAll() {
+    const changed = participants.filter((p) => drafts[p.id]);
+    if (!changed.length) return;
+    setSavingAll(true); setMessage(""); setError("");
     try {
-      await apiFetch(`/participants/${encodeURIComponent(p.id)}`, {
-        method:"PUT",
-        body:JSON.stringify({
-          ...p,...d,
-          nom:String(d.nom||"").trim(), prenom:String(d.prenom||"").trim(), email:String(d.email||"").trim(),
-          sexe:d.sexe||"", passport:d.passport||"sans", passeportFfme:Boolean(d.passeportFfme),
-          cotisation:Boolean(d.cotisation), ffme:Boolean(d.ffme), canEncadrer:Boolean(d.canEncadrer),
-          canReferer:Boolean(d.canReferer), canAdmin:Boolean(d.canAdmin),
-        }),
-      });
-      if (Boolean(d.initiateurSae) !== Boolean(p.initiateurSae) || Boolean(d.initiateurSne) !== Boolean(p.initiateurSne)) {
-        await apiFetch(`/admin/participants/${encodeURIComponent(p.id)}/qualifications`, {
-          method:"PUT", body:JSON.stringify({initiateurSae:Boolean(d.initiateurSae),initiateurSne:Boolean(d.initiateurSne)}),
+      for (const p of changed) {
+        const d = draftFor(p);
+        await apiFetch(`/participants/${encodeURIComponent(p.id)}`, {
+          method:"PUT",
+          body:JSON.stringify({
+            ...p,...d,
+            nom:String(d.nom||"").trim(), prenom:String(d.prenom||"").trim(), email:String(d.email||"").trim(),
+            sexe:d.sexe||"", passport:d.passport||"sans", passeportFfme:Boolean(d.passeportFfme),
+            cotisation:Boolean(d.cotisation), ffme:Boolean(d.ffme), canEncadrer:Boolean(d.canEncadrer),
+            canReferer:Boolean(d.canReferer), canAdmin:Boolean(d.canAdmin),
+          }),
         });
+        if (Boolean(d.initiateurSae) !== Boolean(p.initiateurSae) || Boolean(d.initiateurSne) !== Boolean(p.initiateurSne)) {
+          await apiFetch(`/admin/participants/${encodeURIComponent(p.id)}/qualifications`, {
+            method:"PUT", body:JSON.stringify({initiateurSae:Boolean(d.initiateurSae),initiateurSne:Boolean(d.initiateurSne)}),
+          });
+        }
       }
-      setDrafts(current => { const next={...current}; delete next[p.id]; return next; });
       if (onSaved) await onSaved();
-      setMessage(`${d.prenom} ${d.nom} enregistré.`);
-    } catch (e) { setError(String(e.message || e)); }
-    finally { setSavingId(null); }
+      setDrafts({});
+      setMessage(`${changed.length} utilisateur${changed.length > 1 ? "s" : ""} enregistré${changed.length > 1 ? "s" : ""}. Données actualisées.`);
+    } catch (e) {
+      setError(`Enregistrement interrompu : ${String(e.message || e)}. Rechargez les données avant de reprendre les modifications.`);
+      if (onSaved) await onSaved();
+      setDrafts({});
+    } finally { setSavingAll(false); }
   }
   function editor(p,key) {
     if (key === "sessions") return sessionCountByParticipantId[String(p.id)] || 0;
@@ -160,7 +168,7 @@ export default function DonneesUtilisateurs({ participants = [], sessions = [], 
       </div>
     </details>}
     <div className="card-header"><div><h2>Données utilisateurs</h2><div className="small">{rows.length} utilisateur{rows.length>1?"s":""}</div></div>
-      <button type="button" onClick={exportCsv}>Export CSV</button></div>
+      <div style={{display:"flex",gap:8,alignItems:"center"}}><button type="button" onClick={exportCsv}>Export CSV</button><button type="button" disabled={!Object.keys(drafts).length || savingAll} onClick={saveAll}>{savingAll?"Enregistrement…":"Enregistrer"}</button></div></div>
     {message && <div className="success" style={{marginBottom:10}}>{message}</div>}
     {error && <div className="error" style={{marginBottom:10}}>{error}</div>}
     <div style={{overflowY:"auto",overflowX:"hidden",maxHeight:"70vh",border:"1px solid var(--border, #bbb)",borderRadius:8}}>
@@ -186,7 +194,7 @@ export default function DonneesUtilisateurs({ participants = [], sessions = [], 
           </th>)}<th style={{background:"var(--card-bg, #eee)",border:"1px solid #bbb",width:"12%"}}><button type="button" onClick={()=>setFilters({})} style={{width:"100%",padding:"4px 2px",fontSize:"inherit"}}>Effacer</button></th></tr>
         </thead>
         <tbody>{rows.map(p=><tr key={p.id}>{COLUMNS.map(([key])=><td key={key} style={{padding:(BOOLEAN_KEYS.has(key) || key==="sessions")?"2px":"3px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textAlign:(BOOLEAN_KEYS.has(key) || key==="sessions")?"center":"left",border:"1px solid #ccc",width:compactWidth(key),...stickyColumnStyle(key,false)}}>{editor(p,key)}</td>)}
-          <td style={{padding:2,border:"1px solid #ccc",width:"12%"}}><div style={{display:"grid",gridTemplateColumns:"1fr",gap:3}}><button type="button" disabled={!drafts[p.id] || savingId===p.id} onClick={()=>save(p)} style={{padding:"4px 2px",fontSize:"inherit",minWidth:0}}>{savingId===p.id?"Enregistrement…":"Enregistrer"}</button><button type="button" className="danger" disabled={savingId===p.id} onClick={()=>removeParticipant(p)} style={{padding:"4px 2px",fontSize:"inherit",minWidth:0}}>Supprimer</button></div></td></tr>)}</tbody>
+          <td style={{padding:2,border:"1px solid #ccc",width:"12%"}}><button type="button" className="danger" disabled={savingId===p.id || savingAll} onClick={()=>removeParticipant(p)} style={{padding:"4px 2px",fontSize:"inherit",minWidth:0,width:"100%"}}>Supprimer</button></td></tr>)}</tbody>
       </table>
     </div>
   </div>;

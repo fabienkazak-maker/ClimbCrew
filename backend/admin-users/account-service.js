@@ -98,10 +98,9 @@ async function notifyAccountRequestReviewers({ user, req }) {
 }
 
 /**
- * Associe un compte au profil grimpeur portant la même adresse e-mail.
- * Le prénom et le nom ne servent jamais de clé de rapprochement : ils restent
- * des informations descriptives. En l'absence de profil correspondant, un
- * participant minimal est créé avec l'adresse e-mail normalisée du compte.
+ * Crée uniquement un compte d'authentification ClimbCrew.
+ * Aucune fiche grimpeur n'est recherchée, créée ou associée automatiquement.
+ * Toute association compte ↔ fiche utilisateur reste une action administrative explicite.
  */
 export async function requestAccess(req, res) {
   const prenom = String(req.body?.prenom || "").trim();
@@ -124,51 +123,8 @@ export async function requestAccess(req, res) {
       return res.status(409).json({ error: "Un compte existe déjà pour cet email" });
     }
 
-    const participantResult = await client.query(
-      `
-        select p.id,
-               exists(select 1 from users u where u.participant_id = p.id) as already_linked
-        from participants p
-        where lower(trim(coalesce(p.login_email, ''))) = $1
-        order by p.id asc
-        limit 2
-      `,
-      [email]
-    );
-
-    if (participantResult.rowCount > 1) {
-      await client.query("rollback");
-      return res.status(409).json({
-        error: "Plusieurs profils grimpeurs utilisent cette adresse e-mail. Un administrateur doit corriger les données avant de créer le compte.",
-      });
-    }
-
-    let participantId = participantResult.rows[0]?.id || null;
-    let participantCreated = false;
-
-    if (participantId && participantResult.rows[0].already_linked) {
-      await client.query("rollback");
-      return res.status(409).json({
-        error: "Le profil grimpeur correspondant à cette adresse e-mail est déjà associé à un compte.",
-      });
-    }
-
-    if (!participantId) {
-      const createdParticipant = await client.query(
-        `
-          insert into participants (
-            nom, prenom, passport, cotisation, ffme,
-            can_encadrer, can_referer, can_admin, login_email
-          ) values ($1, $2, 'sans', false, false, false, false, false, $3)
-          returning id
-        `,
-        [nom, prenom, email]
-      );
-      participantId = createdParticipant.rows[0].id;
-      participantCreated = true;
-    } else {
-      await client.query(`update participants set login_email = $2 where id = $1`, [participantId, email]);
-    }
+    const participantId = null;
+    const participantCreated = false;
 
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
     const verificationToken = crypto.randomBytes(24).toString("hex");
@@ -199,7 +155,7 @@ export async function requestAccess(req, res) {
       userId: user.id,
       eventType: "request_access",
       req,
-      details: { email, participantId: String(participantId), participantCreated, matchingKey: "email" },
+      details: { email, participantId: null, participantCreated: false, matchingKey: null },
     });
 
     let emailSent = false;

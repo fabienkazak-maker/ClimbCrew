@@ -84,25 +84,22 @@ export default function RealisationModal({
           </div>
 
           <div>
-            <label>Participant</label>
+            <label>Binôme</label>
             <select
-              value={newRealisation.participantId}
-              onChange={(event) => {
-                const participantId = event.target.value;
-                setNewRealisation((prev) => ({ ...prev, participantId, sessionId: "", assureurId: "" }));
-              }}
+              value={newRealisation.assureurId}
+              onChange={(event) => setNewRealisation((prev) => ({ ...prev, assureurId: event.target.value }))}
             >
-              <option value="">Choisir un participant</option>
-              {eligibleParticipants.length === 0 ? (
-                <option value="" disabled>Aucun participant éligible</option>
+              <option value="">Choisir le binôme</option>
+              {eligibleBelayers.length === 0 ? (
+                <option value="" disabled>Aucun binôme éligible</option>
               ) : (
-                eligibleParticipants.map((participant) => (
+                eligibleBelayers.map((participant) => (
                   <option key={participant.id} value={participant.id}>{fullName(participant)}</option>
                 ))
               )}
             </select>
             <div className="small" style={{ marginTop: 6, color: "inherit" }}>
-              Seuls les participants cotisants inscrits aux séances du référent ou de l’encadrant à la date choisie sont proposés.
+              La réalisation est automatiquement attribuée au détenteur du compte.
             </div>
           </div>
 
@@ -201,25 +198,11 @@ export default function RealisationModal({
               onChange={(event) => setNewRealisation((prev) => ({
                 ...prev,
                 chute: event.target.checked,
-                assureurId: event.target.checked ? prev.assureurId : "",
               }))}
             />
             <span>Le grimpeur a volé</span>
           </label>
 
-          {newRealisation.chute && (
-            <div>
-              <label>Binôme assureur</label>
-              <select value={newRealisation.assureurId} onChange={(event) => setNewRealisation((prev) => ({ ...prev, assureurId: event.target.value }))}>
-                <option value="">Choisir le binôme</option>
-                {eligibleBelayers.length === 0 ? (
-                  <option value="" disabled>Aucun assureur éligible</option>
-                ) : (
-                  eligibleBelayers.map((participant) => <option key={participant.id} value={participant.id}>{fullName(participant)}</option>)
-                )}
-              </select>
-            </div>
-          )}
         </div>
 
         <div style={{ marginTop: 12 }}>
@@ -231,7 +214,7 @@ export default function RealisationModal({
           <Button variant="secondary" onClick={onClose}>Annuler</Button>
           <Button
             onClick={onSubmit}
-            disabled={!newRealisation.selectedDay || !newRealisation.participantId || !newRealisation.voieId || (newRealisation.chute && !newRealisation.assureurId) || eligibleParticipants.length === 0}
+            disabled={!newRealisation.selectedDay || !newRealisation.participantId || !newRealisation.voieId || !newRealisation.assureurId || eligibleParticipants.length === 0}
           >
             Enregistrer
           </Button>

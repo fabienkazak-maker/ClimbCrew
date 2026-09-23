@@ -27,6 +27,7 @@ export default function StatisticsSection({
     <>
       <div className="stats-grid">
         <div className="stat"><div className="label">Inscrits uniques</div><div className="value">{sessionStats.nombreInscrits}</div></div>
+        <div className="stat"><div className="label">Comptes actifs</div><div className="value">{sessionStats.nombreComptesActifs || 0}</div></div>
         <div className="stat"><div className="label">Cotisations</div><div className="value">{sessionStats.nombreCotisations}</div></div>
         <div className="stat"><div className="label">FFME</div><div className="value">{sessionStats.nombreFFME}</div></div>
         <div className="stat"><div className="label">Voies actives</div><div className="value">{sessionStats.nombreVoiesActives}</div></div>

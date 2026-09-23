@@ -6,11 +6,18 @@ export function isManagedSession(session) {
     || (session?.status === "libre" && Boolean(session.referentId));
 }
 
+export function getSessionParticipantIds(session) {
+  // participantIds est la liste canonique fournie par l'API : elle inclut déjà
+  // les inscrits, l'encadrant et le référent, sans doublon.
+  return [...new Set((session?.participantIds || []).map(String))];
+}
+
 export function getParticipantSessionDays(sessions, participantId) {
   if (!participantId) return [];
+  const targetId = String(participantId);
   return [...new Set((sessions || [])
     .filter(isManagedSession)
-    .filter((session) => session.participantIds?.includes(participantId))
+    .filter((session) => getSessionParticipantIds(session).includes(targetId))
     .map((session) => session.date))]
     .sort((a, b) => b.localeCompare(a));
 }
@@ -20,7 +27,7 @@ export function resolveSessionIdForRealisation(sessions, participantId, selected
   return (sessions || [])
     .filter((session) => session.date === selectedDay)
     .filter(isManagedSession)
-    .filter((session) => session.participantIds?.includes(participantId))
+    .filter((session) => getSessionParticipantIds(session).includes(String(participantId)))
     .sort((a, b) => a.slot.localeCompare(b.slot))[0]?.id || "";
 }
 
@@ -47,7 +54,6 @@ export function buildRealisationPayload({ draft, sessionId, route = null, now = 
   const rating = Number(draft?.rating || 0);
   return {
     id: `realisation-${now()}`,
-    participantId: draft?.participantId || "",
     sessionId: sessionId || "",
     voieId: draft?.voieId || "",
     dateRealisation: `${draft?.selectedDay || ""}T12:00:00`,
@@ -59,6 +65,6 @@ export function buildRealisationPayload({ draft, sessionId, route = null, now = 
     cotationProposee: draft?.cotationProposee || "",
     ...(Number.isInteger(rating) && rating >= 1 && rating <= 5 ? { rating } : {}),
     chute: Boolean(draft?.chute),
-    assureurId: draft?.chute ? (draft?.assureurId || "") : "",
+    assureurId: draft?.assureurId || "",
   };
 }

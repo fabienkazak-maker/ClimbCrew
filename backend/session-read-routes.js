@@ -1,4 +1,10 @@
 function sessionDbToApi(row, participantIds = []) {
+  const effectiveParticipantIds = [...new Set([
+    ...participantIds.map(String),
+    row.encadrant_id ? String(row.encadrant_id) : null,
+    row.referent_id ? String(row.referent_id) : null,
+  ].filter(Boolean))];
+
   return {
     id: row.id,
     date: row.date,
@@ -6,7 +12,7 @@ function sessionDbToApi(row, participantIds = []) {
     status: row.status,
     encadrantId: row.encadrant_id ? String(row.encadrant_id) : null,
     referentId: row.referent_id ? String(row.referent_id) : null,
-    participantIds: participantIds.map(String),
+    participantIds: effectiveParticipantIds,
   };
 }
 

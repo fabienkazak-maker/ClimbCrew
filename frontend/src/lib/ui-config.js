@@ -41,7 +41,7 @@ export const ROUTE_TAGS = [
 ];
 
 export const TABS = [
-  { key: "inscriptions", label: "Inscriptions" },
+  { key: "inscriptions", label: "Planning" },
   { key: "voies", label: "Voies" },
   { key: "mon_profil", label: "Profil" },
   { key: "statistiques", label: "Statistiques / Tableau d’honneur" },
