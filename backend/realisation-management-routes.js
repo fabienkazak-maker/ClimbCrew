@@ -451,24 +451,22 @@ export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
       await assertRealisationIntegrity({ pool, realisation, participantId });
       await assertVideoUrlsBelongToRoute(pool, realisation.voieId, realisation.videoUrls);
 
-      const client = await pool.connect();
+      await pool.query(
+        `
+          insert into realisations (
+            id, participant_id, session_id, voie_id, date_realisation, style_realisation,
+            commentaire, cotation_proposee, nb_essais, rating, chute, assureur_id, video_urls
+          ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb)
+        `,
+        [
+          realisation.id, realisation.participantId, realisation.sessionId, realisation.voieId,
+          realisation.dateRealisation, realisation.styleRealisation, realisation.commentaire || "",
+          realisation.cotationProposee || "", realisation.nbEssais || "", realisation.rating ?? null,
+          Boolean(realisation.chute), realisation.assureurId || null, JSON.stringify(realisation.videoUrls),
+        ],
+      );
       try {
-        await client.query("begin");
-        await client.query(
-          `
-            insert into realisations (
-              id, participant_id, session_id, voie_id, date_realisation, style_realisation,
-              commentaire, cotation_proposee, nb_essais, rating, chute, assureur_id, video_urls
-            ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb)
-          `,
-          [
-            realisation.id, realisation.participantId, realisation.sessionId, realisation.voieId,
-            realisation.dateRealisation, realisation.styleRealisation, realisation.commentaire || "",
-            realisation.cotationProposee || "", realisation.nbEssais || "", realisation.rating ?? null,
-            Boolean(realisation.chute), realisation.assureurId || null, JSON.stringify(realisation.videoUrls),
-          ],
-        );
-        const info = await client.query(
+        const info = await pool.query(
           `select p.prenom, p.nom, r.nom_voie, r.numero_corde
            from participants p cross join routes r
            where p.id = $1 and r.id = $2 limit 1`,
@@ -477,17 +475,13 @@ export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
         const row = info.rows[0] || {};
         const who = [row.prenom, row.nom].filter(Boolean).join(" ") || "Un grimpeur";
         const route = row.nom_voie || (row.numero_corde ? `voie corde ${row.numero_corde}` : "une voie");
-        await client.query(
+        await pool.query(
           `insert into chat_messages (participant_id, message, kind, event_type, event_ref)
            values ($1,$2,'system','realisation',$3)`,
           [participantId, `🏆 ${who} a enregistré une réalisation sur ${route}.`, realisation.id],
         );
-        await client.query("commit");
-      } catch (error) {
-        await client.query("rollback");
-        throw error;
-      } finally {
-        client.release();
+      } catch (chatError) {
+        console.error("realisation chat event error:", chatError);
       }
       res.json(realisation);
     } catch (error) {
