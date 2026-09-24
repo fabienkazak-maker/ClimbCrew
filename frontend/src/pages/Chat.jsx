@@ -16,7 +16,7 @@ export default function Chat({ myParticipantId, participants = [] }) {
   const [search, setSearch] = React.useState("");
   const [showMedia, setShowMedia] = React.useState(false);
   const [showPoll, setShowPoll] = React.useState(false);
-  const [activeMessageId, setActiveMessageId] = React.useState(null);
+  const [activeMessageId, setActiveMessageId] = React.useState(null);\n  const [replyTo, setReplyTo] = React.useState(null);\n  const [reactionDetails, setReactionDetails] = React.useState(null);
   const bottomRef = React.useRef(null);
   const fileRef = React.useRef(null);
   const participantsById = React.useMemo(
@@ -53,7 +53,7 @@ export default function Chat({ myParticipantId, participants = [] }) {
       setText("");
       await apiFetch("/chat/messages", {
         method: "POST",
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, replyToId: replyTo?.id || null }),
       });
       await loadMessages();
     } catch (err) {
@@ -104,7 +104,7 @@ export default function Chat({ myParticipantId, participants = [] }) {
     const groups = new Map();
     for (const reaction of item.reactions || []) {
       const key = reaction.reaction;
-      const current = groups.get(key) || { reaction: key, count: 0, mine: false };
+      const current = groups.get(key) || { reaction: key, count: 0, mine: false, participantIds: [] };
       current.count += 1;
       if (String(reaction.participantId) === String(myParticipantId)) current.mine = true;
       groups.set(key, current);
@@ -213,7 +213,7 @@ export default function Chat({ myParticipantId, participants = [] }) {
                 <img className="chat-avatar" src={avatarSource(item.participantId)} alt="" aria-hidden="true" />
               )}
               <div className={`${mine ? "chat-bubble chat-bubble-mine" : "chat-bubble"} ${item.kind === "system" ? "chat-bubble-system" : ""}`} role="button" tabIndex={0} aria-expanded={activeMessageId === item.id} onClick={() => setActiveMessageId((current) => current === item.id ? null : item.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setActiveMessageId((current) => current === item.id ? null : item.id); } }}>
-                {!mine && <strong>{displayName(item.participantId)}</strong>}
+                {!mine && <strong>{displayName(item.participantId)}</strong>}\n                {item.replyTo && <div className="chat-reply-quote"><strong>{displayName(item.replyTo.participantId)}</strong><span>{item.replyTo.message || (item.replyTo.attachmentName ? `📎 ${item.replyTo.attachmentName}` : "Message")}</span></div>}
                 {renderAttachment(item)}
                 {item.pinned && <div className="chat-pinned">📌 Épinglé</div>}
                 {item.message && <div className="chat-message-text">{item.message}</div>}
@@ -223,7 +223,7 @@ export default function Chat({ myParticipantId, participants = [] }) {
                 {reactionGroups(item).length > 0 && (
                   <div className="chat-reactions chat-reactions-display" onClick={(event) => event.stopPropagation()}>
                     {reactionGroups(item).map((group) => (
-                      <span className={group.mine ? "chat-reaction active" : "chat-reaction"} key={group.reaction}>{group.reaction} {group.count}</span>
+                      <button type="button" className={group.mine ? "chat-reaction active" : "chat-reaction"} key={group.reaction} onClick={() => setReactionDetails({ reaction: group.reaction, names: group.participantIds.map(displayName) })}>{group.reaction} {group.count}</button>
                     ))}
                   </div>
                 )}
@@ -236,7 +236,7 @@ export default function Chat({ myParticipantId, participants = [] }) {
                         {EMOJIS.filter((emoji) => emoji !== "👍").map((emoji) => <option value={emoji} key={emoji}>{emoji}</option>)}
                       </select>
                     </div>
-                    <div className="chat-actions"><button type="button" onClick={() => togglePin(item)}>{item.pinned ? "Désépingler" : "📌 Épingler"}</button>{mine && item.kind !== "system" && <><button type="button" onClick={() => editMessage(item)}>✏️ Modifier</button><button type="button" onClick={() => deleteMessage(item)}>🗑️ Supprimer</button></>}</div>
+                    <div className="chat-actions"><button type="button" onClick={() => { setReplyTo(item); setActiveMessageId(null); }}>↩️ Répondre</button><button type="button" onClick={() => togglePin(item)}>{item.pinned ? "Désépingler" : "📌 Épingler"}</button>{mine && item.kind !== "system" && <><button type="button" onClick={() => editMessage(item)}>✏️ Modifier</button><button type="button" onClick={() => deleteMessage(item)}>🗑️ Supprimer</button></>}</div>
 
                   </div>
                 )}
@@ -253,7 +253,7 @@ export default function Chat({ myParticipantId, participants = [] }) {
           ))}
         </div>
       )}
-      <form className="chat-composer" onSubmit={sendMessage}>
+      {reactionDetails && <div className="chat-reaction-details" role="dialog" aria-label="Détail des réactions"><strong>{reactionDetails.reaction} Réactions</strong><span>{reactionDetails.names.join(", ")}</span><button type="button" onClick={() => setReactionDetails(null)}>Fermer</button></div>}\n      {replyTo && <div className="chat-reply-preview"><div><strong>Réponse à {displayName(replyTo.participantId)}</strong><span>{replyTo.message || (replyTo.attachmentName ? `📎 ${replyTo.attachmentName}` : "Message")}</span></div><button type="button" onClick={() => setReplyTo(null)} aria-label="Annuler la réponse">✕</button></div>}\n      <form className="chat-composer" onSubmit={sendMessage}>
         <button type="button" className="chat-tool-button" onClick={() => setShowEmoji((value) => !value)} aria-label="Emoji">😊</button>
         <button type="button" className="chat-tool-button" onClick={() => fileRef.current?.click()} aria-label="Partager une image ou un fichier">📎</button>
         <input
