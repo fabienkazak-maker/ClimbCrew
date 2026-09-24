@@ -12,6 +12,10 @@ export default function Chat({ myParticipantId, participants = [] }) {
   const [error, setError] = React.useState("");
   const [showEmoji, setShowEmoji] = React.useState(false);
   const [sending, setSending] = React.useState(false);
+  const [filter, setFilter] = React.useState("all");
+  const [search, setSearch] = React.useState("");
+  const [showMedia, setShowMedia] = React.useState(false);
+  const [showPoll, setShowPoll] = React.useState(false);
   const bottomRef = React.useRef(null);
   const fileRef = React.useRef(null);
   const participantsById = React.useMemo(
@@ -107,6 +111,46 @@ export default function Chat({ myParticipantId, participants = [] }) {
     return [...groups.values()];
   }
 
+  async function editMessage(item) {
+    const value = window.prompt("Modifier le message", item.message || "");
+    if (!value?.trim() || value.trim() === item.message) return;
+    await apiFetch(`/chat/messages/${item.id}`, { method: "PATCH", body: JSON.stringify({ message: value.trim() }) });
+    await loadMessages();
+  }
+  async function deleteMessage(item) {
+    if (!window.confirm("Supprimer ce message ?")) return;
+    await apiFetch(`/chat/messages/${item.id}`, { method: "DELETE" }); await loadMessages();
+  }
+  async function togglePin(item) {
+    await apiFetch(`/chat/messages/${item.id}/pin`, { method: "POST", body: JSON.stringify({ pinned: !item.pinned }) }); await loadMessages();
+  }
+  async function createPoll() {
+    const question = window.prompt("Question du sondage");
+    if (!question?.trim()) return;
+    const raw = window.prompt("Réponses possibles, séparées par des points-virgules", "Oui;Non");
+    const options = String(raw || "").split(";").map(x => x.trim()).filter(Boolean);
+    if (options.length < 2) return;
+    await apiFetch("/chat/polls", { method: "POST", body: JSON.stringify({ question: question.trim(), options }) }); setShowPoll(false); await loadMessages();
+  }
+  async function vote(item, optionId) {
+    await apiFetch(`/chat/messages/${item.id}/poll-vote`, { method: "POST", body: JSON.stringify({ optionId }) }); await loadMessages();
+  }
+  function addMention(participant) {
+    const name = [participant.prenom, participant.nom].filter(Boolean).join(" ");
+    setText(v => `${v}${v && !v.endsWith(" ") ? " " : ""}@${name} `);
+  }
+  function renderText(value) {
+    const parts = String(value || "").split(/(@[^@\n]+?)(?=\s{2}|$)/g);
+    return parts.map((part, index) => part.startsWith("@") ? <mark className="chat-mention" key={index}>{part}</mark> : <React.Fragment key={index}>{part}</React.Fragment>);
+  }
+  const visibleMessages = messages.filter(item => {
+    const q = search.trim().toLowerCase();
+    const matchesSearch = !q || String(item.message || "").toLowerCase().includes(q) || displayName(item.participantId).toLowerCase().includes(q);
+    const matchesFilter = filter === "all" || (filter === "media" ? Boolean(item.attachmentUrl) : item.eventType === filter);
+    return matchesSearch && matchesFilter;
+  });
+  const mediaMessages = messages.filter(item => item.attachmentUrl);
+
   function displayName(participantId) {
     const participant = participantsById[String(participantId)];
     if (!participant) return "Grimpeur";
@@ -155,9 +199,20 @@ export default function Chat({ myParticipantId, participants = [] }) {
         </div>
       </div>
       {error && <div className="muted-box" role="alert">{error}</div>}
+      <div className="chat-toolbar">
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher…" aria-label="Rechercher dans le chat" />
+        <select value={filter} onChange={e => setFilter(e.target.value)} aria-label="Filtrer le chat">
+          <option value="all">Tous</option><option value="realisation">Réalisations</option><option value="badge">Badges</option>
+          <option value="session">Séances</option><option value="route">Voies</option><option value="poll">Sondages</option><option value="media">Médias</option>
+        </select>
+        <button type="button" onClick={() => setShowMedia(v => !v)}>🖼️ Médias</button>
+        <button type="button" onClick={() => setShowPoll(true)}>📊 Sondage</button>
+      </div>
+      {showPoll && <div className="muted-box">Créer un sondage pour le club. <button type="button" onClick={createPoll}>Créer</button></div>}
+      {showMedia && <div className="chat-gallery">{mediaMessages.map(item => <a key={item.id} href={attachmentUrl(item)} target="_blank" rel="noreferrer">{String(item.attachmentMimeType||"").startsWith("image/") ? <img src={attachmentUrl(item)} alt={item.attachmentName || "Média"} /> : <span>📎 {item.attachmentName}</span>}</a>)}</div>}
       <div className="chat-thread" aria-live="polite">
         {messages.length === 0 && <div className="muted-box">Aucun message. Lancez la conversation.</div>}
-        {messages.map((item) => {
+        {visibleMessages.map((item) => {
           const mine = String(item.participantId) === String(myParticipantId);
           return (
             <div className={mine ? "chat-row chat-row-mine" : "chat-row"} key={item.id}>
@@ -167,7 +222,12 @@ export default function Chat({ myParticipantId, participants = [] }) {
               <div className={`${mine ? "chat-bubble chat-bubble-mine" : "chat-bubble"} ${item.kind === "system" ? "chat-bubble-system" : ""}`}>
                 {!mine && <strong>{displayName(item.participantId)}</strong>}
                 {renderAttachment(item)}
-                {item.message && <div className="chat-message-text">{item.message}</div>}
+                {item.pinned && <div className="chat-pinned">📌 Épinglé</div>}
+                {item.message && <div className="chat-message-text">{renderText(item.message)}</div>}
+                {item.eventRef && <button type="button" className="chat-event-link" onClick={() => window.dispatchEvent(new CustomEvent("climbcrew:navigate", { detail: { type: item.eventType, id: item.eventRef } }))}>Ouvrir dans ClimbCrew ↗</button>}
+                {item.poll?.options && <div className="chat-poll">{item.poll.options.map(option => <button type="button" key={option.id} onClick={() => vote(item, option.id)}>{option.label} · {(option.votes || []).length}</button>)}</div>}
+                {item.editedAt && <span className="small"> · modifié</span>}
+                <div className="chat-actions"><button type="button" onClick={() => togglePin(item)}>{item.pinned ? "Désépingler" : "📌"}</button>{mine && item.kind !== "system" && <><button type="button" onClick={() => editMessage(item)}>✏️</button><button type="button" onClick={() => deleteMessage(item)}>🗑️</button></>}</div>
                 <div className="small">{new Date(item.createdAt).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</div>
                 <div className="chat-reactions">
                   {reactionGroups(item).map((group) => (
@@ -194,6 +254,7 @@ export default function Chat({ myParticipantId, participants = [] }) {
           ))}
         </div>
       )}
+      <div className="chat-mentions">{participants.slice(0,12).map(p => <button type="button" key={p.id} onClick={() => addMention(p)}>@{p.prenom || p.nom}</button>)}</div>
       <form className="chat-composer" onSubmit={sendMessage}>
         <button type="button" className="chat-tool-button" onClick={() => setShowEmoji((value) => !value)} aria-label="Emoji">😊</button>
         <button type="button" className="chat-tool-button" onClick={() => fileRef.current?.click()} aria-label="Partager une image ou un fichier">📎</button>
