@@ -219,16 +219,13 @@ export default function Chat({ myParticipantId, participants = [] }) {
                 {item.message && <div className="chat-message-text">{item.message}</div>}
                 {item.poll?.options && <div className="chat-poll">{item.poll.options.map(option => <button type="button" key={option.id} onClick={() => vote(item, option.id)}>{option.label} · {(option.votes || []).length}</button>)}</div>}
                 {item.editedAt && <span className="small"> · modifié</span>}
-                <div className="small">{new Date(item.createdAt).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</div>\n                <div className="chat-reactions" onClick={(event) => event.stopPropagation()}>
-                  {reactionGroups(item).map((group) => (
-                    <button type="button" className={group.mine ? "chat-reaction active" : "chat-reaction"} key={group.reaction} onClick={() => toggleReaction(item, group.reaction)}>{group.reaction} {group.count}</button>
-                  ))}
-                  <button type="button" className="chat-reaction chat-kudo" onClick={() => toggleReaction(item, "👍")} aria-label="Kudo">👍 Kudo</button>
-                  <select className="chat-reaction-select" aria-label="Réagir avec un emoji" defaultValue="" onChange={(event) => { if (event.target.value) void toggleReaction(item, event.target.value); event.target.value = ""; }}>
-                    <option value="">😊</option>
-                    {EMOJIS.filter((emoji) => emoji !== "👍").map((emoji) => <option value={emoji} key={emoji}>{emoji}</option>)}
-                  </select>
-                </div>
+                <div className="small">{new Date(item.createdAt).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</div>\n                {reactionGroups(item).length > 0 && (
+                  <div className="chat-reactions chat-reactions-display" onClick={(event) => event.stopPropagation()}>
+                    {reactionGroups(item).map((group) => (
+                      <span className={group.mine ? "chat-reaction active" : "chat-reaction"} key={group.reaction}>{group.reaction} {group.count}</span>
+                    ))}
+                  </div>
+                )}
                 {activeMessageId === item.id && (
                   <div className="chat-message-menu" onClick={(event) => event.stopPropagation()}>
                     <div className="chat-actions"><button type="button" onClick={() => togglePin(item)}>{item.pinned ? "Désépingler" : "📌 Épingler"}</button>{mine && item.kind !== "system" && <><button type="button" onClick={() => editMessage(item)}>✏️ Modifier</button><button type="button" onClick={() => deleteMessage(item)}>🗑️ Supprimer</button></>}</div>
