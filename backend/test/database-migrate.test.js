@@ -34,6 +34,7 @@ test("un seul répertoire canonique conserve toutes les versions historiques dan
     "014_chat_reactions.sql",
     "015_chat_social.sql",
     "021_realisation_kudos.sql",
+    "022_chat_replies.sql",
   ]);
   assert.equal(new Set(versions).size, versions.length);
   assert.ok(migrations.every((migration) => migration.source === "database"));
