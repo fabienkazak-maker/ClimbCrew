@@ -21,6 +21,7 @@ const HISTORICAL_MIGRATIONS = new Set([
   "007_runtime_schema_consolidation.sql",
   "008_video_upload_cleanup.sql",
   "021_realisation_kudos.sql",
+  "022_chat_replies.sql",
 ]);
 
 // Ces trois versions appartenaient historiquement au premier répertoire de
