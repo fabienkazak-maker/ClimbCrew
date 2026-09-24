@@ -465,6 +465,24 @@ export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
           Boolean(realisation.chute), realisation.assureurId || null, JSON.stringify(realisation.videoUrls),
         ],
       );
+      try {
+        const info = await pool.query(
+          `select p.prenom, p.nom, r.nom_voie, r.numero_corde
+           from participants p cross join routes r
+           where p.id = $1 and r.id = $2 limit 1`,
+          [participantId, realisation.voieId],
+        );
+        const row = info.rows[0] || {};
+        const who = [row.prenom, row.nom].filter(Boolean).join(" ") || "Un grimpeur";
+        const route = row.nom_voie || (row.numero_corde ? `voie corde ${row.numero_corde}` : "une voie");
+        await pool.query(
+          `insert into chat_messages (participant_id, message, kind, event_type, event_ref)
+           values ($1,$2,'system','realisation',$3)`,
+          [participantId, `🏆 ${who} a enregistré une réalisation sur ${route}.`, realisation.id],
+        );
+      } catch (chatError) {
+        console.error("realisation chat event error:", chatError);
+      }
       res.json(realisation);
     } catch (error) {
       res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });
