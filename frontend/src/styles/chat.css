@@ -13,3 +13,9 @@
   .chat-composer > input:not(.chat-file-input) { min-width: 80px; }
   .chat-image { max-height: 300px; }
 }
+
+.chat-bubble-system { border: 1px solid rgba(127,127,127,.25); font-style: normal; }
+.chat-reactions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; align-items: center; }
+.chat-reaction, .chat-reaction-select { min-height: 30px; padding: 3px 8px; border-radius: 999px; font-size: 13px; }
+.chat-reaction.active { font-weight: 700; }
+.chat-reaction-select { width: 52px; }
