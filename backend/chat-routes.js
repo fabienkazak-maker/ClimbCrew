@@ -107,14 +107,28 @@ export function installChatRoutes(app, { requireAuth, pool }) {
       }
       const replyToId = req.body?.replyToId == null ? null : Number(req.body.replyToId);
       if (replyToId != null && (!Number.isInteger(replyToId) || !(await pool.query("select 1 from chat_messages where id=$1", [replyToId])).rowCount)) return res.status(400).json({ error: "Message cité invalide." });
-      const { rows } = await pool.query(
-        `insert into chat_messages (participant_id, message, reply_to_id)
-         values ($1, $2, $3)
-         returning id, participant_id as "participantId", message, created_at as "createdAt",
-                   attachment_name as "attachmentName", attachment_mime_type as "attachmentMimeType",
-                   attachment_size as "attachmentSize"`,
-        [participantId, message, replyToId]
-      );
+      let rows;
+      if (replyToId == null) {
+        // Envoi standard : ne dépend pas de la colonne reply_to_id afin que le
+        // chat reste utilisable sur une base où la migration des réponses tarde.
+        ({ rows } = await pool.query(
+          `insert into chat_messages (participant_id, message)
+           values ($1, $2)
+           returning id, participant_id as "participantId", message, created_at as "createdAt",
+                     attachment_name as "attachmentName", attachment_mime_type as "attachmentMimeType",
+                     attachment_size as "attachmentSize"`,
+          [participantId, message]
+        ));
+      } else {
+        ({ rows } = await pool.query(
+          `insert into chat_messages (participant_id, message, reply_to_id)
+           values ($1, $2, $3)
+           returning id, participant_id as "participantId", message, created_at as "createdAt",
+                     attachment_name as "attachmentName", attachment_mime_type as "attachmentMimeType",
+                     attachment_size as "attachmentSize"`,
+          [participantId, message, replyToId]
+        ));
+      }
       res.status(201).json(publicMessageRow(rows[0]));
     } catch (error) {
       console.error("chat send error:", error);
