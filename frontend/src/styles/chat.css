@@ -19,3 +19,8 @@
 .chat-reaction, .chat-reaction-select { min-height: 30px; padding: 3px 8px; border-radius: 999px; font-size: 13px; }
 .chat-reaction.active { font-weight: 700; }
 .chat-reaction-select { width: 52px; }
+
+.chat-row { display: flex; align-items: flex-end; gap: 7px; }
+.chat-row-mine { flex-direction: row-reverse; }
+.chat-avatar { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(127,127,127,.25); }
+@media (max-width: 640px) { .chat-avatar { width: 30px; height: 30px; flex-basis: 30px; } }
