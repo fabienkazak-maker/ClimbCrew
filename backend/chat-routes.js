@@ -24,6 +24,9 @@ function publicMessageRow(row) {
     attachmentMimeType: row.attachmentMimeType || null,
     attachmentSize: row.attachmentSize == null ? null : Number(row.attachmentSize),
     attachmentUrl: row.attachmentName ? `/chat/messages/${row.id}/attachment` : null,
+    kind: row.kind || "user",
+    eventType: row.eventType || null,
+    reactions: row.reactions || [],
   };
 }
 
@@ -33,7 +36,9 @@ export function installChatRoutes(app, { requireAuth, pool }) {
       const { rows } = await pool.query(
         `select id, participant_id as "participantId", message, created_at as "createdAt",
                 attachment_name as "attachmentName", attachment_mime_type as "attachmentMimeType",
-                attachment_size as "attachmentSize"
+                attachment_size as "attachmentSize", kind, event_type as "eventType",
+                coalesce((select json_agg(json_build_object('reaction', r.reaction, 'participantId', r.participant_id))
+                  from chat_message_reactions r where r.message_id = chat_messages.id), '[]'::json) as reactions
          from chat_messages
          order by created_at desc
          limit 200`
@@ -85,6 +90,42 @@ export function installChatRoutes(app, { requireAuth, pool }) {
     } catch (error) {
       console.error("chat send error:", error);
       res.status(500).json({ error: "Envoi du message impossible." });
+    }
+  });
+
+  app.post("/chat/messages/:id/reactions", requireAuth, async (req, res) => {
+    try {
+      const participantId = participantIdFromRequest(req);
+      if (!participantId) return res.status(403).json({ error: "Compte non relié à un grimpeur." });
+      const reaction = String(req.body?.reaction || "").trim();
+      if (!reaction || reaction.length > 24) return res.status(400).json({ error: "Réaction invalide." });
+      const exists = await pool.query("select 1 from chat_messages where id = $1", [req.params.id]);
+      if (!exists.rowCount) return res.status(404).json({ error: "Message introuvable." });
+      await pool.query(
+        `insert into chat_message_reactions (message_id, participant_id, reaction)
+         values ($1,$2,$3) on conflict (message_id, participant_id, reaction) do nothing`,
+        [req.params.id, participantId, reaction],
+      );
+      return res.json({ ok: true });
+    } catch (error) {
+      console.error("chat reaction error:", error);
+      return res.status(500).json({ error: "Réaction impossible." });
+    }
+  });
+
+  app.delete("/chat/messages/:id/reactions", requireAuth, async (req, res) => {
+    try {
+      const participantId = participantIdFromRequest(req);
+      const reaction = String(req.body?.reaction || "").trim();
+      if (!participantId) return res.status(403).json({ error: "Compte non relié à un grimpeur." });
+      await pool.query(
+        "delete from chat_message_reactions where message_id = $1 and participant_id = $2 and reaction = $3",
+        [req.params.id, participantId, reaction],
+      );
+      return res.json({ ok: true });
+    } catch (error) {
+      console.error("chat reaction delete error:", error);
+      return res.status(500).json({ error: "Retrait de la réaction impossible." });
     }
   });
 
