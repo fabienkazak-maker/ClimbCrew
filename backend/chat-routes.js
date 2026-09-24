@@ -39,16 +39,16 @@ export function installChatRoutes(app, { requireAuth, pool }) {
   app.get("/chat/messages", requireAuth, async (_req, res) => {
     try {
       const { rows } = await pool.query(
-        `select id, participant_id as "participantId", message, created_at as "createdAt",
-                attachment_name as "attachmentName", attachment_mime_type as "attachmentMimeType",
-                attachment_size as "attachmentSize", kind, event_type as "eventType", event_ref as "eventRef",
-                edited_at as "editedAt", pinned, poll,
+        `select cm.id, cm.participant_id as "participantId", cm.message, cm.created_at as "createdAt",
+                cm.attachment_name as "attachmentName", cm.attachment_mime_type as "attachmentMimeType",
+                cm.attachment_size as "attachmentSize", cm.kind, cm.event_type as "eventType", cm.event_ref as "eventRef",
+                cm.edited_at as "editedAt", cm.pinned, cm.poll,
                 case when parent.id is null then null else json_build_object('id', parent.id, 'participantId', parent.participant_id, 'message', parent.message, 'attachmentName', parent.attachment_name) end as "replyTo",
                 coalesce((select json_agg(json_build_object('reaction', r.reaction, 'participantId', r.participant_id))
-                  from chat_message_reactions r where r.message_id = chat_messages.id), '[]'::json) as reactions
-         from chat_messages
-         left join chat_messages parent on parent.id = chat_messages.reply_to_id
-         order by chat_messages.created_at desc
+                  from chat_message_reactions r where r.message_id = cm.id), '[]'::json) as reactions
+         from chat_messages cm
+         left join chat_messages parent on parent.id = cm.reply_to_id
+         order by cm.created_at desc
          limit 200`
       );
       res.json(rows.reverse().map(publicMessageRow));
