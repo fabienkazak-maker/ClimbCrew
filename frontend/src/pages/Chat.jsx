@@ -228,6 +228,13 @@ export default function Chat({ myParticipantId, participants = [] }) {
                 )}
                 {activeMessageId === item.id && (
                   <div className="chat-message-menu" onClick={(event) => event.stopPropagation()}>
+                    <div className="chat-reaction-picker">
+                      <button type="button" className="chat-reaction chat-kudo" onClick={() => toggleReaction(item, "👍")} aria-label="Ajouter un Kudo">👍 Kudo</button>
+                      <select className="chat-reaction-select" aria-label="Ajouter un emoji" defaultValue="" onChange={(event) => { if (event.target.value) void toggleReaction(item, event.target.value); event.target.value = ""; }}>
+                        <option value="">😊 Emoji</option>
+                        {EMOJIS.filter((emoji) => emoji !== "👍").map((emoji) => <option value={emoji} key={emoji}>{emoji}</option>)}
+                      </select>
+                    </div>
                     <div className="chat-actions"><button type="button" onClick={() => togglePin(item)}>{item.pinned ? "Désépingler" : "📌 Épingler"}</button>{mine && item.kind !== "system" && <><button type="button" onClick={() => editMessage(item)}>✏️ Modifier</button><button type="button" onClick={() => deleteMessage(item)}>🗑️ Supprimer</button></>}</div>
 
                   </div>
