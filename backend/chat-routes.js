@@ -38,19 +38,38 @@ function publicMessageRow(row) {
 export function installChatRoutes(app, { requireAuth, pool }) {
   app.get("/chat/messages", requireAuth, async (_req, res) => {
     try {
-      const { rows } = await pool.query(
-        `select cm.id, cm.participant_id as "participantId", cm.message, cm.created_at as "createdAt",
-                cm.attachment_name as "attachmentName", cm.attachment_mime_type as "attachmentMimeType",
-                cm.attachment_size as "attachmentSize", cm.kind, cm.event_type as "eventType", cm.event_ref as "eventRef",
-                cm.edited_at as "editedAt", cm.pinned, cm.poll,
-                case when parent.id is null then null else json_build_object('id', parent.id, 'participantId', parent.participant_id, 'message', parent.message, 'attachmentName', parent.attachment_name) end as "replyTo",
-                coalesce((select json_agg(json_build_object('reaction', r.reaction, 'participantId', r.participant_id))
-                  from chat_message_reactions r where r.message_id = cm.id), '[]'::json) as reactions
-         from chat_messages cm
-         left join chat_messages parent on parent.id = cm.reply_to_id
-         order by cm.created_at desc
-         limit 200`
-      );
+      let rows;
+      try {
+        ({ rows } = await pool.query(
+          `select cm.id, cm.participant_id as "participantId", cm.message, cm.created_at as "createdAt",
+                  cm.attachment_name as "attachmentName", cm.attachment_mime_type as "attachmentMimeType",
+                  cm.attachment_size as "attachmentSize", cm.kind, cm.event_type as "eventType", cm.event_ref as "eventRef",
+                  cm.edited_at as "editedAt", cm.pinned, cm.poll,
+                  case when parent.id is null then null else json_build_object('id', parent.id, 'participantId', parent.participant_id, 'message', parent.message, 'attachmentName', parent.attachment_name) end as "replyTo",
+                  coalesce((select json_agg(json_build_object('reaction', r.reaction, 'participantId', r.participant_id))
+                    from chat_message_reactions r where r.message_id = cm.id), '[]'::json) as reactions
+           from chat_messages cm
+           left join chat_messages parent on parent.id = cm.reply_to_id
+           order by cm.created_at desc
+           limit 200`
+        ));
+      } catch (replyQueryError) {
+        // Compatibilité avec une base PPD dont la migration des réponses n'est pas encore appliquée :
+        // le chat doit rester lisible même si reply_to_id est momentanément indisponible.
+        console.warn("chat reply query unavailable, fallback to base chat query:", replyQueryError.message);
+        ({ rows } = await pool.query(
+          `select cm.id, cm.participant_id as "participantId", cm.message, cm.created_at as "createdAt",
+                  cm.attachment_name as "attachmentName", cm.attachment_mime_type as "attachmentMimeType",
+                  cm.attachment_size as "attachmentSize", cm.kind, cm.event_type as "eventType", cm.event_ref as "eventRef",
+                  cm.edited_at as "editedAt", cm.pinned, cm.poll,
+                  null::json as "replyTo",
+                  coalesce((select json_agg(json_build_object('reaction', r.reaction, 'participantId', r.participant_id))
+                    from chat_message_reactions r where r.message_id = cm.id), '[]'::json) as reactions
+           from chat_messages cm
+           order by cm.created_at desc
+           limit 200`
+        ));
+      }
       res.json(rows.reverse().map(publicMessageRow));
     } catch (error) {
       console.error("chat list error:", error);
