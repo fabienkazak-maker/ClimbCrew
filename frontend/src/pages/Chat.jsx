@@ -80,6 +80,31 @@ export default function Chat({ myParticipantId, participants = [] }) {
     }
   }
 
+  async function toggleReaction(item, reaction) {
+    const mine = (item.reactions || []).some((r) => String(r.participantId) === String(myParticipantId) && r.reaction === reaction);
+    try {
+      await apiFetch(`/chat/messages/${item.id}/reactions`, {
+        method: mine ? "DELETE" : "POST",
+        body: JSON.stringify({ reaction }),
+      });
+      await loadMessages();
+    } catch (err) {
+      setError(String(err.message || err));
+    }
+  }
+
+  function reactionGroups(item) {
+    const groups = new Map();
+    for (const reaction of item.reactions || []) {
+      const key = reaction.reaction;
+      const current = groups.get(key) || { reaction: key, count: 0, mine: false };
+      current.count += 1;
+      if (String(reaction.participantId) === String(myParticipantId)) current.mine = true;
+      groups.set(key, current);
+    }
+    return [...groups.values()];
+  }
+
   function displayName(participantId) {
     const participant = participantsById[String(participantId)];
     if (!participant) return "Grimpeur";
@@ -124,11 +149,23 @@ export default function Chat({ myParticipantId, participants = [] }) {
           const mine = String(item.participantId) === String(myParticipantId);
           return (
             <div className={mine ? "chat-row chat-row-mine" : "chat-row"} key={item.id}>
-              <div className={mine ? "chat-bubble chat-bubble-mine" : "chat-bubble"}>
+              <div className={`${mine ? "chat-bubble chat-bubble-mine" : "chat-bubble"} ${item.kind === "system" ? "chat-bubble-system" : ""}`}>
                 {!mine && <strong>{displayName(item.participantId)}</strong>}
                 {renderAttachment(item)}
                 {item.message && <div className="chat-message-text">{item.message}</div>}
                 <div className="small">{new Date(item.createdAt).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</div>
+                <div className="chat-reactions">
+                  {reactionGroups(item).map((group) => (
+                    <button type="button" className={group.mine ? "chat-reaction active" : "chat-reaction"} key={group.reaction} onClick={() => toggleReaction(item, group.reaction)}>
+                      {group.reaction} {group.count}
+                    </button>
+                  ))}
+                  <button type="button" className="chat-reaction chat-kudo" onClick={() => toggleReaction(item, "👍")} aria-label="Kudo">👍 Kudo</button>
+                  <select className="chat-reaction-select" aria-label="Réagir avec un emoji" defaultValue="" onChange={(event) => { if (event.target.value) void toggleReaction(item, event.target.value); event.target.value = ""; }}>
+                    <option value="">😊</option>
+                    {EMOJIS.filter((emoji) => emoji !== "👍").map((emoji) => <option value={emoji} key={emoji}>{emoji}</option>)}
+                  </select>
+                </div>
               </div>
             </div>
           );
