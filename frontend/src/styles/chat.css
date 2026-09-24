@@ -36,3 +36,36 @@
 
 .chat-bubble[role="button"] { cursor: pointer; }
 .chat-message-menu { margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(127,127,127,.2); }
+
+
+/* Chat readability: keep message text legible on every bubble background. */
+.chat-bubble {
+  color: var(--text, #172033);
+}
+.chat-bubble-mine {
+  color: #ffffff;
+}
+.chat-bubble-system {
+  color: var(--text, #172033);
+}
+.chat-bubble strong,
+.chat-bubble .small,
+.chat-bubble .chat-message-text,
+.chat-bubble .chat-pinned {
+  color: inherit;
+}
+.chat-bubble .small { opacity: .78; }
+
+/* Reaction controls are intentionally available from the message menu,
+   including received messages. */
+.chat-reaction-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 5px;
+}
+.chat-reaction-picker .chat-reaction-select {
+  width: auto;
+  min-width: 88px;
+}
