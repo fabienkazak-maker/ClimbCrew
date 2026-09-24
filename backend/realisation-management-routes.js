@@ -467,7 +467,7 @@ export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
       );
       try {
         const info = await pool.query(
-          `select p.prenom, p.nom, r.nom_voie, r.numero_corde
+          `select p.prenom, p.nom, r.nom_voie, r.numero_corde, r.cotation_reference, r.cotation_ajustee
            from participants p cross join routes r
            where p.id = $1 and r.id = $2 limit 1`,
           [participantId, realisation.voieId],
@@ -475,10 +475,12 @@ export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
         const row = info.rows[0] || {};
         const who = [row.prenom, row.nom].filter(Boolean).join(" ") || "Un grimpeur";
         const route = row.nom_voie || (row.numero_corde ? `voie corde ${row.numero_corde}` : "une voie");
+        const grade = realisation.cotationProposee || row.cotation_ajustee || row.cotation_reference || "cotation non renseignée";
+        const mode = realisation.nbEssais === "moulinette" ? "en moulinette" : "en tête";
         await pool.query(
           `insert into chat_messages (participant_id, message, kind, event_type, event_ref)
            values ($1,$2,'system','realisation',$3)`,
-          [participantId, `🏆 ${who} a enregistré une réalisation sur ${route}.`, realisation.id],
+          [participantId, `🏆 ${who} a réalisé ${route} · ${grade} · ${mode}.`, realisation.id],
         );
       } catch (chatError) {
         console.error("realisation chat event error:", chatError);
