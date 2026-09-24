@@ -16,6 +16,7 @@ export default function Chat({ myParticipantId, participants = [] }) {
   const [search, setSearch] = React.useState("");
   const [showMedia, setShowMedia] = React.useState(false);
   const [showPoll, setShowPoll] = React.useState(false);
+  const [activeMessageId, setActiveMessageId] = React.useState(null);
   const bottomRef = React.useRef(null);
   const fileRef = React.useRef(null);
   const participantsById = React.useMemo(
@@ -219,7 +220,7 @@ export default function Chat({ myParticipantId, participants = [] }) {
               {item.kind !== "system" && avatarSource(item.participantId) && (
                 <img className="chat-avatar" src={avatarSource(item.participantId)} alt="" aria-hidden="true" />
               )}
-              <div className={`${mine ? "chat-bubble chat-bubble-mine" : "chat-bubble"} ${item.kind === "system" ? "chat-bubble-system" : ""}`}>
+              <div className={`${mine ? "chat-bubble chat-bubble-mine" : "chat-bubble"} ${item.kind === "system" ? "chat-bubble-system" : ""}`} role="button" tabIndex={0} aria-expanded={activeMessageId === item.id} onClick={() => setActiveMessageId((current) => current === item.id ? null : item.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setActiveMessageId((current) => current === item.id ? null : item.id); } }}>
                 {!mine && <strong>{displayName(item.participantId)}</strong>}
                 {renderAttachment(item)}
                 {item.pinned && <div className="chat-pinned">📌 Épinglé</div>}
@@ -227,20 +228,24 @@ export default function Chat({ myParticipantId, participants = [] }) {
                 {item.eventRef && <button type="button" className="chat-event-link" onClick={() => window.dispatchEvent(new CustomEvent("climbcrew:navigate", { detail: { type: item.eventType, id: item.eventRef } }))}>Ouvrir dans ClimbCrew ↗</button>}
                 {item.poll?.options && <div className="chat-poll">{item.poll.options.map(option => <button type="button" key={option.id} onClick={() => vote(item, option.id)}>{option.label} · {(option.votes || []).length}</button>)}</div>}
                 {item.editedAt && <span className="small"> · modifié</span>}
-                <div className="chat-actions"><button type="button" onClick={() => togglePin(item)}>{item.pinned ? "Désépingler" : "📌"}</button>{mine && item.kind !== "system" && <><button type="button" onClick={() => editMessage(item)}>✏️</button><button type="button" onClick={() => deleteMessage(item)}>🗑️</button></>}</div>
                 <div className="small">{new Date(item.createdAt).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</div>
-                <div className="chat-reactions">
-                  {reactionGroups(item).map((group) => (
-                    <button type="button" className={group.mine ? "chat-reaction active" : "chat-reaction"} key={group.reaction} onClick={() => toggleReaction(item, group.reaction)}>
-                      {group.reaction} {group.count}
-                    </button>
-                  ))}
-                  <button type="button" className="chat-reaction chat-kudo" onClick={() => toggleReaction(item, "👍")} aria-label="Kudo">👍 Kudo</button>
-                  <select className="chat-reaction-select" aria-label="Réagir avec un emoji" defaultValue="" onChange={(event) => { if (event.target.value) void toggleReaction(item, event.target.value); event.target.value = ""; }}>
-                    <option value="">😊</option>
-                    {EMOJIS.filter((emoji) => emoji !== "👍").map((emoji) => <option value={emoji} key={emoji}>{emoji}</option>)}
-                  </select>
-                </div>
+                {activeMessageId === item.id && (
+                  <div className="chat-message-menu" onClick={(event) => event.stopPropagation()}>
+                    <div className="chat-actions"><button type="button" onClick={() => togglePin(item)}>{item.pinned ? "Désépingler" : "📌 Épingler"}</button>{mine && item.kind !== "system" && <><button type="button" onClick={() => editMessage(item)}>✏️ Modifier</button><button type="button" onClick={() => deleteMessage(item)}>🗑️ Supprimer</button></>}</div>
+                    <div className="chat-reactions">
+                      {reactionGroups(item).map((group) => (
+                        <button type="button" className={group.mine ? "chat-reaction active" : "chat-reaction"} key={group.reaction} onClick={() => toggleReaction(item, group.reaction)}>
+                          {group.reaction} {group.count}
+                        </button>
+                      ))}
+                      <button type="button" className="chat-reaction chat-kudo" onClick={() => toggleReaction(item, "👍")} aria-label="Kudo">👍 Kudo</button>
+                      <select className="chat-reaction-select" aria-label="Réagir avec un emoji" defaultValue="" onChange={(event) => { if (event.target.value) void toggleReaction(item, event.target.value); event.target.value = ""; }}>
+                        <option value="">😊</option>
+                        {EMOJIS.filter((emoji) => emoji !== "👍").map((emoji) => <option value={emoji} key={emoji}>{emoji}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           );
