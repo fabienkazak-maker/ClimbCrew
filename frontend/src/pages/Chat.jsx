@@ -219,7 +219,8 @@ export default function Chat({ myParticipantId, participants = [] }) {
                 {item.message && <div className="chat-message-text">{item.message}</div>}
                 {item.poll?.options && <div className="chat-poll">{item.poll.options.map(option => <button type="button" key={option.id} onClick={() => vote(item, option.id)}>{option.label} · {(option.votes || []).length}</button>)}</div>}
                 {item.editedAt && <span className="small"> · modifié</span>}
-                <div className="small">{new Date(item.createdAt).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</div>\n                {reactionGroups(item).length > 0 && (
+                <div className="small">{new Date(item.createdAt).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</div>
+                {reactionGroups(item).length > 0 && (
                   <div className="chat-reactions chat-reactions-display" onClick={(event) => event.stopPropagation()}>
                     {reactionGroups(item).map((group) => (
                       <span className={group.mine ? "chat-reaction active" : "chat-reaction"} key={group.reaction}>{group.reaction} {group.count}</span>
