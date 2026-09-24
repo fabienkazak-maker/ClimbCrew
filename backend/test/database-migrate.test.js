@@ -30,6 +30,7 @@ test("un seul répertoire canonique conserve toutes les versions historiques dan
     "010_participant_passeport_ffme.sql",
     "011_participant_physical_metrics.sql",
     "012_chat_messages.sql",
+    "013_chat_reactions.sql",
     "013_chat_attachments.sql",
     "021_realisation_kudos.sql",
   ]);
