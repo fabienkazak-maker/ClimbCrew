@@ -1,5 +1,7 @@
 import React from "react";
 import { API_BASE, apiFetch, apiUpload } from "../lib/api.js";
+import { customAvatarSource } from "../lib/custom-avatar.js";
+import { AVATAR_OPTIONS } from "../components/ProfileGecko.jsx";
 import "../styles/chat.css";
 
 const EMOJIS = ["😀","😂","😊","😍","👍","👏","💪","🧗","🔥","🎉","❤️","🤔","😅","🙌","👋","✅","📸","🏆"];
@@ -111,6 +113,16 @@ export default function Chat({ myParticipantId, participants = [] }) {
     return [participant.prenom, participant.nom].filter(Boolean).join(" ") || "Grimpeur";
   }
 
+  function avatarSource(participantId) {
+    const participant = participantsById[String(participantId)];
+    if (!participant) return "";
+    const custom = customAvatarSource(participant);
+    if (custom) return custom;
+    return AVATAR_OPTIONS.find((option) => option.id === participant.avatarId)?.image
+      || AVATAR_OPTIONS[0]?.image
+      || "";
+  }
+
   function attachmentUrl(item) {
     return `${API_BASE}${item.attachmentUrl}`;
   }
@@ -149,6 +161,9 @@ export default function Chat({ myParticipantId, participants = [] }) {
           const mine = String(item.participantId) === String(myParticipantId);
           return (
             <div className={mine ? "chat-row chat-row-mine" : "chat-row"} key={item.id}>
+              {item.kind !== "system" && avatarSource(item.participantId) && (
+                <img className="chat-avatar" src={avatarSource(item.participantId)} alt="" aria-hidden="true" />
+              )}
               <div className={`${mine ? "chat-bubble chat-bubble-mine" : "chat-bubble"} ${item.kind === "system" ? "chat-bubble-system" : ""}`}>
                 {!mine && <strong>{displayName(item.participantId)}</strong>}
                 {renderAttachment(item)}
