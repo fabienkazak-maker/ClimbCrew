@@ -31,6 +31,7 @@ function publicMessageRow(row) {
     pinned: Boolean(row.pinned),
     poll: row.poll || null,
     eventRef: row.eventRef || null,
+    replyTo: row.replyTo || null,
   };
 }
 
@@ -42,10 +43,12 @@ export function installChatRoutes(app, { requireAuth, pool }) {
                 attachment_name as "attachmentName", attachment_mime_type as "attachmentMimeType",
                 attachment_size as "attachmentSize", kind, event_type as "eventType", event_ref as "eventRef",
                 edited_at as "editedAt", pinned, poll,
+                case when parent.id is null then null else json_build_object('id', parent.id, 'participantId', parent.participant_id, 'message', parent.message, 'attachmentName', parent.attachment_name) end as "replyTo",
                 coalesce((select json_agg(json_build_object('reaction', r.reaction, 'participantId', r.participant_id))
                   from chat_message_reactions r where r.message_id = chat_messages.id), '[]'::json) as reactions
          from chat_messages
-         order by created_at desc
+         left join chat_messages parent on parent.id = chat_messages.reply_to_id
+         order by chat_messages.created_at desc
          limit 200`
       );
       res.json(rows.reverse().map(publicMessageRow));
@@ -83,13 +86,15 @@ export function installChatRoutes(app, { requireAuth, pool }) {
       if (!message || message.length > 2000) {
         return res.status(400).json({ error: "Le message doit contenir entre 1 et 2000 caractères." });
       }
+      const replyToId = req.body?.replyToId == null ? null : Number(req.body.replyToId);
+      if (replyToId != null && (!Number.isInteger(replyToId) || !(await pool.query("select 1 from chat_messages where id=$1", [replyToId])).rowCount)) return res.status(400).json({ error: "Message cité invalide." });
       const { rows } = await pool.query(
-        `insert into chat_messages (participant_id, message)
-         values ($1, $2)
+        `insert into chat_messages (participant_id, message, reply_to_id)
+         values ($1, $2, $3)
          returning id, participant_id as "participantId", message, created_at as "createdAt",
                    attachment_name as "attachmentName", attachment_mime_type as "attachmentMimeType",
                    attachment_size as "attachmentSize"`,
-        [participantId, message]
+        [participantId, message, replyToId]
       );
       res.status(201).json(publicMessageRow(rows[0]));
     } catch (error) {
