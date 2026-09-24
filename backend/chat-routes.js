@@ -27,6 +27,10 @@ function publicMessageRow(row) {
     kind: row.kind || "user",
     eventType: row.eventType || null,
     reactions: row.reactions || [],
+    editedAt: row.editedAt || null,
+    pinned: Boolean(row.pinned),
+    poll: row.poll || null,
+    eventRef: row.eventRef || null,
   };
 }
 
@@ -36,7 +40,8 @@ export function installChatRoutes(app, { requireAuth, pool }) {
       const { rows } = await pool.query(
         `select id, participant_id as "participantId", message, created_at as "createdAt",
                 attachment_name as "attachmentName", attachment_mime_type as "attachmentMimeType",
-                attachment_size as "attachmentSize", kind, event_type as "eventType",
+                attachment_size as "attachmentSize", kind, event_type as "eventType", event_ref as "eventRef",
+                edited_at as "editedAt", pinned, poll,
                 coalesce((select json_agg(json_build_object('reaction', r.reaction, 'participantId', r.participant_id))
                   from chat_message_reactions r where r.message_id = chat_messages.id), '[]'::json) as reactions
          from chat_messages
@@ -91,6 +96,81 @@ export function installChatRoutes(app, { requireAuth, pool }) {
       console.error("chat send error:", error);
       res.status(500).json({ error: "Envoi du message impossible." });
     }
+  });
+
+
+  app.patch("/chat/messages/:id", requireAuth, async (req, res) => {
+    try {
+      const participantId = participantIdFromRequest(req);
+      const message = String(req.body?.message || "").trim();
+      if (!participantId) return res.status(403).json({ error: "Compte non relié à un grimpeur." });
+      if (!message || message.length > 2000) return res.status(400).json({ error: "Message invalide." });
+      const { rows } = await pool.query(
+        `update chat_messages set message=$1, edited_at=now()
+         where id=$2 and participant_id=$3 and kind='user'
+         returning id, participant_id as "participantId", message, created_at as "createdAt",
+          edited_at as "editedAt", pinned, poll, kind, event_type as "eventType", event_ref as "eventRef",
+          attachment_name as "attachmentName", attachment_mime_type as "attachmentMimeType", attachment_size as "attachmentSize"`,
+        [message, req.params.id, participantId],
+      );
+      if (!rows[0]) return res.status(404).json({ error: "Message introuvable ou non modifiable." });
+      return res.json(publicMessageRow(rows[0]));
+    } catch (error) { console.error("chat edit error:", error); return res.status(500).json({ error: "Modification impossible." }); }
+  });
+
+  app.delete("/chat/messages/:id", requireAuth, async (req, res) => {
+    try {
+      const participantId = participantIdFromRequest(req);
+      if (!participantId) return res.status(403).json({ error: "Compte non relié à un grimpeur." });
+      const result = await pool.query("delete from chat_messages where id=$1 and participant_id=$2 and kind='user'", [req.params.id, participantId]);
+      if (!result.rowCount) return res.status(404).json({ error: "Message introuvable ou non supprimable." });
+      return res.json({ ok: true });
+    } catch (error) { console.error("chat delete error:", error); return res.status(500).json({ error: "Suppression impossible." }); }
+  });
+
+  app.post("/chat/messages/:id/pin", requireAuth, async (req, res) => {
+    try {
+      const pinned = req.body?.pinned !== false;
+      const { rows } = await pool.query("update chat_messages set pinned=$1 where id=$2 returning id, pinned", [pinned, req.params.id]);
+      if (!rows[0]) return res.status(404).json({ error: "Message introuvable." });
+      return res.json(rows[0]);
+    } catch (error) { return res.status(500).json({ error: "Épinglage impossible." }); }
+  });
+
+  app.post("/chat/polls", requireAuth, async (req, res) => {
+    try {
+      const participantId = participantIdFromRequest(req);
+      const question = String(req.body?.question || "").trim().slice(0, 500);
+      const options = (Array.isArray(req.body?.options) ? req.body.options : []).map(x => String(x).trim().slice(0,120)).filter(Boolean).slice(0,8);
+      if (!participantId || !question || options.length < 2) return res.status(400).json({ error: "Sondage invalide." });
+      const poll = { question, options: options.map((label, index) => ({ id: index + 1, label, votes: [] })) };
+      const { rows } = await pool.query(
+        `insert into chat_messages(participant_id,message,kind,event_type,poll) values($1,$2,'user','poll',$3::jsonb)
+         returning id, participant_id as "participantId", message, created_at as "createdAt", kind, event_type as "eventType", poll, pinned, edited_at as "editedAt"`,
+        [participantId, question, JSON.stringify(poll)],
+      );
+      return res.status(201).json(publicMessageRow(rows[0]));
+    } catch (error) { console.error("chat poll error:", error); return res.status(500).json({ error: "Création du sondage impossible." }); }
+  });
+
+  app.post("/chat/messages/:id/poll-vote", requireAuth, async (req, res) => {
+    try {
+      const participantId = participantIdFromRequest(req);
+      const optionId = Number(req.body?.optionId);
+      const { rows } = await pool.query("select poll from chat_messages where id=$1 and event_type='poll'", [req.params.id]);
+      const poll = rows[0]?.poll;
+      if (!participantId || !poll || !Number.isInteger(optionId)) return res.status(400).json({ error: "Vote invalide." });
+      poll.options = (poll.options || []).map(o => ({ ...o, votes: o.id === optionId ? [...new Set([...(o.votes || []).filter(id => String(id) !== String(participantId)), participantId])] : (o.votes || []).filter(id => String(id) !== String(participantId)) }));
+      await pool.query("update chat_messages set poll=$1::jsonb where id=$2", [JSON.stringify(poll), req.params.id]);
+      return res.json({ ok: true, poll });
+    } catch (error) { console.error("chat vote error:", error); return res.status(500).json({ error: "Vote impossible." }); }
+  });
+
+  app.get("/chat/kudos", requireAuth, async (_req, res) => {
+    try {
+      const { rows } = await pool.query(`select participant_id as "participantId", count(*)::int as kudos from chat_message_reactions where reaction='👍' group by participant_id order by kudos desc`);
+      return res.json(rows);
+    } catch (error) { return res.status(500).json({ error: "Classement Kudos indisponible." }); }
   });
 
   app.post("/chat/messages/:id/reactions", requireAuth, async (req, res) => {
