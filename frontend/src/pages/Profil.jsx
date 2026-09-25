@@ -3,6 +3,7 @@ import Button from "../components/Button.jsx";
 import ClimberProfilePanel from "../components/ClimberProfilePanel.jsx";
 import ParticipantBadges from "../components/ParticipantBadges.jsx";
 import ProfileGecko from "../components/ProfileGecko.jsx";
+import PhysicalProfileCard from "../components/PhysicalProfileCard.jsx";
 import ProfileRealisationRecorder from "../components/ProfileRealisationRecorder.jsx";
 import RealisationVideoAnalysis from "../components/RealisationVideoAnalysis.jsx";
 import CprEvolutionChart from "../sections/CprEvolutionChart.jsx";
@@ -21,6 +22,7 @@ import {
   getRealisationCriterion,
   getRealisationMode,
 } from "../lib/realisation-mode.js";
+import { bestRealisationIds, realisationQualityScore } from "../lib/profile-physical.js";
 
 function sortParticipantsForProfile(participants, myParticipantId) {
   return [...participants].sort((a, b) => {
@@ -31,7 +33,7 @@ function sortParticipantsForProfile(participants, myParticipantId) {
   });
 }
 
-function sortRealisationsForDisplay(realisations, routesById, sortBy) {
+function sortRealisationsForDisplay(realisations, routesById, sortBy, bestIds = new Set()) {
   return [...realisations].sort((a, b) => {
     const dateOrder = String(b.dateRealisation || "").localeCompare(String(a.dateRealisation || ""));
     if (sortBy === "date") return dateOrder;
@@ -42,6 +44,13 @@ function sortRealisationsForDisplay(realisations, routesById, sortBy) {
     if (sortBy === "rope") {
       const ropeOrder = normalizeRopeNumber(routeA?.numeroCorde) - normalizeRopeNumber(routeB?.numeroCorde);
       return ropeOrder || dateOrder;
+    }
+
+    if (sortBy === "best") {
+      const bestOrder = Number(bestIds.has(String(b.id))) - Number(bestIds.has(String(a.id)));
+      if (bestOrder) return bestOrder;
+      const qualityOrder = realisationQualityScore(b, routeB) - realisationQualityScore(a, routeA);
+      return qualityOrder || dateOrder;
     }
 
     if (sortBy === "difficulty") {
@@ -84,6 +93,21 @@ export default function Profil({
   const [theCragImporting, setTheCragImporting] = React.useState(false);
   const [theCragImportStatus, setTheCragImportStatus] = React.useState(null);
   const [theCragStartDate, setTheCragStartDate] = React.useState("");
+  const [kudosPendingId, setKudosPendingId] = React.useState("");
+
+  async function toggleKudo(realisation) {
+    if (!myParticipantId || kudosPendingId) return;
+    setKudosPendingId(realisation.id);
+    try {
+      await apiFetch(`/realisations/${encodeURIComponent(realisation.id)}/kudos`, {
+        method: realisation.kudosByMe ? "DELETE" : "POST",
+      });
+      await refreshRealisations();
+    } finally {
+      setKudosPendingId("");
+    }
+  }
+
 
   React.useEffect(() => {
     setRealisations(Array.isArray(allRealisations) ? allRealisations : []);
@@ -133,7 +157,8 @@ export default function Profil({
   const selectedRealisations = realisations
     .filter((realisation) => String(realisation.participantId) === String(selectedParticipantId))
     .sort((a, b) => String(b.dateRealisation || "").localeCompare(String(a.dateRealisation || "")));
-  const displayedRealisations = sortRealisationsForDisplay(selectedRealisations, routesById, realisationSort);
+  const bestIds = bestRealisationIds(selectedRealisations, routesById);
+  const displayedRealisations = sortRealisationsForDisplay(selectedRealisations, routesById, realisationSort, bestIds);
   const cpr = cprByParticipantId[selectedParticipantId] || {};
   const points = pointsByParticipantId[selectedParticipantId] || 0;
   const participations = sessionStats.participationCount[selectedParticipantId] || 0;
@@ -296,6 +321,17 @@ export default function Profil({
             </div>
           )}
 
+          {profileIsVisible && (
+            <details className="card profile-physical-collapsible">
+              <summary className="card-header" style={{ cursor: "pointer" }}>
+                <h3 style={{ margin: 0 }}>Profil physique</h3>
+                <span className="small">Cliquer pour compacter / étendre</span>
+              </summary>
+              <div style={{ marginTop: 10 }}>
+                <PhysicalProfileCard participant={selectedParticipant} editable={isOwnProfile} onUpdate={handleProfileUpdate} />
+              </div>
+            </details>
+          )}
           {!profileIsVisible ? (
             <div className="muted-box private-profile-notice">Ce grimpeur a choisi de conserver son profil privé.</div>
           ) : (
@@ -315,6 +351,7 @@ export default function Profil({
                   <div className="stat"><div className="label">CPR actuel</div><div className="value">{cpr.currentGrade || "-"}</div></div>
                   <div className="stat"><div className="label">Points</div><div className="value">{formatPoints(points)}</div></div>
                   <div className="stat"><div className="label">Séances</div><div className="value">{participations}</div></div>
+                  <div className="stat"><div className="label">Kudos reçus</div><div className="value">{selectedRealisations.reduce((total, item) => total + Number(item.kudosCount || 0), 0)}</div></div>
                 </div>
               </div>
 
@@ -360,6 +397,7 @@ export default function Profil({
                           <option value="date">Date</option>
                           <option value="rope">Corde</option>
                           <option value="difficulty">Difficulté</option>
+                          <option value="best">Meilleure réalisation</option>
                         </select>
                       </label>
                     </div>
@@ -377,13 +415,15 @@ export default function Profil({
                         : "Critère non précisé (historique)";
                       const forcedMoulinette = Boolean(route?.moulinetteOnly);
                       return (
-                        <details className="subcard editable-realisation-card" key={realisation.id}>
+                        <details className="subcard editable-realisation-card" key={realisation.id} style={bestIds.has(String(realisation.id)) ? { background: "#dff3e4", borderColor: "#5b9b68" } : undefined}>
                           <summary className="card-header realisation-summary">
                             <div>
                               <strong>{route ? formatRouteForRealisation(route) : "Voie inconnue"}</strong>
                               <div className="small">{formatDateShortFr(realisation.dateRealisation?.slice(0, 10))} · {modeLabel} · {criterionLabel}</div>
+                              <div className="small">👍 {Number(realisation.kudosCount || 0)} Kudo{Number(realisation.kudosCount || 0) > 1 ? "s" : ""}</div>
                             </div>
                           </summary>
+                          <div className="group" style={{ justifyContent: "flex-end", marginBottom: 8 }}><Button variant="secondary" disabled={!myParticipantId || kudosPendingId === realisation.id} aria-pressed={Boolean(realisation.kudosByMe)} onClick={() => void toggleKudo(realisation)}>👍 {realisation.kudosByMe ? "Kudo donné" : "Kudo"} · {Number(realisation.kudosCount || 0)}</Button></div>
                           {isOwnProfile && (
                             <div className="group" style={{ justifyContent: "flex-end", marginBottom: 8 }}>
                               <Button variant="danger" onClick={() => deleteOwnRealisation(realisation)}>Supprimer</Button>

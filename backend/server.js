@@ -3,11 +3,13 @@ import { readFileSync } from "node:fs";
 import express from "express";
 import { installRouteManagementRoutes } from "./route-management-routes.js";
 import { installRealisationManagementRoutes } from "./realisation-management-routes.js";
+import { installRealisationKudoRoutes } from "./realisation-kudo-routes.js";
 import { installRealisationTechnicalAnalysisRoutes } from "./realisation-technical-analysis-routes.js";
 import { installSessionReadRoutes } from "./session-read-routes.js";
 import { installParticipantCreationRoute } from "./participant-creation-route.js";
 import { installBroadcastMessageRoutes } from "./broadcast-message-routes.js";
 import { installEvolutionRequestRoutes } from "./evolution-request-routes.js";
+import { installChatRoutes } from "./chat-routes.js";
 import { installAuthSessionRoutes } from "./auth-session-routes.js";
 import { installAdminAccessLogRoutes } from "./admin-access-log-routes.js";
 import { installAdminAccountDeleteRoute } from "./admin-account-delete-route.js";
@@ -129,7 +131,9 @@ installExplicitAdminUserRoutes(app, {
 });
 installBroadcastMessageRoutes(app, { requireAuth, requireAdmin, pool });
 installEvolutionRequestRoutes(app, { requireAuth, requireAdmin, pool });
+installChatRoutes(app, { requireAuth, pool });
 installRealisationManagementRoutes(app, { requireAuth, pool });
+installRealisationKudoRoutes(app, { requireAuth, pool });
 installRealisationTechnicalAnalysisRoutes(app, { requireAuth, pool });
 installRouteManagementRoutes(app, { requireAuth, requireAdmin, pool });
 

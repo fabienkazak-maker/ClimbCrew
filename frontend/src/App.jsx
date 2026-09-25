@@ -11,6 +11,7 @@ import Inscriptions from "./pages/Inscriptions.jsx";
 import Voies from "./pages/Voies.jsx";
 import Progression from "./pages/Progression.jsx";
 import Profil from "./pages/Profil.jsx";
+import Chat from "./pages/Chat.jsx";
 import Parametres from "./pages/Parametres.jsx";
 import Administration from "./pages/Administration.jsx";
 import GestionComptes from "./pages/GestionComptes.jsx";
@@ -60,6 +61,7 @@ import { useRealisationEditorState } from "./hooks/useRealisationEditorState.js"
 import { PASSWORD_RULE_TEXT, isStrongPassword } from "./lib/password-policy.js";
 import { buildRouteDisplayGroups } from "./lib/route-display-groups.js";
 import { buildTheCragExport } from "./lib/thecrag.js";
+import { usePlanningSessions } from "./lib/planning-view.js";
 import {
   buildRealisationDraft,
   buildRealisationPayload,
@@ -265,53 +267,7 @@ function App() {
     return modalAllEligibleParticipants.filter((participant) => participantIdsForSelectedDay.has(participant.id));
   }, [newRealisation.selectedDay, modalAllEligibleParticipants, state.sessions]);
 
-  const selectedDate = state.selectedDate || todayIso();
-
-  const daySessions = useMemo(() => {
-    return ["midi", "soir", "matin"].map((slot) => {
-      const found = state.sessions.find((s) => s.date === selectedDate && s.slot === slot);
-      return found || {
-        id: `${selectedDate}-${slot}`,
-        date: selectedDate,
-        slot,
-        status: defaultSessionStatus(selectedDate, slot),
-        encadrantId: null,
-        referentId: null,
-        participantIds: [],
-      };
-    });
-  }, [selectedDate, state.sessions]);
-
-  const weekDates = useMemo(() => {
-    const current = new Date(`${selectedDate}T12:00:00`);
-    const day = current.getDay();
-    const diff = day === 0 ? -6 : 1 - day;
-    const monday = new Date(current);
-    monday.setDate(current.getDate() + diff);
-    return Array.from({ length: 5 }, (_, i) => {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      return d.toISOString().slice(0, 10);
-    });
-  }, [selectedDate]);
-
-  const weekSessions = useMemo(() => {
-    return weekDates.map((date) => ({
-      date,
-      sessions: ["midi", "soir", "matin"].map((slot) => {
-        const found = state.sessions.find((s) => s.date === date && s.slot === slot);
-        return found || {
-          id: `${date}-${slot}`,
-          date,
-          slot,
-          status: defaultSessionStatus(date, slot),
-          encadrantId: null,
-          referentId: null,
-          participantIds: [],
-        };
-      }),
-    }));
-  }, [weekDates, state.sessions]);
+  const { selectedDate, daySessions, weekSessions } = usePlanningSessions(state);
 
   const selectedParticipantRealisations = useMemo(() => {
     return state.realisations
@@ -1809,6 +1765,7 @@ async function handleThemePreferenceChange(nextTheme) {
             toggleAllProgressRealisations={toggleAllProgressRealisations}
             allRealisations={state.realisations}
             myParticipantId={myParticipantId}
+            onKudosChanged={() => reloadApiState({ isMounted: () => true })}
           />
         )}
 
@@ -1833,6 +1790,13 @@ async function handleThemePreferenceChange(nextTheme) {
             exportMyRealisationsCsv={exportMyRealisationsCsv}
             onTheCragImported={() => reloadApiState({ isMounted: () => true })}
             onRealisationsChanged={() => reloadApiState({ isMounted: () => true })}
+          />
+        )}
+
+        {tab === "chat" && (
+          <Chat
+            myParticipantId={myParticipantId}
+            participants={state.participants}
           />
         )}
 

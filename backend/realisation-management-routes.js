@@ -465,6 +465,31 @@ export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
           Boolean(realisation.chute), realisation.assureurId || null, JSON.stringify(realisation.videoUrls),
         ],
       );
+      try {
+        const info = await pool.query(
+          `select p.prenom, p.nom, r.nom_voie, r.numero_corde, r.nom_ouvreur, r.cotation_reference, r.cotation_ajustee
+           from participants p cross join routes r
+           where p.id = $1 and r.id = $2 limit 1`,
+          [participantId, realisation.voieId],
+        );
+        const row = info.rows[0] || {};
+        const who = [row.prenom, row.nom].filter(Boolean).join(" ") || "Un grimpeur";
+        const routeParts = [
+          row.numero_corde ? `corde ${row.numero_corde}` : "",
+          row.nom_voie ? `« ${row.nom_voie} »` : "",
+          row.nom_ouvreur ? `ouverte par ${row.nom_ouvreur}` : "",
+        ].filter(Boolean);
+        const route = routeParts.length ? routeParts.join(" · ") : "une voie";
+        const grade = realisation.cotationProposee || row.cotation_ajustee || row.cotation_reference || "cotation non renseignée";
+        const mode = realisation.nbEssais === "moulinette" ? "en moulinette" : "en tête";
+        await pool.query(
+          `insert into chat_messages (participant_id, message, kind, event_type, event_ref)
+           values ($1,$2,'system','realisation',$3)`,
+          [participantId, `🏆 ${who} a réalisé ${route} · ${grade} · ${mode}.`, realisation.id],
+        );
+      } catch (chatError) {
+        console.error("realisation chat event error:", chatError);
+      }
       res.json(realisation);
     } catch (error) {
       res.status(error.status || 500).json({ error: error.message || String(error), fields: error.fields || undefined });

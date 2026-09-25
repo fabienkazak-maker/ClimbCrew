@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from "react";
 import { apiFetch } from "../lib/api.js";
 
-const BOOLEAN_KEYS = new Set(["cotisation","passeportFfme","ffme","canEncadrer","canReferer","canAdmin","initiateurSae","initiateurSne"]);
+const BOOLEAN_KEYS = new Set(["accountAssociated","cotisation","passeportFfme","ffme","canEncadrer","canReferer","canAdmin","initiateurSae","initiateurSne"]);
 const COLUMNS = [
-  ["nom","Nom"],["prenom","Prénom"],["email","E-mail"],["sexe","Sexe"],["passport","Couleur passeport"],
+  ["nom","Nom"],["prenom","Prénom"],["email","E-mail"],["accountAssociated","Compte associé"],["sexe","Sexe"],["passport","Couleur passeport"],
   ["passeportFfme","Passeport FFME"],["cotisation","Cotisation"],["ffme","FFME"],["canEncadrer","Encadrant"],["canReferer","Référent"],
   ["canAdmin","Administrateur"],["initiateurSae","Initiateur SAE"],["initiateurSne","Initiateur SNE"],["sessions","Séances"],
 ];
@@ -23,7 +23,8 @@ function display(p,key) {
 const COLUMN_WIDTHS = {
   nom: "8%",
   prenom: "8%",
-  email: "18%",
+  email: "15%",
+  accountAssociated: "6%",
   sexe: "4%",
   passport: "7%",
   passeportFfme: "6%",
@@ -134,6 +135,7 @@ export default function DonneesUtilisateurs({ participants = [], sessions = [], 
   }
   function editor(p,key) {
     if (key === "sessions") return sessionCountByParticipantId[String(p.id)] || 0;
+    if (key === "accountAssociated") return yesNo(Boolean(p.accountAssociated));
     const d=draftFor(p), value=d[key];
     if (BOOLEAN_KEYS.has(key)) return <input type="checkbox" checked={Boolean(value)} onChange={e=>setField(p,key,e.target.checked)} aria-label={`${COLUMNS.find(c=>c[0]===key)?.[1]} ${p.prenom} ${p.nom}`} />;
     if (key==="sexe") return <select value={value||""} onChange={e=>setField(p,key,e.target.value)} style={{width:"100%",minWidth:0,fontSize:"inherit",padding:"4px 2px"}}><option value="">-</option><option value="h">H</option><option value="f">F</option></select>;

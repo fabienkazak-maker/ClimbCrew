@@ -3,6 +3,7 @@ import Button from "../components/Button.jsx";
 import ParticipantBadges from "../components/ParticipantBadges.jsx";
 import VideoTechnicalAnalysis from "../components/VideoTechnicalAnalysis.jsx";
 import { GRADES, fullName, formatRouteForRealisation, formatPoints, formatDateShortFr } from "../lib/domain.js";
+import { apiFetch } from "../lib/api.js";
 import {
   REALISATION_CRITERION_LABELS,
   REALISATION_MODE_LABELS,
@@ -44,8 +45,24 @@ export default function Progression({
   toggleAllProgressRealisations,
   allRealisations,
   myParticipantId,
+  onKudosChanged,
 }) {
   const defaultParticipantApplied = React.useRef(false);
+  const [kudosPendingId, setKudosPendingId] = React.useState("");
+
+  async function toggleKudo(realisation) {
+    if (!myParticipantId || kudosPendingId) return;
+    setKudosPendingId(realisation.id);
+    try {
+      await apiFetch(`/realisations/${encodeURIComponent(realisation.id)}/kudos`, {
+        method: realisation.kudosByMe ? "DELETE" : "POST",
+      });
+      await onKudosChanged?.();
+    } finally {
+      setKudosPendingId("");
+    }
+  }
+
 
   React.useEffect(() => {
     if (defaultParticipantApplied.current || !myParticipantId) return;
@@ -167,6 +184,7 @@ export default function Progression({
                   <div className="group progression-realisation-actions">
                     {isIncludedInCpr && <span className="pill">Prise en compte dans le CPR</span>}
                     {selectedVideoUrls.length > 0 && <span className="pill">{selectedVideoUrls.length} vidéo{selectedVideoUrls.length > 1 ? "s" : ""}</span>}
+                    <Button variant="secondary" disabled={!myParticipantId || kudosPendingId === realisation.id} aria-pressed={Boolean(realisation.kudosByMe)} onClick={(event) => { event.preventDefault(); event.stopPropagation(); void toggleKudo(realisation); }}>👍 {Number(realisation.kudosCount || 0)}</Button>
                     {canEditRealisation && <Button variant="remove" className="progression-realisation-remove" title="Supprimer cette réalisation" aria-label="Supprimer cette réalisation" onClick={(event) => { event.preventDefault(); event.stopPropagation(); deleteRealisation(realisation); }}>×</Button>}
                   </div>
                 </summary>

@@ -68,9 +68,22 @@ export function serializeParticipant(row) {
     canEncadrer: Boolean(row.can_encadrer),
     canReferer: Boolean(row.can_referer),
     canAdmin: Boolean(row.can_admin),
+    accountAssociated: Boolean(row.account_associated),
     avatarId: row.avatar_id || "gecko",
     crestId: row.crest_id || "cristal",
     profilePublic: row.profile_public !== false,
+    heightCm: row.height_cm == null ? null : Number(row.height_cm),
+    weightKg: row.weight_kg == null ? null : Number(row.weight_kg),
+    armSpanCm: row.arm_span_cm == null ? null : Number(row.arm_span_cm),
+    standingReachCm: row.standing_reach_cm == null ? null : Number(row.standing_reach_cm),
+    gripStrengthRightKg: row.grip_strength_right_kg == null ? null : Number(row.grip_strength_right_kg),
+    gripStrengthLeftKg: row.grip_strength_left_kg == null ? null : Number(row.grip_strength_left_kg),
+    hang20mmSeconds: row.hang_20mm_seconds == null ? null : Number(row.hang_20mm_seconds),
+    jugHangSeconds: row.jug_hang_seconds == null ? null : Number(row.jug_hang_seconds),
+    strictPullups: row.strict_pullups == null ? null : Number(row.strict_pullups),
+    flexedArmHangSeconds: row.flexed_arm_hang_seconds == null ? null : Number(row.flexed_arm_hang_seconds),
+    weightedPullupKg: row.weighted_pullup_kg == null ? null : Number(row.weighted_pullup_kg),
+    hipMobilityCm: row.hip_mobility_cm == null ? null : Number(row.hip_mobility_cm),
     ...avatarMetadata(row),
   };
 }
@@ -102,6 +115,16 @@ export function serializePublicParticipant(row) {
     avatarId: row.avatar_id || "gecko",
     crestId: row.crest_id || "cristal",
     profilePublic: true,
+    heightCm: row.height_cm == null ? null : Number(row.height_cm),
+    weightKg: row.weight_kg == null ? null : Number(row.weight_kg),
+    armSpanCm: row.arm_span_cm == null ? null : Number(row.arm_span_cm),
+    standingReachCm: row.standing_reach_cm == null ? null : Number(row.standing_reach_cm),
+    gripStrengthRightKg: row.grip_strength_right_kg == null ? null : Number(row.grip_strength_right_kg),
+    gripStrengthLeftKg: row.grip_strength_left_kg == null ? null : Number(row.grip_strength_left_kg),
+    hang20mmSeconds: row.hang_20mm_seconds == null ? null : Number(row.hang_20mm_seconds),
+    strictPullups: row.strict_pullups == null ? null : Number(row.strict_pullups),
+    weightedPullupKg: row.weighted_pullup_kg == null ? null : Number(row.weighted_pullup_kg),
+    hipMobilityCm: row.hip_mobility_cm == null ? null : Number(row.hip_mobility_cm),
     ...avatarMetadata(row),
   };
 }
@@ -155,7 +178,10 @@ export async function listParticipantsWithPrivacy(req, res) {
         id, nom, prenom, email, login_email, passport, passeport_ffme, sexe, cotisation, ffme,
         initiateur_sae, initiateur_sne,
         can_encadrer, can_referer, can_admin, avatar_id, crest_id,
-        profile_public,
+        exists(select 1 from users u where u.participant_id::text = participants.id::text) as account_associated,
+        profile_public, height_cm, weight_kg, arm_span_cm, standing_reach_cm,
+        grip_strength_right_kg, grip_strength_left_kg, hang_20mm_seconds, jug_hang_seconds, strict_pullups,
+        flexed_arm_hang_seconds, weighted_pullup_kg, hip_mobility_cm,
         (coalesce(custom_avatar_image, '') <> '') as has_custom_avatar
       from participants
       order by prenom asc, nom asc
@@ -219,7 +245,12 @@ export async function listRealisationsWithPrivacy(req, res) {
           r.rating,
           r.chute,
           r.assureur_id as "assureurId",
-          r.video_urls as "videoUrls"
+          r.video_urls as "videoUrls",
+          (select count(*)::integer from realisation_kudos k where k.realisation_id = r.id) as "kudosCount",
+          exists(
+            select 1 from realisation_kudos k
+            where k.realisation_id = r.id and k.participant_id::text = $2
+          ) as "kudosByMe"
         from realisations r
         left join participants p on p.id::text = r.participant_id::text
         where $1::boolean = true
