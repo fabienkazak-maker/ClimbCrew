@@ -1344,3 +1344,36 @@ button:not(.danger):not(.secondary):not(.ghost),
   .chat-thread { min-height: 300px; max-height: calc(100vh - 300px); }
   .chat-bubble { max-width: 88%; }
 }
+
+
+/* FAQ / demandes d'évolution : densité mobile et hiérarchie visuelle. */
+.evolution-score { font-size: .9rem; min-width: auto; white-space: nowrap; }
+.evolution-admin-label { flex-basis: 100%; font-weight: 800; }
+.evolution-content { padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px)); }
+.buddy-card { padding: 0; overflow: hidden; }
+.buddy-summary { cursor: pointer; padding: 12px 14px; gap: 12px; }
+.buddy-count { white-space: nowrap; font-size: .78rem; font-weight: 800; padding: 5px 9px; border-radius: 999px; background: var(--surface-muted, rgba(127,127,127,.09)); }
+.buddy-content { display: grid; gap: 12px; padding: 0 14px 14px; }
+.buddy-options { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.buddy-chip { min-height: 36px; padding: 6px 11px; border-radius: 999px; border: 1px solid var(--border-color, rgba(127,127,127,.35)); background: transparent; color: inherit; font-weight: 750; }
+.buddy-chip.active { background: var(--accent, #c96b35); color: #fff; border-color: transparent; }
+.buddy-actions { display: flex; justify-content: flex-end; }
+.buddy-match-list { display: grid; gap: 7px; padding-top: 10px; border-top: 1px solid var(--border-color, rgba(127,127,127,.25)); }
+.buddy-match { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border-radius: 10px; background: var(--surface-muted, rgba(127,127,127,.08)); }
+@media (max-width: 620px) {
+  .evolution-page { gap: 10px; padding-bottom: calc(82px + env(safe-area-inset-bottom, 0px)); }
+  .evolution-list { gap: 9px; }
+  .evolution-summary { grid-template-columns: auto minmax(0,1fr) auto; }
+  .evolution-summary-meta { grid-column: 2 / -1; font-size: .76rem; }
+  .evolution-summary .evolution-score { grid-column: 3; grid-row: 1; padding: 5px 7px; }
+  .evolution-content { gap: 9px; padding: 0 10px 12px; }
+  .evolution-description { margin: 2px 0; line-height: 1.35; }
+  .evolution-votes { gap: 6px; }
+  .vote-button { min-height: 36px; padding: 6px 10px; }
+  .evolution-admin-status { padding: 6px; gap: 5px; }
+  .status-button, .evolution-status { padding: 4px 7px; font-size: .72rem; }
+  .evolution-comments { padding-top: 9px; gap: 7px; }
+  .comment-form textarea { min-height: 72px; }
+  .buddy-summary { align-items: flex-start; }
+  .buddy-match { display: grid; }
+}
