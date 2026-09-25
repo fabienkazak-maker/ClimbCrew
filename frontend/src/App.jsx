@@ -124,8 +124,8 @@ function App() {
     realisationModalRouteId, setRealisationModalRouteId,
     selectedRouteProgress, setSelectedRouteProgress,
     expandedRealisationIds, setExpandedRealisationIds,
+    realisationSaving, setRealisationSaving,
   } = useRealisationEditorState({ defaultRouteId: EMPTY_APP_DATA.routes?.[0]?.id || "" });
-  const [realisationSaving, setRealisationSaving] = useState(false);
 
   useEffect(() => {
     if (!confirmationMessage) return undefined;
