@@ -14,6 +14,10 @@ function decodeHeader(value, fallback = "") {
   }
 }
 
+export function canFallbackChatReplyQuery(error) {
+  return error?.code === "42703" && /reply_to_id/i.test(String(error?.message || ""));
+}
+
 function publicMessageRow(row) {
   return {
     id: row.id,
@@ -54,8 +58,9 @@ export function installChatRoutes(app, { requireAuth, pool }) {
            limit 200`
         ));
       } catch (replyQueryError) {
-        // Compatibilité avec une base PPD dont la migration des réponses n'est pas encore appliquée :
-        // le chat doit rester lisible même si reply_to_id est momentanément indisponible.
+        // Le repli ne couvre que l'absence historique de reply_to_id. Toute autre
+        // erreur SQL doit remonter afin de ne pas masquer une panne réelle du chat.
+        if (!canFallbackChatReplyQuery(replyQueryError)) throw replyQueryError;
         console.warn("chat reply query unavailable, fallback to base chat query:", replyQueryError.message);
         ({ rows } = await pool.query(
           `select cm.id, cm.participant_id as "participantId", cm.message, cm.created_at as "createdAt",

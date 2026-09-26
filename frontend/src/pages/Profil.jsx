@@ -131,7 +131,10 @@ export default function Profil({
         setBuddyAvailability({ preferences: buddyPreferencesFromAvailability(mine), note: mine?.note || "" });
         setBuddyMatches(Array.isArray(matches) ? matches : []);
       })
-      .catch(() => {});
+      .catch((error) => {
+        console.error("Impossible de charger les disponibilités Buddy.", error);
+        setProfileError(`Disponibilités Buddy indisponibles : ${error.message || error}`);
+      });
   }, [USE_API, myParticipantId]);
 
   React.useEffect(() => {

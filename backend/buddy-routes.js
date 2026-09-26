@@ -1,12 +1,16 @@
+import {
+  BUDDY_DAY_VALUES,
+  BUDDY_PREFERENCE_VALUES,
+  BUDDY_SLOT_VALUES,
+} from "../shared/buddy-preferences.js";
+
 function participantIdFromRequest(req) {
   return req.auth?.user?.participantId || req.enhancementAuth?.user?.participantId || null;
 }
 
-const DAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven"];
-const SLOTS = ["matin", "midi", "soir"];
-const DAY_SET = new Set(DAYS);
-const SLOT_SET = new Set(SLOTS);
-const PREFERENCE_SET = new Set(DAYS.flatMap((day) => SLOTS.map((slot) => `${day}:${slot}`)));
+const DAY_SET = new Set(BUDDY_DAY_VALUES);
+const SLOT_SET = new Set(BUDDY_SLOT_VALUES);
+const PREFERENCE_SET = new Set(BUDDY_PREFERENCE_VALUES);
 
 function cleanList(value, allowed) {
   return [...new Set((Array.isArray(value) ? value : []).map(String).filter((item) => allowed.has(item)))];
