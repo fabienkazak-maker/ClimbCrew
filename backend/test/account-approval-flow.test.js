@@ -24,7 +24,7 @@ const configSource = await readFile(
 );
 
 test("la demande de compte annonce une association administrateur explicite", () => {
-  assert.match(configSource, /REQUIRE_ADMIN_ACCOUNT_APPROVAL/);
+  assert.doesNotMatch(configSource, /REQUIRE_ADMIN_ACCOUNT_APPROVAL/);
   assert.match(emailAssociationSource, /un administrateur devra associer le compte/);
   assert.match(emailAssociationSource, /publicRequestResponse/);
   assert.match(routesSource, /requestAccessByEmailOnly/);
@@ -44,15 +44,17 @@ test("l'association automatique par email n'est plus exposée", () => {
 });
 
 test("la vérification de l'e-mail conserve le compte pending jusqu'à l'action administrateur", () => {
-  assert.match(approvalSource, /const autoActivate = false/);
+  assert.doesNotMatch(approvalSource, /autoActivate/);
   assert.match(approvalSource, /Un administrateur doit maintenant associer le compte/);
-  assert.match(routesSource, /app\.get\("\/auth\/verify-email", verifyEmailPendingAdminApproval\)/);
+  assert.match(routesSource, /app\.get\("\/auth\/verify-email", showVerifyEmailConfirmation\)/);
+  assert.match(routesSource, /app\.post\("\/auth\/verify-email", verifyEmailPendingAdminApproval\)/);
 });
 
-test("un compte pending déjà vérifié peut être activé après changement de politique", () => {
+test("un compte pending déjà vérifié reste pending jusqu'à l'approbation administrateur", () => {
   assert.match(approvalSource, /if \(tokenRow\.used_at && tokenRow\.status === "active"\)/);
-  assert.match(approvalSource, /if \(tokenRow\.used_at && REQUIRE_ADMIN_ACCOUNT_APPROVAL\)/);
+  assert.match(approvalSource, /if \(tokenRow\.used_at && tokenRow\.status === "pending"\)/);
   assert.match(approvalSource, /if \(!tokenRow\.used_at\)/);
+  assert.doesNotMatch(approvalSource, /status = case when/);
 });
 
 test("toutes les demandes pending restent visibles dans Gestion des comptes avec leur statut d'envoi", () => {
