@@ -248,7 +248,11 @@ jobs:
           done
           [ "$FETCH_OK" = true ] || { echo "ERROR: git fetch impossible"; exit 1; }
           git cat-file -e "${VALIDATED_SHA}^{commit}" 2>/dev/null || { echo "ERROR: SHA validé absent"; exit 1; }
-          git merge-base --is-ancestor "$VALIDATED_SHA" refs/remotes/origin/main || { echo "ERROR: SHA hors branche main"; exit 1; }
+          REMOTE_MAIN_SHA="$(git rev-parse refs/remotes/origin/main)"
+          [ "$REMOTE_MAIN_SHA" = "$VALIDATED_SHA" ] || {
+            echo "ERROR: déploiement obsolète refusé : main=$REMOTE_MAIN_SHA, validé=$VALIDATED_SHA"
+            exit 1
+          }
           git checkout -B main "$VALIDATED_SHA"
           [ "$(git rev-parse HEAD)" = "$VALIDATED_SHA" ] || exit 1
           printf 'candidate_checked_out=true\n' >> "$GITHUB_OUTPUT"
