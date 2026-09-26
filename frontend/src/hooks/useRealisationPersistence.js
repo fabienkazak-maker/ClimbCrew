@@ -40,16 +40,16 @@ export function useRealisationPersistence({
 
     const queueKey = String(realisationId);
     const previousRequest = realisationSyncQueues.get(queueKey) || Promise.resolve();
-    const request = previousRequest
+    const queuedRequest = previousRequest
       .catch(() => undefined)
       .then(() => request(`/realisations/${encodeURIComponent(realisationId)}`, {
         method: "PUT",
         body: JSON.stringify(patch),
       }));
 
-    realisationSyncQueues.set(queueKey, request);
+    realisationSyncQueues.set(queueKey, queuedRequest);
     try {
-      await request;
+      await queuedRequest;
       onSuccess?.("Réalisation enregistrée.");
     } catch (error) {
       setState((previous) => ({
@@ -60,7 +60,7 @@ export function useRealisationPersistence({
       }));
       onError?.(`Erreur mise à jour réalisation : ${error.message || error}`);
     } finally {
-      if (realisationSyncQueues.get(queueKey) === request) realisationSyncQueues.delete(queueKey);
+      if (realisationSyncQueues.get(queueKey) === queuedRequest) realisationSyncQueues.delete(queueKey);
     }
   };
 }
