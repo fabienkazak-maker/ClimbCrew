@@ -50,12 +50,13 @@ jobs:
           trap 'rm -f "$PROBE_FILE" "$BODY_FILE"' EXIT
           dd if=/dev/zero of="$PROBE_FILE" bs=1K count=768 status=none
 
-          HTTP_CODE="$(curl --insecure --silent --show-error --output "$BODY_FILE" \
+          HTTP_CODE="$(curl --silent --show-error --output "$BODY_FILE" \
             --write-out '%{http_code}' --max-time 60 \
-            --resolve "${DOMAIN}:443:127.0.0.1" \
-            -X POST -H 'Content-Type: application/octet-stream' \
+            -X POST \
+            -H "Host: ${DOMAIN}" \
+            -H 'Content-Type: application/octet-stream' \
             --data-binary "@$PROBE_FILE" \
-            "https://${DOMAIN}/api/realisations/proxy-limit-probe/video-uploads/proxy-probe-1234/chunks/0" || true)"
+            "http://127.0.0.1/api/realisations/proxy-limit-probe/video-uploads/proxy-probe-1234/chunks/0" || true)"
 
           echo "Bloc local 768 Kio -> HTTP ${HTTP_CODE}"
           if [ "$HTTP_CODE" = "413" ] || [ -z "$HTTP_CODE" ] || [ "$HTTP_CODE" = "000" ] || [[ "$HTTP_CODE" =~ ^5 ]]; then

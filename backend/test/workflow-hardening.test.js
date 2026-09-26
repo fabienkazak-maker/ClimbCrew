@@ -12,7 +12,9 @@ test("le contrôle vidéo sépare le proxy local du TLS public", async () => {
   const source = await workflow("ensure-preprod-nginx-upload.yml");
   assert.match(source, /verify_local_nginx:/);
   assert.match(source, /runs-on: self-hosted/);
-  assert.match(source, /--resolve "\\?\$\{DOMAIN\}:443:127\.0\.0\.1"/);
+  assert.match(source, /-H "Host: \${DOMAIN}"/);
+  assert.match(source, /http:\/\/127\.0\.0\.1\/api\/realisations\/proxy-limit-probe/);
+  assert.doesNotMatch(source, /--resolve "\\?\$\{DOMAIN\}:443:127\.0\.0\.1"/);
   assert.match(source, /verify_public_chunk:/);
   assert.match(source, /runs-on: ubuntu-latest/);
 });
