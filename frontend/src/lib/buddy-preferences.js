@@ -1,20 +1,12 @@
-export const BUDDY_DAYS = [
-  { value: "Lun", label: "Lundi" },
-  { value: "Mar", label: "Mardi" },
-  { value: "Mer", label: "Mercredi" },
-  { value: "Jeu", label: "Jeudi" },
-  { value: "Ven", label: "Vendredi" },
-];
+import {
+  BUDDY_DAYS,
+  BUDDY_PREFERENCE_VALUES,
+  BUDDY_SLOTS,
+} from "../../../shared/buddy-preferences.js";
 
-export const BUDDY_SLOTS = [
-  { value: "matin", label: "Matin" },
-  { value: "midi", label: "Midi" },
-  { value: "soir", label: "Soir" },
-];
+export { BUDDY_DAYS, BUDDY_SLOTS };
 
-const VALID_PREFERENCES = new Set(
-  BUDDY_DAYS.flatMap((day) => BUDDY_SLOTS.map((slot) => `${day.value}:${slot.value}`)),
-);
+const VALID_PREFERENCES = new Set(BUDDY_PREFERENCE_VALUES);
 
 export function buddyPreferenceKey(day, slot) {
   return `${day}:${slot}`;
