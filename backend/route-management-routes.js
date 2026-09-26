@@ -1,9 +1,17 @@
 import express from "express";
 import crypto from "node:crypto";
 import { validateRoutePayload } from "./validation.js";
-
-const LOCAL_VIDEO_MAX_BYTES = 50 * 1024 * 1024;
-const LOCAL_VIDEO_TYPES = new Set(["video/mp4", "video/webm", "video/ogg", "video/quicktime"]);
+import {
+  LOCAL_VIDEO_MAX_BYTES,
+  LOCAL_VIDEO_TYPES,
+  VIDEO_UPLOAD_CHUNK_MAX_BYTES,
+  VIDEO_UPLOAD_ID_PATTERN,
+  assertVideoChunkBody,
+  cleanupExpiredVideoChunks,
+  decodeVideoFileName,
+  readVideoChunkRequest,
+  validateStoredVideoChunks,
+} from "./video-upload-policy.js";
 
 function ropeDbToApi(row) {
   return {
@@ -217,53 +225,62 @@ export function installRouteManagementRoutes(app, { requireAuth, requireAdmin, p
   app.post(
     "/routes/:id/video-uploads/:uploadId/chunks/:partNumber",
     requireAuth, requireAdmin,
-    express.raw({ type: "application/octet-stream", limit: 1024 * 1024 }),
+    express.raw({ type: "application/octet-stream", limit: VIDEO_UPLOAD_CHUNK_MAX_BYTES }),
     async (req, res) => {
       try {
-        const uploadId = String(req.params.uploadId || "");
-        const partNumber = Number(req.params.partNumber);
-        const totalParts = Number(req.headers["x-total-parts"]);
-        const totalBytes = Number(req.headers["x-total-bytes"]);
-        const mimeType = String(req.headers["x-video-mime-type"] || "").toLowerCase();
-        let fileName = "video";
-        try { fileName = decodeURIComponent(String(req.headers["x-file-name"] || "video")); } catch {}
-        fileName = fileName.replace(/[\r\n]/g, "").slice(0, 180) || "video";
-        if (!/^[A-Za-z0-9._-]{8,128}$/.test(uploadId)) return res.status(400).json({ error: "Identifiant de transfert invalide." });
-        if (!Number.isInteger(partNumber) || !Number.isInteger(totalParts) || partNumber < 0 || partNumber >= totalParts) return res.status(400).json({ error: "Bloc vidéo invalide." });
-        if (!Number.isInteger(totalBytes) || totalBytes < 1 || totalBytes > LOCAL_VIDEO_MAX_BYTES) return res.status(400).json({ error: "Taille vidéo invalide." });
-        if (!LOCAL_VIDEO_TYPES.has(mimeType)) return res.status(400).json({ error: "Format vidéo refusé. Utilisez MP4, WebM, OGG ou MOV." });
-        if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: "Bloc vidéo vide." });
+        const { uploadId, partNumber, totalParts, totalBytes, mimeType, fileName } = readVideoChunkRequest(req);
+        assertVideoChunkBody(req.body);
+        await cleanupExpiredVideoChunks(pool);
         const route = await pool.query("select video_urls from routes where id=$1", [req.params.id]);
         if (!route.rowCount) return res.status(404).json({ error: "Voie introuvable" });
         if ((route.rows[0].video_urls || []).length >= 10) return res.status(400).json({ error: "10 vidéos maximum par voie." });
+
+        const ownerKey = `admin:${req.auth?.user?.id || "unknown"}`;
+        const previous = await pool.query(
+          `select realisation_id, route_id, file_name, mime_type, total_parts, total_bytes
+           from route_video_upload_chunks where participant_id=$1 and upload_id=$2 limit 1`,
+          [ownerKey, uploadId],
+        );
+        if (previous.rowCount) {
+          const existing = previous.rows[0];
+          const metadataMatches = String(existing.realisation_id) === `route:${req.params.id}`
+            && String(existing.route_id) === String(req.params.id)
+            && String(existing.file_name) === fileName
+            && String(existing.mime_type) === mimeType
+            && Number(existing.total_parts) === totalParts
+            && Number(existing.total_bytes) === totalBytes;
+          if (!metadataMatches) return res.status(409).json({ error: "Les paramètres de ce transfert vidéo ont changé." });
+        }
+
         await pool.query(
           `insert into route_video_upload_chunks
            (participant_id,upload_id,part_number,realisation_id,route_id,file_name,mime_type,total_parts,total_bytes,content,created_at)
            values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now())
            on conflict (participant_id,upload_id,part_number) do update set content=excluded.content,created_at=now()`,
-          [`admin:${req.auth?.user?.id || "unknown"}`,uploadId,partNumber,`route:${req.params.id}`,req.params.id,fileName,mimeType,totalParts,totalBytes,req.body]
+          [ownerKey,uploadId,partNumber,`route:${req.params.id}`,req.params.id,fileName,mimeType,totalParts,totalBytes,req.body]
         );
         res.status(201).json({ ok:true, partNumber });
-      } catch (error) { res.status(500).json({ error:error.message || "Chargement du bloc impossible." }); }
+      } catch (error) {
+        res.status(error.status || 500).json({ error: error.message || "Chargement du bloc impossible." });
+      }
     }
   );
 
   app.post("/routes/:id/video-uploads/:uploadId/complete", requireAuth, requireAdmin, async (req,res) => {
-    const key=`admin:${req.auth?.user?.id || "unknown"}`, uploadId=String(req.params.uploadId || "");
+    const key = `admin:${req.auth?.user?.id || "unknown"}`;
+    const uploadId = String(req.params.uploadId || "");
+    if (!VIDEO_UPLOAD_ID_PATTERN.test(uploadId)) {
+      return res.status(400).json({ error: "Identifiant de transfert vidéo invalide." });
+    }
     const client=await pool.connect();
     try {
       await client.query("begin");
       const chunks=await client.query(
-        `select part_number,file_name,mime_type,total_parts,total_bytes,octet_length(content)::integer content_bytes
+        `select part_number,realisation_id,route_id,file_name,mime_type,total_parts,total_bytes,octet_length(content)::integer content_bytes
          from route_video_upload_chunks where participant_id=$1 and upload_id=$2 and route_id=$3 order by part_number for update`,
         [key,uploadId,req.params.id]
       );
-      if (!chunks.rowCount) throw Object.assign(new Error("Aucun bloc vidéo reçu."),{status:400});
-      const first=chunks.rows[0], totalParts=Number(first.total_parts), totalBytes=Number(first.total_bytes);
-      if (chunks.rowCount!==totalParts) throw Object.assign(new Error("Transfert vidéo incomplet."),{status:409});
-      let received=0;
-      chunks.rows.forEach((row,index)=>{ if(Number(row.part_number)!==index) throw Object.assign(new Error("Blocs vidéo incohérents."),{status:409}); received+=Number(row.content_bytes||0); });
-      if(received!==totalBytes || totalBytes>LOCAL_VIDEO_MAX_BYTES) throw Object.assign(new Error("Taille vidéo assemblée invalide."),{status:409});
+      const { first } = validateStoredVideoChunks(chunks.rows, { expectedRouteId: req.params.id });
       const assembled=await client.query(
         `select string_agg(content,''::bytea order by part_number) content from route_video_upload_chunks where participant_id=$1 and upload_id=$2 and route_id=$3`,
         [key,uploadId,req.params.id]
@@ -299,9 +316,7 @@ export function installRouteManagementRoutes(app, { requireAuth, requireAdmin, p
         if (currentUrls.length >= 10) return res.status(400).json({ error: "10 vidéos maximum par voie." });
 
         const videoId = crypto.randomUUID();
-        let fileName = "video";
-        try { fileName = decodeURIComponent(String(req.headers["x-file-name"] || "video")); } catch { fileName = "video"; }
-        fileName = fileName.replace(/[\r\n]/g, "").slice(0, 180) || "video";
+        const fileName = decodeVideoFileName(req.headers["x-file-name"]);
         const url = `/routes/${encodeURIComponent(req.params.id)}/videos/${videoId}`;
         const sizeBytes = req.body.length;
 
