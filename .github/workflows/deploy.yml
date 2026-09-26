@@ -39,13 +39,18 @@ jobs:
           CURRENT_RUN_ID: ${{ github.run_id }}
         run: |
           set -euo pipefail
-          RUNS_JSON="$(
-            curl --fail --silent --show-error               -H "Authorization: Bearer ${GITHUB_TOKEN}"               -H "Accept: application/vnd.github+json"               -H "X-GitHub-Api-Version: 2022-11-28"               "https://api.github.com/repos/${REPOSITORY}/actions/workflows/deploy.yml/runs?branch=main&per_page=100"
-          )"
+          RUNS_FILE="/tmp/climbcrew-runs-${CURRENT_RUN_ID}.json"
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${REPOSITORY}/actions/workflows/deploy.yml/runs?branch=main&per_page=100" \
+            --output "$RUNS_FILE"
 
           RUN_IDS="$(
-            RUNS_JSON="$RUNS_JSON" CURRENT_RUN_ID="$CURRENT_RUN_ID" node --input-type=module -e '
-              const data = JSON.parse(process.env.RUNS_JSON || "{}");
+            RUNS_FILE="$RUNS_FILE" CURRENT_RUN_ID="$CURRENT_RUN_ID" node --input-type=module -e '
+              import fs from "node:fs";
+              const data = JSON.parse(fs.readFileSync(process.env.RUNS_FILE, "utf8"));
               const current = String(process.env.CURRENT_RUN_ID || "");
               for (const run of data.workflow_runs || []) {
                 if (String(run.id) === current) continue;
@@ -58,12 +63,17 @@ jobs:
 
           while read -r run_id; do
             [ -n "$run_id" ] || continue
-            JOBS_JSON="$(
-              curl --fail --silent --show-error                 -H "Authorization: Bearer ${GITHUB_TOKEN}"                 -H "Accept: application/vnd.github+json"                 -H "X-GitHub-Api-Version: 2022-11-28"                 "https://api.github.com/repos/${REPOSITORY}/actions/runs/${run_id}/jobs?filter=latest&per_page=100"
-            )"
+            JOBS_FILE="/tmp/climbcrew-jobs-${run_id}.json"
+            curl --fail --silent --show-error \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${REPOSITORY}/actions/runs/${run_id}/jobs?filter=latest&per_page=100" \
+              --output "$JOBS_FILE"
             DEPLOY_STATUS="$(
-              JOBS_JSON="$JOBS_JSON" node --input-type=module -e '
-                const data = JSON.parse(process.env.JOBS_JSON || "{}");
+              JOBS_FILE="$JOBS_FILE" node --input-type=module -e '
+                import fs from "node:fs";
+                const data = JSON.parse(fs.readFileSync(process.env.JOBS_FILE, "utf8"));
                 const job = (data.jobs || []).find((item) => item.name === "Déployer la préproduction");
                 process.stdout.write(String(job?.status || ""));
               '
