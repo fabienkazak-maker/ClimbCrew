@@ -1,6 +1,10 @@
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
-import { BCRYPT_ROUNDS, RESET_TOKEN_DURATION_MS } from "./config.js";
+import {
+  ACCOUNT_REQUEST_NOTIFICATION_RECIPIENTS,
+  BCRYPT_ROUNDS,
+  RESET_TOKEN_DURATION_MS,
+} from "./config.js";
 
 const EMAIL_VERIFICATION_DURATION_MS = 1000 * 60 * 60 * 24 * 7;
 const EMAIL_CHANGE_TOKEN_DURATION_MS = 1000 * 60 * 60 * 24;
@@ -43,17 +47,6 @@ function buildEmailChangeConfirmUrl(rawToken) {
   const publicUrl = getPublicUrl();
   return publicUrl ? `${publicUrl}/api/auth/change-email/confirm?token=${encodeURIComponent(rawToken)}` : "";
 }
-
-/**
- * Destinataires fixes des notifications de demande de compte confirmée.
- * Volontairement indépendant de la table users : le statut administrateur
- * d'un compte ne doit pas suffire à l'abonner à ces e-mails (cf. compte
- * administrateur externe ayant reçu ces notifications par erreur).
- */
-const ACCOUNT_REQUEST_NOTIFICATION_RECIPIENTS = [
-  "thithi.petit@gmail.com",
-  "fabien.alcouffe@thalesgroup.com",
-];
 
 async function notifyAccountRequestReviewers({ user, req }) {
   const recipients = ACCOUNT_REQUEST_NOTIFICATION_RECIPIENTS.filter(
