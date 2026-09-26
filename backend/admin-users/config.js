@@ -9,12 +9,6 @@
  * erreurs 401/403 dans les écrans Administration et Gestion des comptes.
  */
 
-function envBoolean(name, fallback = false) {
-  const value = process.env[name];
-  if (value === undefined || value === null || value === "") return fallback;
-  return ["1", "true", "yes", "oui", "on"].includes(String(value).trim().toLowerCase());
-}
-
 /**
  * Vérifie que le serveur historique est bien démarré avec le préchargement qui
  * installe les protections de confidentialité, CSRF, IP et migrations.
@@ -54,14 +48,16 @@ export const SESSION_COOKIE_NAME = process.env.SESSION_COOKIE_NAME || "climbcrew
 export const CSRF_COOKIE_NAME = process.env.CSRF_COOKIE_NAME || "climbcrew_csrf";
 
 /**
- * Lorsque cette option vaut false, la vérification de l'adresse e-mail active
- * automatiquement le compte. Elle reste configurable pour pouvoir rétablir
- * ultérieurement une approbation manuelle sans modifier le code.
+ * Les comptes restent systématiquement pending après vérification e-mail.
+ * Leur association à une fiche grimpeur et leur activation sont des actions
+ * administrateur explicites.
  */
-export const REQUIRE_ADMIN_ACCOUNT_APPROVAL = envBoolean(
-  "REQUIRE_ADMIN_ACCOUNT_APPROVAL",
-  false,
-);
+export const ACCOUNT_REQUEST_NOTIFICATION_RECIPIENTS = String(
+  process.env.ACCOUNT_REQUEST_NOTIFICATION_RECIPIENTS || "",
+)
+  .split(",")
+  .map((email) => email.trim().toLowerCase())
+  .filter(Boolean);
 
 /**
  * Coût de hachage bcrypt.
