@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { createAuthSessionActions } from "../src/lib/auth-session-actions.js";
+
+const appSource = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
 
 function recorder() {
   const values = [];
@@ -48,4 +51,10 @@ test("une connexion réussie signale séparément une synchronisation secondaire
   assert.equal(recorders.setAuthUser.values.at(-1).id, "1");
   assert.equal(recorders.setAuthMessage.values.at(-1), "Connexion réussie.");
   assert.match(recorders.setSyncMessage.values.at(-1), /Erreur de synchronisation après connexion/);
+});
+
+test("App délègue les actions de session au module extrait", () => {
+  assert.match(appSource, /createAuthSessionActions\(\{/);
+  assert.doesNotMatch(appSource, /async function handleLogin\(/);
+  assert.doesNotMatch(appSource, /async function handleLogout\(/);
 });
