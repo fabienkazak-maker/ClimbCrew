@@ -8,23 +8,23 @@ export function useSessionPersistence({ useApi, setState, onSuccess, onError, re
 
     const sessionId = String(session.id);
     const previousRequest = sessionSyncQueues.get(sessionId) || Promise.resolve();
-    const request = previousRequest
+    const queuedRequest = previousRequest
       .catch(() => undefined)
       .then(() => request(`/sessions/${encodeURIComponent(session.id)}`, {
         method: "PUT",
         body: JSON.stringify(session),
       }));
 
-    sessionSyncQueues.set(sessionId, request);
+    sessionSyncQueues.set(sessionId, queuedRequest);
     try {
-      await request;
+      await queuedRequest;
       onSuccess?.("Séance enregistrée.");
       return true;
     } catch (error) {
       onError?.(`Erreur synchronisation séance : ${error.message || error}`);
       return false;
     } finally {
-      if (sessionSyncQueues.get(sessionId) === request) sessionSyncQueues.delete(sessionId);
+      if (sessionSyncQueues.get(sessionId) === queuedRequest) sessionSyncQueues.delete(sessionId);
     }
   }
 
