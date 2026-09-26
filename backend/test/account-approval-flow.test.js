@@ -25,6 +25,7 @@ const configSource = await readFile(
 
 test("la demande de compte annonce une association administrateur explicite", () => {
   assert.doesNotMatch(configSource, /REQUIRE_ADMIN_ACCOUNT_APPROVAL/);
+  assert.match(configSource, /ACCOUNT_REQUEST_NOTIFICATION_RECIPIENTS/);
   assert.match(emailAssociationSource, /un administrateur devra associer le compte/);
   assert.match(emailAssociationSource, /publicRequestResponse/);
   assert.match(routesSource, /requestAccessByEmailOnly/);
@@ -64,6 +65,7 @@ test("toutes les demandes pending restent visibles dans Gestion des comptes avec
   assert.match(accountSource, /account_request_confirmation_email_sent/);
   assert.match(accountSource, /account_request_confirmation_email_skipped/);
   assert.match(accountSource, /account_request_confirmation_email_failed/);
+  assert.doesNotMatch(accountSource, /thithi\.petit@gmail\.com|fabien\.alcouffe@thalesgroup\.com/);
 });
 
 test("l'approbation manuelle reste disponible pour une régularisation exceptionnelle", () => {
