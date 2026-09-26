@@ -1,4 +1,3 @@
-import { REQUIRE_ADMIN_ACCOUNT_APPROVAL } from "./config.js";
 import { getPool } from "./database.js";
 import { writeAccessLog } from "./access-log-service.js";
 import { hashToken } from "./security.js";
@@ -7,10 +6,9 @@ import { notifyAccountRequestReviewers } from "./account-notification-preference
 import { sendApprovalNotificationEmail } from "./account-service.js";
 
 /**
- * Valide la propriété de l'adresse e-mail puis applique la politique courante.
- * Par défaut l'approbation administrateur est désactivée : un compte `pending`
- * est activé immédiatement après vérification de l'e-mail. La politique reste
- * configurable afin de pouvoir rétablir ultérieurement l'approbation manuelle.
+ * Valide la propriété de l'adresse e-mail sans activer automatiquement le compte.
+ * L'association à une fiche grimpeur puis l'approbation restent des actions
+ * administrateur explicites.
  */
 export async function verifyEmailPendingAdminApproval(req, res) {
   const rawToken = String(req.query?.token || req.body?.token || "").trim();
@@ -45,10 +43,10 @@ export async function verifyEmailPendingAdminApproval(req, res) {
       await client.query("rollback");
       return res.status(200).send("Cette adresse e-mail a déjà été confirmée et le compte est actif.");
     }
-    if (tokenRow.used_at && REQUIRE_ADMIN_ACCOUNT_APPROVAL) {
+    if (tokenRow.used_at && tokenRow.status === "pending") {
       await client.query("rollback");
       return res.status(200).send(
-        "Cette adresse e-mail a déjà été confirmée. Le compte reste en attente d’approbation par un administrateur.",
+        "Cette adresse e-mail a déjà été confirmée. Le compte reste en attente d’association et d’approbation par un administrateur.",
       );
     }
     if (!tokenRow.used_at && new Date(tokenRow.expires_at).getTime() <= Date.now()) {
@@ -63,30 +61,16 @@ export async function verifyEmailPendingAdminApproval(req, res) {
       );
     }
 
-    // La vérification de l'e-mail ne crée ni n'associe plus de fiche grimpeur.
-    // L'association compte ↔ participant est exclusivement une action administrateur explicite.
-    const autoActivate = false;
-    const isAdmin = false;
-
+    // La vérification de l'e-mail ne crée, n'associe ni n'active de fiche.
     const verifiedUserResult = await client.query(
       `
         update users
-        set email_verified_at = coalesce(email_verified_at, now()),
-            status = case when $2 then 'active' else status end,
-            approved_at = case when $2 then coalesce(approved_at, now()) else approved_at end,
-            revoked_at = case when $2 then null else revoked_at end,
-            revoked_reason = case when $2 then null else revoked_reason end,
-            role = case when $2 then case when $3 then 'admin' else 'user' end else role end,
-            is_admin = case when $2 then $3 else is_admin end,
-            receive_account_notifications = case
-              when $2 and not $3 then false
-              else receive_account_notifications
-            end
+        set email_verified_at = coalesce(email_verified_at, now())
         where id = $1
         returning id, participant_id, email, prenom, nom, role, is_admin,
                   status, approved_at, email_verified_at
       `,
-      [tokenRow.user_id, autoActivate, isAdmin],
+      [tokenRow.user_id],
     );
     await client.query("commit");
 
@@ -94,21 +78,19 @@ export async function verifyEmailPendingAdminApproval(req, res) {
 
     await writeAccessLog({
       userId: verifiedUser.id,
-      eventType: autoActivate
-        ? "account_request_email_verified_auto_activated"
-        : "account_request_email_verified",
+      eventType: "account_request_email_verified",
       req,
       details: {
         email: verifiedUser.email,
         status: verifiedUser.status,
-        autoActivated: autoActivate,
-        awaitingAdminApproval: REQUIRE_ADMIN_ACCOUNT_APPROVAL && verifiedUser.status === "pending",
+        autoActivated: false,
+        awaitingAdminApproval: verifiedUser.status === "pending",
         participantId: verifiedUser.participant_id ? String(verifiedUser.participant_id) : null,
         isAdmin: Boolean(verifiedUser.is_admin),
       },
     });
 
-    if (verifiedUser.status === "pending" || autoActivate) {
+    if (verifiedUser.status === "pending") {
       try {
         await notifyAccountRequestReviewers({ user: verifiedUser, req });
       } catch (error) {
@@ -121,18 +103,6 @@ export async function verifyEmailPendingAdminApproval(req, res) {
           details: { error: String(error.message || error) },
         });
       }
-    }
-
-    if (autoActivate) {
-      return res.status(200).send(
-        "Adresse e-mail confirmée. Votre compte est maintenant actif. Vous pouvez vous connecter à ClimbCrew.",
-      );
-    }
-
-    if (REQUIRE_ADMIN_ACCOUNT_APPROVAL && verifiedUser.status === "pending") {
-      return res.status(200).send(
-        "Adresse e-mail confirmée. Votre demande est maintenant en attente d’approbation par un administrateur.",
-      );
     }
 
     if (verifiedUser.status === "pending") {
