@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import {
   LOCAL_VIDEO_MAX_BYTES,
   VIDEO_UPLOAD_MAX_PARTS,
@@ -52,4 +53,16 @@ test("l'assemblage vérifie toutes les métadonnées et la taille reçue", () =>
     () => validateStoredVideoChunks([{ ...rows[0], total_parts: 1, total_bytes: 2, content_bytes: 2, route_id: "other" }], { expectedRouteId: "r1" }),
     /voie attendue/,
   );
+});
+
+test("voies et réalisations partagent la même politique d'upload", async () => {
+  const [routesSource, realisationsSource] = await Promise.all([
+    readFile(new URL("../route-management-routes.js", import.meta.url), "utf8"),
+    readFile(new URL("../realisation-management-routes.js", import.meta.url), "utf8"),
+  ]);
+  for (const source of [routesSource, realisationsSource]) {
+    assert.match(source, /from "\.\/video-upload-policy\.js"/);
+    assert.match(source, /readVideoChunkRequest\(req\)/);
+    assert.match(source, /validateStoredVideoChunks/);
+  }
 });
