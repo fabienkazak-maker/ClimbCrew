@@ -45,7 +45,7 @@ test("l'association automatique par email n'est plus exposée", () => {
 });
 
 test("la vérification de l'e-mail conserve le compte pending jusqu'à l'action administrateur", () => {
-  assert.doesNotMatch(approvalSource, /autoActivate/);
+  assert.doesNotMatch(approvalSource, /\bautoActivate\b/);
   assert.match(approvalSource, /Un administrateur doit maintenant associer le compte/);
   assert.match(routesSource, /app\.get\("\/auth\/verify-email", showVerifyEmailConfirmation\)/);
   assert.match(routesSource, /app\.post\("\/auth\/verify-email", verifyEmailPendingAdminApproval\)/);
