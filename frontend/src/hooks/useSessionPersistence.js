@@ -2,7 +2,7 @@ import { apiFetch } from "../lib/api.js";
 
 const sessionSyncQueues = new Map();
 
-export function useSessionPersistence({ useApi, setState, onSuccess, onError }) {
+export function useSessionPersistence({ useApi, setState, onSuccess, onError, request = apiFetch }) {
   async function syncSessionToApi(session) {
     if (!useApi || !session) return true;
 
@@ -10,7 +10,7 @@ export function useSessionPersistence({ useApi, setState, onSuccess, onError }) 
     const previousRequest = sessionSyncQueues.get(sessionId) || Promise.resolve();
     const request = previousRequest
       .catch(() => undefined)
-      .then(() => apiFetch(`/sessions/${encodeURIComponent(session.id)}`, {
+      .then(() => request(`/sessions/${encodeURIComponent(session.id)}`, {
         method: "PUT",
         body: JSON.stringify(session),
       }));
@@ -36,7 +36,7 @@ export function useSessionPersistence({ useApi, setState, onSuccess, onError }) 
         : [...previous.sessions, updatedSession],
     }));
 
-    void syncSessionToApi(updatedSession).then((saved) => {
+    return syncSessionToApi(updatedSession).then((saved) => {
       if (saved) return;
       setState((previous) => {
         const current = previous.sessions.find((session) => session.id === sessionId);
