@@ -11,6 +11,7 @@ export function useRealisationPersistence({
   sessionsById,
   onSuccess,
   onError,
+  request = apiFetch,
 }) {
   return async function updateRealisation(realisationId, patch) {
     const target = state.realisations.find((item) => String(item.id) === String(realisationId));
@@ -41,7 +42,7 @@ export function useRealisationPersistence({
     const previousRequest = realisationSyncQueues.get(queueKey) || Promise.resolve();
     const request = previousRequest
       .catch(() => undefined)
-      .then(() => apiFetch(`/realisations/${encodeURIComponent(realisationId)}`, {
+      .then(() => request(`/realisations/${encodeURIComponent(realisationId)}`, {
         method: "PUT",
         body: JSON.stringify(patch),
       }));
