@@ -22,9 +22,11 @@ function createDeferredRequestQueue() {
   return { pending, request };
 }
 
-async function flushPromises() {
-  await Promise.resolve();
-  await Promise.resolve();
+async function waitForPending(network, expectedCount) {
+  for (let attempt = 0; attempt < 20 && network.pending.length < expectedCount; attempt += 1) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  assert.equal(network.pending.length, expectedCount);
 }
 
 test("les sauvegardes de séance sont sérialisées et un premier échec ne remplace pas une seconde modification", async () => {
@@ -53,14 +55,12 @@ test("les sauvegardes de séance sont sérialisées et un premier échec ne remp
   const firstSave = persistSessionChange(initial.id, initial, firstUpdate, true);
   const secondSave = persistSessionChange(initial.id, firstUpdate, secondUpdate, true);
 
-  await flushPromises();
-  assert.equal(network.pending.length, 1, "la seconde requête doit attendre la première");
+  await waitForPending(network, 1);
 
   network.pending[0].reject(new Error("échec simulé"));
   await firstSave;
-  await flushPromises();
+  await waitForPending(network, 2);
 
-  assert.equal(network.pending.length, 2, "la seconde requête démarre après la fin de la première");
   assert.deepEqual(store.get().sessions[0], secondUpdate, "le rollback ne doit pas effacer la modification plus récente");
 
   network.pending[1].resolve({ ok: true });
@@ -97,22 +97,20 @@ test("les sauvegardes de réalisation restent ordonnées et conservent la derni�
   const firstController = useRealisationPersistence({ ...common, state: store.get() });
   const firstSave = firstController(initial.id, { commentaire: "première modification" });
 
-  await flushPromises();
-  assert.equal(network.pending.length, 1);
+  await waitForPending(network, 1);
 
   const secondController = useRealisationPersistence({ ...common, state: store.get() });
   const secondSave = secondController(initial.id, { rating: 5 });
 
-  await flushPromises();
+  await new Promise((resolve) => setImmediate(resolve));
   assert.equal(network.pending.length, 1, "la seconde requête doit rester dans la file");
   assert.equal(store.get().realisations[0].commentaire, "première modification");
   assert.equal(store.get().realisations[0].rating, 5);
 
   network.pending[0].reject(new Error("échec simulé"));
   await firstSave;
-  await flushPromises();
+  await waitForPending(network, 2);
 
-  assert.equal(network.pending.length, 2);
   assert.equal(store.get().realisations[0].commentaire, "première modification");
   assert.equal(store.get().realisations[0].rating, 5);
 
