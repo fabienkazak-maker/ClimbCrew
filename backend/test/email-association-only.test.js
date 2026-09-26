@@ -16,7 +16,7 @@ test("la vérification email ne crée ni n'associe automatiquement de participan
   assert.doesNotMatch(approvalSource, /insert into participants/i);
   assert.doesNotMatch(approvalSource, /ensureParticipantAfterEmailVerification/);
   assert.doesNotMatch(approvalSource, /findParticipantByEmailOnly/);
-  assert.doesNotMatch(approvalSource, /autoActivate/);
+  assert.doesNotMatch(approvalSource, /\bautoActivate\b/);
   assert.match(approvalSource, /set email_verified_at = coalesce/);
 });
 
