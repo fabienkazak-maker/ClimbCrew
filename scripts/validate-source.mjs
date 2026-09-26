@@ -9,6 +9,9 @@ const app = fs.readFileSync("frontend/src/App.jsx", "utf8");
 const planningView = fs.readFileSync("frontend/src/lib/planning-view.js", "utf8");
 const domain = fs.readFileSync("frontend/src/lib/domain.js", "utf8");
 const routeDisplayGroups = fs.readFileSync("frontend/src/lib/route-display-groups.js", "utf8");
+const buddyPreferences = fs.readFileSync("frontend/src/lib/buddy-preferences.js", "utf8");
+const buddyRoutes = fs.readFileSync("backend/buddy-routes.js", "utf8");
+const sharedBuddyPreferences = fs.readFileSync("shared/buddy-preferences.js", "utf8");
 const viteConfig = fs.readFileSync("frontend/vite.config.js", "utf8");
 const frontendDockerfile = fs.readFileSync("frontend/Dockerfile.prod", "utf8");
 const dayStart = planningView.indexOf("const daySessions = useMemo");
@@ -44,6 +47,21 @@ if (app.includes("const gradeRank = new Map(GRADES.map")) {
 if (!routeDisplayGroups.includes("export function buildRouteDisplayGroups")
     || !routeDisplayGroups.includes("routes.map((route) => normalizeRopeNumber(route.numeroCorde))")) {
   fail("module de groupement des voies incomplet ou cordes vides non masquées");
+}
+
+if (!buddyPreferences.includes('from "../../../shared/buddy-preferences.js"')
+    || !buddyRoutes.includes('from "../shared/buddy-preferences.js"')) {
+  fail("préférences Buddy non branchées sur la source de vérité partagée");
+}
+if (buddyPreferences.includes("export const BUDDY_DAYS")
+    || buddyRoutes.includes("const DAYS =")
+    || buddyRoutes.includes("const SLOTS =")) {
+  fail("constantes Buddy dupliquées en dehors de shared/buddy-preferences.js");
+}
+if (!sharedBuddyPreferences.includes("export const BUDDY_DAYS")
+    || !sharedBuddyPreferences.includes("export const BUDDY_SLOTS")
+    || !sharedBuddyPreferences.includes("export const BUDDY_PREFERENCE_VALUES")) {
+  fail("source de vérité Buddy partagée incomplète");
 }
 
 const backendPackage = JSON.parse(fs.readFileSync("backend/package.json", "utf8"));
