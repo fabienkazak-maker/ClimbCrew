@@ -114,5 +114,5 @@ test("la soumission des écrans d'accès appartient au composant React", () => {
 
 test("App.jsx ne peut plus regrossir au-delà du budget obtenu après extraction", async () => {
   const info = await stat(appUrl);
-  assert.ok(info.size <= 70_000, `App.jsx fait ${info.size} octets : extraire un bloc métier avant d'ajouter du code au monolithe`);
+  assert.ok(info.size <= 69_500, `App.jsx fait ${info.size} octets : extraire un bloc métier avant d'ajouter du code au monolithe`);
 });
