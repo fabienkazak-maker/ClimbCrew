@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 
 const routeSource = await readFile(new URL("../route-management-routes.js", import.meta.url), "utf8");
 const realisationSource = await readFile(new URL("../realisation-management-routes.js", import.meta.url), "utf8");
+const videoPolicySource = await readFile(new URL("../video-upload-policy.js", import.meta.url), "utf8");
 const migration = await readFile(new URL("../database/migrations/008_video_upload_cleanup.sql", import.meta.url), "utf8");
 
 test("une lecture HTTP Range extrait uniquement la plage demandée en PostgreSQL", () => {
@@ -13,9 +14,10 @@ test("une lecture HTTP Range extrait uniquement la plage demandée en PostgreSQL
 });
 
 test("le nettoyage des chunks est limité à une exécution périodique", () => {
-  assert.match(realisationSource, /VIDEO_CHUNK_CLEANUP_INTERVAL_MS = 60 \* 60 \* 1000/);
+  assert.match(videoPolicySource, /VIDEO_CHUNK_CLEANUP_INTERVAL_MS = 60 \* 60 \* 1000/);
+  assert.match(videoPolicySource, /nextVideoChunkCleanupAt = now \+ VIDEO_CHUNK_CLEANUP_INTERVAL_MS/);
   assert.match(realisationSource, /cleanupExpiredVideoChunks\(pool\)/);
-  assert.match(realisationSource, /nextVideoChunkCleanupAt = now \+ VIDEO_CHUNK_CLEANUP_INTERVAL_MS/);
+  assert.match(routeSource, /cleanupExpiredVideoChunks\(pool\)/);
 });
 
 test("la finalisation vidéo laisse PostgreSQL agréger les fragments", () => {
