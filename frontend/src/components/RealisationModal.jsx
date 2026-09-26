@@ -19,6 +19,7 @@ export default function RealisationModal({
   onRouteIdChange,
   onClose,
   onSubmit,
+  saving = false,
 }) {
   const forcedMoulinette = Boolean(route?.moulinetteOnly);
   const selectedMode = forcedMoulinette
@@ -214,9 +215,10 @@ export default function RealisationModal({
           <Button variant="secondary" onClick={onClose}>Annuler</Button>
           <Button
             onClick={onSubmit}
-            disabled={!newRealisation.selectedDay || !newRealisation.participantId || !newRealisation.voieId || !newRealisation.assureurId || eligibleParticipants.length === 0}
+            aria-busy={saving}
+            disabled={saving || !newRealisation.selectedDay || !newRealisation.participantId || !newRealisation.voieId || !newRealisation.assureurId || eligibleParticipants.length === 0}
           >
-            Enregistrer
+            {saving ? "Enregistrement…" : "Enregistrer"}
           </Button>
         </div>
       </div>

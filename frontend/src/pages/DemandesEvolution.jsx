@@ -15,6 +15,7 @@ const STATUS_OPTIONS = [
 export default function DemandesEvolution({ USE_API, authUser }) {
   const [requests, setRequests] = useState([]);
   const [draft, setDraft] = useState({ title: "", description: "" });
+  const [requestType, setRequestType] = useState("evolution");
   const [commentDrafts, setCommentDrafts] = useState({});
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -44,7 +45,7 @@ export default function DemandesEvolution({ USE_API, authUser }) {
       setError("");
       await apiFetch("/evolution-requests", {
         method: "POST",
-        body: JSON.stringify(draft),
+        body: JSON.stringify({ ...draft, title: requestType === "bug" ? `[BUG] ${draft.title}` : draft.title }),
       });
       setDraft({ title: "", description: "" });
       await loadRequests();
@@ -104,12 +105,16 @@ export default function DemandesEvolution({ USE_API, authUser }) {
   return (
     <section className="evolution-page">
       <form className="card evolution-create" onSubmit={submitRequest}>
-        <div className="card-header"><h2>Proposer une évolution</h2></div>
+        <div className="card-header"><h2>{requestType === "bug" ? "Signaler un bug" : "Proposer une évolution"}</h2></div>
+        <div className="group" style={{ marginBottom: 12 }}>
+          <button type="button" className={requestType === "evolution" ? "primary-button" : "secondary"} onClick={() => setRequestType("evolution")}>Demande d’évolution</button>
+          <button type="button" className={requestType === "bug" ? "primary-button" : "secondary"} onClick={() => setRequestType("bug")}>Signaler un bug</button>
+        </div>
         <label>Titre</label>
-        <input maxLength={140} required value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} placeholder="Résumez votre idée" />
+        <input maxLength={140} required value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} placeholder={requestType === "bug" ? "Résumez le problème" : "Résumez votre idée"} />
         <label>Description</label>
-        <textarea maxLength={4000} required rows={4} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder="Décrivez le besoin et le résultat attendu" />
-        <button className="primary-button" type="submit">Ajouter la demande</button>
+        <textarea maxLength={4000} required rows={4} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder={requestType === "bug" ? "Décrivez ce qui s’est passé, le résultat attendu et comment reproduire le bug" : "Décrivez le besoin et le résultat attendu"} />
+        <button className="primary-button" type="submit">{requestType === "bug" ? "Signaler le bug" : "Ajouter la demande"}</button>
       </form>
 
       <div className="card evolution-toolbar">
@@ -136,18 +141,18 @@ export default function DemandesEvolution({ USE_API, authUser }) {
               <span className="evolution-summary-title">{request.title}</span>
               <span className="evolution-summary-meta">{request.authorName} · {formatDate(request.createdAt)}</span>
               <span className="opinion-count">{request.opinionCount} avis</span>
-              <span className="evolution-score" aria-label={`Score ${request.score}`}>{request.score > 0 ? "+" : ""}{request.score}</span>
+              <span className="evolution-score" aria-label={`Score ${request.score}`}>Score {request.score > 0 ? "+" : ""}{request.score}</span>
             </summary>
             <div className="evolution-content">
             <p className="evolution-description">{request.description}</p>
             <div className="evolution-votes">
-              <button type="button" className={request.myVote === 1 ? "vote-button selected positive" : "vote-button positive"} onClick={() => vote(request)} aria-pressed={request.myVote === 1}>＋ Pour</button>
-              <button type="button" className={request.myVote === -1 ? "vote-button selected negative" : "vote-button negative"} onClick={() => voteDown(request)} aria-pressed={request.myVote === -1}>− Contre</button>
+              <button type="button" className={request.myVote === 1 ? "vote-button selected positive" : "vote-button positive"} onClick={() => vote(request)} aria-pressed={request.myVote === 1}>👍 Pour</button>
+              <button type="button" className={request.myVote === -1 ? "vote-button selected negative" : "vote-button negative"} onClick={() => voteDown(request)} aria-pressed={request.myVote === -1}>👎 Contre</button>
               <span className="opinion-count">{request.opinionCount} {request.opinionCount > 1 ? "avis" : "avis"}</span>
             </div>
 
             {authUser?.role === "admin" && (
-              <div className="evolution-admin-status" aria-label="État administratif">
+              <div className="evolution-admin-status" aria-label="État administratif"><span className="small evolution-admin-label">Changer le statut</span>
                 {STATUS_OPTIONS.map((option) => (
                   <button key={option.value} type="button" className={request.status === option.value ? `status-button active status-${option.value}` : "status-button"} onClick={() => updateStatus(request.id, option.value)}>
                     {option.label}

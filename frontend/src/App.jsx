@@ -124,6 +124,7 @@ function App() {
     realisationModalRouteId, setRealisationModalRouteId,
     selectedRouteProgress, setSelectedRouteProgress,
     expandedRealisationIds, setExpandedRealisationIds,
+    realisationSaving, setRealisationSaving,
   } = useRealisationEditorState({ defaultRouteId: EMPTY_APP_DATA.routes?.[0]?.id || "" });
 
   useEffect(() => {
@@ -1072,6 +1073,7 @@ async function deleteRealisation(realisation) {
 }
 
   async function addRealisation() {
+    if (realisationSaving) return;
     if (!myParticipantId || String(newRealisation.participantId) !== String(myParticipantId)) {
       alert("Vous pouvez enregistrer uniquement vos propres réalisations.");
       return;
@@ -1099,6 +1101,7 @@ async function deleteRealisation(realisation) {
       route: routesById[newRealisation.voieId],
     });
 
+    setRealisationSaving(true);
     try {
       const savedRealisation = await persistRealisationToApi(realisation);
       setState((prev) => ({ ...prev, realisations: [...prev.realisations, savedRealisation || realisation] }));
@@ -1117,6 +1120,8 @@ async function deleteRealisation(realisation) {
       setConfirmationMessage("Réalisation enregistrée.");
     } catch (error) {
       alert(String(error.message || error));
+    } finally {
+      setRealisationSaving(false);
     }
   }
 
@@ -1672,6 +1677,7 @@ async function handleThemePreferenceChange(nextTheme) {
         onRouteIdChange={setRealisationModalRouteId}
         onClose={closeRealisationModal}
         onSubmit={addRealisation}
+        saving={realisationSaving}
       />
 
       <MobileBottomNav
