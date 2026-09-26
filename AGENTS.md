@@ -132,6 +132,7 @@ Une modification de code n'est pas à elle seule une preuve que l'évolution fon
 
 - Le dépôt de développement préproduction est `thithipetit-hash/ClimbCrewPPD`.
 - Le workflow de validation et de déploiement PPD est piloté par `fabienkazak-maker/ClimbCrew/.github/workflows/deploy.yml`.
+- Render n'est plus utilisé pour ClimbCrew : la préproduction est déployée uniquement sur le serveur Linux via le workflow GitHub Actions et son runner `self-hosted`.
 - Un push uniquement dans `ClimbCrewPPD` ne constitue pas un déploiement et ne déclenche pas le workflow du dépôt principal.
 - Pour mettre une version PPD en ligne, finaliser et valider les changements dans `ClimbCrewPPD/main`, puis les intégrer dans le dépôt principal.
 - **Flux PPD vérifié le 26/09/2026 :** dans `fabienkazak-maker/ClimbCrew`, créer une branche dédiée `deploy/<version>` depuis `main`, incrémenter `VERSION`, puis ouvrir une Pull Request de cette branche vers `main`.
