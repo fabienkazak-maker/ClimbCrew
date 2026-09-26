@@ -88,7 +88,7 @@ jobs:
           done <<< "$RUN_IDS"
 
       - name: Récupérer le dépôt à valider
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.sha }}
           fetch-depth: 2
@@ -134,7 +134,7 @@ jobs:
           grep -Fq '__SSL_CERTIFICATE_KEY__' deploy/nginx/pre-climbcrew.reverse-proxy.conf.template
 
       - name: Installer Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: npm
@@ -193,12 +193,12 @@ jobs:
           --health-retries 12
     steps:
       - name: Récupérer exactement le commit validé
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.validate.outputs.validated_sha }}
 
       - name: Installer Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: npm
