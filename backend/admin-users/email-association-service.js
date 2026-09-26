@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
-import { BCRYPT_ROUNDS, REQUIRE_ADMIN_ACCOUNT_APPROVAL } from "./config.js";
+import { BCRYPT_ROUNDS } from "./config.js";
 import { getPool } from "./database.js";
 import { writeAccessLog } from "./access-log-service.js";
 import { cleanEmail, hashToken, isStrongPassword } from "./security.js";
@@ -187,7 +187,7 @@ export async function requestAccessByEmailOnly(req, res) {
         email,
         participantId: null,
         associationDeferredUntilEmailVerified: true,
-        requiresAdminApproval: REQUIRE_ADMIN_ACCOUNT_APPROVAL,
+        requiresAdminApproval: true,
       },
     });
 

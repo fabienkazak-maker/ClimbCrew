@@ -51,6 +51,7 @@ import {
   sortParticipantsCurrentUserFirst,
 } from "./lib/domain.js";
 import { USE_API, apiFetch, downloadFile } from "./lib/api.js";
+import { createAuthSessionActions } from "./lib/auth-session-actions.js";
 import { normalizeAppData } from "./lib/normalize.js";
 import { APP_VERSION } from "./lib/version.js";
 import { EMPTY_APP_DATA, useAppBusinessState } from "./hooks/useAppBusinessState.js";
@@ -1113,47 +1114,22 @@ async function handleThemePreferenceChange(nextTheme) {
   }
 }
 
-  async function handleLogin() {
-    try {
-      setAuthError("");
-      setAuthMessage("");
-
-      const data = await apiFetch("/auth/login", {
-        method: "POST",
-        body: JSON.stringify(loginForm),
-      });
-
-      setAuthUser(data.user);
-      if (data.user?.theme_preference) {
-        setThemePreference(data.user.theme_preference);
-      }
-      if (data.user?.role === "admin") {
-        setAdminUnlocked(true);
-      }
-      setAuthView("login");
-      setGeneratedResetToken("");
-      setAuthMessage("Connexion réussie.");
-      await reloadApiState({ isMounted: () => true }).catch(() => {});
-    } catch (error) {
-      setAuthError(String(error.message || error));
-    }
-  }
-
-  async function handleLogout() {
-    try {
-      await apiFetch("/auth/logout", { method: "POST" });
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setAuthUser(null);
-      setAdminUnlocked(false);
-      setGeneratedResetToken("");
-      setAdminAuthUsers([]);
-      setAdminAccessLogs([]);
-      setPendingBroadcastMessages([]);
-      setBroadcastMessageError("");
-    }
-  }
+  const { handleLogin, handleLogout } = createAuthSessionActions({
+    loginForm,
+    reloadApiState,
+    setAuthError,
+    setAuthMessage,
+    setAuthUser,
+    setThemePreference,
+    setAdminUnlocked,
+    setAuthView,
+    setGeneratedResetToken,
+    setAdminAuthUsers,
+    setAdminAccessLogs,
+    setPendingBroadcastMessages,
+    setBroadcastMessageError,
+    setSyncMessage,
+  });
 
   async function publishBroadcastMessage({ title, body }) {
     if (!USE_API || authUser?.role !== "admin") {

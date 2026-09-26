@@ -49,6 +49,23 @@ import { installBackupRoutes } from "../backup-routes.js";
 import { startBackupScheduler } from "../backup-service.js";
 import { installVideoAnalysisSettingsRoutes } from "../video-analysis-settings-routes.js";
 import { getPool } from "./database.js";
+import { sendTokenConfirmationPage } from "../token-confirmation-page.js";
+
+function showVerifyEmailConfirmation(req, res) {
+  return sendTokenConfirmationPage(req, res, {
+    title: "Confirmer l’adresse e-mail",
+    message: "Confirmez explicitement la validation de cette adresse e-mail.",
+    postPath: "/api/auth/verify-email",
+  });
+}
+
+function showEmailChangeConfirmation(req, res) {
+  return sendTokenConfirmationPage(req, res, {
+    title: "Confirmer le changement d’adresse e-mail",
+    message: "Confirmez explicitement le changement vers la nouvelle adresse.",
+    postPath: "/api/auth/change-email/confirm",
+  });
+}
 
 async function resetAdminData(req, res) {
   const type = String(req.params.type || "");
@@ -86,7 +103,8 @@ export function installExplicitAdminUserRoutes(app, {
   app.post("/auth/request-access", authRateLimit, requestAccessByEmailOnly);
   app.post("/auth/forgot-password", resetRateLimit, secureForgotPassword);
   app.post("/auth/reset-password", resetRateLimit, secureResetPassword);
-  app.get("/auth/verify-email", verifyEmailPendingAdminApproval);
+  app.get("/auth/verify-email", showVerifyEmailConfirmation);
+  app.post("/auth/verify-email", verifyEmailPendingAdminApproval);
   app.get("/admin/auth/users", requireAuth, requireAdmin, listUsers);
   app.post("/admin/auth/users/:id/resend-confirmation", requireAuth, requireAdmin, resetRateLimit, resendAccountConfirmationEmail);
   app.post("/admin/auth/users/:id/approve", requireAuth, requireAdmin, approveVerifiedAccountWithParticipantRole);
@@ -106,7 +124,8 @@ export function installExplicitAdminUserRoutes(app, {
   app.put("/admin/auth/users/:id/participant", requireAuth, requireAdmin, setAccountParticipantAssociation);
   app.post("/auth/change-password", requireAuth, changePassword);
   app.post("/auth/change-email/request", requireAuth, requestEmailChange);
-  app.get("/auth/change-email/confirm", confirmEmailChange);
+  app.get("/auth/change-email/confirm", showEmailChangeConfirmation);
+  app.post("/auth/change-email/confirm", confirmEmailChange);
   app.get("/auth/notification-preference", requireAuth, getAccountNotificationPreference);
   app.patch("/auth/notification-preference", requireAuth, updateAccountNotificationPreference);
   app.get("/participants/:id/avatar", requireAuth, getParticipantCustomAvatar);
