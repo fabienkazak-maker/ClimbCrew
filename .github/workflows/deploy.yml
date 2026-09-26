@@ -21,7 +21,7 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: climbcrew-validation-deploy-${{ github.ref }}
+  group: climbcrew-validation-deploy-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
