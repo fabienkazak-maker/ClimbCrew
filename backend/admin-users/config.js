@@ -1,3 +1,7 @@
+import { createSecurityConfig } from "../config/security-config.js";
+
+const SECURITY_CONFIG = createSecurityConfig(process.env);
+
 /**
  * Configuration centralisée des évolutions liées aux comptes utilisateurs.
  *
@@ -64,14 +68,13 @@ export const ACCOUNT_REQUEST_NOTIFICATION_RECIPIENTS = String(
  * La production utilise une valeur plus élevée afin de ralentir les attaques
  * par essais successifs, au prix d'un temps de connexion légèrement supérieur.
  */
-export const BCRYPT_ROUNDS = Number(
-  process.env.BCRYPT_ROUNDS || (process.env.NODE_ENV === "production" ? 12 : 10)
-);
+export const BCRYPT_ROUNDS = SECURITY_CONFIG.bcryptRounds;
 
-/** Durée de validité, en millisecondes, d'un code de réinitialisation. */
-export const RESET_TOKEN_DURATION_MS = 1000 * 60 * Number(
-  process.env.RESET_TOKEN_DURATION_MINUTES || 60
-);
+/** Durées et politique cookie canoniques partagées avec le serveur principal. */
+export const SESSION_DURATION_MS = SECURITY_CONFIG.sessionDurationMs;
+export const RESET_TOKEN_DURATION_MS = SECURITY_CONFIG.resetTokenDurationMs;
+export const COOKIE_SAMESITE = SECURITY_CONFIG.cookieSameSite;
+export const SECURE_COOKIES = SECURITY_CONFIG.secureCookies;
 
 /** Empêche l'ajout plusieurs fois des routes complémentaires sur une même application. */
 export const INSTALL_FLAG = Symbol.for("climbcrew.adminUserEnhancements.installed");

@@ -62,6 +62,7 @@ import { useAppBootstrap } from "./hooks/useAppBootstrap.js";
 import { useParticipantEditorState } from "./hooks/useParticipantEditorState.js";
 import { useRouteEditorState } from "./hooks/useRouteEditorState.js";
 import { useRouteManagement } from "./hooks/useRouteManagement.js";
+import { useParticipantManagement } from "./hooks/useParticipantManagement.js";
 import { useRealisationEditorState } from "./hooks/useRealisationEditorState.js";
 import { PASSWORD_RULE_TEXT, isStrongPassword } from "./lib/password-policy.js";
 import { buildRouteDisplayGroups } from "./lib/route-display-groups.js";
@@ -412,6 +413,28 @@ function App() {
   const myParticipantId = authUser?.participantId ? String(authUser.participantId) : "";
   const myParticipant = participantsById[myParticipantId] || null;
 
+  const {
+    addParticipant,
+    updateParticipant,
+    updateMyProfile,
+    deleteParticipant,
+    getParticipantSessions,
+  } = useParticipantManagement({
+    useApi: USE_API,
+    state,
+    setState,
+    newParticipant,
+    setNewParticipant,
+    myParticipant,
+    myParticipantId,
+    setIsSyncing,
+    setRecentlyAddedParticipantIds,
+    setSyncMessage,
+    setConfirmationMessage,
+    requestConfirmation,
+  });
+
+
   const myRealisations = useMemo(() => {
     if (!myParticipantId) return [];
     return state.realisations
@@ -670,181 +693,6 @@ function App() {
     }, Boolean(existingSession));
   }
 
-  async function addParticipant() {
-    if (!newParticipant.nom.trim() || !newParticipant.prenom.trim()) return;
-    const participant = {
-      ...newParticipant,
-      nom: newParticipant.nom.trim(),
-      prenom: newParticipant.prenom.trim(),
-    };
-
-    try {
-      if (USE_API) {
-        setIsSyncing(true);
-        const created = await apiFetch("/participants", {
-          method: "POST",
-          body: JSON.stringify(participant),
-        });
-        setState((prev) => ({ ...prev, participants: [created, ...prev.participants] }));
-        setRecentlyAddedParticipantIds((prev) => [
-          String(created.id),
-          ...prev.filter((id) => String(id) !== String(created.id)),
-        ]);
-        setSyncMessage("Participant ajouté via l’API");
-      } else {
-        const created = { ...participant, id: `p-${Date.now()}` };
-        setState((prev) => ({
-          ...prev,
-          participants: [created, ...prev.participants],
-        }));
-        setRecentlyAddedParticipantIds((prev) => [
-          String(created.id),
-          ...prev.filter((id) => String(id) !== String(created.id)),
-        ]);
-      }
-      setNewParticipant({
-        nom: "", prenom: "", email: "", passport: "sans", passeportFfme: false, sexe: "", cotisation: false, ffme: false, canEncadrer: false, canReferer: false, canAdmin: false,
-      });
-      setConfirmationMessage("Participant ajouté.");
-    } catch (e) {
-      setSyncMessage(`Erreur ajout participant`);
-      console.error(e);
-    } finally {
-      setIsSyncing(false);
-    }
-  }
-
-  async function updateParticipant(id, patch) {
-    const previousParticipant = state.participants.find((participant) => participant.id === id);
-    if (!previousParticipant) throw new Error("Participant introuvable.");
-    const optimistic = { ...previousParticipant, ...patch };
-    setState((prev) => ({
-      ...prev,
-      participants: prev.participants.map((participant) => (participant.id === id ? optimistic : participant)),
-    }));
-
-    if (!USE_API) {
-      setConfirmationMessage("Participant enregistré.");
-      return optimistic;
-    }
-
-    try {
-      const updated = await apiFetch(`/participants/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(optimistic),
-      });
-      setState((prev) => ({
-        ...prev,
-        participants: prev.participants.map((participant) => (participant.id === id ? updated : participant)),
-      }));
-      setConfirmationMessage("Participant enregistré.");
-      return updated;
-    } catch (error) {
-      setState((prev) => ({
-        ...prev,
-        participants: prev.participants.map((participant) => (participant.id === id ? previousParticipant : participant)),
-      }));
-      setSyncMessage(`Erreur mise à jour participant : ${error.message || error}`);
-      console.error(error);
-      throw error;
-    }
-  }
-
-  async function updateMyProfile(patch) {
-    if (!myParticipant || !USE_API) return;
-    const previous = myParticipant;
-    const optimistic = { ...previous, ...patch };
-    setState((prev) => ({
-      ...prev,
-      participants: prev.participants.map((participant) => String(participant.id) === myParticipantId ? optimistic : participant),
-    }));
-    try {
-      const updated = await apiFetch("/participants/me/profile", {
-        method: "PATCH",
-        // Le backend traite désormais PATCH comme une vraie mise à jour partielle.
-        // Ne renvoyer que le patch évite de réécrire involontairement le sexe,
-        // l'avatar ou la confidentialité avec une valeur locale obsolète.
-        body: JSON.stringify(patch),
-      });
-      setState((prev) => ({
-        ...prev,
-        participants: prev.participants.map((participant) => String(participant.id) === myParticipantId ? updated : participant),
-      }));
-      setConfirmationMessage("Préférences du profil enregistrées.");
-      return updated;
-    } catch (error) {
-      setState((prev) => ({
-        ...prev,
-        participants: prev.participants.map((participant) => String(participant.id) === myParticipantId ? previous : participant),
-      }));
-      setSyncMessage("Erreur d'enregistrement du profil");
-      console.error(error);
-      throw error;
-    }
-  }
-
-  async function deleteParticipant(id) {
-    const participant = state.participants.find((item) => String(item.id) === String(id));
-    if (!participant) return;
-    const relatedRealisations = state.realisations.filter(
-      (item) => String(item.participantId) === String(id)
-    ).length;
-    const relatedInscriptions = state.sessions.reduce(
-      (count, session) => count + session.participantIds.filter(
-        (participantId) => String(participantId) === String(id)
-      ).length,
-      0
-    );
-    const warning = relatedInscriptions || relatedRealisations
-      ? ` Cette action supprimera aussi ${relatedInscriptions} inscription(s) et ${relatedRealisations} réalisation(s).`
-      : "";
-
-    requestConfirmation({
-      title: "Supprimer le grimpeur",
-      message: `Supprimer définitivement le grimpeur ${fullName(participant)} ?${warning}`,
-      onConfirm: async () => {
-        const previousParticipants = state.participants;
-        setState((prev) => ({
-          ...prev,
-          participants: prev.participants.filter((p) => p.id !== id),
-          sessions: prev.sessions.map((session) => ({
-            ...session,
-            participantIds: session.participantIds.filter((participantId) => participantId !== id),
-            encadrantId: session.encadrantId === id ? null : session.encadrantId,
-            referentId: session.referentId === id ? null : session.referentId,
-          })),
-          realisations: prev.realisations.filter((realisation) => realisation.participantId !== id),
-        }));
-        setRecentlyAddedParticipantIds((prev) => prev.filter((participantId) => String(participantId) !== String(id)));
-
-        if (!USE_API) {
-          setConfirmationMessage("Grimpeur supprimé.");
-          return;
-        }
-        try {
-          await apiFetch(`/participants/${id}`, { method: "DELETE" });
-          setSyncMessage("Participant supprimé via l’API");
-          setConfirmationMessage("Grimpeur supprimé.");
-        } catch (error) {
-          setState((prev) => ({ ...prev, participants: previousParticipants }));
-          setSyncMessage("Erreur suppression participant");
-          console.error(error);
-        }
-      },
-    });
-  }
-
-  function getParticipantSessions(participantId) {
-    if (!participantId) return [];
-
-    return state.sessions
-      .filter((session) => getSessionParticipantIds(session).includes(String(participantId)))
-      .sort((a, b) => {
-        const dateCompare = b.date.localeCompare(a.date);
-        if (dateCompare !== 0) return dateCompare;
-        return a.slot.localeCompare(b.slot);
-      });
-  }
 
   const updateRealisation = useRealisationPersistence({
     useApi: USE_API,
@@ -1623,6 +1471,7 @@ async function handleThemePreferenceChange(nextTheme) {
             topRouteRankings={topRouteRankings}
             leadRealisationStats={leadRealisationStats}
             routes={state.routes}
+            sessions={state.sessions}
             realisations={state.realisations}
             formatRouteName={formatRouteName}
             statsSortField={statsSortField}

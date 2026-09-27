@@ -36,9 +36,13 @@ test("la règle d'inscription centralisée refuse une séance fermée et une sé
 });
 
 test("TheCrag réutilise la règle d'inscription et le statut métier par défaut", async () => {
-  const source = await readFile(new URL("../realisation-management-routes.js", import.meta.url), "utf8");
-  assert.match(source, /registerParticipantForSession/);
-  assert.match(source, /getDefaultSessionStatus\(date, "midi"\)/);
+  const [routes, importer] = await Promise.all([
+    readFile(new URL("../realisation-management-routes.js", import.meta.url), "utf8"),
+    readFile(new URL("../thecrag-import-service.js", import.meta.url), "utf8"),
+  ]);
+  assert.match(routes, /importTheCragRealisations/);
+  assert.match(importer, /registerParticipantForSession/);
+  assert.match(importer, /getDefaultSessionStatus\(date, "midi"\)/);
 });
 
 test("le mode de réalisation possède sa colonne et la suppression de voie est restrictive", async () => {
