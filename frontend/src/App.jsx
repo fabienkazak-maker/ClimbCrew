@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 import Button from "./components/Button.jsx";
 import AuthPage from "./components/AuthPage.jsx";
@@ -6,7 +6,8 @@ import AppSidebar from "./components/AppSidebar.jsx";
 import MobileBottomNav from "./components/MobileBottomNav.jsx";
 import BroadcastMessageModal from "./components/BroadcastMessageModal.jsx";
 import RealisationModal from "./components/RealisationModal.jsx";
-import AvailableParticipantOptions from "./components/AvailableParticipantOptions.jsx";
+import SessionCard from "./components/SessionCard.jsx";
+import ConfirmDialog from "./components/ConfirmDialog.jsx";
 import FaqSection from "./sections/FaqSection.jsx";
 import Inscriptions from "./pages/Inscriptions.jsx";
 import Voies from "./pages/Voies.jsx";
@@ -65,7 +66,6 @@ import { PASSWORD_RULE_TEXT, isStrongPassword } from "./lib/password-policy.js";
 import { buildRouteDisplayGroups } from "./lib/route-display-groups.js";
 import { buildTheCragExport } from "./lib/thecrag.js";
 import { usePlanningSessions } from "./lib/planning-view.js";
-import { hasBuddyAvailabilityForSession } from "./lib/buddy-preferences.js";
 import { useBuddyAvailability } from "./hooks/useBuddyAvailability.js";
 import { useSessionPersistence } from "./hooks/useSessionPersistence.js";
 import { useRealisationPersistence } from "./hooks/useRealisationPersistence.js";
@@ -991,7 +991,7 @@ async function persistRealisationToApi(realisation) {
 async function deleteRealisation(realisation) {
   if (!realisation?.id) return;
   if (String(realisation.participantId) !== String(myParticipantId)) {
-    alert("Vous pouvez supprimer uniquement vos propres réalisations.");
+    setSyncMessage("Erreur : vous pouvez supprimer uniquement vos propres réalisations.");
     return;
   }
 
@@ -1018,30 +1018,30 @@ async function deleteRealisation(realisation) {
     setConfirmationMessage("Réalisation supprimée.");
   } catch (error) {
     setState((prev) => ({ ...prev, realisations: previousRealisations }));
-    alert(`Suppression impossible : ${error.message || error}`);
+    setSyncMessage(`Erreur : suppression impossible : ${error.message || error}`);
   }
 }
 
   async function addRealisation() {
     if (realisationSaving) return;
     if (!myParticipantId || String(newRealisation.participantId) !== String(myParticipantId)) {
-      alert("Vous pouvez enregistrer uniquement vos propres réalisations.");
+      setSyncMessage("Erreur : vous pouvez enregistrer uniquement vos propres réalisations.");
       return;
     }
     if (!newRealisation.participantId || !newRealisation.selectedDay || !newRealisation.voieId) {
-      alert("Sélectionne un jour et une voie.");
+      setSyncMessage("Erreur : sélectionnez un jour et une voie.");
       return;
     }
 
     const participant = participantsById[newRealisation.participantId];
     if (!participant?.cotisation) {
-      alert("Votre cotisation doit être à jour pour enregistrer une réalisation.");
+      setSyncMessage("Erreur : votre cotisation doit être à jour pour enregistrer une réalisation.");
       return;
     }
 
     const sessionId = resolveSessionIdForRealisation(state.sessions, newRealisation.participantId, newRealisation.selectedDay);
     if (!sessionId) {
-      alert("Vous devez participer à au moins une séance ce jour-là pour enregistrer une réalisation.");
+      setSyncMessage("Erreur : vous devez participer à au moins une séance ce jour-là pour enregistrer une réalisation.");
       return;
     }
 
@@ -1069,7 +1069,7 @@ async function deleteRealisation(realisation) {
       setRealisationModalRouteId(null);
       setConfirmationMessage("Réalisation enregistrée.");
     } catch (error) {
-      alert(String(error.message || error));
+      setSyncMessage(`Erreur : ${String(error.message || error)}`);
     } finally {
       setRealisationSaving(false);
     }
@@ -1414,134 +1414,22 @@ async function handleThemePreferenceChange(nextTheme) {
   }
 
   function renderSessionCard(session, compact = false) {
-    const sessionParticipantIds = getSessionParticipantIds(session);
-    const inscrits = sessionParticipantIds.map((id) => participantsById[id]).filter(Boolean);
-    const occupied = inscrits.length;
-    const missingSupervisor = (session.status === "encadree" && !session.encadrantId)
-      || (session.status === "libre" && !session.referentId);
-    const freeSessionPassports = new Set(["jaune", "orange", "vert", "bleu"]);
-    const availableParticipants = state.participants.filter((p) =>
-      !sessionParticipantIds.includes(String(p.id))
-      && (session.status !== "libre" || freeSessionPassports.has(normalizePassport(p.passport)))
-    );
-
     return (
-      <div className={`card session-card session-status-${String(session.status || "fermee").trim().toLowerCase()} ${missingSupervisor ? "session-card-missing-supervisor" : ""} ${compact ? "session-card-compact" : ""}`} key={session.id}>
-        <div className="card-header">
-          <h3>Séance {session.slot}</h3>
-          <span className="badge">{occupied}/{MAX_PARTICIPANTS}</span>
-        </div>
-
-        <div className="session-form-row">
-          <div className="inline-field">
-            <label>Statut</label>
-            <select
-              value={session.status}
-              onChange={(e) => {
-                const value = e.target.value;
-                updateSession(session.id, {
-                  status: value,
-                  ...(value !== "encadree" ? { encadrantId: null } : {}),
-                  ...(value !== "libre" ? { referentId: null } : {}),
-                });
-              }}
-            >
-              <option value="fermee">Fermée</option>
-              <option value="libre">Libre</option>
-              <option value="encadree">Encadrée</option>
-              <option value="passeport">Passeport</option>
-              <option value="challenge">Challenge</option>
-              <option value="renouvellement">Renouvellement</option>
-            </select>
-          </div>
-
-          {session.status === "encadree" && (
-            <div className="inline-field">
-              <label>Encadrant</label>
-              <select
-                value={session.encadrantId || ""}
-                onChange={(e) => updateSession(session.id, { encadrantId: e.target.value || null })}
-              >
-                <option value="">Aucun</option>
-                {alphabeticalParticipants.filter((p) => p.canEncadrer).map((p) => (
-                  <option key={p.id} value={p.id}>{fullName(p)}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {session.status === "libre" && (
-            <div className="inline-field">
-              <label>RÉFÉRENT</label>
-              <select
-                value={session.referentId || ""}
-                onChange={(e) => updateSession(session.id, { referentId: e.target.value || null })}
-              >
-                <option value="">Aucun</option>
-                {alphabeticalParticipants.filter((p) => p.canReferer).map((p) => (
-                  <option key={p.id} value={p.id}>{fullName(p)}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          <div className="inline-field add-participant-field">
-            <label>Inscription</label>
-            <select
-              defaultValue=""
-              disabled={availableParticipants.length === 0 || occupied >= MAX_PARTICIPANTS}
-              onChange={(event) => {
-                const participantId = event.currentTarget.value;
-                if (!participantId) return;
-                addParticipantToSession(session.id, participantId);
-                event.currentTarget.value = "";
-              }}
-            >
-              <option value="">
-                {availableParticipants.length === 0 ? "Aucune personne disponible" : "S'inscrire"}
-              </option>
-              <AvailableParticipantOptions
-                participants={availableParticipants}
-                currentParticipantId={authUser?.participantId}
-                session={session}
-                preferencesByParticipantId={buddyPreferencesByParticipantId}
-              />
-            </select>
-          </div>
-        </div>
-
-        <div className="stack session-participant-list">
-          {inscrits.length === 0 ? (
-            <div className="muted-box">Aucun inscrit.</div>
-          ) : (
-            inscrits.map((p) => (
-              <div
-                className={`participant-row passport-row ${session.status === "libre" && normalizePassport(p.passport) === "sans" ? "passport-warning-hatched" : ""}`}
-                key={p.id}
-                style={{ ...getPassportStyle(p), borderStyle: "solid" }}
-                title={p.cotisation ? "Cotisation payée" : "Cotisation non payée"}
-                data-passport={normalizePassport(p.passport)}
-              >
-                <span className="participant-identity">
-                  <span className="passport-dot" style={getPassportDotStyle(p)} aria-hidden="true" />
-                  <span
-                    className="participant-name"
-                    style={hasBuddyAvailabilityForSession(buddyPreferencesByParticipantId, p.id, session)
-                      ? { textDecoration: "underline" }
-                      : undefined}
-                  >
-                    {fullName(p)}
-                  </span>
-                </span>
-                <Button variant="remove" onClick={() => removeParticipantFromSession(session.id, p.id)} aria-label="Retirer">×</Button>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
+      <SessionCard
+        key={session.id}
+        session={session}
+        compact={compact}
+        participants={state.participants}
+        participantsById={participantsById}
+        alphabeticalParticipants={alphabeticalParticipants}
+        currentParticipantId={authUser?.participantId}
+        preferencesByParticipantId={buddyPreferencesByParticipantId}
+        onUpdate={updateSession}
+        onAddParticipant={addParticipantToSession}
+        onRemoveParticipant={removeParticipantFromSession}
+      />
     );
   }
-
 
   if (USE_API && authLoading) {
     return <AuthPage loading appVersion={APP_VERSION} />;
@@ -1743,6 +1631,7 @@ async function handleThemePreferenceChange(nextTheme) {
           <Chat
             myParticipantId={myParticipantId}
             participants={state.participants}
+            canPin={authUser?.role === "admin"}
           />
         )}
 
