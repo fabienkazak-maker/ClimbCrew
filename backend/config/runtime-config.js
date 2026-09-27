@@ -7,6 +7,11 @@ const { Pool, types } = pg;
 // de préserver exactement le contrat frontend historique après la migration 025.
 types.setTypeParser(1082, (value) => value);
 
+function booleanEnv(value, fallback = false) {
+  if (value === undefined || value === null || value === "") return fallback;
+  return String(value).toLowerCase() === "true";
+}
+
 function integerEnv(env, name, fallback, { min, max }) {
   const raw = env[name];
   const value = raw === undefined || raw === null || raw === ""
@@ -54,7 +59,7 @@ export function createRuntimeConfig(env = process.env) {
     resetTokenDurationMs: security.resetTokenDurationMs,
     maxJsonBodySize: env.MAX_JSON_BODY_SIZE || "1mb",
     writeRateLimitPerMinute,
-    pgSsl: envBoolean(env.PG_SSL, false),
+    pgSsl: booleanEnv(env.PG_SSL, false),
     pgSslRejectUnauthorized: String(env.PG_SSL_REJECT_UNAUTHORIZED || "true").toLowerCase() !== "false",
   };
 }
