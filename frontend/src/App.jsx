@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo } from "react";
 
 import Button from "./components/Button.jsx";
 import AuthPage from "./components/AuthPage.jsx";
@@ -69,6 +69,7 @@ import { usePlanningSessions } from "./lib/planning-view.js";
 import { useBuddyAvailability } from "./hooks/useBuddyAvailability.js";
 import { useSessionPersistence } from "./hooks/useSessionPersistence.js";
 import { useRealisationPersistence } from "./hooks/useRealisationPersistence.js";
+import { useConfirmationDialog } from "./hooks/useConfirmationDialog.js";
 import {
   buildRealisationDraft,
   buildRealisationPayload,
@@ -133,24 +134,12 @@ function App() {
     expandedRealisationIds, setExpandedRealisationIds,
     realisationSaving, setRealisationSaving,
   } = useRealisationEditorState({ defaultRouteId: EMPTY_APP_DATA.routes?.[0]?.id || "" });
-  const [pendingConfirmation, setPendingConfirmation] = useState(null);
-
-  function requestConfirmation({ title, message, confirmLabel = "Supprimer", onConfirm }) {
-    setPendingConfirmation({ title, message, confirmLabel, onConfirm, busy: false });
-  }
-
-  async function runPendingConfirmation() {
-    const pending = pendingConfirmation;
-    if (!pending || pending.busy) return;
-    setPendingConfirmation((current) => current ? { ...current, busy: true } : current);
-    try {
-      await pending.onConfirm();
-      setPendingConfirmation(null);
-    } catch (error) {
-      setPendingConfirmation((current) => current ? { ...current, busy: false } : current);
-      throw error;
-    }
-  }
+  const {
+    pendingConfirmation,
+    setPendingConfirmation,
+    requestConfirmation,
+    runPendingConfirmation,
+  } = useConfirmationDialog();
 
   useEffect(() => {
     if (!confirmationMessage) return undefined;
