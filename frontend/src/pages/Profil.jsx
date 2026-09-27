@@ -6,6 +6,7 @@ import ProfileGecko from "../components/ProfileGecko.jsx";
 import PhysicalProfileCard from "../components/PhysicalProfileCard.jsx";
 import ProfileRealisationRecorder from "../components/ProfileRealisationRecorder.jsx";
 import RealisationVideoAnalysis from "../components/RealisationVideoAnalysis.jsx";
+import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import CprEvolutionChart from "../sections/CprEvolutionChart.jsx";
 import { apiFetch, apiUpload } from "../lib/api.js";
 import {
@@ -105,6 +106,7 @@ export default function Profil({
   const [buddyMatches, setBuddyMatches] = React.useState([]);
   const [buddySaving, setBuddySaving] = React.useState(false);
   const [buddySaveStatus, setBuddySaveStatus] = React.useState("");
+  const [pendingConfirmation, setPendingConfirmation] = React.useState(null);
 
   async function toggleKudo(realisation) {
     if (!myParticipantId || kudosPendingId) return;
@@ -243,17 +245,24 @@ export default function Profil({
 
   async function resetOwnRealisations() {
     if (!isOwnProfile || selectedRealisations.length === 0) return;
-    if (!window.confirm(`Supprimer définitivement vos ${selectedRealisations.length} réalisation(s) ? Cette action est irréversible.`)) return;
-    try {
+    setPendingConfirmation({
+      title: "Reset des réalisations",
+      message: `Supprimer définitivement vos ${selectedRealisations.length} réalisation(s) ? Cette action est irréversible.`,
+      onConfirm: async () => {
+        try {
       setProfileError("");
       await apiFetch("/realisations/me", { method: "DELETE" });
       setRealisations((current) => current.filter(
         (realisation) => String(realisation.participantId) !== String(myParticipantId),
       ));
-      await refreshRealisations();
-    } catch (error) {
-      setProfileError(String(error.message || error));
-    }
+          await refreshRealisations();
+        } catch (error) {
+          setProfileError(String(error.message || error));
+        } finally {
+          setPendingConfirmation(null);
+        }
+      },
+    });
   }
 
   async function importTheCragFile(event) {
@@ -304,14 +313,21 @@ export default function Profil({
     if (!isOwnProfile || !realisation?.id) return;
     const route = routesById[realisation.voieId];
     const label = route ? formatRouteForRealisation(route) : "cette réalisation";
-    if (!window.confirm(`Supprimer définitivement ${label} ?`)) return;
-    try {
-      setProfileError("");
-      await apiFetch(`/realisations/${encodeURIComponent(realisation.id)}`, { method: "DELETE" });
-      await refreshRealisations();
-    } catch (error) {
-      setProfileError(String(error.message || error));
-    }
+    setPendingConfirmation({
+      title: "Supprimer la réalisation",
+      message: `Supprimer définitivement ${label} ?`,
+      onConfirm: async () => {
+        try {
+          setProfileError("");
+          await apiFetch(`/realisations/${encodeURIComponent(realisation.id)}`, { method: "DELETE" });
+          await refreshRealisations();
+        } catch (error) {
+          setProfileError(String(error.message || error));
+        } finally {
+          setPendingConfirmation(null);
+        }
+      },
+    });
   }
 
   return (
@@ -332,6 +348,13 @@ export default function Profil({
       </div>
 
       {profileError && <div className="muted-box" role="alert">{profileError}</div>}
+      <ConfirmDialog
+        open={Boolean(pendingConfirmation)}
+        title={pendingConfirmation?.title}
+        message={pendingConfirmation?.message}
+        onConfirm={() => void pendingConfirmation?.onConfirm?.()}
+        onCancel={() => setPendingConfirmation(null)}
+      />
 
       {!selectedParticipant ? (
         <div className="card"><div className="muted-box">Choisissez un grimpeur.</div></div>
@@ -503,7 +526,7 @@ export default function Profil({
                               <div className="small">👍 {Number(realisation.kudosCount || 0)} Kudo{Number(realisation.kudosCount || 0) > 1 ? "s" : ""}</div>
                             </div>
                           </summary>
-                          <div className="group" style={{ justifyContent: "flex-end", marginBottom: 8 }}><Button variant="secondary" disabled={!myParticipantId || kudosPendingId === realisation.id} aria-pressed={Boolean(realisation.kudosByMe)} onClick={() => void toggleKudo(realisation)}>👍 {realisation.kudosByMe ? "Kudo donné" : "Kudo"} · {Number(realisation.kudosCount || 0)}</Button></div>
+                          {!isOwnProfile && <div className="group" style={{ justifyContent: "flex-end", marginBottom: 8 }}><Button variant="secondary" disabled={!myParticipantId || kudosPendingId === realisation.id} aria-pressed={Boolean(realisation.kudosByMe)} onClick={() => void toggleKudo(realisation)}>👍 {realisation.kudosByMe ? "Kudo donné" : "Kudo"} · {Number(realisation.kudosCount || 0)}</Button></div>}
                           {isOwnProfile && (
                             <div className="group" style={{ justifyContent: "flex-end", marginBottom: 8 }}>
                               <Button variant="danger" onClick={() => deleteOwnRealisation(realisation)}>Supprimer</Button>

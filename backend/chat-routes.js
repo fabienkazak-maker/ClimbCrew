@@ -1,4 +1,11 @@
 import express from "express";
+import {
+  validateChatMessage,
+  validateChatPinned,
+  validateChatPoll,
+  validateChatPollOption,
+  validateChatReaction,
+} from "./validation.js";
 
 const CHAT_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
 
@@ -6,9 +13,9 @@ function participantIdFromRequest(req) {
   return req.auth?.user?.participantId || req.enhancementAuth?.user?.participantId || null;
 }
 
-function decodeHeader(value, fallback = "") {
+function decodeHeader(value, fallback = "", maxLength = 240) {
   try {
-    return decodeURIComponent(String(value || fallback)).replace(/[\r\n]/g, "").slice(0, 240);
+    return decodeURIComponent(String(value || fallback)).replace(/[\r\n]/g, "").slice(0, maxLength);
   } catch {
     return fallback;
   }
@@ -39,7 +46,7 @@ function publicMessageRow(row) {
   };
 }
 
-export function installChatRoutes(app, { requireAuth, pool }) {
+export function installChatRoutes(app, { requireAuth, requireAdmin, pool }) {
   app.get("/chat/messages", requireAuth, async (_req, res) => {
     try {
       let rows;
@@ -106,10 +113,7 @@ export function installChatRoutes(app, { requireAuth, pool }) {
     try {
       const participantId = participantIdFromRequest(req);
       if (!participantId) return res.status(403).json({ error: "Compte non relié à un grimpeur." });
-      const message = String(req.body?.message || "").trim();
-      if (!message || message.length > 2000) {
-        return res.status(400).json({ error: "Le message doit contenir entre 1 et 2000 caractères." });
-      }
+      const message = validateChatMessage(req.body?.message);
       const replyToId = req.body?.replyToId == null ? null : Number(req.body.replyToId);
       if (replyToId != null && (!Number.isInteger(replyToId) || !(await pool.query("select 1 from chat_messages where id=$1", [replyToId])).rowCount)) return res.status(400).json({ error: "Message cité invalide." });
       let rows;
@@ -137,7 +141,10 @@ export function installChatRoutes(app, { requireAuth, pool }) {
       res.status(201).json(publicMessageRow(rows[0]));
     } catch (error) {
       console.error("chat send error:", error);
-      res.status(500).json({ error: "Envoi du message impossible." });
+      res.status(error.status || 500).json({
+        error: error.status ? error.message : "Envoi du message impossible.",
+        fields: error.fields || undefined,
+      });
     }
   });
 
@@ -145,9 +152,8 @@ export function installChatRoutes(app, { requireAuth, pool }) {
   app.patch("/chat/messages/:id", requireAuth, async (req, res) => {
     try {
       const participantId = participantIdFromRequest(req);
-      const message = String(req.body?.message || "").trim();
+      const message = validateChatMessage(req.body?.message);
       if (!participantId) return res.status(403).json({ error: "Compte non relié à un grimpeur." });
-      if (!message || message.length > 2000) return res.status(400).json({ error: "Message invalide." });
       const { rows } = await pool.query(
         `update chat_messages set message=$1, edited_at=now()
          where id=$2 and participant_id=$3 and kind='user'
@@ -158,7 +164,10 @@ export function installChatRoutes(app, { requireAuth, pool }) {
       );
       if (!rows[0]) return res.status(404).json({ error: "Message introuvable ou non modifiable." });
       return res.json(publicMessageRow(rows[0]));
-    } catch (error) { console.error("chat edit error:", error); return res.status(500).json({ error: "Modification impossible." }); }
+    } catch (error) {
+      console.error("chat edit error:", error);
+      return res.status(error.status || 500).json({ error: error.status ? error.message : "Modification impossible.", fields: error.fields || undefined });
+    }
   });
 
   app.delete("/chat/messages/:id", requireAuth, async (req, res) => {
@@ -171,21 +180,22 @@ export function installChatRoutes(app, { requireAuth, pool }) {
     } catch (error) { console.error("chat delete error:", error); return res.status(500).json({ error: "Suppression impossible." }); }
   });
 
-  app.post("/chat/messages/:id/pin", requireAuth, async (req, res) => {
+  app.post("/chat/messages/:id/pin", requireAuth, requireAdmin, async (req, res) => {
     try {
-      const pinned = req.body?.pinned !== false;
+      const pinned = validateChatPinned(req.body?.pinned);
       const { rows } = await pool.query("update chat_messages set pinned=$1 where id=$2 returning id, pinned", [pinned, req.params.id]);
       if (!rows[0]) return res.status(404).json({ error: "Message introuvable." });
       return res.json(rows[0]);
-    } catch (error) { return res.status(500).json({ error: "Épinglage impossible." }); }
+    } catch (error) {
+      return res.status(error.status || 500).json({ error: error.status ? error.message : "Épinglage impossible.", fields: error.fields || undefined });
+    }
   });
 
   app.post("/chat/polls", requireAuth, async (req, res) => {
     try {
       const participantId = participantIdFromRequest(req);
-      const question = String(req.body?.question || "").trim().slice(0, 500);
-      const options = (Array.isArray(req.body?.options) ? req.body.options : []).map(x => String(x).trim().slice(0,120)).filter(Boolean).slice(0,8);
-      if (!participantId || !question || options.length < 2) return res.status(400).json({ error: "Sondage invalide." });
+      if (!participantId) return res.status(403).json({ error: "Compte non relié à un grimpeur." });
+      const { question, options } = validateChatPoll(req.body || {});
       const poll = { question, options: options.map((label, index) => ({ id: index + 1, label, votes: [] })) };
       const { rows } = await pool.query(
         `insert into chat_messages(participant_id,message,kind,event_type,poll) values($1,$2,'user','poll',$3::jsonb)
@@ -193,20 +203,45 @@ export function installChatRoutes(app, { requireAuth, pool }) {
         [participantId, question, JSON.stringify(poll)],
       );
       return res.status(201).json(publicMessageRow(rows[0]));
-    } catch (error) { console.error("chat poll error:", error); return res.status(500).json({ error: "Création du sondage impossible." }); }
+    } catch (error) {
+      console.error("chat poll error:", error);
+      return res.status(error.status || 500).json({ error: error.status ? error.message : "Création du sondage impossible.", fields: error.fields || undefined });
+    }
   });
 
   app.post("/chat/messages/:id/poll-vote", requireAuth, async (req, res) => {
+    const participantId = participantIdFromRequest(req);
+    if (!participantId) return res.status(403).json({ error: "Compte non relié à un grimpeur." });
+
+    const client = await pool.connect();
     try {
-      const participantId = participantIdFromRequest(req);
-      const optionId = Number(req.body?.optionId);
-      const { rows } = await pool.query("select poll from chat_messages where id=$1 and event_type='poll'", [req.params.id]);
+      await client.query("begin");
+      const { rows } = await client.query(
+        "select poll from chat_messages where id=$1 and event_type='poll' for update",
+        [req.params.id],
+      );
       const poll = rows[0]?.poll;
-      if (!participantId || !poll || !Number.isInteger(optionId)) return res.status(400).json({ error: "Vote invalide." });
-      poll.options = (poll.options || []).map(o => ({ ...o, votes: o.id === optionId ? [...new Set([...(o.votes || []).filter(id => String(id) !== String(participantId)), participantId])] : (o.votes || []).filter(id => String(id) !== String(participantId)) }));
-      await pool.query("update chat_messages set poll=$1::jsonb where id=$2", [JSON.stringify(poll), req.params.id]);
+      if (!poll) {
+        await client.query("rollback");
+        return res.status(404).json({ error: "Sondage introuvable." });
+      }
+      const optionId = validateChatPollOption(req.body?.optionId, poll);
+      poll.options = (poll.options || []).map((option) => ({
+        ...option,
+        votes: Number(option.id) === optionId
+          ? [...new Set([...(option.votes || []).filter((id) => String(id) !== String(participantId)), participantId])]
+          : (option.votes || []).filter((id) => String(id) !== String(participantId)),
+      }));
+      await client.query("update chat_messages set poll=$1::jsonb where id=$2", [JSON.stringify(poll), req.params.id]);
+      await client.query("commit");
       return res.json({ ok: true, poll });
-    } catch (error) { console.error("chat vote error:", error); return res.status(500).json({ error: "Vote impossible." }); }
+    } catch (error) {
+      await client.query("rollback").catch(() => undefined);
+      console.error("chat vote error:", error);
+      return res.status(error.status || 500).json({ error: error.status ? error.message : "Vote impossible.", fields: error.fields || undefined });
+    } finally {
+      client.release();
+    }
   });
 
   app.get("/chat/kudos", requireAuth, async (_req, res) => {
@@ -220,8 +255,7 @@ export function installChatRoutes(app, { requireAuth, pool }) {
     try {
       const participantId = participantIdFromRequest(req);
       if (!participantId) return res.status(403).json({ error: "Compte non relié à un grimpeur." });
-      const reaction = String(req.body?.reaction || "").trim();
-      if (!reaction || reaction.length > 24) return res.status(400).json({ error: "Réaction invalide." });
+      const reaction = validateChatReaction(req.body?.reaction);
       const exists = await pool.query("select 1 from chat_messages where id = $1", [req.params.id]);
       if (!exists.rowCount) return res.status(404).json({ error: "Message introuvable." });
       await pool.query(
@@ -239,7 +273,7 @@ export function installChatRoutes(app, { requireAuth, pool }) {
   app.delete("/chat/messages/:id/reactions", requireAuth, async (req, res) => {
     try {
       const participantId = participantIdFromRequest(req);
-      const reaction = String(req.body?.reaction || "").trim();
+      const reaction = validateChatReaction(req.body?.reaction);
       if (!participantId) return res.status(403).json({ error: "Compte non relié à un grimpeur." });
       await pool.query(
         "delete from chat_message_reactions where message_id = $1 and participant_id = $2 and reaction = $3",
@@ -267,10 +301,7 @@ export function installChatRoutes(app, { requireAuth, pool }) {
           return res.status(413).json({ error: "Fichier trop volumineux. Maximum 10 Mo." });
         }
         const fileName = decodeHeader(req.headers["x-file-name"], "fichier") || "fichier";
-        const message = decodeHeader(req.headers["x-chat-message"], "").trim();
-        if (message.length > 2000) {
-          return res.status(400).json({ error: "Le message ne peut pas dépasser 2000 caractères." });
-        }
+        const message = validateChatMessage(decodeHeader(req.headers["x-chat-message"], "", 2000), { required: false });
         const mimeType = String(req.headers["content-type"] || "application/octet-stream")
           .split(";")[0].trim().toLowerCase().slice(0, 160);
         const { rows } = await pool.query(

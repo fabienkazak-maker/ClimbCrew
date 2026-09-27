@@ -8,6 +8,14 @@ function fail(message) {
 const app = fs.readFileSync("frontend/src/App.jsx", "utf8");
 const planningView = fs.readFileSync("frontend/src/lib/planning-view.js", "utf8");
 const domain = fs.readFileSync("frontend/src/lib/domain.js", "utf8");
+const backendValidation = fs.readFileSync("backend/validation.js", "utf8");
+const sessionAuthorization = fs.readFileSync("backend/admin-users/session-authorization-service.js", "utf8");
+const sharedGrades = fs.readFileSync("shared/climbing-grades.js", "utf8");
+const sharedSessionRules = fs.readFileSync("shared/session-rules.js", "utf8");
+const sessionCard = fs.readFileSync("frontend/src/components/SessionCard.jsx", "utf8");
+const chatPage = fs.readFileSync("frontend/src/pages/Chat.jsx", "utf8");
+const profilePage = fs.readFileSync("frontend/src/pages/Profil.jsx", "utf8");
+const routesPage = fs.readFileSync("frontend/src/pages/Voies.jsx", "utf8");
 const routeDisplayGroups = fs.readFileSync("frontend/src/lib/route-display-groups.js", "utf8");
 const buddyPreferences = fs.readFileSync("frontend/src/lib/buddy-preferences.js", "utf8");
 const buddyRoutes = fs.readFileSync("backend/buddy-routes.js", "utf8");
@@ -47,6 +55,29 @@ if (app.includes("const gradeRank = new Map(GRADES.map")) {
 if (!routeDisplayGroups.includes("export function buildRouteDisplayGroups")
     || !routeDisplayGroups.includes("routes.map((route) => normalizeRopeNumber(route.numeroCorde))")) {
   fail("module de groupement des voies incomplet ou cordes vides non masquées");
+}
+
+if (!domain.includes('from "../../../shared/climbing-grades.js"')
+    || !backendValidation.includes('from "../shared/climbing-grades.js"')
+    || !sharedGrades.includes("export const GRADES")) {
+  fail("cotations non branchées sur la source de vérité partagée");
+}
+if (domain.includes("export const GRADES = [") || backendValidation.includes("export const GRADES = [")) {
+  fail("échelle de cotation dupliquée hors de shared/climbing-grades.js");
+}
+if (!domain.includes('from "../../../shared/session-rules.js"')
+    || !sessionAuthorization.includes('from "../../shared/session-rules.js"')
+    || !sharedSessionRules.includes("MAX_SESSION_PARTICIPANTS = 18")) {
+  fail("capacité des séances non centralisée");
+}
+if (!app.includes('import SessionCard from "./components/SessionCard.jsx"')
+    || !sessionCard.includes("MAX_PARTICIPANTS")) {
+  fail("carte de séance non extraite de App.jsx");
+}
+for (const [name, source] of [["App", app], ["Chat", chatPage], ["Profil", profilePage], ["Voies", routesPage]]) {
+  if (/window\.(?:confirm|prompt)\s*\(|\balert\s*\(/.test(source)) {
+    fail(`dialogue navigateur natif encore présent dans ${name}`);
+  }
 }
 
 if (!buddyPreferences.includes('from "../../../shared/buddy-preferences.js"')
@@ -92,7 +123,6 @@ const httpStack = fs.readFileSync("backend/middleware/http-stack.js", "utf8");
 const runtimeHelpers = fs.readFileSync("backend/security/runtime-helpers.js", "utf8");
 const applicationBootstrap = fs.readFileSync("backend/bootstrap/application-bootstrap.js", "utf8");
 const explicitRoutes = fs.readFileSync("backend/admin-users/explicit-routes.js", "utf8");
-const sessionAuthorization = fs.readFileSync("backend/admin-users/session-authorization-service.js", "utf8");
 const realisationManagement = fs.readFileSync("backend/realisation-management-routes.js", "utf8");
 const baselineMigration = fs.readFileSync("backend/database/migrations/001_baseline.sql", "utf8");
 

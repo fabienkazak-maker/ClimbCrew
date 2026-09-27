@@ -1,5 +1,6 @@
 import React from "react";
 import Button from "../components/Button.jsx";
+import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import { API_BASE, apiFetch, apiUploadVideoInChunks } from "../lib/api.js";
 import { GRADES, formatRouteName, getRouteCardStyle, normalizeRopeNumber } from "../lib/domain.js";
 import { ROPE_NUMBERS, ROUTE_COLORS, ROUTE_TAGS } from "../lib/ui-config.js";
@@ -64,6 +65,7 @@ export default function Voies({
   const [videoDeletingUrl, setVideoDeletingUrl] = React.useState("");
   const [selectedComparisonVideos, setSelectedComparisonVideos] = React.useState([]);
   const [comparisonOpen, setComparisonOpen] = React.useState(false);
+  const [videoDeleteCandidate, setVideoDeleteCandidate] = React.useState(null);
 
   const allRoutes = routeDisplayGroups.flatMap((group) => group.routes);
   const videoRoute = allRoutes.find((route) => String(route.id) === String(videoRouteId)) || null;
@@ -125,10 +127,7 @@ export default function Voies({
     }
   }
 
-  async function deleteVideo(route, url) {
-    const confirmed = window.confirm("Supprimer définitivement cette vidéo de la voie ?");
-    if (!confirmed) return;
-
+  async function performDeleteVideo(route, url) {
     try {
       setVideoDeletingUrl(url);
       setVideoSaveStatus("");
@@ -160,7 +159,12 @@ export default function Voies({
       setVideoSaveStatus(error.message || "Suppression de la vidéo impossible.");
     } finally {
       setVideoDeletingUrl("");
+      setVideoDeleteCandidate(null);
     }
+  }
+
+  function deleteVideo(route, url) {
+    setVideoDeleteCandidate({ route, url });
   }
 
   function toggleComparisonVideo(url) {
@@ -215,6 +219,13 @@ export default function Voies({
     const comparisonVideos = selectedComparisonVideos.filter((url) => videoUrls.includes(url)).slice(0, 2);
     return (
       <div className="card">
+        <ConfirmDialog
+          open={Boolean(videoDeleteCandidate)}
+          title="Supprimer la vidéo"
+          message="Supprimer définitivement cette vidéo de la voie ?"
+          onConfirm={() => videoDeleteCandidate && void performDeleteVideo(videoDeleteCandidate.route, videoDeleteCandidate.url)}
+          onCancel={() => setVideoDeleteCandidate(null)}
+        />
         <div className="card-header">
           <div>
             <h2>Vidéos · {formatRouteName(videoRoute)}</h2>

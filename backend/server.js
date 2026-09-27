@@ -132,7 +132,7 @@ installExplicitAdminUserRoutes(app, {
 });
 installBroadcastMessageRoutes(app, { requireAuth, requireAdmin, pool });
 installEvolutionRequestRoutes(app, { requireAuth, requireAdmin, pool });
-installChatRoutes(app, { requireAuth, pool });
+installChatRoutes(app, { requireAuth, requireAdmin, pool });
 installBuddyRoutes(app, { requireAuth, pool });
 installRealisationManagementRoutes(app, { requireAuth, pool });
 installRealisationKudoRoutes(app, { requireAuth, pool });
