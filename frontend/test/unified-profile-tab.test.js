@@ -18,6 +18,11 @@ test("Profil sélectionne le grimpeur connecté par défaut et permet d'en chois
   assert.match(profileSource, /apiFetch\("\/participants"\)/);
 });
 
+test("Profil importe le formateur de voie utilisé pour les réalisations", () => {
+  assert.match(profileSource, /formatRouteForRealisation,/);
+  assert.match(profileSource, /route \? formatRouteForRealisation\(route\) : "Voie inconnue"/);
+});
+
 test("Profil récupère la fonction de rafraîchissement des réalisations depuis le hook", () => {
   assert.match(profileSource, /const \{\s*refreshRealisations,\s*resetOwnRealisations,/);
   assert.match(profileSource, /await refreshRealisations\(\)/);
