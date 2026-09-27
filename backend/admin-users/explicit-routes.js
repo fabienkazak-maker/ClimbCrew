@@ -46,7 +46,7 @@ import { startAccessLogRetentionScheduler } from "./access-log-retention.js";
 import { startSecurityRetentionScheduler } from "./security-retention-service.js";
 import { safeHealthCheck } from "./maintenance-hardening.js";
 import { installBackupRoutes } from "../backup-routes.js";
-import { startBackupScheduler } from "../backup-service.js";
+import { createBackup, startBackupScheduler } from "../backup-service.js";
 import { installVideoAnalysisSettingsRoutes } from "../video-analysis-settings-routes.js";
 import { getPool } from "./database.js";
 import { sendTokenConfirmationPage } from "../token-confirmation-page.js";
@@ -70,26 +70,59 @@ function showEmailChangeConfirmation(req, res) {
 async function resetAdminData(req, res) {
   const type = String(req.params.type || "");
   const pool = getPool();
-  if (type === "realisations") {
-    const result = await pool.query("delete from realisations");
-    return res.json({ ok: true, type, affected: result.rowCount });
-  }
+  const destructiveTypes = new Set(["realisations", "cotisations", "ffme"]);
+
   if (type === "statistiques") {
-    // Les statistiques ClimbCrew sont dérivées à la volée des données métier
-    // (réalisations, séances, participants et voies). Il n’existe donc aucune
-    // donnée statistique persistée à supprimer : demander leur reset force le
-    // client à recharger les sources et à recalculer tous les agrégats.
     return res.json({ ok: true, type, recalculated: true, affected: 0 });
   }
-  if (type === "cotisations") {
-    const result = await pool.query("update participants set cotisation = false where cotisation is distinct from false");
-    return res.json({ ok: true, type, affected: result.rowCount });
+  if (!destructiveTypes.has(type)) {
+    return res.status(400).json({ error: "Type de réinitialisation inconnu" });
   }
-  if (type === "ffme") {
-    const result = await pool.query("update participants set ffme = false where ffme is distinct from false");
-    return res.json({ ok: true, type, affected: result.rowCount });
+
+  const expectedConfirmation = `RESET_${type.toUpperCase()}`;
+  if (String(req.body?.confirm || "") !== expectedConfirmation) {
+    return res.status(400).json({ error: `Confirmation ${expectedConfirmation} requise` });
   }
-  return res.status(400).json({ error: "Type de réinitialisation inconnu" });
+
+  let safetyBackup;
+  try {
+    safetyBackup = await createBackup({ reason: `pre-reset-${type}` });
+  } catch (error) {
+    console.error(`Sauvegarde de sécurité avant reset ${type} impossible :`, error);
+    return res.status(503).json({
+      error: "Réinitialisation refusée : la sauvegarde de sécurité PostgreSQL n’a pas pu être créée.",
+    });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("begin");
+    let result;
+    if (type === "realisations") {
+      result = await client.query("delete from realisations");
+    } else if (type === "cotisations") {
+      result = await client.query(
+        "update participants set cotisation = false where cotisation is distinct from false",
+      );
+    } else {
+      result = await client.query(
+        "update participants set ffme = false where ffme is distinct from false",
+      );
+    }
+    await client.query("commit");
+    return res.json({
+      ok: true,
+      type,
+      affected: result.rowCount,
+      safetyBackup: safetyBackup.fileName,
+    });
+  } catch (error) {
+    await client.query("rollback").catch(() => undefined);
+    console.error(`Reset ${type} impossible :`, error);
+    return res.status(500).json({ error: "Réinitialisation impossible" });
+  } finally {
+    client.release();
+  }
 }
 
 export function installExplicitAdminUserRoutes(app, {

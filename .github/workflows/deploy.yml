@@ -246,8 +246,25 @@ jobs:
           docker exec -i climbcrew-db pg_restore --list < "$BACKUP_FILE" >/dev/null
           sha256sum "$BACKUP_FILE"
           printf 'backup_file=%s\n' "$BACKUP_FILE" >> "$GITHUB_OUTPUT"
+
+          DATA_SNAPSHOT="$BACKUP_DIR/predeploy-${STAMP}.ids"
+          docker exec -i climbcrew-db sh -lc 'exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At' > "$DATA_SNAPSHOT" <<'SQL'
+          select 'users:' || id::text from users
+          union all select 'participants:' || id::text from participants
+          union all select 'sessions:' || id::text from sessions
+          union all select 'session_participants:' || session_id || ':' || participant_id from session_participants
+          union all select 'routes:' || id::text from routes
+          union all select 'realisations:' || id::text from realisations
+          union all select 'route_videos:' || id::text from route_videos
+          union all select 'route_ratings:' || route_id || ':' || user_id::text from route_ratings
+          order by 1;
+          SQL
+          test -s "$DATA_SNAPSHOT" || { echo "ERROR: inventaire métier pré-déploiement vide"; exit 1; }
+          printf 'data_snapshot=%s\n' "$DATA_SNAPSHOT" >> "$GITHUB_OUTPUT"
+
           ls -1t "$BACKUP_DIR"/predeploy-*.dump 2>/dev/null | tail -n +11 | xargs -r rm -f
-          echo "Sauvegarde pré-déploiement créée et vérifiée: $BACKUP_FILE"
+          ls -1t "$BACKUP_DIR"/predeploy-*.ids 2>/dev/null | tail -n +11 | xargs -r rm -f
+          echo "Sauvegarde et inventaire pré-déploiement créés et vérifiés: $BACKUP_FILE"
 
       - name: Synchroniser le dépôt sur le SHA PPD validé
         id: sync_repo
@@ -357,6 +374,39 @@ jobs:
             exit 1
           }
           echo "Backend OK · Frontend OK · SHA $VALIDATED_SHA"
+
+      - name: Vérifier la conservation des comptes et données existants
+        shell: bash
+        env:
+          DATA_SNAPSHOT: ${{ steps.backup_db.outputs.data_snapshot }}
+        run: |
+          set -euo pipefail
+          test -n "$DATA_SNAPSHOT" && test -s "$DATA_SNAPSHOT" || {
+            echo "ERROR: inventaire métier pré-déploiement introuvable"
+            exit 1
+          }
+
+          CURRENT_SNAPSHOT="$(mktemp)"
+          trap 'rm -f "$CURRENT_SNAPSHOT"' EXIT
+          docker exec -i climbcrew-db sh -lc 'exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At' > "$CURRENT_SNAPSHOT" <<'SQL'
+          select 'users:' || id::text from users
+          union all select 'participants:' || id::text from participants
+          union all select 'sessions:' || id::text from sessions
+          union all select 'session_participants:' || session_id || ':' || participant_id from session_participants
+          union all select 'routes:' || id::text from routes
+          union all select 'realisations:' || id::text from realisations
+          union all select 'route_videos:' || id::text from route_videos
+          union all select 'route_ratings:' || route_id || ':' || user_id::text from route_ratings
+          order by 1;
+          SQL
+
+          MISSING="$(comm -23 "$DATA_SNAPSHOT" "$CURRENT_SNAPSHOT" || true)"
+          if [ -n "$MISSING" ]; then
+            echo "ERROR: données existantes absentes après migration/déploiement :"
+            printf '%s\n' "$MISSING" | head -100
+            exit 1
+          fi
+          echo "Conservation vérifiée : aucun compte, participant, séance, inscription, voie, réalisation, vidéo ou note existant n'a disparu."
 
       - name: Vérifier la version et le SHA sur le frontal PPD
         shell: bash

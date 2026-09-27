@@ -10,8 +10,24 @@ import {
 } from "../lib/bootstrap-data.js";
 
 const REALISATIONS_PATH = "/realisations";
+const SESSIONS_PATH = "/sessions";
+const SESSION_WINDOW_PAST_DAYS = 90;
+const SESSION_WINDOW_FUTURE_DAYS = 180;
+
+function isoDayOffset(days, now = new Date()) {
+  const date = new Date(now);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+export function recentSessionsPath(now = new Date()) {
+  const from = isoDayOffset(-SESSION_WINDOW_PAST_DAYS, now);
+  const to = isoDayOffset(SESSION_WINDOW_FUTURE_DAYS, now);
+  return `${SESSIONS_PATH}?from=${from}&to=${to}`;
+}
 
 function loadBootstrapEndpoint([key, path], { recentOnly = false } = {}) {
+  if (key === "sessions" && recentOnly) return apiFetch(recentSessionsPath());
   if (key !== "realisations") return apiFetch(path);
   if (recentOnly) {
     return apiFetch(`${path}?limit=${REALISATIONS_PAGE_SIZE}&offset=0`);
@@ -55,12 +71,16 @@ export function useAppBootstrap({
   setSyncMessage,
 }) {
   const historyTokenRef = useRef(null);
+  const sessionHistoryTokenRef = useRef(null);
 
   const reloadApiState = useCallback(async ({
     isMounted = () => true,
     recentOnly = false,
   } = {}) => {
-    if (!recentOnly) historyTokenRef.current = null;
+    if (!recentOnly) {
+      historyTokenRef.current = null;
+      sessionHistoryTokenRef.current = null;
+    }
     setIsSyncing(true);
     try {
       const settledResults = await Promise.allSettled(
@@ -103,6 +123,29 @@ export function useAppBootstrap({
     }
   }, [setIsSyncing, setState, setSyncMessage]);
 
+
+  const hydrateSessions = useCallback(async ({ isMounted = () => true, token = null } = {}) => {
+    const isActive = () => isMounted() && sessionHistoryTokenRef.current === token;
+    try {
+      const completeSessions = await apiFetch(SESSIONS_PATH);
+      if (!isActive() || !Array.isArray(completeSessions)) return null;
+      setState((previous) => {
+        const merged = new Map(completeSessions.map((session) => [String(session.id), session]));
+        previous.sessions.forEach((session) => merged.set(String(session.id), session));
+        return { ...previous, sessions: [...merged.values()] };
+      });
+      sessionHistoryTokenRef.current = null;
+      return completeSessions;
+    } catch (error) {
+      if (isActive()) {
+        sessionHistoryTokenRef.current = null;
+        setSyncMessage("Données récentes chargées · historique des séances indisponible");
+        console.error(error);
+      }
+      return null;
+    }
+  }, [setState, setSyncMessage]);
+
   const hydrateRealisations = useCallback(async (
     initialItems,
     { isMounted = () => true, token = null } = {},
@@ -133,7 +176,10 @@ export function useAppBootstrap({
   }, [setState, setSyncMessage]);
 
   useEffect(() => {
-    if (!authUserId) historyTokenRef.current = null;
+    if (!authUserId) {
+      historyTokenRef.current = null;
+      sessionHistoryTokenRef.current = null;
+    }
   }, [authUserId]);
 
   useEffect(() => {
@@ -144,7 +190,9 @@ export function useAppBootstrap({
 
     let isMounted = true;
     const historyToken = Symbol("realisations-history");
+    const sessionHistoryToken = Symbol("sessions-history");
     historyTokenRef.current = historyToken;
+    sessionHistoryTokenRef.current = sessionHistoryToken;
 
     (async () => {
       try {
@@ -167,6 +215,11 @@ export function useAppBootstrap({
         if (!isMounted) return;
         setAuthLoading(false);
 
+        void hydrateSessions({
+          isMounted: () => isMounted,
+          token: sessionHistoryToken,
+        });
+
         if (recentState?.realisations?.length >= REALISATIONS_PAGE_SIZE) {
           void hydrateRealisations(recentState.realisations, {
             isMounted: () => isMounted,
@@ -178,6 +231,7 @@ export function useAppBootstrap({
       } catch {
         if (!isMounted) return;
         historyTokenRef.current = null;
+        sessionHistoryTokenRef.current = null;
         setAuthUser(null);
       } finally {
         if (isMounted) setAuthLoading(false);
@@ -187,9 +241,11 @@ export function useAppBootstrap({
     return () => {
       isMounted = false;
       if (historyTokenRef.current === historyToken) historyTokenRef.current = null;
+      if (sessionHistoryTokenRef.current === sessionHistoryToken) sessionHistoryTokenRef.current = null;
     };
   }, [
     hydrateRealisations,
+    hydrateSessions,
     reloadApiState,
     setAdminUnlocked,
     setAuthLoading,
