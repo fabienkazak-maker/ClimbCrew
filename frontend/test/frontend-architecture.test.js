@@ -16,6 +16,7 @@ const realisationModeUiUrl = new URL("../src/realisation-mode-ui.js", import.met
 const viteConfigUrl = new URL("../vite.config.js", import.meta.url);
 const adjustmentsUrl = new URL("../scripts/app-source-adjustments.mjs", import.meta.url);
 const routeGroupingUrl = new URL("../src/lib/route-display-groups.js", import.meta.url);
+const routeManagementUrl = new URL("../src/hooks/useRouteManagement.js", import.meta.url);
 const srcDirectory = fileURLToPath(new URL("../src/", import.meta.url));
 
 const removedFrontendLayers = [
@@ -112,7 +113,13 @@ test("la soumission des écrans d'accès appartient au composant React", () => {
   assert.match(authPageSource, /Consulter le texte RGPD/);
 });
 
-test("App.jsx ne peut plus regrossir au-delà du budget obtenu après extraction", async () => {
-  const info = await stat(appUrl);
-  assert.ok(info.size <= 69_500, `App.jsx fait ${info.size} octets : extraire un bloc métier avant d'ajouter du code au monolithe`);
+test("la gestion des voies est extraite d'App.jsx et le budget du monolithe diminue", async () => {
+  const [info, routeManagement] = await Promise.all([
+    stat(appUrl),
+    readFile(routeManagementUrl, "utf8"),
+  ]);
+  assert.ok(info.size <= 62_000, `App.jsx fait ${info.size} octets : extraire un bloc métier avant d'ajouter du code au monolithe`);
+  assert.match(appSource, /useRouteManagement/);
+  assert.match(routeManagement, /export function useRouteManagement/);
+  assert.match(routeManagement, /Historique conservé/);
 });

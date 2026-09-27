@@ -335,7 +335,8 @@ jobs:
           set -euo pipefail
           BACKEND_OK=false
           for attempt in $(seq 1 24); do
-            if curl --fail --silent --max-time 5 http://127.0.0.1:3000/health >/dev/null; then
+            HEALTH_RESPONSE="$(curl --fail --silent --max-time 5 http://127.0.0.1:3000/health || true)"
+            if [[ -n "$HEALTH_RESPONSE" ]] && ! grep -Eq '"degraded"[[:space:]]*:[[:space:]]*true' <<<"$HEALTH_RESPONSE"; then
               BACKEND_OK=true
               break
             fi

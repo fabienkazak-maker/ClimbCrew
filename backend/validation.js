@@ -322,10 +322,10 @@ export function validateRealisationPayload(payload = {}, { partial = false } = {
     );
   }
 
-  // nbEssais n'est plus affiché dans l'application. Il reste lu pour les
-  // imports historiques et sert de stockage de compatibilité au mode explicite
-  // tant que la table legacy n'a pas encore de colonne dédiée.
-  if ((!partial || payload.nbEssais !== undefined) && payload.modeRealisation === undefined) {
+  // nbEssais reste une donnée legacy indépendante du mode. Les anciens
+  // exports continuent d'être acceptés, mais les nouvelles écritures utilisent
+  // désormais la colonne dédiée mode_realisation.
+  if (!partial || payload.nbEssais !== undefined) {
     validated.nbEssais = optionalString(payload.nbEssais, "nbEssais", 50);
   }
 
@@ -338,9 +338,6 @@ export function validateRealisationPayload(payload = {}, { partial = false } = {
       REALISATION_MODES,
       fallbackMode,
     );
-    // server.js persiste déjà nbEssais dans la colonne nb_essais : on conserve
-    // ainsi la compatibilité sans migration risquée de la base en production.
-    validated.nbEssais = validated.modeRealisation;
   }
 
   if (payload.rating !== undefined && payload.rating !== null && payload.rating !== "") {

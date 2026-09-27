@@ -35,20 +35,28 @@ export default function Statistiques({
   pointsByParticipantId
 }) {
   const [statisticsSessions, setStatisticsSessions] = useState(() => readStoredSessions());
+  const [statisticsSource, setStatisticsSource] = useState(USE_API ? "loading" : "local");
 
   useEffect(() => {
     if (!USE_API) {
       setStatisticsSessions(readStoredSessions());
+      setStatisticsSource("local");
       return undefined;
     }
 
     let mounted = true;
     apiFetch("/sessions")
       .then((sessions) => {
-        if (mounted && Array.isArray(sessions)) setStatisticsSessions(sessions);
+        if (mounted && Array.isArray(sessions)) {
+          setStatisticsSessions(sessions);
+          setStatisticsSource("api");
+        }
       })
       .catch(() => {
-        if (mounted) setStatisticsSessions(readStoredSessions());
+        if (mounted) {
+          setStatisticsSessions(readStoredSessions());
+          setStatisticsSource("cache");
+        }
       });
 
     return () => {
@@ -83,7 +91,13 @@ export default function Statistiques({
   };
 
   return (
-    <StatisticsSection
+    <>
+      {statisticsSource === "cache" && (
+        <div className="muted-box" role="status">
+          Statistiques des séances non actualisées : affichage du dernier cache local disponible.
+        </div>
+      )}
+      <StatisticsSection
       sessionStats={extendedSessionStats}
       topRouteRankings={topRouteRankings}
       leadRealisationStats={leadRealisationStats}
@@ -100,6 +114,7 @@ export default function Statistiques({
       cprByParticipantId={cprByParticipantId}
       formatPoints={formatPoints}
       pointsByParticipantId={pointsByParticipantId}
-    />
+      />
+    </>
   );
 }
