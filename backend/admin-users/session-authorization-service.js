@@ -12,7 +12,9 @@ function sameId(left, right) {
 }
 
 export function assertSessionCapacity(participantIds) {
-  const uniqueParticipantIds = [...new Set((participantIds || []).map(String).filter(Boolean))];
+  const uniqueParticipantIds = [...new Set((participantIds || [])
+    .filter((value) => value !== null && value !== undefined && value !== "")
+    .map(String))];
   if (uniqueParticipantIds.length > MAX_SESSION_PARTICIPANTS) {
     const error = new Error(`Une séance ne peut pas dépasser ${MAX_SESSION_PARTICIPANTS} participants.`);
     error.status = 409;
