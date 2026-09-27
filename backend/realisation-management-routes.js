@@ -3,6 +3,8 @@ import express from "express";
 import { GRADES, validateRealisationPayload } from "./validation.js";
 import { assertRealisationIntegrity } from "./realisation-integrity.js";
 import { parseTheCragXls } from "./thecrag-xls.js";
+import { registerParticipantForSession } from "./admin-users/session-authorization-service.js";
+import { getDefaultSessionStatus } from "../shared/session-default-status.js";
 import {
   LOCAL_VIDEO_MAX_BYTES,
   LOCAL_VIDEO_TYPES,
@@ -253,27 +255,24 @@ async function ensureTheCragMiddaySession(client, participantId, date) {
   let created = false;
   if (!sessionId) {
     sessionId = `thecrag-${date}-midi`;
+    const defaultStatus = getDefaultSessionStatus(date, "midi");
     const insertSession = await client.query(
       `
-        insert into sessions (id, date, slot, status, referent_id)
-        values ($1, $2, 'midi', 'libre', $3)
+        insert into sessions (id, date, slot, status)
+        values ($1, $2, 'midi', $3)
         on conflict (id) do nothing
         returning id
       `,
-      [sessionId, date, String(participantId)],
+      [sessionId, date, defaultStatus],
     );
     created = insertSession.rowCount > 0;
   }
-  const registration = await client.query(
-    `
-      insert into session_participants (session_id, participant_id)
-      values ($1, $2)
-      on conflict (session_id, participant_id) do nothing
-      returning session_id
-    `,
-    [sessionId, String(participantId)],
-  );
-  return { sessionId, created, registered: registration.rowCount > 0 };
+
+  const registration = await registerParticipantForSession(client, {
+    sessionId,
+    participantId: String(participantId),
+  });
+  return { sessionId, created, registered: registration.registered };
 }
 
 export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
@@ -365,8 +364,8 @@ export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
             `
               insert into realisations (
                 id, participant_id, session_id, voie_id, date_realisation, style_realisation,
-                commentaire, cotation_proposee, nb_essais, chute, assureur_id
-              ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,false,null)
+                commentaire, cotation_proposee, nb_essais, mode_realisation, chute, assureur_id
+              ) values ($1,$2,$3,$4,$5,$6,$7,$8,null,$9,false,null)
               on conflict (id) do nothing
               returning id
             `,
@@ -429,14 +428,15 @@ export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
         `
           insert into realisations (
             id, participant_id, session_id, voie_id, date_realisation, style_realisation,
-            commentaire, cotation_proposee, nb_essais, rating, chute, assureur_id, video_urls
-          ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb)
+            commentaire, cotation_proposee, nb_essais, mode_realisation, rating, chute, assureur_id, video_urls
+          ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb)
         `,
         [
           realisation.id, realisation.participantId, realisation.sessionId, realisation.voieId,
           realisation.dateRealisation, realisation.styleRealisation, realisation.commentaire || "",
-          realisation.cotationProposee || "", realisation.nbEssais || "", realisation.rating ?? null,
-          Boolean(realisation.chute), realisation.assureurId || null, JSON.stringify(realisation.videoUrls),
+          realisation.cotationProposee || "", realisation.nbEssais || "", realisation.modeRealisation,
+          realisation.rating ?? null, Boolean(realisation.chute), realisation.assureurId || null,
+          JSON.stringify(realisation.videoUrls),
         ],
       );
       try {
@@ -455,7 +455,7 @@ export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
         ].filter(Boolean);
         const route = routeParts.length ? routeParts.join(" · ") : "une voie";
         const grade = realisation.cotationProposee || row.cotation_ajustee || row.cotation_reference || "cotation non renseignée";
-        const mode = realisation.nbEssais === "moulinette" ? "en moulinette" : "en tête";
+        const mode = realisation.modeRealisation === "moulinette" ? "en moulinette" : "en tête";
         await pool.query(
           `insert into chat_messages (participant_id, message, kind, event_type, event_ref)
            values ($1,$2,'system','realisation',$3)`,
@@ -807,18 +807,20 @@ export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
             commentaire = coalesce($6, commentaire),
             cotation_proposee = coalesce($7, cotation_proposee),
             nb_essais = coalesce($8, nb_essais),
-            rating = coalesce($9, rating),
-            chute = coalesce($10, chute),
-            assureur_id = case when $10 = false then null else coalesce($11, assureur_id) end,
-            video_urls = case when $12::jsonb is null then video_urls else $12::jsonb end,
+            mode_realisation = coalesce($9, mode_realisation),
+            rating = coalesce($10, rating),
+            chute = coalesce($11, chute),
+            assureur_id = case when $11 = false then null else coalesce($12, assureur_id) end,
+            video_urls = case when $13::jsonb is null then video_urls else $13::jsonb end,
             updated_at = now()
-          where id = $1 and participant_id = $13
+          where id = $1 and participant_id = $14
         `,
         [
           req.params.id, patch.sessionId ?? null, patch.voieId ?? null, patch.dateRealisation ?? null,
           patch.styleRealisation ?? null, patch.commentaire ?? null, patch.cotationProposee ?? null,
-          patch.nbEssais ?? null, patch.rating ?? null, patch.chute ?? null, patch.assureurId ?? null,
-          videoUrlsForUpdate === null ? null : JSON.stringify(videoUrlsForUpdate), participantId,
+          patch.nbEssais ?? null, patch.modeRealisation ?? null, patch.rating ?? null, patch.chute ?? null,
+          patch.assureurId ?? null, videoUrlsForUpdate === null ? null : JSON.stringify(videoUrlsForUpdate),
+          participantId,
         ],
       );
       if (result.rowCount === 0) return res.status(403).json({ error: "Cette réalisation ne vous appartient pas" });

@@ -495,18 +495,37 @@ export function installRouteManagementRoutes(app, { requireAuth, requireAdmin, p
     const client = await pool.connect();
     try {
       await client.query("begin");
-      const routeResult = await client.query("select id from routes where id = $1 for update", [req.params.id]);
+      const routeResult = await client.query("select * from routes where id = $1 for update", [req.params.id]);
       if (!routeResult.rowCount) {
         await client.query("rollback");
         return res.status(404).json({ error: "Voie introuvable" });
       }
-      const realisationsResult = await client.query("delete from realisations where voie_id = $1", [req.params.id]);
+
+      const realisationsResult = await client.query(
+        "select count(*)::integer as count from realisations where voie_id = $1",
+        [req.params.id],
+      );
+      const retainedRealisations = Number(realisationsResult.rows[0]?.count || 0);
+      if (retainedRealisations > 0) {
+        const archived = await client.query(
+          "update routes set active = false, updated_at = now() where id = $1 returning *",
+          [req.params.id],
+        );
+        await client.query("commit");
+        return res.json({
+          ok: true,
+          archived: true,
+          retainedRealisations,
+          route: routeDbToApi(archived.rows[0]),
+        });
+      }
+
       await client.query("delete from routes where id = $1", [req.params.id]);
       await client.query("commit");
-      res.json({ ok: true, deletedRealisations: realisationsResult.rowCount });
+      return res.json({ ok: true, archived: false, deletedRealisations: 0 });
     } catch (error) {
       await client.query("rollback");
-      res.status(500).json({ error: error.message || "Suppression de la voie impossible" });
+      return res.status(500).json({ error: error.message || "Suppression de la voie impossible" });
     } finally {
       client.release();
     }

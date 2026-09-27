@@ -31,6 +31,7 @@ test("le déploiement main exige une PR associée", async () => {
   assert.match(source, /Vérifier que main provient d'une Pull Request/);
   assert.match(source, /commits\/\$\{COMMIT_SHA\}\/pulls/);
   assert.match(source, /un push direct vers main ne peut pas être déployé/);
+  assert.match(source, /degraded/);
 });
 
 test("les actions GitHub critiques sont épinglées par SHA", async () => {

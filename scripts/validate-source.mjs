@@ -53,8 +53,9 @@ if (app.includes("const gradeRank = new Map(GRADES.map")) {
   fail("copie locale du groupement des voies encore présente dans App");
 }
 if (!routeDisplayGroups.includes("export function buildRouteDisplayGroups")
-    || !routeDisplayGroups.includes("routes.map((route) => normalizeRopeNumber(route.numeroCorde))")) {
-  fail("module de groupement des voies incomplet ou cordes vides non masquées");
+    || !routeDisplayGroups.includes("const activeRoutes = routes.filter((route) => route?.active !== false)")
+    || !routeDisplayGroups.includes("activeRoutes.map((route) => normalizeRopeNumber(route.numeroCorde))")) {
+  fail("module de groupement des voies incomplet, voies archivées visibles ou cordes vides non masquées");
 }
 
 if (!domain.includes('from "../../../shared/climbing-grades.js"')
