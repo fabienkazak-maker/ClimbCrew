@@ -23,7 +23,7 @@ test("les lignes sombres des classements utilisent un texte clair", async () => 
 });
 
 test("les caractéristiques sont associées à la voie à sa création et à sa modification", async () => {
-  const source = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const source = await readFile(new URL("../src/hooks/useRouteManagement.js", import.meta.url), "utf8");
   const uiConfig = await readFile(new URL("../src/lib/ui-config.js", import.meta.url), "utf8");
   const voies = await readFile(new URL("../src/pages/Voies.jsx", import.meta.url), "utf8");
 
@@ -42,7 +42,7 @@ test("les caractéristiques sont associées à la voie à sa création et à sa 
 });
 
 test("la création d'une voie démarre vide et utilise une case moulinette", async () => {
-  const source = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const source = await readFile(new URL("../src/hooks/useRouteManagement.js", import.meta.url), "utf8");
   const voies = await readFile(new URL("../src/pages/Voies.jsx", import.meta.url), "utf8");
 
   assert.match(source, /numeroCorde: "",[\s\S]*couleurPrises: "",[\s\S]*cotationReference: ""/);

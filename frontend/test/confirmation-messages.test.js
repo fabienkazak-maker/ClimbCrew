@@ -7,6 +7,7 @@ test("les principales écritures affichent une confirmation accessible", async (
     "../src/App.jsx",
     "../src/hooks/useSessionPersistence.js",
     "../src/hooks/useRealisationPersistence.js",
+    "../src/hooks/useRouteManagement.js",
   ].map((path) => readFile(new URL(path, import.meta.url), "utf8")));
   const source = sources.join("\n");
 

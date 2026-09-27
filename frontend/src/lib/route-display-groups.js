@@ -5,7 +5,7 @@ function routeGrade(route) {
 }
 
 export function buildRouteDisplayGroups({ routes = [], ropes = [], sortMode = "corde" } = {}) {
-  const activeRoutes = activeRoutes.filter((route) => route?.active !== false);
+  const activeRoutes = routes.filter((route) => route?.active !== false);
   if (sortMode === "cotation") {
     const gradeRank = new Map(GRADES.map((grade, index) => [grade, index]));
     const grades = [...new Set(activeRoutes.map(routeGrade))].sort((gradeA, gradeB) => {
