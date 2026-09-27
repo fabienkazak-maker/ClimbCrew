@@ -16,6 +16,9 @@ const realisationModeUiUrl = new URL("../src/realisation-mode-ui.js", import.met
 const viteConfigUrl = new URL("../vite.config.js", import.meta.url);
 const adjustmentsUrl = new URL("../scripts/app-source-adjustments.mjs", import.meta.url);
 const routeGroupingUrl = new URL("../src/lib/route-display-groups.js", import.meta.url);
+const routeManagementUrl = new URL("../src/hooks/useRouteManagement.js", import.meta.url);
+const participantManagementUrl = new URL("../src/hooks/useParticipantManagement.js", import.meta.url);
+const profileRealisationsUrl = new URL("../src/hooks/useProfileRealisations.js", import.meta.url);
 const srcDirectory = fileURLToPath(new URL("../src/", import.meta.url));
 
 const removedFrontendLayers = [
@@ -112,7 +115,18 @@ test("la soumission des écrans d'accès appartient au composant React", () => {
   assert.match(authPageSource, /Consulter le texte RGPD/);
 });
 
-test("App.jsx ne peut plus regrossir au-delà du budget obtenu après extraction", async () => {
-  const info = await stat(appUrl);
-  assert.ok(info.size <= 70_000, `App.jsx fait ${info.size} octets : extraire un bloc métier avant d'ajouter du code au monolithe`);
+test("les gestions voies et participants sont extraites d'App.jsx et le budget du monolithe diminue", async () => {
+  const [info, routeManagement, participantManagement, profileRealisations] = await Promise.all([
+    stat(appUrl),
+    readFile(routeManagementUrl, "utf8"),
+    readFile(participantManagementUrl, "utf8"),
+    readFile(profileRealisationsUrl, "utf8"),
+  ]);
+  assert.ok(info.size <= 56_000, `App.jsx fait ${info.size} octets : extraire un bloc métier avant d'ajouter du code au monolithe`);
+  assert.match(appSource, /useRouteManagement/);
+  assert.match(appSource, /useParticipantManagement/);
+  assert.match(routeManagement, /export function useRouteManagement/);
+  assert.match(participantManagement, /export function useParticipantManagement/);
+  assert.match(participantManagement, /Une suppression destructive n'est jamais optimiste/);
+  assert.match(profileRealisations, /export function useProfileRealisations/);
 });

@@ -13,7 +13,10 @@ test("les suppressions administratives sont protégées et transactionnelles", a
 
   assert.match(server, /installRouteManagementRoutes\(app, \{ requireAuth, requireAdmin, pool \}\)/);
   assert.match(routeManagement, /app\.delete\("\/routes\/:id", requireAuth, requireAdmin/);
-  assert.match(routeManagement, /delete from realisations where voie_id = \$1/);
+  assert.doesNotMatch(routeManagement, /delete from realisations where voie_id = \$1/);
+  assert.match(routeManagement, /select count\(\*\)::integer as count from realisations where voie_id = \$1/);
+  assert.match(routeManagement, /update routes set active = false/);
+  assert.match(routeManagement, /archived: true/);
   assert.match(routeManagement, /await client\.query\("commit"\)/);
   assert.match(routeManagement, /await client\.query\("rollback"\)/);
 

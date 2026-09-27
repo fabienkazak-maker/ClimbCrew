@@ -75,9 +75,12 @@ function serializeRoute(row) {
 }
 
 function serializeRealisation(row) {
-  const storedMode = ["en_tete", "moulinette"].includes(String(row.nb_essais || ""))
+  const legacyMode = ["en_tete", "moulinette"].includes(String(row.nb_essais || ""))
     ? String(row.nb_essais)
     : undefined;
+  const storedMode = ["en_tete", "moulinette"].includes(String(row.mode_realisation || ""))
+    ? String(row.mode_realisation)
+    : legacyMode;
   return {
     id: row.id,
     participantId: String(row.participant_id),
@@ -87,8 +90,8 @@ function serializeRealisation(row) {
     styleRealisation: row.style_realisation,
     commentaire: row.commentaire || "",
     cotationProposee: row.cotation_proposee || "",
-    nbEssais: row.nb_essais || "",
-    ...(storedMode ? { modeRealisation: storedMode } : {}),
+    nbEssais: legacyMode ? "" : (row.nb_essais || ""),
+    modeRealisation: storedMode || "en_tete",
     // Une ancienne réalisation peut ne pas avoir de note. Une chaîne vide est
     // volontairement utilisée : validateLegacyImportPayload la traite comme
     // « non renseignée », alors que 0 serait rejeté hors de la plage 1..5.

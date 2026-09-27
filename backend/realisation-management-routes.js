@@ -1,16 +1,19 @@
 import crypto from "node:crypto";
 import express from "express";
-import { GRADES, validateRealisationPayload } from "./validation.js";
+import { validateRealisationPayload } from "./validation.js";
 import { assertRealisationIntegrity } from "./realisation-integrity.js";
-import { parseTheCragXls } from "./thecrag-xls.js";
-
-const LOCAL_VIDEO_MAX_BYTES = 50 * 1024 * 1024;
-const VIDEO_UPLOAD_CHUNK_MAX_BYTES = 1024 * 1024;
-const VIDEO_UPLOAD_MAX_PARTS = 80;
-const VIDEO_UPLOAD_ID_PATTERN = /^[A-Za-z0-9._-]{8,120}$/;
-const VIDEO_CHUNK_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
-const LOCAL_VIDEO_TYPES = new Set(["video/mp4", "video/webm", "video/ogg", "video/quicktime"]);
-let nextVideoChunkCleanupAt = 0;
+import { importTheCragRealisations } from "./thecrag-import-service.js";
+import {
+  LOCAL_VIDEO_MAX_BYTES,
+  LOCAL_VIDEO_TYPES,
+  VIDEO_UPLOAD_CHUNK_MAX_BYTES,
+  VIDEO_UPLOAD_ID_PATTERN,
+  assertVideoChunkBody,
+  cleanupExpiredVideoChunks,
+  decodeVideoFileName,
+  readVideoChunkRequest,
+  validateStoredVideoChunks,
+} from "./video-upload-policy.js";
 
 function normalizeVideoUrls(value) {
   if (value === undefined) return undefined;
@@ -63,35 +66,6 @@ function rowToIntegrityCandidate(row, patch, participantId) {
     chute,
     assureurId: chute ? (patch.assureurId ?? row.assureur_id ?? "") : "",
   };
-}
-
-function decodeVideoFileName(value) {
-  let fileName = "video";
-  try {
-    fileName = decodeURIComponent(String(value || "video"));
-  } catch {
-    fileName = "video";
-  }
-  return fileName.replace(/[\r\n]/g, "").slice(0, 180) || "video";
-}
-
-function parseIntegerHeader(req, name) {
-  const value = Number.parseInt(String(req.headers[name] || ""), 10);
-  return Number.isInteger(value) ? value : NaN;
-}
-
-async function cleanupExpiredVideoChunks(pool) {
-  const now = Date.now();
-  if (now < nextVideoChunkCleanupAt) return;
-  // Réserver immédiatement le prochain créneau évite que plusieurs blocs reçus
-  // en parallèle déclenchent tous le même DELETE.
-  nextVideoChunkCleanupAt = now + VIDEO_CHUNK_CLEANUP_INTERVAL_MS;
-  try {
-    await pool.query(`delete from route_video_upload_chunks where created_at < now() - interval '24 hours'`);
-  } catch (error) {
-    nextVideoChunkCleanupAt = 0;
-    throw error;
-  }
 }
 
 async function persistRealisationVideo({
@@ -185,123 +159,6 @@ async function persistRealisationVideo({
 }
 
 
-function normalizeTheCragToken(value) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
-function normalizeTheCragColor(value) {
-  const token = normalizeTheCragToken(value);
-  const aliases = {
-    blanche: "blanc",
-    bleue: "bleu",
-    noire: "noir",
-    verte: "vert",
-    violette: "violet",
-  };
-  return aliases[token] || token;
-}
-
-function parseTheCragRouteName(value) {
-  const text = String(value || "").trim();
-  const match = text.match(/^(\d+)[_-]([^\s-]+)(?:\s*-\s*(.*))?$/);
-  if (!match) return null;
-  return {
-    rope: Number.parseInt(match[1], 10),
-    color: normalizeTheCragColor(match[2]),
-    name: normalizeTheCragToken(match[3] || ""),
-  };
-}
-
-function excelSerialToIsoDate(value) {
-  const serial = Number(value);
-  if (!Number.isFinite(serial)) return "";
-  const milliseconds = Math.round((serial - 25569) * 86400000);
-  return new Date(milliseconds).toISOString().slice(0, 10);
-}
-
-function normalizeTheCragGrade(value, route) {
-  const raw = String(value || "").trim().toLowerCase().replace(/\s+/g, "");
-  const direct = GRADES.find((grade) => grade.toLowerCase() === raw);
-  if (direct) return direct;
-  const match = raw.match(/^(4|[5-7][abc]\+?)/);
-  if (match && GRADES.includes(match[1])) return match[1];
-  const routeGrade = String(route?.cotation_ajustee || route?.cotation_reference || "").trim();
-  return GRADES.includes(routeGrade) ? routeGrade : "";
-}
-
-function mapTheCragCriterion(value) {
-  const type = normalizeTheCragToken(value);
-  if (type.includes("onsight")) return "a_vue";
-  if (type.includes("flash")) return "flash";
-  if (type.includes("hang dog")) return "avec_repos";
-  if (type.includes("attempt")) return "non_enchainee";
-  if (type.includes("project")) return "projet";
-  if (type.includes("clean") || type.includes("pink point") || type.includes("red point")) return "travaillee";
-  return "travaillee";
-}
-
-function mapTheCragMode(value) {
-  const gear = normalizeTheCragToken(value);
-  return gear.includes("moulinette") || gear.includes("en second") ? "moulinette" : "en_tete";
-}
-
-function findTheCragRoute(routes, row) {
-  const parsed = parseTheCragRouteName(row["Route Name"]);
-  if (!parsed) return null;
-  const candidates = routes.filter((route) =>
-    Number(route.numero_corde) === parsed.rope
-    && normalizeTheCragColor(route.couleur_prises) === parsed.color
-  );
-  if (candidates.length <= 1) return candidates[0] || null;
-  if (!parsed.name) return candidates[0];
-  return candidates.find((route) => normalizeTheCragToken(route.nom_voie) === parsed.name)
-    || candidates.find((route) => normalizeTheCragToken(route.nom_voie).includes(parsed.name))
-    || candidates[0];
-}
-
-async function ensureTheCragMiddaySession(client, participantId, date) {
-  const existing = await client.query(
-    `
-      select id
-      from sessions
-      where date = $1 and slot = 'midi'
-      order by case when status in ('encadree','libre','passeport','challenge','renouvellement') then 0 else 1 end, id
-      limit 1
-    `,
-    [date],
-  );
-  let sessionId = existing.rows[0]?.id || "";
-  let created = false;
-  if (!sessionId) {
-    sessionId = `thecrag-${date}-midi`;
-    const insertSession = await client.query(
-      `
-        insert into sessions (id, date, slot, status, referent_id)
-        values ($1, $2, 'midi', 'libre', $3)
-        on conflict (id) do nothing
-        returning id
-      `,
-      [sessionId, date, String(participantId)],
-    );
-    created = insertSession.rowCount > 0;
-  }
-  const registration = await client.query(
-    `
-      insert into session_participants (session_id, participant_id)
-      values ($1, $2)
-      on conflict (session_id, participant_id) do nothing
-      returning session_id
-    `,
-    [sessionId, String(participantId)],
-  );
-  return { sessionId, created, registered: registration.rowCount > 0 };
-}
-
 export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
 
   app.post(
@@ -319,124 +176,19 @@ export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
         return res.status(400).json({ error: "Date de début theCrag obligatoire (AAAA-MM-JJ)." });
       }
 
-      let client;
       try {
-        const rows = parseTheCragXls(req.body);
-        client = await pool.connect();
-        await client.query("begin");
-
-        const participantResult = await client.query(
-          "select cotisation from participants where id::text = $1 limit 1",
-          [String(participantId)],
-        );
-        if (!participantResult.rows[0]?.cotisation) {
-          const error = new Error("Le grimpeur doit être cotisant pour importer des réalisations.");
-          error.status = 403;
-          throw error;
-        }
-
-        const routesResult = await client.query(
-          `
-            select id, numero_corde, couleur_prises, nom_voie, cotation_reference, cotation_ajustee
-            from routes
-            where active = true
-          `,
-        );
-        const routes = routesResult.rows;
-        const sessionCache = new Map();
-        let imported = 0;
-        let duplicates = 0;
-        let unmatched = 0;
-        let invalid = 0;
-        let sessionsCreated = 0;
-        let registrationsAdded = 0;
-        let filteredBeforeStart = 0;
-        const unmatchedRoutes = new Set();
-
-        for (const row of rows) {
-          const date = excelSerialToIsoDate(row["Ascent Date"]);
-          const ascentId = String(row["Ascent ID"] || "").replace(/\.0$/, "").trim();
-          if (!date || !ascentId) {
-            invalid += 1;
-            continue;
-          }
-          if (date < startDate) {
-            filteredBeforeStart += 1;
-            continue;
-          }
-          const route = findTheCragRoute(routes, row);
-          if (!route) {
-            unmatched += 1;
-            unmatchedRoutes.add(String(row["Route Name"] || "Voie inconnue"));
-            continue;
-          }
-
-          let session = sessionCache.get(date);
-          if (!session) {
-            session = await ensureTheCragMiddaySession(client, participantId, date);
-            sessionCache.set(date, session);
-            if (session.created) sessionsCreated += 1;
-            if (session.registered) registrationsAdded += 1;
-          }
-
-          const id = `thecrag-${participantId}-${ascentId}`;
-          const criterion = mapTheCragCriterion(row["Ascent Type"]);
-          const mode = mapTheCragMode(row["Ascent Gear Style"]);
-          const commentParts = [
-            String(row.Comment || "").trim(),
-            row.With ? `Avec : ${String(row.With).trim()}` : "",
-            `Import theCrag · ascent ${ascentId}`,
-          ].filter(Boolean);
-          const result = await client.query(
-            `
-              insert into realisations (
-                id, participant_id, session_id, voie_id, date_realisation, style_realisation,
-                commentaire, cotation_proposee, nb_essais, chute, assureur_id
-              ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,false,null)
-              on conflict (id) do nothing
-              returning id
-            `,
-            [
-              id,
-              String(participantId),
-              session.sessionId,
-              route.id,
-              `${date}T12:00:00`,
-              criterion,
-              commentParts.join(" · "),
-              normalizeTheCragGrade(row["Ascent Grade"] || row["Route Grade"], route),
-              mode,
-            ],
-          );
-          if (result.rowCount) imported += 1;
-          else duplicates += 1;
-        }
-
-        await client.query("commit");
-        return res.json({
-          ok: true,
-          total: rows.length,
-          imported,
-          duplicates,
-          unmatched,
-          invalid,
-          sessionsCreated,
-          registrationsAdded,
-          filteredBeforeStart,
+        const result = await importTheCragRealisations({
+          pool,
+          participantId,
+          buffer: req.body,
           startDate,
-          unmatchedRoutes: [...unmatchedRoutes].slice(0, 20),
         });
+        return res.json(result);
       } catch (error) {
-        if (client) {
-          try { await client.query("rollback"); } catch { /* transaction déjà terminée */ }
-        }
         return res.status(error.status || 400).json({ error: error.message || "Import theCrag impossible." });
-      } finally {
-        client?.release();
       }
     },
   );
-
 
   app.post("/realisations", requireAuth, async (req, res) => {
     try {
@@ -455,14 +207,15 @@ export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
         `
           insert into realisations (
             id, participant_id, session_id, voie_id, date_realisation, style_realisation,
-            commentaire, cotation_proposee, nb_essais, rating, chute, assureur_id, video_urls
-          ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb)
+            commentaire, cotation_proposee, nb_essais, mode_realisation, rating, chute, assureur_id, video_urls
+          ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb)
         `,
         [
           realisation.id, realisation.participantId, realisation.sessionId, realisation.voieId,
           realisation.dateRealisation, realisation.styleRealisation, realisation.commentaire || "",
-          realisation.cotationProposee || "", realisation.nbEssais || "", realisation.rating ?? null,
-          Boolean(realisation.chute), realisation.assureurId || null, JSON.stringify(realisation.videoUrls),
+          realisation.cotationProposee || "", realisation.nbEssais || "", realisation.modeRealisation,
+          realisation.rating ?? null, Boolean(realisation.chute), realisation.assureurId || null,
+          JSON.stringify(realisation.videoUrls),
         ],
       );
       try {
@@ -481,7 +234,7 @@ export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
         ].filter(Boolean);
         const route = routeParts.length ? routeParts.join(" · ") : "une voie";
         const grade = realisation.cotationProposee || row.cotation_ajustee || row.cotation_reference || "cotation non renseignée";
-        const mode = realisation.nbEssais === "moulinette" ? "en moulinette" : "en tête";
+        const mode = realisation.modeRealisation === "moulinette" ? "en moulinette" : "en tête";
         await pool.query(
           `insert into chat_messages (participant_id, message, kind, event_type, event_ref)
            values ($1,$2,'system','realisation',$3)`,
@@ -551,36 +304,9 @@ export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
       const participantId = req.auth?.user?.participantId;
       if (!participantId) return res.status(403).json({ error: "Compte non relié à un grimpeur" });
 
-      const uploadId = String(req.params.uploadId || "");
-      const partNumber = Number.parseInt(String(req.params.partNumber || ""), 10);
-      const totalParts = parseIntegerHeader(req, "x-total-parts");
-      const totalBytes = parseIntegerHeader(req, "x-total-bytes");
-      const mimeType = String(req.headers["x-video-mime-type"] || "").trim().toLowerCase();
-      const fileName = decodeVideoFileName(req.headers["x-file-name"]);
-
-      if (!VIDEO_UPLOAD_ID_PATTERN.test(uploadId)) {
-        return res.status(400).json({ error: "Identifiant de transfert vidéo invalide." });
-      }
-      if (!Number.isInteger(totalParts) || totalParts < 1 || totalParts > VIDEO_UPLOAD_MAX_PARTS) {
-        return res.status(400).json({ error: "Nombre de blocs vidéo invalide." });
-      }
-      if (!Number.isInteger(partNumber) || partNumber < 0 || partNumber >= totalParts) {
-        return res.status(400).json({ error: "Numéro de bloc vidéo invalide." });
-      }
-      if (!Number.isInteger(totalBytes) || totalBytes < 1 || totalBytes > LOCAL_VIDEO_MAX_BYTES) {
-        return res.status(400).json({ error: "Taille totale de vidéo invalide." });
-      }
-      if (!LOCAL_VIDEO_TYPES.has(mimeType)) {
-        return res.status(400).json({ error: "Format vidéo refusé. Utilisez MP4, WebM, OGG ou MOV." });
-      }
-      if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
-        return res.status(400).json({ error: "Bloc vidéo vide." });
-      }
-      if (req.body.length > VIDEO_UPLOAD_CHUNK_MAX_BYTES) {
-        return res.status(413).json({ error: "Bloc vidéo trop volumineux." });
-      }
-
       try {
+        const { uploadId, partNumber, totalParts, totalBytes, mimeType, fileName } = readVideoChunkRequest(req);
+        assertVideoChunkBody(req.body);
         await cleanupExpiredVideoChunks(pool);
 
         const realisationResult = await pool.query(
@@ -665,48 +391,10 @@ export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
         `,
         [participantId, uploadId, req.params.id],
       );
-      if (!chunksResult.rowCount) {
-        const error = new Error("Aucun bloc vidéo reçu pour ce transfert.");
-        error.status = 400;
-        throw error;
-      }
-
-      const first = chunksResult.rows[0];
-      const totalParts = Number(first.total_parts);
-      const totalBytes = Number(first.total_bytes);
-      if (totalParts < 1 || totalParts > VIDEO_UPLOAD_MAX_PARTS || chunksResult.rowCount !== totalParts) {
-        const error = new Error("Le transfert vidéo est incomplet.");
-        error.status = 409;
-        throw error;
-      }
-
-      let receivedBytes = 0;
-      for (let index = 0; index < chunksResult.rows.length; index += 1) {
-        const chunk = chunksResult.rows[index];
-        const consistent = Number(chunk.part_number) === index
-          && String(chunk.realisation_id) === String(req.params.id)
-          && String(chunk.route_id) === String(first.route_id)
-          && String(chunk.file_name) === String(first.file_name)
-          && String(chunk.mime_type) === String(first.mime_type)
-          && Number(chunk.total_parts) === totalParts
-          && Number(chunk.total_bytes) === totalBytes;
-        if (!consistent) {
-          const error = new Error("Les blocs de la vidéo ne sont pas cohérents.");
-          error.status = 409;
-          throw error;
-        }
-        receivedBytes += Number(chunk.content_bytes || 0);
-      }
-      if (receivedBytes !== totalBytes || receivedBytes > LOCAL_VIDEO_MAX_BYTES) {
-        const error = new Error("La taille de la vidéo assemblée est invalide.");
-        error.status = 409;
-        throw error;
-      }
-      if (!LOCAL_VIDEO_TYPES.has(String(first.mime_type))) {
-        const error = new Error("Format vidéo refusé. Utilisez MP4, WebM, OGG ou MOV.");
-        error.status = 400;
-        throw error;
-      }
+      const { first, totalBytes, receivedBytes } = validateStoredVideoChunks(
+        chunksResult.rows,
+        { expectedRealisationId: req.params.id },
+      );
 
       // PostgreSQL assemble les fragments dans leur ordre ; Node ne conserve
       // plus simultanément N buffers puis une seconde copie via Buffer.concat.
@@ -898,18 +586,20 @@ export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
             commentaire = coalesce($6, commentaire),
             cotation_proposee = coalesce($7, cotation_proposee),
             nb_essais = coalesce($8, nb_essais),
-            rating = coalesce($9, rating),
-            chute = coalesce($10, chute),
-            assureur_id = case when $10 = false then null else coalesce($11, assureur_id) end,
-            video_urls = case when $12::jsonb is null then video_urls else $12::jsonb end,
+            mode_realisation = coalesce($9, mode_realisation),
+            rating = coalesce($10, rating),
+            chute = coalesce($11, chute),
+            assureur_id = case when $11 = false then null else coalesce($12, assureur_id) end,
+            video_urls = case when $13::jsonb is null then video_urls else $13::jsonb end,
             updated_at = now()
-          where id = $1 and participant_id = $13
+          where id = $1 and participant_id = $14
         `,
         [
           req.params.id, patch.sessionId ?? null, patch.voieId ?? null, patch.dateRealisation ?? null,
           patch.styleRealisation ?? null, patch.commentaire ?? null, patch.cotationProposee ?? null,
-          patch.nbEssais ?? null, patch.rating ?? null, patch.chute ?? null, patch.assureurId ?? null,
-          videoUrlsForUpdate === null ? null : JSON.stringify(videoUrlsForUpdate), participantId,
+          patch.nbEssais ?? null, patch.modeRealisation ?? null, patch.rating ?? null, patch.chute ?? null,
+          patch.assureurId ?? null, videoUrlsForUpdate === null ? null : JSON.stringify(videoUrlsForUpdate),
+          participantId,
         ],
       );
       if (result.rowCount === 0) return res.status(403).json({ error: "Cette réalisation ne vous appartient pas" });

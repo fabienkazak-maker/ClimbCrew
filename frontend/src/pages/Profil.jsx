@@ -6,8 +6,10 @@ import ProfileGecko from "../components/ProfileGecko.jsx";
 import PhysicalProfileCard from "../components/PhysicalProfileCard.jsx";
 import ProfileRealisationRecorder from "../components/ProfileRealisationRecorder.jsx";
 import RealisationVideoAnalysis from "../components/RealisationVideoAnalysis.jsx";
+import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import CprEvolutionChart from "../sections/CprEvolutionChart.jsx";
-import { apiFetch, apiUpload } from "../lib/api.js";
+import { apiFetch } from "../lib/api.js";
+import { useProfileRealisations } from "../hooks/useProfileRealisations.js";
 import {
   fullName,
   formatPoints,
@@ -23,6 +25,13 @@ import {
   getRealisationMode,
 } from "../lib/realisation-mode.js";
 import { bestRealisationIds, realisationQualityScore } from "../lib/profile-physical.js";
+import {
+  BUDDY_DAYS,
+  BUDDY_SLOTS,
+  buddyPreferenceKey,
+  buddyPreferencesFromAvailability,
+  formatBuddyPreferences,
+} from "../lib/buddy-preferences.js";
 
 function sortParticipantsForProfile(participants, myParticipantId) {
   return [...participants].sort((a, b) => {
@@ -94,9 +103,11 @@ export default function Profil({
   const [theCragImportStatus, setTheCragImportStatus] = React.useState(null);
   const [theCragStartDate, setTheCragStartDate] = React.useState("");
   const [kudosPendingId, setKudosPendingId] = React.useState("");
-  const [buddyAvailability, setBuddyAvailability] = React.useState({ days: [], slots: [], note: "" });
+  const [buddyAvailability, setBuddyAvailability] = React.useState({ preferences: [], note: "" });
   const [buddyMatches, setBuddyMatches] = React.useState([]);
   const [buddySaving, setBuddySaving] = React.useState(false);
+  const [buddySaveStatus, setBuddySaveStatus] = React.useState("");
+  const [pendingConfirmation, setPendingConfirmation] = React.useState(null);
 
   async function toggleKudo(realisation) {
     if (!myParticipantId || kudosPendingId) return;
@@ -120,10 +131,13 @@ export default function Profil({
     if (!USE_API || !myParticipantId) return;
     Promise.all([apiFetch("/buddy/me"), apiFetch("/buddy")])
       .then(([mine, matches]) => {
-        setBuddyAvailability({ days: mine?.days || [], slots: mine?.slots || [], note: mine?.note || "" });
+        setBuddyAvailability({ preferences: buddyPreferencesFromAvailability(mine), note: mine?.note || "" });
         setBuddyMatches(Array.isArray(matches) ? matches : []);
       })
-      .catch(() => {});
+      .catch((error) => {
+        console.error("Impossible de charger les disponibilités Buddy.", error);
+        setProfileError(`Disponibilités Buddy indisponibles : ${error.message || error}`);
+      });
   }, [USE_API, myParticipantId]);
 
   React.useEffect(() => {
@@ -183,6 +197,28 @@ export default function Profil({
     : "";
   const profileIsVisible = isOwnProfile || selectedParticipant?.profilePublic !== false;
 
+  const {
+    refreshRealisations,
+    resetOwnRealisations,
+    importTheCragFile,
+    updateOwnRealisation,
+    deleteOwnRealisation,
+  } = useProfileRealisations({
+    isOwnProfile,
+    myParticipantId,
+    selectedRealisations,
+    routesById,
+    theCragStartDate,
+    setRealisations,
+    setProfileError,
+    setTheCragImportStatus,
+    setTheCragImporting,
+    setPendingConfirmation,
+    onTheCragImported,
+    onRealisationsChanged,
+  });
+
+
   async function handleProfileUpdate(patch) {
     if (!isOwnProfile) return;
     if (!Object.prototype.hasOwnProperty.call(patch || {}, "sexe")) {
@@ -194,31 +230,27 @@ export default function Profil({
     return updateMyProfile({ ...patch, sexe: normalizedSexe });
   }
 
-  async function refreshRealisations() {
-    const data = await apiFetch("/realisations");
-    if (Array.isArray(data)) setRealisations(data);
-    if (typeof onRealisationsChanged === "function") {
-      await onRealisationsChanged();
-    }
-  }
-
-  function toggleBuddyValue(field, value) {
+  function toggleBuddyPreference(day, slot) {
+    const preference = buddyPreferenceKey(day, slot);
+    setBuddySaveStatus("");
     setBuddyAvailability((current) => ({
       ...current,
-      [field]: current[field].includes(value)
-        ? current[field].filter((item) => item !== value)
-        : [...current[field], value],
+      preferences: current.preferences.includes(preference)
+        ? current.preferences.filter((item) => item !== preference)
+        : [...current.preferences, preference],
     }));
   }
 
   async function saveBuddyAvailability() {
     try {
       setBuddySaving(true);
+      setBuddySaveStatus("");
       setProfileError("");
       const saved = await apiFetch("/buddy/me", { method: "PUT", body: JSON.stringify(buddyAvailability) });
-      setBuddyAvailability({ days: saved.days || [], slots: saved.slots || [], note: saved.note || "" });
+      setBuddyAvailability({ preferences: buddyPreferencesFromAvailability(saved), note: saved.note || "" });
       const matches = await apiFetch("/buddy");
       setBuddyMatches(Array.isArray(matches) ? matches : []);
+      setBuddySaveStatus("Préférences enregistrées.");
     } catch (error) {
       setProfileError(String(error.message || error));
     } finally {
@@ -226,78 +258,6 @@ export default function Profil({
     }
   }
 
-  async function resetOwnRealisations() {
-    if (!isOwnProfile || selectedRealisations.length === 0) return;
-    if (!window.confirm(`Supprimer définitivement vos ${selectedRealisations.length} réalisation(s) ? Cette action est irréversible.`)) return;
-    try {
-      setProfileError("");
-      await apiFetch("/realisations/me", { method: "DELETE" });
-      setRealisations((current) => current.filter(
-        (realisation) => String(realisation.participantId) !== String(myParticipantId),
-      ));
-      await refreshRealisations();
-    } catch (error) {
-      setProfileError(String(error.message || error));
-    }
-  }
-
-  async function importTheCragFile(event) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file || !isOwnProfile) return;
-    try {
-      setProfileError("");
-      setTheCragImportStatus(null);
-      setTheCragImporting(true);
-      if (!theCragStartDate) throw new Error("Choisissez une date de début pour l’import theCrag.");
-      const result = await apiUpload(`/realisations/import-thecrag?startDate=${encodeURIComponent(theCragStartDate)}`, file, {
-        headers: { "Content-Type": "application/vnd.ms-excel", "X-TheCrag-Start-Date": theCragStartDate },
-      });
-      await refreshRealisations();
-      if (typeof onTheCragImported === "function") await onTheCragImported();
-      const details = [
-        `${result.imported || 0} réalisation(s) importée(s)`,
-        result.duplicates ? `${result.duplicates} déjà présente(s)` : "",
-        result.unmatched ? `${result.unmatched} voie(s) non reconnue(s)` : "",
-        result.invalid ? `${result.invalid} ligne(s) invalide(s)` : "",
-        result.filteredBeforeStart ? `${result.filteredBeforeStart} antérieure(s) à la date de début ignorée(s)` : "",
-      ].filter(Boolean).join(" · ");
-      setTheCragImportStatus({ type: "success", message: `Import theCrag réussi : ${details || "import terminé."}` });
-    } catch (error) {
-      const message = String(error.message || error);
-      setTheCragImportStatus({ type: "error", message: `Problème lors de l’import theCrag : ${message}` });
-    } finally {
-      setTheCragImporting(false);
-    }
-  }
-
-  async function updateOwnRealisation(realisationId, patch) {
-    if (!isOwnProfile) return;
-    try {
-      setProfileError("");
-      await apiFetch(`/realisations/${encodeURIComponent(realisationId)}`, {
-        method: "PUT",
-        body: JSON.stringify(patch),
-      });
-      await refreshRealisations();
-    } catch (error) {
-      setProfileError(String(error.message || error));
-    }
-  }
-
-  async function deleteOwnRealisation(realisation) {
-    if (!isOwnProfile || !realisation?.id) return;
-    const route = routesById[realisation.voieId];
-    const label = route ? formatRouteForRealisation(route) : "cette réalisation";
-    if (!window.confirm(`Supprimer définitivement ${label} ?`)) return;
-    try {
-      setProfileError("");
-      await apiFetch(`/realisations/${encodeURIComponent(realisation.id)}`, { method: "DELETE" });
-      await refreshRealisations();
-    } catch (error) {
-      setProfileError(String(error.message || error));
-    }
-  }
 
   return (
     <div className="stack unified-profile-page">
@@ -317,6 +277,13 @@ export default function Profil({
       </div>
 
       {profileError && <div className="muted-box" role="alert">{profileError}</div>}
+      <ConfirmDialog
+        open={Boolean(pendingConfirmation)}
+        title={pendingConfirmation?.title}
+        message={pendingConfirmation?.message}
+        onConfirm={() => void pendingConfirmation?.onConfirm?.()}
+        onCancel={() => setPendingConfirmation(null)}
+      />
 
       {!selectedParticipant ? (
         <div className="card"><div className="muted-box">Choisissez un grimpeur.</div></div>
@@ -361,19 +328,27 @@ export default function Profil({
           {isOwnProfile && (
             <details className="card buddy-card">
               <summary className="card-header buddy-summary">
-                <div><h3 style={{ margin: 0 }}>Climb buddy</h3><div className="small">Indiquez quand vous êtes généralement disponible, sans vous inscrire à une séance.</div></div>
+                <div><h3 style={{ margin: 0 }}>Climb buddy</h3><div className="small">Définissez vos préférences habituelles pour chaque jour et chaque séance, sans vous inscrire.</div></div>
                 <span className="buddy-count">{buddyMatches.length} disponible{buddyMatches.length > 1 ? "s" : ""}</span>
               </summary>
               <div className="buddy-content">
-                <div><strong>Jours</strong><div className="buddy-options">
-                  {["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"].map((day) => <button type="button" key={day} className={buddyAvailability.days.includes(day) ? "buddy-chip active" : "buddy-chip"} onClick={() => toggleBuddyValue("days", day)}>{day}</button>)}
-                </div></div>
-                <div><strong>Créneaux</strong><div className="buddy-options">
-                  {[["matin","Matin"],["midi","Midi"],["soir","Soir"]].map(([value,label]) => <button type="button" key={value} className={buddyAvailability.slots.includes(value) ? "buddy-chip active" : "buddy-chip"} onClick={() => toggleBuddyValue("slots", value)}>{label}</button>)}
-                </div></div>
-                <label>Précision facultative<input maxLength={240} value={buddyAvailability.note} onChange={(event) => setBuddyAvailability((current) => ({ ...current, note: event.target.value }))} placeholder="Ex. plutôt après 18 h, prévenir la veille…" /></label>
-                <div className="buddy-actions"><Button type="button" variant="secondary" disabled={buddySaving} onClick={saveBuddyAvailability}>{buddySaving ? "Enregistrement…" : "Enregistrer mes disponibilités"}</Button></div>
-                {buddyMatches.length > 0 && <div className="buddy-match-list"><strong>Grimpeurs disponibles</strong>{buddyMatches.map((buddy) => <div className="buddy-match" key={buddy.participantId}><span><strong>{buddy.name}</strong><span className="small"> · {buddy.days.join(", ")} · {buddy.slots.map((slot) => slot === "soir" ? "Soir" : slot === "midi" ? "Midi" : "Matin").join(", ")}</span></span>{buddy.note && <span className="small">{buddy.note}</span>}</div>)}</div>}
+                <div className="buddy-preference-grid" role="group" aria-label="Préférences par jour et séance">
+                  <div className="buddy-preference-header" aria-hidden="true"><span>Jour</span>{BUDDY_SLOTS.map((slot) => <span key={slot.value}>{slot.label}</span>)}</div>
+                  {BUDDY_DAYS.map((day) => (
+                    <div className="buddy-preference-row" key={day.value}>
+                      <strong>{day.label}</strong>
+                      {BUDDY_SLOTS.map((slot) => {
+                        const preference = buddyPreferenceKey(day.value, slot.value);
+                        const selected = buddyAvailability.preferences.includes(preference);
+                        return <button type="button" key={preference} className={selected ? "buddy-session-toggle active" : "buddy-session-toggle"} aria-pressed={selected} aria-label={`${day.label} ${slot.label}`} onClick={() => toggleBuddyPreference(day.value, slot.value)}>{selected ? "✓" : "—"}</button>;
+                      })}
+                    </div>
+                  ))}
+                </div>
+                <label>Précision facultative<input maxLength={240} value={buddyAvailability.note} onChange={(event) => { setBuddySaveStatus(""); setBuddyAvailability((current) => ({ ...current, note: event.target.value })); }} placeholder="Ex. plutôt après 18 h, prévenir la veille…" /></label>
+                <div className="buddy-actions"><Button type="button" variant="secondary" disabled={buddySaving} onClick={saveBuddyAvailability}>{buddySaving ? "Enregistrement…" : "Enregistrer mes préférences"}</Button></div>
+                {buddySaveStatus && <div className="small success" role="status">{buddySaveStatus}</div>}
+                {buddyMatches.length > 0 && <div className="buddy-match-list"><strong>Grimpeurs disponibles</strong>{buddyMatches.map((buddy) => <div className="buddy-match" key={buddy.participantId}><span><strong>{buddy.name}</strong><span className="small"> · {formatBuddyPreferences(buddy)}</span></span>{buddy.note && <span className="small">{buddy.note}</span>}</div>)}</div>}
               </div>
             </details>
           )}
@@ -480,7 +455,7 @@ export default function Profil({
                               <div className="small">👍 {Number(realisation.kudosCount || 0)} Kudo{Number(realisation.kudosCount || 0) > 1 ? "s" : ""}</div>
                             </div>
                           </summary>
-                          <div className="group" style={{ justifyContent: "flex-end", marginBottom: 8 }}><Button variant="secondary" disabled={!myParticipantId || kudosPendingId === realisation.id} aria-pressed={Boolean(realisation.kudosByMe)} onClick={() => void toggleKudo(realisation)}>👍 {realisation.kudosByMe ? "Kudo donné" : "Kudo"} · {Number(realisation.kudosCount || 0)}</Button></div>
+                          {!isOwnProfile && <div className="group" style={{ justifyContent: "flex-end", marginBottom: 8 }}><Button variant="secondary" disabled={!myParticipantId || kudosPendingId === realisation.id} aria-pressed={Boolean(realisation.kudosByMe)} onClick={() => void toggleKudo(realisation)}>👍 {realisation.kudosByMe ? "Kudo donné" : "Kudo"} · {Number(realisation.kudosCount || 0)}</Button></div>}
                           {isOwnProfile && (
                             <div className="group" style={{ justifyContent: "flex-end", marginBottom: 8 }}>
                               <Button variant="danger" onClick={() => deleteOwnRealisation(realisation)}>Supprimer</Button>

@@ -46,12 +46,20 @@ export default function Logs({ USE_API, canManageAccountsAndLogs, adminAccessLog
   const [resetStatus, setResetStatus] = useState("");
 
   async function resetData(type, label) {
-    if (!window.confirm(`Confirmer ${label} ? Cette action est irréversible.`)) return;
+    const safetyMessage = type === "statistiques"
+      ? "Les statistiques seront recalculées à partir des données métier."
+      : "Une sauvegarde PostgreSQL de sécurité sera créée avant toute modification.";
+    if (!window.confirm(`Confirmer ${label} ?\n\n${safetyMessage}`)) return;
     try {
       setResetting(type);
       setResetStatus("");
-      const result = await apiFetch(`/admin/reset/${type}`, { method: "POST" });
-      setResetStatus(`${label} effectué${result?.affected != null ? ` (${result.affected} élément(s) modifié(s))` : ""}.`);
+      const confirmation = type === "statistiques" ? null : `RESET_${type.toUpperCase()}`;
+      const result = await apiFetch(`/admin/reset/${type}`, {
+        method: "POST",
+        body: JSON.stringify(confirmation ? { confirm: confirmation } : {}),
+      });
+      const backupInfo = result?.safetyBackup ? ` · sauvegarde : ${result.safetyBackup}` : "";
+      setResetStatus(`${label} effectué${result?.affected != null ? ` (${result.affected} élément(s) modifié(s))` : ""}${backupInfo}.`);
     } catch (error) {
       setResetStatus(`Échec : ${error.message || error}`);
     } finally {

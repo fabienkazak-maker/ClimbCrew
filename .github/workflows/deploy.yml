@@ -19,7 +19,10 @@ on:
 permissions:
   contents: read
   pull-requests: read
-  actions: write
+
+concurrency:
+  group: climbcrew-validation-deploy-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validate:
@@ -30,75 +33,8 @@ jobs:
       validated_sha: ${{ steps.validated_commit.outputs.sha }}
       deploy_branch: ${{ steps.validated_commit.outputs.branch }}
     steps:
-      - name: Annuler les anciens runs PPD non démarrés
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-          CURRENT_RUN_ID: ${{ github.run_id }}
-        run: |
-          set -euo pipefail
-          RUNS_FILE="/tmp/climbcrew-runs-${CURRENT_RUN_ID}.json"
-          curl --fail --silent --show-error \
-            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/${REPOSITORY}/actions/workflows/deploy.yml/runs?branch=main&per_page=100" \
-            --output "$RUNS_FILE"
-
-          RUN_IDS="$(
-            RUNS_FILE="$RUNS_FILE" CURRENT_RUN_ID="$CURRENT_RUN_ID" node --input-type=module -e '
-              import fs from "node:fs";
-              const data = JSON.parse(fs.readFileSync(process.env.RUNS_FILE, "utf8"));
-              const current = String(process.env.CURRENT_RUN_ID || "");
-              for (const run of data.workflow_runs || []) {
-                if (String(run.id) === current) continue;
-                if (!["queued", "in_progress", "pending", "waiting", "requested"].includes(run.status)) continue;
-                if (!["push", "workflow_dispatch"].includes(run.event)) continue;
-                console.log(run.id);
-              }
-            '
-          )"
-
-          while read -r run_id; do
-            [ -n "$run_id" ] || continue
-            JOBS_FILE="/tmp/climbcrew-jobs-${run_id}.json"
-            curl --fail --silent --show-error \
-              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "https://api.github.com/repos/${REPOSITORY}/actions/runs/${run_id}/jobs?filter=latest&per_page=100" \
-              --output "$JOBS_FILE"
-            DEPLOY_STATUS="$(
-              JOBS_FILE="$JOBS_FILE" node --input-type=module -e '
-                import fs from "node:fs";
-                const data = JSON.parse(fs.readFileSync(process.env.JOBS_FILE, "utf8"));
-                const job = (data.jobs || []).find((item) => item.name === "Déployer la préproduction");
-                process.stdout.write(String(job?.status || ""));
-              '
-            )"
-            if [ "$DEPLOY_STATUS" = "in_progress" ]; then
-              echo "Run $run_id conservé : déploiement déjà en cours."
-              continue
-            fi
-
-            HTTP_CODE="$(
-              curl --silent --show-error                 --output /tmp/cancel-run-${run_id}.txt                 --write-out '%{http_code}'                 -X POST                 -H "Authorization: Bearer ${GITHUB_TOKEN}"                 -H "Accept: application/vnd.github+json"                 -H "X-GitHub-Api-Version: 2022-11-28"                 "https://api.github.com/repos/${REPOSITORY}/actions/runs/${run_id}/cancel"
-            )"
-            if [ "$HTTP_CODE" = "202" ]; then
-              echo "Ancien run PPD $run_id annulé."
-            elif [ "$HTTP_CODE" = "409" ]; then
-              echo "Run $run_id déjà terminé ou non annulable."
-            else
-              echo "ERROR: annulation du run $run_id impossible (HTTP $HTTP_CODE)."
-              cat /tmp/cancel-run-${run_id}.txt || true
-              exit 1
-            fi
-          done <<< "$RUN_IDS"
-
       - name: Récupérer le dépôt à valider
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.sha }}
           fetch-depth: 2
@@ -126,6 +62,27 @@ jobs:
           echo "Commit validé : $VALIDATED_SHA"
           echo "Branche cible : $DEPLOY_BRANCH"
 
+      - name: Vérifier que main provient d'une Pull Request
+        if: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMIT_SHA: ${{ steps.validated_commit.outputs.sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          RESPONSE="$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${REPOSITORY}/commits/${COMMIT_SHA}/pulls")"
+          MERGED_TO_MAIN="$(printf '%s' "$RESPONSE" | python3 -c 'import json,sys; data=json.load(sys.stdin); print(sum(1 for pr in data if pr.get("merged_at") and pr.get("base",{}).get("ref")=="main"))')"
+          if [ "$MERGED_TO_MAIN" -lt 1 ]; then
+            echo "ERROR: un push direct vers main ne peut pas être déployé. Utiliser une Pull Request."
+            exit 1
+          fi
+          echo "Commit main associé à une Pull Request fusionnée : OK"
+
       - name: Vérifier l'incrément de version
         shell: bash
         env:
@@ -144,7 +101,7 @@ jobs:
           grep -Fq '__SSL_CERTIFICATE_KEY__' deploy/nginx/pre-climbcrew.reverse-proxy.conf.template
 
       - name: Installer Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24'
           cache: npm
@@ -203,12 +160,12 @@ jobs:
           --health-retries 12
     steps:
       - name: Récupérer exactement le commit validé
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ needs.validate.outputs.validated_sha }}
 
       - name: Installer Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24'
           cache: npm
@@ -289,8 +246,25 @@ jobs:
           docker exec -i climbcrew-db pg_restore --list < "$BACKUP_FILE" >/dev/null
           sha256sum "$BACKUP_FILE"
           printf 'backup_file=%s\n' "$BACKUP_FILE" >> "$GITHUB_OUTPUT"
+
+          DATA_SNAPSHOT="$BACKUP_DIR/predeploy-${STAMP}.ids"
+          docker exec -i climbcrew-db sh -lc 'exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At' > "$DATA_SNAPSHOT" <<'SQL'
+          select 'users:' || id::text from users
+          union all select 'participants:' || id::text from participants
+          union all select 'sessions:' || id::text from sessions
+          union all select 'session_participants:' || session_id || ':' || participant_id from session_participants
+          union all select 'routes:' || id::text from routes
+          union all select 'realisations:' || id::text from realisations
+          union all select 'route_videos:' || id::text from route_videos
+          union all select 'route_ratings:' || route_id || ':' || user_id::text from route_ratings
+          order by 1;
+          SQL
+          test -s "$DATA_SNAPSHOT" || { echo "ERROR: inventaire métier pré-déploiement vide"; exit 1; }
+          printf 'data_snapshot=%s\n' "$DATA_SNAPSHOT" >> "$GITHUB_OUTPUT"
+
           ls -1t "$BACKUP_DIR"/predeploy-*.dump 2>/dev/null | tail -n +11 | xargs -r rm -f
-          echo "Sauvegarde pré-déploiement créée et vérifiée: $BACKUP_FILE"
+          ls -1t "$BACKUP_DIR"/predeploy-*.ids 2>/dev/null | tail -n +11 | xargs -r rm -f
+          echo "Sauvegarde et inventaire pré-déploiement créés et vérifiés: $BACKUP_FILE"
 
       - name: Synchroniser le dépôt sur le SHA PPD validé
         id: sync_repo
@@ -312,11 +286,7 @@ jobs:
           done
           [ "$FETCH_OK" = true ] || { echo "ERROR: git fetch impossible"; exit 1; }
           git cat-file -e "${VALIDATED_SHA}^{commit}" 2>/dev/null || { echo "ERROR: SHA validé absent"; exit 1; }
-          REMOTE_MAIN_SHA="$(git rev-parse refs/remotes/origin/main)"
-          [ "$REMOTE_MAIN_SHA" = "$VALIDATED_SHA" ] || {
-            echo "ERROR: déploiement obsolète refusé : main=$REMOTE_MAIN_SHA, validé=$VALIDATED_SHA"
-            exit 1
-          }
+          git merge-base --is-ancestor "$VALIDATED_SHA" refs/remotes/origin/main || { echo "ERROR: SHA hors branche main"; exit 1; }
           git checkout -B main "$VALIDATED_SHA"
           [ "$(git rev-parse HEAD)" = "$VALIDATED_SHA" ] || exit 1
           printf 'candidate_checked_out=true\n' >> "$GITHUB_OUTPUT"
@@ -346,7 +316,6 @@ jobs:
               printf '%s=%s\n' "$key" "$value" >> "$ENV_FILE"
             fi
           }
-          set_env_var REQUIRE_ADMIN_ACCOUNT_APPROVAL true
           set_env_var ALLOW_FIRST_ADMIN_BOOTSTRAP false
           if [ -n "${SMTP_USER:-}" ] && [ -n "${SMTP_PASSWORD:-}" ]; then
             set_env_var EMAIL_ENABLED true
@@ -383,7 +352,8 @@ jobs:
           set -euo pipefail
           BACKEND_OK=false
           for attempt in $(seq 1 24); do
-            if curl --fail --silent --max-time 5 http://127.0.0.1:3000/health >/dev/null; then
+            HEALTH_RESPONSE="$(curl --fail --silent --max-time 5 http://127.0.0.1:3000/health || true)"
+            if [[ -n "$HEALTH_RESPONSE" ]] && ! grep -Eq '"degraded"[[:space:]]*:[[:space:]]*true' <<<"$HEALTH_RESPONSE"; then
               BACKEND_OK=true
               break
             fi
@@ -404,6 +374,39 @@ jobs:
             exit 1
           }
           echo "Backend OK · Frontend OK · SHA $VALIDATED_SHA"
+
+      - name: Vérifier la conservation des comptes et données existants
+        shell: bash
+        env:
+          DATA_SNAPSHOT: ${{ steps.backup_db.outputs.data_snapshot }}
+        run: |
+          set -euo pipefail
+          test -n "$DATA_SNAPSHOT" && test -s "$DATA_SNAPSHOT" || {
+            echo "ERROR: inventaire métier pré-déploiement introuvable"
+            exit 1
+          }
+
+          CURRENT_SNAPSHOT="$(mktemp)"
+          trap 'rm -f "$CURRENT_SNAPSHOT"' EXIT
+          docker exec -i climbcrew-db sh -lc 'exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At' > "$CURRENT_SNAPSHOT" <<'SQL'
+          select 'users:' || id::text from users
+          union all select 'participants:' || id::text from participants
+          union all select 'sessions:' || id::text from sessions
+          union all select 'session_participants:' || session_id || ':' || participant_id from session_participants
+          union all select 'routes:' || id::text from routes
+          union all select 'realisations:' || id::text from realisations
+          union all select 'route_videos:' || id::text from route_videos
+          union all select 'route_ratings:' || route_id || ':' || user_id::text from route_ratings
+          order by 1;
+          SQL
+
+          MISSING="$(comm -23 "$DATA_SNAPSHOT" "$CURRENT_SNAPSHOT" || true)"
+          if [ -n "$MISSING" ]; then
+            echo "ERROR: données existantes absentes après migration/déploiement :"
+            printf '%s\n' "$MISSING" | head -100
+            exit 1
+          fi
+          echo "Conservation vérifiée : aucun compte, participant, séance, inscription, voie, réalisation, vidéo ou note existant n'a disparu."
 
       - name: Vérifier la version et le SHA sur le frontal PPD
         shell: bash

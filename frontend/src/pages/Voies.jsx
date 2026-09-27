@@ -1,8 +1,8 @@
 import React from "react";
 import Button from "../components/Button.jsx";
+import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import { API_BASE, apiFetch, apiUploadVideoInChunks } from "../lib/api.js";
 import { GRADES, formatRouteName, getRouteCardStyle, normalizeRopeNumber } from "../lib/domain.js";
-import { isSuccessfulLeadRealisation, isSuccessfulRealisation } from "../lib/realisation-mode.js";
 import { ROPE_NUMBERS, ROUTE_COLORS, ROUTE_TAGS } from "../lib/ui-config.js";
 
 function parseVideoUrls(text) {
@@ -56,7 +56,6 @@ export default function Voies({
   deleteRoute,
   savingRouteId,
   participants = [],
-  myRealisations = [],
 }) {
   const [videoRouteId, setVideoRouteId] = React.useState("");
   const [videoDraftByRouteId, setVideoDraftByRouteId] = React.useState({});
@@ -66,20 +65,7 @@ export default function Voies({
   const [videoDeletingUrl, setVideoDeletingUrl] = React.useState("");
   const [selectedComparisonVideos, setSelectedComparisonVideos] = React.useState([]);
   const [comparisonOpen, setComparisonOpen] = React.useState(false);
-  const [routeFilter, setRouteFilter] = React.useState("all");
-
-  function isUsefulRoute(route) {
-    const routeRealisations = myRealisations.filter((realisation) => String(realisation.voieId) === String(route.id));
-    if (route.moulinetteOnly) {
-      return !routeRealisations.some(isSuccessfulRealisation);
-    }
-    return !routeRealisations.some((realisation) => isSuccessfulLeadRealisation(realisation, route));
-  }
-
-  const displayedRouteGroups = routeDisplayGroups.map((group) => ({
-    ...group,
-    routes: routeFilter === "useful" ? group.routes.filter(isUsefulRoute) : group.routes,
-  }));
+  const [videoDeleteCandidate, setVideoDeleteCandidate] = React.useState(null);
 
   const allRoutes = routeDisplayGroups.flatMap((group) => group.routes);
   const videoRoute = allRoutes.find((route) => String(route.id) === String(videoRouteId)) || null;
@@ -141,10 +127,7 @@ export default function Voies({
     }
   }
 
-  async function deleteVideo(route, url) {
-    const confirmed = window.confirm("Supprimer définitivement cette vidéo de la voie ?");
-    if (!confirmed) return;
-
+  async function performDeleteVideo(route, url) {
     try {
       setVideoDeletingUrl(url);
       setVideoSaveStatus("");
@@ -176,7 +159,12 @@ export default function Voies({
       setVideoSaveStatus(error.message || "Suppression de la vidéo impossible.");
     } finally {
       setVideoDeletingUrl("");
+      setVideoDeleteCandidate(null);
     }
+  }
+
+  function deleteVideo(route, url) {
+    setVideoDeleteCandidate({ route, url });
   }
 
   function toggleComparisonVideo(url) {
@@ -231,6 +219,13 @@ export default function Voies({
     const comparisonVideos = selectedComparisonVideos.filter((url) => videoUrls.includes(url)).slice(0, 2);
     return (
       <div className="card">
+        <ConfirmDialog
+          open={Boolean(videoDeleteCandidate)}
+          title="Supprimer la vidéo"
+          message="Supprimer définitivement cette vidéo de la voie ?"
+          onConfirm={() => videoDeleteCandidate && void performDeleteVideo(videoDeleteCandidate.route, videoDeleteCandidate.url)}
+          onCancel={() => setVideoDeleteCandidate(null)}
+        />
         <div className="card-header">
           <div>
             <h2>Vidéos · {formatRouteName(videoRoute)}</h2>
@@ -375,10 +370,10 @@ export default function Voies({
       <div className="card">
         <div className="card-header">
           <h2>Tableau des voies</h2>
-          <div className="group"><label htmlFor="route-filter">Afficher</label><select id="route-filter" value={routeFilter} onChange={(event) => setRouteFilter(event.target.value)} style={{ width: "auto", minWidth: 130 }}><option value="all">Toutes</option><option value="useful">Utiles</option></select><label htmlFor="route-sort-mode">Trier par</label><select id="route-sort-mode" value={routeSortMode} onChange={(event) => setRouteSortMode(event.target.value)} style={{ width: "auto", minWidth: 150 }}><option value="corde">Corde</option><option value="cotation">Cotation</option></select></div>
+          <div className="group"><label htmlFor="route-sort-mode">Trier par</label><select id="route-sort-mode" value={routeSortMode} onChange={(event) => setRouteSortMode(event.target.value)} style={{ width: "auto", minWidth: 150 }}><option value="corde">Corde</option><option value="cotation">Cotation</option></select></div>
         </div>
         <div className="stack">
-          {displayedRouteGroups.map((group) => (
+          {routeDisplayGroups.map((group) => (
             <div className="subcard" key={group.key}>
               <div className="card-header"><strong>{group.label}</strong><span className="badge">{group.routes.length} voie(s)</span></div>
               {group.routes.length === 0 ? <div className="small">Aucune voie.</div> : (
@@ -428,9 +423,7 @@ export default function Voies({
                                 <a href={`#voie-videos-${route.id}`} onClick={(event) => { event.preventDefault(); setVideoRouteId(route.id); }} style={{ color: "inherit", textDecoration: "underline", textUnderlineOffset: 2 }} title="Voir les vidéos de cette voie">{formatRouteName(route)}</a>
                                 {videoCount > 0 && <span className="small"> · 🎬 {videoCount}</span>}
                               </strong>
-                              <div className="route-secondary-line"><span>Consensus {routeAggregatesById[route.id]?.consensusGrade || "nc"}</span>{route.moulinetteOnly && <span className="pill moulinette-badge" title="Moulinette uniquement">Moulinette</span>}</div>
-                              <div className="route-characteristics" aria-label="Caractéristiques de la voie"><span className="route-characteristics-label">Caractéristiques :</span>{route.tags?.length > 0 ? route.tags.map((tag) => <span className="route-characteristic" key={tag}>{ROUTE_TAGS.find((item) => item.value === tag)?.label || tag}</span>) : <span className="route-characteristics-empty">non renseignées</span>}</div>
-                              <div className="route-rating"><span className="rating-average">{routeRating.count ? `★ ${routeRating.average.toFixed(1)} (${routeRating.count} réalisation${routeRating.count > 1 ? "s" : ""})` : "Pas encore notée (0 réalisation)"}</span></div>
+                              <div className="route-meta-line" aria-label="Détails de la voie"><span>Consensus {routeAggregatesById[route.id]?.consensusGrade || "nc"}</span>{route.moulinetteOnly && <span className="pill moulinette-badge" title="Moulinette uniquement">Moulinette</span>}{route.tags?.length > 0 ? route.tags.map((tag) => <span className="route-characteristic" key={tag}>{ROUTE_TAGS.find((item) => item.value === tag)?.label || tag}</span>) : <span className="route-characteristics-empty">Sans caractéristique</span>}<span className="rating-average">{routeRating.count ? `★ ${routeRating.average.toFixed(1)}` : "Pas encore notée"}</span></div>
                             </div>
                             <div className="group"><Button variant="secondary" onClick={() => openRealisationModal(route.id, selectedParticipantProgress)}>Réalisation</Button>{adminUnlocked && <Button variant="secondary" onClick={() => startRouteEdition(route)}>Modifier</Button>}</div>
                           </div>
