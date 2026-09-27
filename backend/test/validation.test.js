@@ -100,7 +100,7 @@ test("valide séparément le mode et le critère des réalisations", () => {
   });
   assert.equal(realisation.modeRealisation, "moulinette");
   assert.equal(realisation.styleRealisation, "a_vue");
-  assert.equal(realisation.nbEssais, "moulinette");
+  assert.equal(realisation.nbEssais, "");
 
   assert.throws(
     () => validateRealisationPayload({
@@ -150,7 +150,7 @@ test("un patch de réalisation ne valide que les champs fournis", () => {
     { partial: true },
   );
   assert.equal(modePatch.modeRealisation, "en_tete");
-  assert.equal(modePatch.nbEssais, "en_tete");
+  assert.equal(modePatch.nbEssais, undefined);
 });
 
 test("normalise un import legacy avant toute transaction", () => {

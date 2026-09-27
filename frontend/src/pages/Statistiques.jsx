@@ -1,24 +1,14 @@
-import React, { useEffect, useState } from "react";
+import React, { useMemo } from "react";
 import StatisticsSection from "../sections/StatisticsSection.jsx";
-import WallOfFameSection from "../sections/WallOfFameSection.jsx";
-import { USE_API, apiFetch } from "../lib/api.js";
-
-const STORAGE_KEY = "climbcrew_local_data_v2";
-
-function readStoredSessions() {
-  if (typeof window === "undefined") return [];
-  try {
-    const stored = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || "{}");
-    return Array.isArray(stored.sessions) ? stored.sessions : [];
-  } catch {
-    return [];
-  }
-}
+import { buildRouteRealisationStatistics } from "../lib/route-realisation-statistics.js";
 
 export default function Statistiques({
   sessionStats,
   topRouteRankings,
   leadRealisationStats,
+  routes,
+  realisations,
+  sessions = [],
   formatRouteName,
   statsSortField,
   setStatsSortField,
@@ -30,32 +20,8 @@ export default function Statistiques({
   normalizePassport,
   cprByParticipantId,
   formatPoints,
-  pointsByParticipantId,
-  wallOfFameCategories,
-  wallOfFameSexFilter,
-  setWallOfFameSexFilter,
+  pointsByParticipantId
 }) {
-  const [statisticsSessions, setStatisticsSessions] = useState(() => readStoredSessions());
-
-  useEffect(() => {
-    if (!USE_API) {
-      setStatisticsSessions(readStoredSessions());
-      return undefined;
-    }
-
-    let mounted = true;
-    apiFetch("/sessions")
-      .then((sessions) => {
-        if (mounted && Array.isArray(sessions)) setStatisticsSessions(sessions);
-      })
-      .catch(() => {
-        if (mounted) setStatisticsSessions(readStoredSessions());
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   const passportCounts = sortedStatsParticipants.reduce((counts, participant) => {
     const passport = normalizePassport(participant.passport) || "sans";
@@ -63,11 +29,16 @@ export default function Statistiques({
     return counts;
   }, {});
 
-  const freeSessions = statisticsSessions.filter((session) => session.status === "libre");
-  const supervisedSessions = statisticsSessions.filter((session) => session.status === "encadree");
+  const freeSessions = sessions.filter((session) => session.status === "libre");
+  const supervisedSessions = sessions.filter((session) => session.status === "encadree");
   const freeAndSupervisedParticipations = [...freeSessions, ...supervisedSessions].reduce(
     (total, session) => total + (Array.isArray(session.participantIds) ? session.participantIds.length : 0),
     0,
+  );
+
+  const routeRealisationStats = useMemo(
+    () => buildRouteRealisationStatistics(routes, realisations),
+    [routes, realisations],
   );
 
   const extendedSessionStats = {
@@ -79,11 +50,11 @@ export default function Statistiques({
   };
 
   return (
-    <>
     <StatisticsSection
       sessionStats={extendedSessionStats}
       topRouteRankings={topRouteRankings}
       leadRealisationStats={leadRealisationStats}
+      routeRealisationStats={routeRealisationStats}
       formatRouteName={formatRouteName}
       statsSortField={statsSortField}
       setStatsSortField={setStatsSortField}
@@ -97,14 +68,5 @@ export default function Statistiques({
       formatPoints={formatPoints}
       pointsByParticipantId={pointsByParticipantId}
     />
-    <WallOfFameSection
-      wallOfFameCategories={wallOfFameCategories}
-      getPassportStyle={getPassportStyle}
-      getPassportDotStyle={getPassportDotStyle}
-      normalizePassport={normalizePassport}
-      wallOfFameSexFilter={wallOfFameSexFilter}
-      setWallOfFameSexFilter={setWallOfFameSexFilter}
-    />
-    </>
   );
 }

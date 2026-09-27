@@ -289,8 +289,8 @@ export async function importBusinessDataSafely(req, res) {
         `
           insert into realisations (
             id, participant_id, session_id, voie_id, date_realisation, style_realisation,
-            commentaire, cotation_proposee, nb_essais, rating, chute, assureur_id
-          ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+            commentaire, cotation_proposee, nb_essais, mode_realisation, rating, chute, assureur_id
+          ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
           on conflict (id) do update set
             participant_id = excluded.participant_id,
             session_id = excluded.session_id,
@@ -300,6 +300,7 @@ export async function importBusinessDataSafely(req, res) {
             commentaire = excluded.commentaire,
             cotation_proposee = excluded.cotation_proposee,
             nb_essais = excluded.nb_essais,
+            mode_realisation = excluded.mode_realisation,
             rating = excluded.rating,
             chute = excluded.chute,
             assureur_id = excluded.assureur_id,
@@ -315,6 +316,7 @@ export async function importBusinessDataSafely(req, res) {
           realisation.commentaire || "",
           realisation.cotationProposee || "",
           realisation.nbEssais || "",
+          realisation.modeRealisation || "en_tete",
           realisation.rating || null,
           Boolean(realisation.chute),
           mappedAssureurId,

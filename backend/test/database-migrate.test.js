@@ -34,8 +34,13 @@ test("un seul répertoire canonique conserve toutes les versions historiques dan
     "014_chat_reactions.sql",
     "015_chat_social.sql",
     "016_buddy_availability.sql",
+    "017_buddy_daily_session_preferences.sql",
+    "018_chat_reply_schema_repair.sql",
     "021_realisation_kudos.sql",
     "022_chat_replies.sql",
+    "023_grade_scale_alignment.sql",
+    "024_realisation_mode_route_history.sql",
+    "025_typed_business_dates.sql",
   ]);
   assert.equal(new Set(versions).size, versions.length);
   assert.ok(migrations.every((migration) => migration.source === "database"));
@@ -44,6 +49,15 @@ test("un seul répertoire canonique conserve toutes les versions historiques dan
     access(legacyMigrationsUrl, constants.F_OK),
     /ENOENT/,
   );
+});
+
+test("la migration 018 répare de façon idempotente le schéma des réponses du chat", async () => {
+  const repair = await readFile(
+    new URL("../database/migrations/018_chat_reply_schema_repair.sql", import.meta.url),
+    "utf8",
+  );
+  assert.match(repair, /add column if not exists reply_to_id/i);
+  assert.match(repair, /create index if not exists chat_messages_reply_to_idx/i);
 });
 
 test("la version historique 005 reste traçable mais ne rejoue plus le DDL de 002", async () => {

@@ -1,6 +1,7 @@
 import { getPool } from "./database.js";
 import { validateSessionPayload } from "../validation.js";
 import { getDefaultSessionStatus } from "../../shared/session-default-status.js";
+import { MAX_SESSION_PARTICIPANTS } from "../../shared/session-rules.js";
 
 function normalizedId(value) {
   return value === null || value === undefined || value === "" ? null : String(value);
@@ -8,6 +9,18 @@ function normalizedId(value) {
 
 function sameId(left, right) {
   return normalizedId(left) === normalizedId(right);
+}
+
+export function assertSessionCapacity(participantIds) {
+  const uniqueParticipantIds = [...new Set((participantIds || [])
+    .filter((value) => value !== null && value !== undefined && value !== "")
+    .map(String))];
+  if (uniqueParticipantIds.length > MAX_SESSION_PARTICIPANTS) {
+    const error = new Error(`Une séance ne peut pas dépasser ${MAX_SESSION_PARTICIPANTS} participants.`);
+    error.status = 409;
+    throw error;
+  }
+  return uniqueParticipantIds;
 }
 
 function symmetricDifference(left, right) {
@@ -149,6 +162,67 @@ async function assertLibreEligibility(client, participantId) {
   }
 }
 
+export async function registerParticipantForSession(client, {
+  sessionId,
+  participantId,
+  session = null,
+  participantIds = null,
+  allowClosed = false,
+} = {}) {
+  const actorId = normalizedId(participantId);
+  if (!actorId) {
+    const error = new Error("Le compte doit être associé à un grimpeur pour s’inscrire.");
+    error.status = 403;
+    throw error;
+  }
+
+  const resolvedSession = session || (await client.query(
+    `select id, status, encadrant_id, referent_id from sessions where id = $1 for update`,
+    [sessionId],
+  )).rows[0];
+  if (!resolvedSession) {
+    const error = new Error("Séance introuvable.");
+    error.status = 404;
+    throw error;
+  }
+
+  const listedParticipants = participantIds === null
+    ? (await client.query(
+      `select participant_id from session_participants where session_id = $1`,
+      [resolvedSession.id],
+    )).rows.map((row) => String(row.participant_id))
+    : participantIds.map(String);
+
+  const effectiveParticipants = [...new Set([
+    ...listedParticipants,
+    resolvedSession.encadrant_id ? String(resolvedSession.encadrant_id) : null,
+    resolvedSession.referent_id ? String(resolvedSession.referent_id) : null,
+  ].filter(Boolean))];
+
+  if (effectiveParticipants.includes(actorId)) {
+    return { registered: false, session: resolvedSession };
+  }
+  if (resolvedSession.status === "fermee" && !allowClosed) {
+    const error = new Error("Cette séance est fermée : aucune nouvelle inscription n’est autorisée.");
+    error.status = 409;
+    throw error;
+  }
+
+  assertSessionCapacity([...effectiveParticipants, actorId]);
+  if (resolvedSession.status === "libre") {
+    await assertLibreEligibility(client, actorId);
+  }
+
+  const registration = await client.query(
+    `insert into session_participants (session_id, participant_id)
+     values ($1, $2)
+     on conflict (session_id, participant_id) do nothing
+     returning session_id`,
+    [resolvedSession.id, actorId],
+  );
+  return { registered: registration.rowCount > 0, session: resolvedSession };
+}
+
 /** Contrôleur sécurisé remplaçant PUT /sessions/:id. */
 export async function updateSessionWithAuthorization(req, res) {
   const client = await getPool().connect();
@@ -219,11 +293,11 @@ export async function updateSessionWithAuthorization(req, res) {
       );
       sessionRow = result.rows[0];
 
-      const nextParticipantIds = [...new Set([
+      const nextParticipantIds = assertSessionCapacity([
         ...requested.participantIds.map(String),
         requested.encadrantId ? String(requested.encadrantId) : null,
         requested.referentId ? String(requested.referentId) : null,
-      ].filter(Boolean))];
+      ]);
       const newlyAdded = nextParticipantIds.filter((id) => !previousParticipantIds.includes(id));
       if (resolvedStatus === "libre") {
         for (const participantId of newlyAdded) await assertLibreEligibility(client, participantId);
@@ -249,11 +323,12 @@ export async function updateSessionWithAuthorization(req, res) {
 
       const actorId = String(actorParticipantId);
       if (policy.actorJoins) {
-        if (resolvedStatus === "libre") await assertLibreEligibility(client, actorId);
-        await client.query(
-          `insert into session_participants (session_id, participant_id) values ($1,$2) on conflict do nothing`,
-          [requested.id, actorId],
-        );
+        await registerParticipantForSession(client, {
+          sessionId: requested.id,
+          participantId: actorId,
+          session: sessionRow,
+          participantIds: previousParticipantIds,
+        });
       } else if (policy.actorLeaves) {
         await client.query(
           `delete from session_participants where session_id = $1 and participant_id = $2`,

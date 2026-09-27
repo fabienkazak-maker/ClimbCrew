@@ -6,6 +6,8 @@ import AppSidebar from "./components/AppSidebar.jsx";
 import MobileBottomNav from "./components/MobileBottomNav.jsx";
 import BroadcastMessageModal from "./components/BroadcastMessageModal.jsx";
 import RealisationModal from "./components/RealisationModal.jsx";
+import SessionCard from "./components/SessionCard.jsx";
+import ConfirmDialog from "./components/ConfirmDialog.jsx";
 import FaqSection from "./sections/FaqSection.jsx";
 import Inscriptions from "./pages/Inscriptions.jsx";
 import Voies from "./pages/Voies.jsx";
@@ -18,6 +20,7 @@ import GestionComptes from "./pages/GestionComptes.jsx";
 import DonneesUtilisateurs from "./pages/DonneesUtilisateurs.jsx";
 import Logs from "./pages/Logs.jsx";
 import Statistiques from "./pages/Statistiques.jsx";
+import WallOfFame from "./pages/WallOfFame.jsx";
 
 import { THEME_OPTIONS, THEME_PREFERENCE_KEY, resolveThemePreference } from "./lib/theme.js";
 import { ROPE_NUMBERS, ROUTE_COLORS, STYLE_LABELS, TABS } from "./lib/ui-config.js";
@@ -49,6 +52,7 @@ import {
   sortParticipantsCurrentUserFirst,
 } from "./lib/domain.js";
 import { USE_API, apiFetch, downloadFile } from "./lib/api.js";
+import { createAuthSessionActions } from "./lib/auth-session-actions.js";
 import { normalizeAppData } from "./lib/normalize.js";
 import { APP_VERSION } from "./lib/version.js";
 import { EMPTY_APP_DATA, useAppBusinessState } from "./hooks/useAppBusinessState.js";
@@ -57,11 +61,17 @@ import { useAuthState } from "./hooks/useAuthState.js";
 import { useAppBootstrap } from "./hooks/useAppBootstrap.js";
 import { useParticipantEditorState } from "./hooks/useParticipantEditorState.js";
 import { useRouteEditorState } from "./hooks/useRouteEditorState.js";
+import { useRouteManagement } from "./hooks/useRouteManagement.js";
+import { useParticipantManagement } from "./hooks/useParticipantManagement.js";
 import { useRealisationEditorState } from "./hooks/useRealisationEditorState.js";
 import { PASSWORD_RULE_TEXT, isStrongPassword } from "./lib/password-policy.js";
 import { buildRouteDisplayGroups } from "./lib/route-display-groups.js";
 import { buildTheCragExport } from "./lib/thecrag.js";
 import { usePlanningSessions } from "./lib/planning-view.js";
+import { useBuddyAvailability } from "./hooks/useBuddyAvailability.js";
+import { useSessionPersistence } from "./hooks/useSessionPersistence.js";
+import { useRealisationPersistence } from "./hooks/useRealisationPersistence.js";
+import { useConfirmationDialog } from "./hooks/useConfirmationDialog.js";
 import {
   buildRealisationDraft,
   buildRealisationPayload,
@@ -87,7 +97,7 @@ function App() {
     adminError, setAdminError,
     routeError, setRouteError,
     importMessage, setImportMessage,
-    setSyncMessage,
+    syncMessage, setSyncMessage,
     confirmationMessage, setConfirmationMessage,
     isSyncing, setIsSyncing,
   } = useAppUiState({ useApi: USE_API });
@@ -126,12 +136,24 @@ function App() {
     expandedRealisationIds, setExpandedRealisationIds,
     realisationSaving, setRealisationSaving,
   } = useRealisationEditorState({ defaultRouteId: EMPTY_APP_DATA.routes?.[0]?.id || "" });
+  const {
+    pendingConfirmation,
+    setPendingConfirmation,
+    requestConfirmation,
+    runPendingConfirmation,
+  } = useConfirmationDialog();
 
   useEffect(() => {
     if (!confirmationMessage) return undefined;
     const timeoutId = window.setTimeout(() => setConfirmationMessage(""), 3000);
     return () => window.clearTimeout(timeoutId);
   }, [confirmationMessage]);
+
+  useEffect(() => {
+    if (!syncMessage) return undefined;
+    const timeoutId = window.setTimeout(() => setSyncMessage(""), 4500);
+    return () => window.clearTimeout(timeoutId);
+  }, [syncMessage]);
 
   useEffect(() => {
     const applyTheme = () => {
@@ -180,6 +202,11 @@ function App() {
     [canAccessAdminTabs]
   );
   const currentPageLabel = TABS.find((item) => item.key === tab)?.label || "";
+  const buddyPreferencesByParticipantId = useBuddyAvailability({
+    useApi: USE_API,
+    authUser,
+    active: tab === "inscriptions",
+  });
 
   useEffect(() => {
     if (tab === "parametres") return;
@@ -269,6 +296,29 @@ function App() {
   }, [newRealisation.selectedDay, modalAllEligibleParticipants, state.sessions]);
 
   const { selectedDate, daySessions, weekSessions } = usePlanningSessions(state);
+  const {
+    addRoute,
+    startRouteEdition,
+    cancelRouteEdition,
+    deleteRoute,
+    saveRouteEdition,
+  } = useRouteManagement({
+    useApi: USE_API,
+    state,
+    setState,
+    selectedDate,
+    newRoute,
+    setNewRoute,
+    routeEditDraft,
+    setRouteEditDraft,
+    setEditingRouteId,
+    setSavingRouteId,
+    setRouteError,
+    setSyncMessage,
+    setConfirmationMessage,
+    requestConfirmation,
+  });
+
 
   const selectedParticipantRealisations = useMemo(() => {
     return state.realisations
@@ -362,6 +412,28 @@ function App() {
 
   const myParticipantId = authUser?.participantId ? String(authUser.participantId) : "";
   const myParticipant = participantsById[myParticipantId] || null;
+
+  const {
+    addParticipant,
+    updateParticipant,
+    updateMyProfile,
+    deleteParticipant,
+    getParticipantSessions,
+  } = useParticipantManagement({
+    useApi: USE_API,
+    state,
+    setState,
+    newParticipant,
+    setNewParticipant,
+    myParticipant,
+    myParticipantId,
+    setIsSyncing,
+    setRecentlyAddedParticipantIds,
+    setSyncMessage,
+    setConfirmationMessage,
+    requestConfirmation,
+  });
+
 
   const myRealisations = useMemo(() => {
     if (!myParticipantId) return [];
@@ -540,20 +612,12 @@ function App() {
     };
   }
 
-  async function syncSessionToApi(session) {
-    if (!USE_API || !session) return;
-    try {
-      await apiFetch(`/sessions/${encodeURIComponent(session.id)}`, {
-        method: "PUT",
-        body: JSON.stringify(session),
-      });
-      setSyncMessage("Séance synchronisée via l’API");
-      setConfirmationMessage("Séance enregistrée.");
-    } catch (e) {
-      setSyncMessage("Erreur synchronisation séance");
-      console.error(e);
-    }
-  }
+  const { syncSessionToApi, persistSessionChange } = useSessionPersistence({
+    useApi: USE_API,
+    setState,
+    onSuccess: setConfirmationMessage,
+    onError: setSyncMessage,
+  });
 
   function ensureSessionsForDate(date) {
     const createdSessions = [];
@@ -586,10 +650,8 @@ function App() {
   }
 
   function updateSession(sessionId, patch) {
-    const currentSession =
-      state.sessions.find((s) => s.id === sessionId) ||
-      buildDefaultSession(sessionId);
-
+    const existingSession = state.sessions.find((session) => session.id === sessionId);
+    const currentSession = existingSession || buildDefaultSession(sessionId);
     const patchedSession = { ...currentSession, ...patch };
     const updatedSession = {
       ...patchedSession,
@@ -600,396 +662,48 @@ function App() {
       ].filter(Boolean))],
     };
 
-    setState((prev) => {
-      const exists = prev.sessions.some((s) => s.id === sessionId);
-      return {
-        ...prev,
-        sessions: exists
-          ? prev.sessions.map((s) => (s.id === sessionId ? updatedSession : s))
-          : [...prev.sessions, updatedSession],
-      };
-    });
-
-    syncSessionToApi(updatedSession);
+    persistSessionChange(sessionId, currentSession, updatedSession, Boolean(existingSession));
   }
 
   function addParticipantToSession(sessionId, participantId) {
     const requestedId = String(participantId || "");
     if (!requestedId) return;
 
-    const currentSession =
-      state.sessions.find((s) => s.id === sessionId) ||
-      buildDefaultSession(sessionId);
-
+    const existingSession = state.sessions.find((session) => session.id === sessionId);
+    const currentSession = existingSession || buildDefaultSession(sessionId);
     const currentParticipantIds = currentSession.participantIds.map(String);
-    const occupied = currentParticipantIds.length;
+    if (currentParticipantIds.length >= MAX_PARTICIPANTS || currentParticipantIds.includes(requestedId)) return;
 
-    if (occupied >= MAX_PARTICIPANTS || currentParticipantIds.includes(requestedId)) return;
-
-    const updatedSession = {
+    persistSessionChange(sessionId, currentSession, {
       ...currentSession,
       participantIds: [...currentParticipantIds, requestedId],
-    };
-
-    setState((prev) => {
-      const exists = prev.sessions.some((s) => s.id === sessionId);
-      return {
-        ...prev,
-        sessions: exists
-          ? prev.sessions.map((s) => (s.id === sessionId ? updatedSession : s))
-          : [...prev.sessions, updatedSession],
-      };
-    });
-
-    syncSessionToApi(updatedSession);
+    }, Boolean(existingSession));
   }
 
   function removeParticipantFromSession(sessionId, participantId) {
-    const currentSession =
-      state.sessions.find((s) => s.id === sessionId) ||
-      buildDefaultSession(sessionId);
-
+    const existingSession = state.sessions.find((session) => session.id === sessionId);
+    const currentSession = existingSession || buildDefaultSession(sessionId);
     const removedId = String(participantId);
-    const updatedSession = {
+
+    persistSessionChange(sessionId, currentSession, {
       ...currentSession,
       encadrantId: String(currentSession.encadrantId || "") === removedId ? null : currentSession.encadrantId,
       referentId: String(currentSession.referentId || "") === removedId ? null : currentSession.referentId,
       participantIds: currentSession.participantIds.filter((id) => String(id) !== removedId),
-    };
-
-    setState((prev) => {
-      const exists = prev.sessions.some((s) => s.id === sessionId);
-      return {
-        ...prev,
-        sessions: exists
-          ? prev.sessions.map((s) => (s.id === sessionId ? updatedSession : s))
-          : [...prev.sessions, updatedSession],
-      };
-    });
-
-    syncSessionToApi(updatedSession);
+    }, Boolean(existingSession));
   }
 
-  async function addParticipant() {
-    if (!newParticipant.nom.trim() || !newParticipant.prenom.trim()) return;
-    const participant = {
-      ...newParticipant,
-      nom: newParticipant.nom.trim(),
-      prenom: newParticipant.prenom.trim(),
-    };
 
-    try {
-      if (USE_API) {
-        setIsSyncing(true);
-        const created = await apiFetch("/participants", {
-          method: "POST",
-          body: JSON.stringify(participant),
-        });
-        setState((prev) => ({ ...prev, participants: [created, ...prev.participants] }));
-        setRecentlyAddedParticipantIds((prev) => [
-          String(created.id),
-          ...prev.filter((id) => String(id) !== String(created.id)),
-        ]);
-        setSyncMessage("Participant ajouté via l’API");
-      } else {
-        const created = { ...participant, id: `p-${Date.now()}` };
-        setState((prev) => ({
-          ...prev,
-          participants: [created, ...prev.participants],
-        }));
-        setRecentlyAddedParticipantIds((prev) => [
-          String(created.id),
-          ...prev.filter((id) => String(id) !== String(created.id)),
-        ]);
-      }
-      setNewParticipant({
-        nom: "", prenom: "", email: "", passport: "sans", passeportFfme: false, sexe: "", cotisation: false, ffme: false, canEncadrer: false, canReferer: false, canAdmin: false,
-      });
-      setConfirmationMessage("Participant ajouté.");
-    } catch (e) {
-      setSyncMessage(`Erreur ajout participant`);
-      console.error(e);
-    } finally {
-      setIsSyncing(false);
-    }
-  }
-
-  async function updateParticipant(id, patch) {
-    const previous = state.participants;
-    const next = previous.map((p) => (p.id === id ? { ...p, ...patch } : p));
-    setState((prev) => ({ ...prev, participants: next }));
-
-    if (!USE_API) return;
-    try {
-      const target = next.find((p) => p.id === id);
-      const updated = await apiFetch(`/participants/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(target),
-      });
-      setState((prev) => ({
-        ...prev,
-        participants: prev.participants.map((p) => (p.id === id ? updated : p)),
-      }));
-    } catch (e) {
-      setState((prev) => ({ ...prev, participants: previous }));
-      setSyncMessage("Erreur mise à jour participant");
-      console.error(e);
-    }
-  }
-
-  async function updateMyProfile(patch) {
-    if (!myParticipant || !USE_API) return;
-    const previous = myParticipant;
-    const optimistic = { ...previous, ...patch };
-    setState((prev) => ({
-      ...prev,
-      participants: prev.participants.map((participant) => String(participant.id) === myParticipantId ? optimistic : participant),
-    }));
-    try {
-      const updated = await apiFetch("/participants/me/profile", {
-        method: "PATCH",
-        // Le backend traite désormais PATCH comme une vraie mise à jour partielle.
-        // Ne renvoyer que le patch évite de réécrire involontairement le sexe,
-        // l'avatar ou la confidentialité avec une valeur locale obsolète.
-        body: JSON.stringify(patch),
-      });
-      setState((prev) => ({
-        ...prev,
-        participants: prev.participants.map((participant) => String(participant.id) === myParticipantId ? updated : participant),
-      }));
-      setConfirmationMessage("Préférences du profil enregistrées.");
-      return updated;
-    } catch (error) {
-      setState((prev) => ({
-        ...prev,
-        participants: prev.participants.map((participant) => String(participant.id) === myParticipantId ? previous : participant),
-      }));
-      setSyncMessage("Erreur d'enregistrement du profil");
-      console.error(error);
-      throw error;
-    }
-  }
-
-  async function deleteParticipant(id) {
-    const participant = state.participants.find((item) => String(item.id) === String(id));
-    if (!participant) return;
-    const relatedRealisations = state.realisations.filter(
-      (item) => String(item.participantId) === String(id)
-    ).length;
-    const relatedInscriptions = state.sessions.reduce(
-      (count, session) => count + session.participantIds.filter(
-        (participantId) => String(participantId) === String(id)
-      ).length,
-      0
-    );
-    const warning = relatedInscriptions || relatedRealisations
-      ? ` Cette action supprimera aussi ${relatedInscriptions} inscription(s) et ${relatedRealisations} réalisation(s).`
-      : "";
-    if (!window.confirm(`Supprimer définitivement le grimpeur ${fullName(participant)} ?${warning}`)) return;
-
-    const previousParticipants = state.participants;
-    setState((prev) => ({
-      ...prev,
-      participants: prev.participants.filter((p) => p.id !== id),
-      sessions: prev.sessions.map((s) => ({
-        ...s,
-        participantIds: s.participantIds.filter((pid) => pid !== id),
-        encadrantId: s.encadrantId === id ? null : s.encadrantId,
-        referentId: s.referentId === id ? null : s.referentId,
-      })),
-      realisations: prev.realisations.filter((r) => r.participantId !== id),
-    }));
-    setRecentlyAddedParticipantIds((prev) => prev.filter((pid) => String(pid) !== String(id)));
-
-    if (!USE_API) {
-      setConfirmationMessage("Grimpeur supprimé.");
-      return;
-    }
-    try {
-      await apiFetch(`/participants/${id}`, { method: "DELETE" });
-      setSyncMessage("Participant supprimé via l’API");
-      setConfirmationMessage("Grimpeur supprimé.");
-    } catch (e) {
-      setState((prev) => ({ ...prev, participants: previousParticipants }));
-      setSyncMessage("Erreur suppression participant");
-      console.error(e);
-    }
-  }
-
-  async function addRoute() {
-    const numeroVoieUnique = `voie-${Date.now()}`;
-    const couleurPrises = newRoute.couleurPrises.trim();
-    const nomOuvreur = newRoute.nomOuvreur.trim();
-    if (!newRoute.numeroCorde || !couleurPrises || !newRoute.cotationReference || !nomOuvreur) {
-      return setRouteError("Renseigne la corde, la couleur, la cotation et l’ouvreur.");
-    }
-
-    const route = {
-      id: `route-${Date.now()}`,
-      numeroVoieUnique,
-      numeroCorde: Number(newRoute.numeroCorde),
-      couleurPrises,
-      cotationReference: newRoute.cotationReference,
-      cotationAjustee: newRoute.cotationReference,
-      nomVoie: newRoute.nomVoie.trim(),
-      nomOuvreur,
-      moulinetteOnly: newRoute.moulinetteOnly,
-      active: true,
-      dateCreation: selectedDate,
-      tags: newRoute.tags,
-    };
-
-    try {
-      const savedRoute = USE_API
-        ? await apiFetch("/routes", { method: "POST", body: JSON.stringify(route) })
-        : route;
-      setState((prev) => ({ ...prev, routes: [...prev.routes, savedRoute] }));
-      setRouteError("");
-      setNewRoute({
-        numeroCorde: "", couleurPrises: "", cotationReference: "", nomVoie: "", nomOuvreur: "", moulinetteOnly: false, tags: [],
-      });
-      setConfirmationMessage("Voie ajoutée.");
-    } catch (error) {
-      setRouteError(error.message || "Création de la voie impossible.");
-    }
-  }
-
-  function startRouteEdition(route) {
-    setEditingRouteId(route.id);
-    setRouteEditDraft({
-      numeroCorde: String(route.numeroCorde ?? 0),
-      couleurPrises: route.couleurPrises || "Blanc",
-      cotationReference: route.cotationReference || route.cotationAjustee || "5c",
-      nomVoie: route.nomVoie || "",
-      nomOuvreur: route.nomOuvreur || "",
-      moulinetteOnly: Boolean(route.moulinetteOnly),
-      tags: route.tags || [],
-    });
-    setRouteError("");
-  }
-
-  function cancelRouteEdition() {
-    setEditingRouteId("");
-    setRouteEditDraft(null);
-  }
-
-  async function deleteRoute(route) {
-    if (!route?.id) return;
-    const relatedRealisations = state.realisations.filter(
-      (item) => String(item.voieId) === String(route.id)
-    ).length;
-    const routeLabel = formatRouteName(route);
-    const warning = relatedRealisations
-      ? ` Cette action supprimera aussi ${relatedRealisations} réalisation(s).`
-      : "";
-    if (!window.confirm(`Supprimer définitivement la voie « ${routeLabel} » ?${warning}`)) return;
-
-    try {
-      if (USE_API) {
-        await apiFetch(`/routes/${encodeURIComponent(route.id)}`, { method: "DELETE" });
-      }
-      setState((prev) => ({
-        ...prev,
-        routes: prev.routes.filter((item) => item.id !== route.id),
-        realisations: prev.realisations.filter((item) => item.voieId !== route.id),
-      }));
-      cancelRouteEdition();
-      setConfirmationMessage("Voie supprimée.");
-    } catch (error) {
-      setRouteError(error.message || "Suppression de la voie impossible.");
-    }
-  }
-
-  async function saveRouteEdition(route) {
-    if (!routeEditDraft) return;
-    setRouteError("");
-    const couleurPrises = routeEditDraft.couleurPrises.trim();
-    const nomOuvreur = routeEditDraft.nomOuvreur.trim();
-    if (!couleurPrises || !nomOuvreur) {
-      setRouteError("Renseigne au moins la couleur et l’ouvreur.");
-      return;
-    }
-
-    const routePatch = {
-      numeroCorde: Number(routeEditDraft.numeroCorde),
-      couleurPrises,
-      cotationReference: routeEditDraft.cotationReference,
-      cotationAjustee: routeEditDraft.cotationReference,
-      nomVoie: routeEditDraft.nomVoie.trim(),
-      nomOuvreur,
-      moulinetteOnly: routeEditDraft.moulinetteOnly,
-      tags: routeEditDraft.tags,
-    };
-    const updatedRoute = { ...route, ...routePatch };
-
-    setSavingRouteId(route.id);
-    try {
-      const savedRoute = USE_API
-        ? await apiFetch(`/routes/${encodeURIComponent(route.id)}`, {
-            method: "PUT",
-            body: JSON.stringify(routePatch),
-          })
-        : updatedRoute;
-      setState((prev) => ({
-        ...prev,
-        routes: prev.routes.map((item) => (item.id === route.id ? savedRoute : item)),
-      }));
-      cancelRouteEdition();
-      setSyncMessage("Voie mise à jour.");
-      setConfirmationMessage("Voie modifiée.");
-    } catch (error) {
-      setRouteError(error.message || "Modification de la voie impossible.");
-    } finally {
-      setSavingRouteId("");
-    }
-  }
-
-  function getParticipantSessions(participantId) {
-    if (!participantId) return [];
-
-    return state.sessions
-      .filter((session) => getSessionParticipantIds(session).includes(String(participantId)))
-      .sort((a, b) => {
-        const dateCompare = b.date.localeCompare(a.date);
-        if (dateCompare !== 0) return dateCompare;
-        return a.slot.localeCompare(b.slot);
-      });
-  }
-
-  async function syncRealisationPatch(realisationId, patch) {
-    try {
-      await updateRealisationInApi(realisationId, patch);
-    } catch (error) {
-      console.error(error);
-    }
-  }
-
-  function updateRealisation(realisationId, patch) {
-    const target = state.realisations.find((item) => String(item.id) === String(realisationId));
-    if (!target || String(target.participantId) !== String(myParticipantId)) {
-      alert("Vous pouvez modifier uniquement vos propres réalisations.");
-      return;
-    }
-    syncRealisationPatch(realisationId, patch);
-    setState((prev) => ({
-      ...prev,
-      realisations: prev.realisations.map((realisation) => {
-        if (realisation.id !== realisationId) return realisation;
-
-        const next = { ...realisation, ...patch };
-
-        // Si on change la séance, la date de réalisation suit la date de la séance.
-        if (patch.sessionId) {
-          const session = sessionsById[patch.sessionId];
-          if (session) {
-            next.dateRealisation = `${session.date}T12:00:00`;
-          }
-        }
-
-        return next;
-      }),
-    }));
-  }
+  const updateRealisation = useRealisationPersistence({
+    useApi: USE_API,
+    authUser,
+    state,
+    setState,
+    myParticipantId,
+    sessionsById,
+    onSuccess: setConfirmationMessage,
+    onError: setSyncMessage,
+  });
 
   function openRealisationModal(routeId, requestedParticipantId = "") {
     const route = routesById[routeId];
@@ -1030,18 +744,10 @@ async function persistRealisationToApi(realisation) {
   });
 }
 
-async function updateRealisationInApi(realisationId, patch) {
-  if (!USE_API || !authUser) return;
-  await apiFetch(`/realisations/${realisationId}`, {
-    method: "PUT",
-    body: JSON.stringify(patch),
-  });
-}
-
 async function deleteRealisation(realisation) {
   if (!realisation?.id) return;
   if (String(realisation.participantId) !== String(myParticipantId)) {
-    alert("Vous pouvez supprimer uniquement vos propres réalisations.");
+    setSyncMessage("Erreur : vous pouvez supprimer uniquement vos propres réalisations.");
     return;
   }
 
@@ -1051,47 +757,51 @@ async function deleteRealisation(realisation) {
     ? formatDateShortFr(realisation.dateRealisation.slice(0, 10))
     : "date inconnue";
 
-  if (!window.confirm(`Supprimer définitivement la réalisation « ${routeLabel} » du ${dateLabel} ?`)) return;
+  requestConfirmation({
+    title: "Supprimer la réalisation",
+    message: `Supprimer définitivement la réalisation « ${routeLabel} » du ${dateLabel} ?`,
+    onConfirm: async () => {
+      const previousRealisations = state.realisations;
+      setState((prev) => ({
+        ...prev,
+        realisations: prev.realisations.filter((item) => item.id !== realisation.id),
+      }));
 
-  const previousRealisations = state.realisations;
-  setState((prev) => ({
-    ...prev,
-    realisations: prev.realisations.filter((item) => item.id !== realisation.id),
-  }));
-
-  try {
-    if (USE_API) {
-      await apiFetch(`/realisations/${encodeURIComponent(realisation.id)}`, {
-        method: "DELETE",
-      });
-    }
-    setConfirmationMessage("Réalisation supprimée.");
-  } catch (error) {
-    setState((prev) => ({ ...prev, realisations: previousRealisations }));
-    alert(`Suppression impossible : ${error.message || error}`);
-  }
+      try {
+        if (USE_API) {
+          await apiFetch(`/realisations/${encodeURIComponent(realisation.id)}`, {
+            method: "DELETE",
+          });
+        }
+        setConfirmationMessage("Réalisation supprimée.");
+      } catch (error) {
+        setState((prev) => ({ ...prev, realisations: previousRealisations }));
+        setSyncMessage(`Erreur : suppression impossible : ${error.message || error}`);
+      }
+    },
+  });
 }
 
   async function addRealisation() {
     if (realisationSaving) return;
     if (!myParticipantId || String(newRealisation.participantId) !== String(myParticipantId)) {
-      alert("Vous pouvez enregistrer uniquement vos propres réalisations.");
+      setSyncMessage("Erreur : vous pouvez enregistrer uniquement vos propres réalisations.");
       return;
     }
     if (!newRealisation.participantId || !newRealisation.selectedDay || !newRealisation.voieId) {
-      alert("Sélectionne un jour et une voie.");
+      setSyncMessage("Erreur : sélectionnez un jour et une voie.");
       return;
     }
 
     const participant = participantsById[newRealisation.participantId];
     if (!participant?.cotisation) {
-      alert("Votre cotisation doit être à jour pour enregistrer une réalisation.");
+      setSyncMessage("Erreur : votre cotisation doit être à jour pour enregistrer une réalisation.");
       return;
     }
 
     const sessionId = resolveSessionIdForRealisation(state.sessions, newRealisation.participantId, newRealisation.selectedDay);
     if (!sessionId) {
-      alert("Vous devez participer à au moins une séance ce jour-là pour enregistrer une réalisation.");
+      setSyncMessage("Erreur : vous devez participer à au moins une séance ce jour-là pour enregistrer une réalisation.");
       return;
     }
 
@@ -1119,7 +829,7 @@ async function deleteRealisation(realisation) {
       setRealisationModalRouteId(null);
       setConfirmationMessage("Réalisation enregistrée.");
     } catch (error) {
-      alert(String(error.message || error));
+      setSyncMessage(`Erreur : ${String(error.message || error)}`);
     } finally {
       setRealisationSaving(false);
     }
@@ -1164,47 +874,22 @@ async function handleThemePreferenceChange(nextTheme) {
   }
 }
 
-  async function handleLogin() {
-    try {
-      setAuthError("");
-      setAuthMessage("");
-
-      const data = await apiFetch("/auth/login", {
-        method: "POST",
-        body: JSON.stringify(loginForm),
-      });
-
-      setAuthUser(data.user);
-      if (data.user?.theme_preference) {
-        setThemePreference(data.user.theme_preference);
-      }
-      if (data.user?.role === "admin") {
-        setAdminUnlocked(true);
-      }
-      setAuthView("login");
-      setGeneratedResetToken("");
-      setAuthMessage("Connexion réussie.");
-      await reloadApiState({ isMounted: () => true }).catch(() => {});
-    } catch (error) {
-      setAuthError(String(error.message || error));
-    }
-  }
-
-  async function handleLogout() {
-    try {
-      await apiFetch("/auth/logout", { method: "POST" });
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setAuthUser(null);
-      setAdminUnlocked(false);
-      setGeneratedResetToken("");
-      setAdminAuthUsers([]);
-      setAdminAccessLogs([]);
-      setPendingBroadcastMessages([]);
-      setBroadcastMessageError("");
-    }
-  }
+  const { handleLogin, handleLogout } = createAuthSessionActions({
+    loginForm,
+    reloadApiState,
+    setAuthError,
+    setAuthMessage,
+    setAuthUser,
+    setThemePreference,
+    setAdminUnlocked,
+    setAuthView,
+    setGeneratedResetToken,
+    setAdminAuthUsers,
+    setAdminAccessLogs,
+    setPendingBroadcastMessages,
+    setBroadcastMessageError,
+    setSyncMessage,
+  });
 
   async function publishBroadcastMessage({ title, body }) {
     if (!USE_API || authUser?.role !== "admin") {
@@ -1363,17 +1048,20 @@ async function handleThemePreferenceChange(nextTheme) {
 
   async function deleteUserAccount(user) {
     if (!user?.id) return;
-    if (!window.confirm(
-      `Supprimer définitivement le compte de ${user.prenom} ${user.nom} (${user.email}) ? Le grimpeur associé sera conservé.`
-    )) return;
 
-    try {
-      await apiFetch(`/admin/auth/users/${user.id}`, { method: "DELETE" });
-      await loadAdminAccessData();
-      setConfirmationMessage("Compte supprimé.");
-    } catch (error) {
-      setAuthError(String(error.message || error));
-    }
+    requestConfirmation({
+      title: "Supprimer le compte",
+      message: `Supprimer définitivement le compte de ${user.prenom} ${user.nom} (${user.email}) ? Le grimpeur associé sera conservé.`,
+      onConfirm: async () => {
+        try {
+          await apiFetch(`/admin/auth/users/${user.id}`, { method: "DELETE" });
+          await loadAdminAccessData();
+          setConfirmationMessage("Compte supprimé.");
+        } catch (error) {
+          setAuthError(String(error.message || error));
+        }
+      },
+    });
   }
 
   async function reactivateUserAccess(userId) {
@@ -1489,124 +1177,22 @@ async function handleThemePreferenceChange(nextTheme) {
   }
 
   function renderSessionCard(session, compact = false) {
-    const sessionParticipantIds = getSessionParticipantIds(session);
-    const inscrits = sessionParticipantIds.map((id) => participantsById[id]).filter(Boolean);
-    const occupied = inscrits.length;
-    const missingSupervisor = (session.status === "encadree" && !session.encadrantId)
-      || (session.status === "libre" && !session.referentId);
-    const freeSessionPassports = new Set(["jaune", "orange", "vert", "bleu"]);
-    const availableParticipants = state.participants.filter((p) =>
-      !sessionParticipantIds.includes(String(p.id))
-      && (session.status !== "libre" || freeSessionPassports.has(normalizePassport(p.passport)))
-    );
-
     return (
-      <div className={`card session-card session-status-${String(session.status || "fermee").trim().toLowerCase()} ${missingSupervisor ? "session-card-missing-supervisor" : ""} ${compact ? "session-card-compact" : ""}`} key={session.id}>
-        <div className="card-header">
-          <h3>Séance {session.slot}</h3>
-          <span className="badge">{occupied}/{MAX_PARTICIPANTS}</span>
-        </div>
-
-        <div className="session-form-row">
-          <div className="inline-field">
-            <label>Statut</label>
-            <select
-              value={session.status}
-              onChange={(e) => {
-                const value = e.target.value;
-                updateSession(session.id, {
-                  status: value,
-                  ...(value !== "encadree" ? { encadrantId: null } : {}),
-                  ...(value !== "libre" ? { referentId: null } : {}),
-                });
-              }}
-            >
-              <option value="fermee">Fermée</option>
-              <option value="libre">Libre</option>
-              <option value="encadree">Encadrée</option>
-              <option value="passeport">Passeport</option>
-              <option value="challenge">Challenge</option>
-              <option value="renouvellement">Renouvellement</option>
-            </select>
-          </div>
-
-          {session.status === "encadree" && (
-            <div className="inline-field">
-              <label>Encadrant</label>
-              <select
-                value={session.encadrantId || ""}
-                onChange={(e) => updateSession(session.id, { encadrantId: e.target.value || null })}
-              >
-                <option value="">Aucun</option>
-                {alphabeticalParticipants.filter((p) => p.canEncadrer).map((p) => (
-                  <option key={p.id} value={p.id}>{fullName(p)}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {session.status === "libre" && (
-            <div className="inline-field">
-              <label>RÉFÉRENT</label>
-              <select
-                value={session.referentId || ""}
-                onChange={(e) => updateSession(session.id, { referentId: e.target.value || null })}
-              >
-                <option value="">Aucun</option>
-                {alphabeticalParticipants.filter((p) => p.canReferer).map((p) => (
-                  <option key={p.id} value={p.id}>{fullName(p)}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          <div className="inline-field add-participant-field">
-            <label>Inscription</label>
-            <select
-              defaultValue=""
-              disabled={availableParticipants.length === 0 || occupied >= MAX_PARTICIPANTS}
-              onChange={(event) => {
-                const participantId = event.currentTarget.value;
-                if (!participantId) return;
-                addParticipantToSession(session.id, participantId);
-                event.currentTarget.value = "";
-              }}
-            >
-              <option value="">
-                {availableParticipants.length === 0 ? "Aucune personne disponible" : "S'inscrire"}
-              </option>
-              {sortParticipantsCurrentUserFirst(availableParticipants, authUser?.participantId)
-                .map((p) => (
-                  <option key={p.id} value={p.id}>{fullName(p)}</option>
-                ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="stack session-participant-list">
-          {inscrits.length === 0 ? (
-            <div className="muted-box">Aucun inscrit.</div>
-          ) : (
-            inscrits.map((p) => (
-              <div
-                className={`participant-row passport-row ${session.status === "libre" && normalizePassport(p.passport) === "sans" ? "passport-warning-hatched" : ""}`}
-                key={p.id}
-                style={getPassportStyle(p)}
-                data-passport={normalizePassport(p.passport)}
-              >
-                <span className="participant-identity">
-                  <span className="passport-dot" style={getPassportDotStyle(p)} aria-hidden="true" />
-                  <span className="participant-name">{fullName(p)}</span>
-                </span>
-                <Button variant="remove" onClick={() => removeParticipantFromSession(session.id, p.id)} aria-label="Retirer">×</Button>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
+      <SessionCard
+        key={session.id}
+        session={session}
+        compact={compact}
+        participants={state.participants}
+        participantsById={participantsById}
+        alphabeticalParticipants={alphabeticalParticipants}
+        currentParticipantId={authUser?.participantId}
+        preferencesByParticipantId={buddyPreferencesByParticipantId}
+        onUpdate={updateSession}
+        onAddParticipant={addParticipantToSession}
+        onRemoveParticipant={removeParticipantFromSession}
+      />
     );
   }
-
 
   if (USE_API && authLoading) {
     return <AuthPage loading appVersion={APP_VERSION} />;
@@ -1646,6 +1232,11 @@ async function handleThemePreferenceChange(nextTheme) {
           {confirmationMessage}
         </div>
       )}
+      {syncMessage && syncMessage.startsWith("Erreur") && (
+        <div className="confirmation-toast error-toast" role="alert" aria-live="assertive">
+          {syncMessage}
+        </div>
+      )}
 
       {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
 
@@ -1663,6 +1254,15 @@ async function handleThemePreferenceChange(nextTheme) {
         error={broadcastMessageError}
         onAcknowledge={acknowledgeBroadcastMessage}
       />
+      <ConfirmDialog
+        open={Boolean(pendingConfirmation)}
+        title={pendingConfirmation?.title}
+        message={pendingConfirmation?.message}
+        confirmLabel={pendingConfirmation?.confirmLabel}
+        busy={Boolean(pendingConfirmation?.busy)}
+        onConfirm={() => void runPendingConfirmation()}
+        onCancel={() => setPendingConfirmation(null)}
+      />
 
       <RealisationModal
         open={realisationModalRouteId !== null}
@@ -1672,7 +1272,7 @@ async function handleThemePreferenceChange(nextTheme) {
         availableDays={modalAvailableDays}
         eligibleParticipants={modalEligibleParticipants}
         participants={alphabeticalParticipants}
-        routes={state.routes}
+        routes={state.routes.filter((route) => route.active !== false)}
         routesById={routesById}
         onRouteIdChange={setRealisationModalRouteId}
         onClose={closeRealisationModal}
@@ -1803,6 +1403,7 @@ async function handleThemePreferenceChange(nextTheme) {
           <Chat
             myParticipantId={myParticipantId}
             participants={state.participants}
+            canPin={authUser?.role === "admin"}
           />
         )}
 
@@ -1869,6 +1470,9 @@ async function handleThemePreferenceChange(nextTheme) {
             sessionStats={sessionStats}
             topRouteRankings={topRouteRankings}
             leadRealisationStats={leadRealisationStats}
+            routes={state.routes}
+            sessions={state.sessions}
+            realisations={state.realisations}
             formatRouteName={formatRouteName}
             statsSortField={statsSortField}
             setStatsSortField={setStatsSortField}
@@ -1881,7 +1485,15 @@ async function handleThemePreferenceChange(nextTheme) {
             cprByParticipantId={cprByParticipantId}
             formatPoints={formatPoints}
             pointsByParticipantId={pointsByParticipantId}
+          />
+        )}
+
+        {tab === "wall_of_fame" && (
+          <WallOfFame
             wallOfFameCategories={wallOfFameCategories}
+            getPassportStyle={getPassportStyle}
+            getPassportDotStyle={getPassportDotStyle}
+            normalizePassport={normalizePassport}
             wallOfFameSexFilter={wallOfFameSexFilter}
             setWallOfFameSexFilter={setWallOfFameSexFilter}
           />

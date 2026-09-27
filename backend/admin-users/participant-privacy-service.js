@@ -242,6 +242,7 @@ export async function listRealisationsWithPrivacy(req, res) {
           r.commentaire,
           r.cotation_proposee as "cotationProposee",
           r.nb_essais as "nbEssais",
+          r.mode_realisation as "modeRealisation",
           r.rating,
           r.chute,
           r.assureur_id as "assureurId",

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 test("le bouton indique l'enregistrement d'une voie en cours", async () => {
-  const source = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const source = await readFile(new URL("../src/hooks/useRouteManagement.js", import.meta.url), "utf8");
   const voies = await readFile(new URL("../src/pages/Voies.jsx", import.meta.url), "utf8");
   assert.match(source, /setSavingRouteId\(route\.id\)/);
   assert.match(source, /finally \{/);
@@ -24,11 +24,13 @@ test("les vidéos d'une voie sont gérées depuis Modifier et accessibles par le
   assert.match(voies, /apiUpload/);
 });
 
-test("la voie est présentée sur deux lignes sans répéter la corde", async () => {
+test("la voie est présentée de façon compacte sans répéter la corde", async () => {
   const voies = await readFile(new URL("../src/pages/Voies.jsx", import.meta.url), "utf8");
   assert.match(voies, /className="route-primary-line"/);
-  assert.match(voies, /className="route-secondary-line"/);
+  assert.match(voies, /className="route-meta-line"/);
   assert.match(voies, /routeSortMode !== "corde"/);
+  assert.doesNotMatch(voies, /route-filter/);
+  assert.doesNotMatch(voies, /0 réalisation|routeRating\.count\} réalisation/);
 });
 
 test("les formulaires de réalisation présentent corde, cotation, ouvreur puis nom", async () => {
