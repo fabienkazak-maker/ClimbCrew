@@ -51,6 +51,7 @@ test("la capacité de 18 personnes est imposée par la validation et la règle t
   }, "2026-09-28-midi");
   assert.equal(session.participantIds.length, MAX_SESSION_PARTICIPANTS);
   assert.deepEqual(assertSessionCapacity(participantIds), participantIds);
+  assert.deepEqual(assertSessionCapacity([null, undefined, "", ...participantIds]), participantIds);
 
   const overflow = [...participantIds, "19"];
   assert.throws(
