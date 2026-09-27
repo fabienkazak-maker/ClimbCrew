@@ -2,14 +2,20 @@ import React from "react";
 import { API_BASE, apiFetch, apiUpload } from "../lib/api.js";
 import { customAvatarSource } from "../lib/custom-avatar.js";
 import { AVATAR_OPTIONS } from "../components/ProfileGecko.jsx";
+import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import "../styles/chat.css";
 
 const EMOJIS = ["😀","😂","😊","😍","👍","👏","💪","🧗","🔥","🎉","❤️","🤔","😅","🙌","👋","✅","📸","🏆"];
 
-export default function Chat({ myParticipantId, participants = [] }) {
+export default function Chat({ myParticipantId, participants = [], canPin = false }) {
   const [messages, setMessages] = React.useState([]);
   const [text, setText] = React.useState("");
   const [error, setError] = React.useState("");
+  const [feedback, setFeedback] = React.useState("");
+  const [pollQuestion, setPollQuestion] = React.useState("");
+  const [pollOptions, setPollOptions] = React.useState("Oui;Non");
+  const [editingMessage, setEditingMessage] = React.useState(null);
+  const [deleteCandidate, setDeleteCandidate] = React.useState(null);
   const [showEmoji, setShowEmoji] = React.useState(false);
   const [sending, setSending] = React.useState(false);
   const [filter, setFilter] = React.useState("all");
@@ -59,6 +65,8 @@ export default function Chat({ myParticipantId, participants = [] }) {
       });
       setReplyTo(null);
       await loadMessages();
+      setFeedback("Message envoyé.");
+      setError("");
     } catch (err) {
       setText(message);
       setError(String(err.message || err));
@@ -83,6 +91,8 @@ export default function Chat({ myParticipantId, participants = [] }) {
         headers: { "X-Chat-Message": encodeURIComponent(message) },
       });
       await loadMessages();
+      setFeedback("Fichier partagé.");
+      setError("");
     } catch (err) {
       setError(String(err.message || err));
     } finally {
@@ -98,6 +108,8 @@ export default function Chat({ myParticipantId, participants = [] }) {
         body: JSON.stringify({ reaction }),
       });
       await loadMessages();
+      setFeedback(mine ? "Réaction retirée." : "Réaction ajoutée.");
+      setError("");
     } catch (err) {
       setError(String(err.message || err));
     }
@@ -110,34 +122,100 @@ export default function Chat({ myParticipantId, participants = [] }) {
       const current = groups.get(key) || { reaction: key, count: 0, mine: false, participantIds: [] };
       current.count += 1;
       if (String(reaction.participantId) === String(myParticipantId)) current.mine = true;
+      current.participantIds.push(String(reaction.participantId));
       groups.set(key, current);
     }
     return [...groups.values()];
   }
 
-  async function editMessage(item) {
-    const value = window.prompt("Modifier le message", item.message || "");
-    if (!value?.trim() || value.trim() === item.message) return;
-    await apiFetch(`/chat/messages/${item.id}`, { method: "PATCH", body: JSON.stringify({ message: value.trim() }) });
-    await loadMessages();
+  function editMessage(item) {
+    setEditingMessage({ id: item.id, message: item.message || "" });
   }
+
+  async function saveEditedMessage() {
+    const message = String(editingMessage?.message || "").trim();
+    if (!editingMessage?.id || !message) return;
+    try {
+      await apiFetch(`/chat/messages/${editingMessage.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ message }),
+      });
+      setEditingMessage(null);
+      setFeedback("Message modifié.");
+      setError("");
+      await loadMessages();
+    } catch (err) {
+      setError(String(err.message || err));
+    }
+  }
+
   async function deleteMessage(item) {
-    if (!window.confirm("Supprimer ce message ?")) return;
-    await apiFetch(`/chat/messages/${item.id}`, { method: "DELETE" }); await loadMessages();
+    setDeleteCandidate(item);
   }
+
+  async function confirmDeleteMessage() {
+    if (!deleteCandidate?.id) return;
+    try {
+      await apiFetch(`/chat/messages/${deleteCandidate.id}`, { method: "DELETE" });
+      setDeleteCandidate(null);
+      setFeedback("Message supprimé.");
+      setError("");
+      await loadMessages();
+    } catch (err) {
+      setError(String(err.message || err));
+    }
+  }
+
   async function togglePin(item) {
-    await apiFetch(`/chat/messages/${item.id}/pin`, { method: "POST", body: JSON.stringify({ pinned: !item.pinned }) }); await loadMessages();
+    if (!canPin) return;
+    try {
+      await apiFetch(`/chat/messages/${item.id}/pin`, {
+        method: "POST",
+        body: JSON.stringify({ pinned: !item.pinned }),
+      });
+      setFeedback(item.pinned ? "Message désépinglé." : "Message épinglé.");
+      setError("");
+      await loadMessages();
+    } catch (err) {
+      setError(String(err.message || err));
+    }
   }
+
   async function createPoll() {
-    const question = window.prompt("Question du sondage");
-    if (!question?.trim()) return;
-    const raw = window.prompt("Réponses possibles, séparées par des points-virgules", "Oui;Non");
-    const options = String(raw || "").split(";").map(x => x.trim()).filter(Boolean);
-    if (options.length < 2) return;
-    await apiFetch("/chat/polls", { method: "POST", body: JSON.stringify({ question: question.trim(), options }) }); setShowPoll(false); await loadMessages();
+    const question = pollQuestion.trim();
+    const options = pollOptions.split(";").map((value) => value.trim()).filter(Boolean);
+    if (!question || options.length < 2) {
+      setError("Renseignez une question et au moins deux réponses séparées par des points-virgules.");
+      return;
+    }
+    try {
+      await apiFetch("/chat/polls", {
+        method: "POST",
+        body: JSON.stringify({ question, options }),
+      });
+      setPollQuestion("");
+      setPollOptions("Oui;Non");
+      setShowPoll(false);
+      setFeedback("Sondage créé.");
+      setError("");
+      await loadMessages();
+    } catch (err) {
+      setError(String(err.message || err));
+    }
   }
+
   async function vote(item, optionId) {
-    await apiFetch(`/chat/messages/${item.id}/poll-vote`, { method: "POST", body: JSON.stringify({ optionId }) }); await loadMessages();
+    try {
+      await apiFetch(`/chat/messages/${item.id}/poll-vote`, {
+        method: "POST",
+        body: JSON.stringify({ optionId }),
+      });
+      setFeedback("Vote enregistré.");
+      setError("");
+      await loadMessages();
+    } catch (err) {
+      setError(String(err.message || err));
+    }
   }
   const visibleMessages = messages.filter(item => {
     const q = search.trim().toLowerCase();
@@ -195,6 +273,7 @@ export default function Chat({ myParticipantId, participants = [] }) {
         </div>
       </div>
       {error && <div className="muted-box" role="alert">{error}</div>}
+      {feedback && <div className="small success" role="status">{feedback}</div>}
       <div className="chat-toolbar">
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher…" aria-label="Rechercher dans le chat" />
         <select value={filter} onChange={e => setFilter(e.target.value)} aria-label="Filtrer le chat">
@@ -204,7 +283,13 @@ export default function Chat({ myParticipantId, participants = [] }) {
         <button type="button" onClick={() => setShowMedia(v => !v)}>🖼️ Médias</button>
         <button type="button" onClick={() => setShowPoll(true)}>📊 Sondage</button>
       </div>
-      {showPoll && <div className="muted-box">Créer un sondage pour le club. <button type="button" onClick={createPoll}>Créer</button></div>}
+      {showPoll && (
+        <div className="muted-box chat-poll-editor">
+          <label>Question<input value={pollQuestion} maxLength={500} onChange={(event) => setPollQuestion(event.target.value)} /></label>
+          <label>Réponses, séparées par des points-virgules<input value={pollOptions} onChange={(event) => setPollOptions(event.target.value)} /></label>
+          <div className="group"><button type="button" onClick={createPoll}>Créer</button><button type="button" onClick={() => setShowPoll(false)}>Annuler</button></div>
+        </div>
+      )}
       {showMedia && <div className="chat-gallery">{mediaMessages.map(item => <a key={item.id} href={attachmentUrl(item)} target="_blank" rel="noreferrer">{String(item.attachmentMimeType||"").startsWith("image/") ? <img src={attachmentUrl(item)} alt={item.attachmentName || "Média"} /> : <span>📎 {item.attachmentName}</span>}</a>)}</div>}
       <div className="chat-thread" aria-live="polite">
         {messages.length === 0 && <div className="muted-box">Aucun message. Lancez la conversation.</div>}
@@ -240,7 +325,13 @@ export default function Chat({ myParticipantId, participants = [] }) {
                         {EMOJIS.filter((emoji) => emoji !== "👍").map((emoji) => <option value={emoji} key={emoji}>{emoji}</option>)}
                       </select>
                     </div>
-                    <div className="chat-actions"><button type="button" onClick={() => { setReplyTo(item); setActiveMessageId(null); }}>↩️ Répondre</button><button type="button" onClick={() => togglePin(item)}>{item.pinned ? "Désépingler" : "📌 Épingler"}</button>{mine && item.kind !== "system" && <><button type="button" onClick={() => editMessage(item)}>✏️ Modifier</button><button type="button" onClick={() => deleteMessage(item)}>🗑️ Supprimer</button></>}</div>
+                    <div className="chat-actions"><button type="button" onClick={() => { setReplyTo(item); setActiveMessageId(null); }}>↩️ Répondre</button>{canPin && <button type="button" onClick={() => togglePin(item)}>{item.pinned ? "Désépingler" : "📌 Épingler"}</button>}{mine && item.kind !== "system" && <><button type="button" onClick={() => editMessage(item)}>✏️ Modifier</button><button type="button" onClick={() => deleteMessage(item)}>🗑️ Supprimer</button></>}</div>
+                    {editingMessage?.id === item.id && (
+                      <div className="chat-edit-form">
+                        <input value={editingMessage.message} maxLength={2000} onChange={(event) => setEditingMessage((current) => ({ ...current, message: event.target.value }))} aria-label="Modifier le message" />
+                        <div className="group"><button type="button" onClick={() => void saveEditedMessage()}>Enregistrer</button><button type="button" onClick={() => setEditingMessage(null)}>Annuler</button></div>
+                      </div>
+                    )}
 
                   </div>
                 )}
@@ -259,6 +350,13 @@ export default function Chat({ myParticipantId, participants = [] }) {
       )}
       {reactionDetails && <div className="chat-reaction-details" role="dialog" aria-label="Détail des réactions"><strong>{reactionDetails.reaction} Réactions</strong><span>{reactionDetails.names.join(", ")}</span><button type="button" onClick={() => setReactionDetails(null)}>Fermer</button></div>}
       {replyTo && <div className="chat-reply-preview"><div><strong>Réponse à {displayName(replyTo.participantId)}</strong><span>{replyTo.message || (replyTo.attachmentName ? `📎 ${replyTo.attachmentName}` : "Message")}</span></div><button type="button" onClick={() => setReplyTo(null)} aria-label="Annuler la réponse">✕</button></div>}
+      <ConfirmDialog
+        open={Boolean(deleteCandidate)}
+        title="Supprimer le message"
+        message="Supprimer définitivement ce message ?"
+        onConfirm={() => void confirmDeleteMessage()}
+        onCancel={() => setDeleteCandidate(null)}
+      />
       <form className="chat-composer" onSubmit={sendMessage}>
         <button type="button" className="chat-tool-button" onClick={() => setShowEmoji((value) => !value)} aria-label="Emoji">😊</button>
         <button type="button" className="chat-tool-button" onClick={() => fileRef.current?.click()} aria-label="Partager une image ou un fichier">📎</button>
