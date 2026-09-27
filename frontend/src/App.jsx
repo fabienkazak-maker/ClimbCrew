@@ -133,6 +133,24 @@ function App() {
     expandedRealisationIds, setExpandedRealisationIds,
     realisationSaving, setRealisationSaving,
   } = useRealisationEditorState({ defaultRouteId: EMPTY_APP_DATA.routes?.[0]?.id || "" });
+  const [pendingConfirmation, setPendingConfirmation] = useState(null);
+
+  function requestConfirmation({ title, message, confirmLabel = "Supprimer", onConfirm }) {
+    setPendingConfirmation({ title, message, confirmLabel, onConfirm, busy: false });
+  }
+
+  async function runPendingConfirmation() {
+    const pending = pendingConfirmation;
+    if (!pending || pending.busy) return;
+    setPendingConfirmation((current) => current ? { ...current, busy: true } : current);
+    try {
+      await pending.onConfirm();
+      setPendingConfirmation(null);
+    } catch (error) {
+      setPendingConfirmation((current) => current ? { ...current, busy: false } : current);
+      throw error;
+    }
+  }
 
   useEffect(() => {
     if (!confirmationMessage) return undefined;
@@ -767,35 +785,40 @@ function App() {
     const warning = relatedInscriptions || relatedRealisations
       ? ` Cette action supprimera aussi ${relatedInscriptions} inscription(s) et ${relatedRealisations} réalisation(s).`
       : "";
-    if (!window.confirm(`Supprimer définitivement le grimpeur ${fullName(participant)} ?${warning}`)) return;
 
-    const previousParticipants = state.participants;
-    setState((prev) => ({
-      ...prev,
-      participants: prev.participants.filter((p) => p.id !== id),
-      sessions: prev.sessions.map((s) => ({
-        ...s,
-        participantIds: s.participantIds.filter((pid) => pid !== id),
-        encadrantId: s.encadrantId === id ? null : s.encadrantId,
-        referentId: s.referentId === id ? null : s.referentId,
-      })),
-      realisations: prev.realisations.filter((r) => r.participantId !== id),
-    }));
-    setRecentlyAddedParticipantIds((prev) => prev.filter((pid) => String(pid) !== String(id)));
+    requestConfirmation({
+      title: "Supprimer le grimpeur",
+      message: `Supprimer définitivement le grimpeur ${fullName(participant)} ?${warning}`,
+      onConfirm: async () => {
+        const previousParticipants = state.participants;
+        setState((prev) => ({
+          ...prev,
+          participants: prev.participants.filter((p) => p.id !== id),
+          sessions: prev.sessions.map((session) => ({
+            ...session,
+            participantIds: session.participantIds.filter((participantId) => participantId !== id),
+            encadrantId: session.encadrantId === id ? null : session.encadrantId,
+            referentId: session.referentId === id ? null : session.referentId,
+          })),
+          realisations: prev.realisations.filter((realisation) => realisation.participantId !== id),
+        }));
+        setRecentlyAddedParticipantIds((prev) => prev.filter((participantId) => String(participantId) !== String(id)));
 
-    if (!USE_API) {
-      setConfirmationMessage("Grimpeur supprimé.");
-      return;
-    }
-    try {
-      await apiFetch(`/participants/${id}`, { method: "DELETE" });
-      setSyncMessage("Participant supprimé via l’API");
-      setConfirmationMessage("Grimpeur supprimé.");
-    } catch (e) {
-      setState((prev) => ({ ...prev, participants: previousParticipants }));
-      setSyncMessage("Erreur suppression participant");
-      console.error(e);
-    }
+        if (!USE_API) {
+          setConfirmationMessage("Grimpeur supprimé.");
+          return;
+        }
+        try {
+          await apiFetch(`/participants/${id}`, { method: "DELETE" });
+          setSyncMessage("Participant supprimé via l’API");
+          setConfirmationMessage("Grimpeur supprimé.");
+        } catch (error) {
+          setState((prev) => ({ ...prev, participants: previousParticipants }));
+          setSyncMessage("Erreur suppression participant");
+          console.error(error);
+        }
+      },
+    });
   }
 
   async function addRoute() {
@@ -864,22 +887,27 @@ function App() {
     const warning = relatedRealisations
       ? ` Cette action supprimera aussi ${relatedRealisations} réalisation(s).`
       : "";
-    if (!window.confirm(`Supprimer définitivement la voie « ${routeLabel} » ?${warning}`)) return;
 
-    try {
-      if (USE_API) {
-        await apiFetch(`/routes/${encodeURIComponent(route.id)}`, { method: "DELETE" });
-      }
-      setState((prev) => ({
-        ...prev,
-        routes: prev.routes.filter((item) => item.id !== route.id),
-        realisations: prev.realisations.filter((item) => item.voieId !== route.id),
-      }));
-      cancelRouteEdition();
-      setConfirmationMessage("Voie supprimée.");
-    } catch (error) {
-      setRouteError(error.message || "Suppression de la voie impossible.");
-    }
+    requestConfirmation({
+      title: "Supprimer la voie",
+      message: `Supprimer définitivement la voie « ${routeLabel} » ?${warning}`,
+      onConfirm: async () => {
+        try {
+          if (USE_API) {
+            await apiFetch(`/routes/${encodeURIComponent(route.id)}`, { method: "DELETE" });
+          }
+          setState((prev) => ({
+            ...prev,
+            routes: prev.routes.filter((item) => item.id !== route.id),
+            realisations: prev.realisations.filter((item) => item.voieId !== route.id),
+          }));
+          cancelRouteEdition();
+          setConfirmationMessage("Voie supprimée.");
+        } catch (error) {
+          setRouteError(error.message || "Suppression de la voie impossible.");
+        }
+      },
+    });
   }
 
   async function saveRouteEdition(route) {
@@ -1001,25 +1029,29 @@ async function deleteRealisation(realisation) {
     ? formatDateShortFr(realisation.dateRealisation.slice(0, 10))
     : "date inconnue";
 
-  if (!window.confirm(`Supprimer définitivement la réalisation « ${routeLabel} » du ${dateLabel} ?`)) return;
+  requestConfirmation({
+    title: "Supprimer la réalisation",
+    message: `Supprimer définitivement la réalisation « ${routeLabel} » du ${dateLabel} ?`,
+    onConfirm: async () => {
+      const previousRealisations = state.realisations;
+      setState((prev) => ({
+        ...prev,
+        realisations: prev.realisations.filter((item) => item.id !== realisation.id),
+      }));
 
-  const previousRealisations = state.realisations;
-  setState((prev) => ({
-    ...prev,
-    realisations: prev.realisations.filter((item) => item.id !== realisation.id),
-  }));
-
-  try {
-    if (USE_API) {
-      await apiFetch(`/realisations/${encodeURIComponent(realisation.id)}`, {
-        method: "DELETE",
-      });
-    }
-    setConfirmationMessage("Réalisation supprimée.");
-  } catch (error) {
-    setState((prev) => ({ ...prev, realisations: previousRealisations }));
-    setSyncMessage(`Erreur : suppression impossible : ${error.message || error}`);
-  }
+      try {
+        if (USE_API) {
+          await apiFetch(`/realisations/${encodeURIComponent(realisation.id)}`, {
+            method: "DELETE",
+          });
+        }
+        setConfirmationMessage("Réalisation supprimée.");
+      } catch (error) {
+        setState((prev) => ({ ...prev, realisations: previousRealisations }));
+        setSyncMessage(`Erreur : suppression impossible : ${error.message || error}`);
+      }
+    },
+  });
 }
 
   async function addRealisation() {
@@ -1288,17 +1320,20 @@ async function handleThemePreferenceChange(nextTheme) {
 
   async function deleteUserAccount(user) {
     if (!user?.id) return;
-    if (!window.confirm(
-      `Supprimer définitivement le compte de ${user.prenom} ${user.nom} (${user.email}) ? Le grimpeur associé sera conservé.`
-    )) return;
 
-    try {
-      await apiFetch(`/admin/auth/users/${user.id}`, { method: "DELETE" });
-      await loadAdminAccessData();
-      setConfirmationMessage("Compte supprimé.");
-    } catch (error) {
-      setAuthError(String(error.message || error));
-    }
+    requestConfirmation({
+      title: "Supprimer le compte",
+      message: `Supprimer définitivement le compte de ${user.prenom} ${user.nom} (${user.email}) ? Le grimpeur associé sera conservé.`,
+      onConfirm: async () => {
+        try {
+          await apiFetch(`/admin/auth/users/${user.id}`, { method: "DELETE" });
+          await loadAdminAccessData();
+          setConfirmationMessage("Compte supprimé.");
+        } catch (error) {
+          setAuthError(String(error.message || error));
+        }
+      },
+    });
   }
 
   async function reactivateUserAccess(userId) {
@@ -1490,6 +1525,15 @@ async function handleThemePreferenceChange(nextTheme) {
         messages={pendingBroadcastMessages}
         error={broadcastMessageError}
         onAcknowledge={acknowledgeBroadcastMessage}
+      />
+      <ConfirmDialog
+        open={Boolean(pendingConfirmation)}
+        title={pendingConfirmation?.title}
+        message={pendingConfirmation?.message}
+        confirmLabel={pendingConfirmation?.confirmLabel}
+        busy={Boolean(pendingConfirmation?.busy)}
+        onConfirm={() => void runPendingConfirmation()}
+        onCancel={() => setPendingConfirmation(null)}
       />
 
       <RealisationModal
