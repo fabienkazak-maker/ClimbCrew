@@ -123,7 +123,6 @@ const httpStack = fs.readFileSync("backend/middleware/http-stack.js", "utf8");
 const runtimeHelpers = fs.readFileSync("backend/security/runtime-helpers.js", "utf8");
 const applicationBootstrap = fs.readFileSync("backend/bootstrap/application-bootstrap.js", "utf8");
 const explicitRoutes = fs.readFileSync("backend/admin-users/explicit-routes.js", "utf8");
-const sessionAuthorization = fs.readFileSync("backend/admin-users/session-authorization-service.js", "utf8");
 const realisationManagement = fs.readFileSync("backend/realisation-management-routes.js", "utf8");
 const baselineMigration = fs.readFileSync("backend/database/migrations/001_baseline.sql", "utf8");
 
