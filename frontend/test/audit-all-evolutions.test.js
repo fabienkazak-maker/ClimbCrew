@@ -9,7 +9,7 @@ test("les statistiques utilisent l'état métier canonique et jamais un cache lo
   ]);
   assert.match(statistics, /sessions = \[\]/);
   assert.doesNotMatch(statistics, /localStorage|climbcrew_local_data_v2|readStoredSessions/);
-  assert.match(businessState, /storage\.removeItem\(BUSINESS_STORAGE_KEY\)/);
+  assert.match(businessState, /storage\?\.removeItem\(BUSINESS_STORAGE_KEY\)/);
 });
 
 test("la suppression participant attend la confirmation serveur avant de modifier l'état local", async () => {

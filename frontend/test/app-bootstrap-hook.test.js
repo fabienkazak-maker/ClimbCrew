@@ -35,7 +35,7 @@ test("les réalisations récentes utilisent la première page puis l'historique 
 
 test("un rafraîchissement manuel invalide l'hydratation différée et recharge tout", () => {
   assert.match(hook, /recentOnly = false/);
-  assert.match(hook, /if \(!recentOnly\) historyTokenRef\.current = null/);
+  assert.match(hook, /if \(!recentOnly\) \{[\s\S]*historyTokenRef\.current = null;[\s\S]*sessionHistoryTokenRef\.current = null;/);
   assert.match(hook, /loadBootstrapEndpoint\(endpoint, \{ recentOnly \}\)/);
 });
 
