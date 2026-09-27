@@ -197,6 +197,7 @@ export default function Profil({
   const profileIsVisible = isOwnProfile || selectedParticipant?.profilePublic !== false;
 
   const {
+    refreshRealisations,
     resetOwnRealisations,
     importTheCragFile,
     updateOwnRealisation,
