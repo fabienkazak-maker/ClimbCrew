@@ -30,8 +30,11 @@ export function installRealisationKudoRoutes(app, { requireAuth, pool }) {
     const participantId = String(req.auth?.user?.participantId || "");
     if (!participantId) return res.status(403).json({ error: "Compte non relié à un grimpeur" });
     try {
-      const exists = await pool.query("select 1 from realisations where id = $1 limit 1", [req.params.id]);
+      const exists = await pool.query("select participant_id from realisations where id = $1 limit 1", [req.params.id]);
       if (!exists.rowCount) return res.status(404).json({ error: "Réalisation introuvable" });
+      if (String(exists.rows[0].participant_id) === participantId) {
+        return res.status(409).json({ error: "Vous ne pouvez pas donner un Kudo à votre propre réalisation." });
+      }
       await pool.query(
         `insert into realisation_kudos (realisation_id, participant_id) values ($1, $2)
          on conflict (realisation_id, participant_id) do nothing`,
