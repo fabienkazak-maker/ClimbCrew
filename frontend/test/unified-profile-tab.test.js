@@ -19,9 +19,9 @@ test("Profil sélectionne le grimpeur connecté par défaut et permet d'en chois
 });
 
 test("Profil récupère la fonction de rafraîchissement des réalisations depuis le hook", () => {
-  assert.match(profileSource, /const \\{\\s*refreshRealisations,\\s*resetOwnRealisations,/);
-  assert.match(profileSource, /await refreshRealisations\\(\\)/);
-  assert.match(profileSource, /onSaved=\\{refreshRealisations\\}/);
+  assert.match(profileSource, /const \{\s*refreshRealisations,\s*resetOwnRealisations,/);
+  assert.match(profileSource, /await refreshRealisations\(\)/);
+  assert.match(profileSource, /onSaved=\{refreshRealisations\}/);
 });
 
 test("les réglages privés restent réservés au profil connecté", () => {
