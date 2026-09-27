@@ -1,4 +1,6 @@
 import { calculateCpr } from "../../../shared/cpr.js";
+import { GRADES } from "../../../shared/climbing-grades.js";
+import { MAX_SESSION_PARTICIPANTS } from "../../../shared/session-rules.js";
 import { PASSPORT_STYLES } from "./ui-config.js";
 import {
   REALISATION_CRITERION_WEIGHTS,
@@ -8,7 +10,7 @@ import {
 } from "./realisation-mode.js";
 export { getDefaultSessionStatus as defaultSessionStatus } from "../../../shared/session-default-status.js";
 
-export const GRADES = ["4","4a","4a+","4b","4b+","4c","4c+","5a","5a+","5b","5b+","5c","5c+","6a","6a+","6b","6b+","6c","6c+","7a","7a+","7b","7b+","7c","7c+"];
+export { GRADES };
 
 // Conservé pour compatibilité avec les anciens imports/tests.
 // Le coefficient moderne est calculé par getRealisationWeight afin de tenir
@@ -26,7 +28,7 @@ export {
   getRealisationWeight,
 } from "./realisation-mode.js";
 
-export const MAX_PARTICIPANTS = 18;
+export const MAX_PARTICIPANTS = MAX_SESSION_PARTICIPANTS;
 
 export function fullName(p) {
   return p ? `${p.nom} ${p.prenom}`.trim() : "";
