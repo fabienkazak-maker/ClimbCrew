@@ -1,6 +1,7 @@
 import { getPool } from "./database.js";
 import { validateSessionPayload } from "../validation.js";
 import { getDefaultSessionStatus } from "../../shared/session-default-status.js";
+import { MAX_SESSION_PARTICIPANTS } from "../../shared/session-rules.js";
 
 function normalizedId(value) {
   return value === null || value === undefined || value === "" ? null : String(value);
@@ -8,6 +9,16 @@ function normalizedId(value) {
 
 function sameId(left, right) {
   return normalizedId(left) === normalizedId(right);
+}
+
+function assertSessionCapacity(participantIds) {
+  const uniqueParticipantIds = [...new Set((participantIds || []).map(String).filter(Boolean))];
+  if (uniqueParticipantIds.length > MAX_SESSION_PARTICIPANTS) {
+    const error = new Error(`Une séance ne peut pas dépasser ${MAX_SESSION_PARTICIPANTS} participants.`);
+    error.status = 409;
+    throw error;
+  }
+  return uniqueParticipantIds;
 }
 
 function symmetricDifference(left, right) {
@@ -219,11 +230,11 @@ export async function updateSessionWithAuthorization(req, res) {
       );
       sessionRow = result.rows[0];
 
-      const nextParticipantIds = [...new Set([
+      const nextParticipantIds = assertSessionCapacity([
         ...requested.participantIds.map(String),
         requested.encadrantId ? String(requested.encadrantId) : null,
         requested.referentId ? String(requested.referentId) : null,
-      ].filter(Boolean))];
+      ]);
       const newlyAdded = nextParticipantIds.filter((id) => !previousParticipantIds.includes(id));
       if (resolvedStatus === "libre") {
         for (const participantId of newlyAdded) await assertLibreEligibility(client, participantId);
@@ -249,6 +260,7 @@ export async function updateSessionWithAuthorization(req, res) {
 
       const actorId = String(actorParticipantId);
       if (policy.actorJoins) {
+        assertSessionCapacity([...previousParticipantIds, actorId]);
         if (resolvedStatus === "libre") await assertLibreEligibility(client, actorId);
         await client.query(
           `insert into session_participants (session_id, participant_id) values ($1,$2) on conflict do nothing`,
