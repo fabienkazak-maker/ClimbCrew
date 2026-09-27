@@ -157,7 +157,7 @@ export default function StatisticsSection({
         </div>
 
         <div style={{ overflowX: "auto", border: "1px solid var(--border, #bbb)", borderRadius: 8 }}>
-          <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 1100, background: "var(--surface, white)", fontSize: "clamp(.72rem, .8vw, .86rem)" }}>
+          <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 1280, background: "var(--surface, white)", fontSize: "clamp(.72rem, .8vw, .86rem)" }}>
             <thead style={{ background: "var(--card-bg, #eee)" }}>
               <tr>
                 {ROUTE_REALISATION_COLUMNS.map((column) => {
@@ -170,7 +170,8 @@ export default function StatisticsSection({
                         border: "1px solid #bbb",
                         textAlign: column.key === "route" ? "left" : "center",
                         verticalAlign: "top",
-                        whiteSpace: "nowrap",
+                        whiteSpace: "normal",
+                        minWidth: column.key === "route" ? 180 : column.key === "grade" ? 100 : 90,
                       }}
                     >
                       <button
@@ -186,6 +187,8 @@ export default function StatisticsSection({
                           border: 0,
                           color: "inherit",
                           cursor: "pointer",
+                          display: "block",
+                          whiteSpace: "normal",
                         }}
                       >
                         {column.label} <span aria-hidden="true">{activeSort ? (routeSort.direction === "asc" ? "▲" : "▼") : "↕"}</span>
@@ -200,8 +203,11 @@ export default function StatisticsSection({
                         aria-label={`Filtrer ${column.label}`}
                         placeholder={column.numeric ? "ex. >=1" : "Filtrer"}
                         style={{
-                          width: column.key === "route" ? 150 : 86,
+                          width: "100%",
+                          maxWidth: "100%",
                           minWidth: 0,
+                          display: "block",
+                          boxSizing: "border-box",
                           marginTop: 3,
                           padding: "4px 5px",
                           fontSize: "inherit",
