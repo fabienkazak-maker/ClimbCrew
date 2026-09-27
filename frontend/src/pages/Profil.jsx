@@ -14,6 +14,7 @@ import {
   fullName,
   formatPoints,
   formatDateShortFr,
+  formatRouteForRealisation,
   gradeToIndex,
   normalizeRopeNumber,
 } from "../lib/domain.js";
