@@ -11,7 +11,7 @@ function sameId(left, right) {
   return normalizedId(left) === normalizedId(right);
 }
 
-function assertSessionCapacity(participantIds) {
+export function assertSessionCapacity(participantIds) {
   const uniqueParticipantIds = [...new Set((participantIds || []).map(String).filter(Boolean))];
   if (uniqueParticipantIds.length > MAX_SESSION_PARTICIPANTS) {
     const error = new Error(`Une séance ne peut pas dépasser ${MAX_SESSION_PARTICIPANTS} participants.`);
