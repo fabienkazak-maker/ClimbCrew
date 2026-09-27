@@ -4,9 +4,9 @@ test("la création de compte expose des contrôles utilisables sur Android", asy
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("button", { name: /création d.un compte/i })).toBeVisible();
   await page.getByRole("button", { name: /création d.un compte/i }).click();
-  await expect(page.getByLabel(/prénom/i)).toBeVisible();
-  await expect(page.getByLabel(/nom/i)).toBeVisible();
-  await expect(page.getByLabel(/email/i)).toBeVisible();
+  await expect(page.getByLabel("Prénom", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Nom", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Email", { exact: true })).toBeVisible();
 });
 
 test("aucun dialogue navigateur natif n'est déclenché sur l'écran d'accès", async ({ page }) => {
