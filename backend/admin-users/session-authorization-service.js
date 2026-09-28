@@ -102,21 +102,67 @@ export function evaluateSessionMutation({
       ? Boolean(canEncadrer || canReferer)
       : Boolean(canEncadrer);
 
-    if (isAdmin || canCreateRequestedStatus) {
+    if (!isAdmin && !canCreateRequestedStatus) {
+      return {
+        allowed: false,
+        status: 403,
+        error: requestedStatus === "libre"
+          ? "Seuls les référents, encadrants ou administrateurs peuvent créer une séance libre."
+          : "Seuls les encadrants ou administrateurs peuvent créer une séance encadrée ou fermée.",
+      };
+    }
+
+    if (isAdmin) {
       return {
         allowed: true,
+        canCreate: true,
         canManageAll: true,
         canChangeStatus: true,
         statusChanged: true,
       };
     }
 
+    if (requestedSession.encadrantId || requestedSession.referentId) {
+      return {
+        allowed: false,
+        status: 403,
+        error: "L’encadrant et le référent ne peuvent être affectés que par un administrateur.",
+      };
+    }
+
+    if (!actorId) {
+      return {
+        allowed: false,
+        status: 403,
+        error: "Le compte doit être associé à un grimpeur pour créer une séance.",
+      };
+    }
+
+    if ([...requested].some((participantId) => participantId !== actorId)) {
+      return {
+        allowed: false,
+        status: 403,
+        error: "Un utilisateur ne peut inscrire que lui-même lors de la création d’une séance.",
+      };
+    }
+
+    const actorJoins = requested.has(actorId);
+    if (actorJoins && requestedStatus === "fermee") {
+      return {
+        allowed: false,
+        status: 409,
+        error: "Cette séance est fermée : aucune nouvelle inscription n’est autorisée.",
+      };
+    }
+
     return {
-      allowed: false,
-      status: 403,
-      error: requestedStatus === "libre"
-        ? "Seuls les référents, encadrants ou administrateurs peuvent créer une séance libre."
-        : "Seuls les encadrants ou administrateurs peuvent créer une séance encadrée ou fermée.",
+      allowed: true,
+      canCreate: true,
+      canManageAll: false,
+      canChangeStatus: true,
+      statusChanged: true,
+      actorJoins,
+      actorLeaves: false,
     };
   }
 
@@ -280,6 +326,169 @@ export async function registerParticipantForSession(client, {
   return { registered: registration.rowCount > 0, session: resolvedSession };
 }
 
+function validateRegistrationParticipantId(value) {
+  const participantId = normalizedId(value);
+  if (!participantId || !/^\d+$/.test(participantId)) {
+    const error = new Error("Identifiant de grimpeur invalide.");
+    error.status = 400;
+    throw error;
+  }
+  return participantId;
+}
+
+async function mutateSessionParticipant(req, res, { remove = false } = {}) {
+  const client = await getPool().connect();
+  try {
+    const targetParticipantId = validateRegistrationParticipantId(req.params.participantId);
+    const actorParticipantId = normalizedId(req.auth?.user?.participantId);
+    const isAdmin = req.auth?.user?.role === "admin";
+
+    if (!isAdmin && targetParticipantId !== actorParticipantId) {
+      return res.status(403).json({
+        error: "Un utilisateur ne peut modifier que sa propre inscription à une séance.",
+      });
+    }
+
+    await client.query("begin");
+    const sessionResult = await client.query(
+      `select id, date, slot, status, encadrant_id, referent_id
+       from sessions where id = $1 for update`,
+      [req.params.id],
+    );
+    let session = sessionResult.rows[0] || null;
+    let created = false;
+
+    if (!session) {
+      if (remove) {
+        await client.query("rollback");
+        return res.status(404).json({ error: "Séance introuvable." });
+      }
+
+      const requestedSession = validateSessionPayload(req.body?.session || {}, req.params.id);
+      const privileges = await loadActorPrivileges(client, actorParticipantId);
+      const creationPolicy = evaluateSessionMutation({
+        existingSession: null,
+        requestedSession: {
+          ...requestedSession,
+          participantIds: [targetParticipantId],
+        },
+        previousParticipantIds: [],
+        actorParticipantId,
+        isAdmin,
+        ...privileges,
+      });
+      if (!creationPolicy.allowed) {
+        await client.query("rollback");
+        return res.status(creationPolicy.status || 403).json({
+          error: creationPolicy.error || "Création de la séance non autorisée",
+        });
+      }
+
+      const resolvedStatus = requestedSession.status
+        || getDefaultSessionStatus(requestedSession.date, requestedSession.slot);
+      const createdSession = await client.query(
+        `insert into sessions (id, date, slot, status, encadrant_id, referent_id)
+         values ($1,$2,$3,$4,$5,$6)
+         returning id, date, slot, status, encadrant_id, referent_id`,
+        [
+          requestedSession.id,
+          requestedSession.date,
+          requestedSession.slot,
+          resolvedStatus,
+          creationPolicy.canManageAll ? requestedSession.encadrantId || null : null,
+          creationPolicy.canManageAll ? requestedSession.referentId || null : null,
+        ],
+      );
+      session = createdSession.rows[0];
+      created = true;
+    }
+
+    const participantResult = await client.query(
+      "select id from participants where id = $1 limit 1",
+      [targetParticipantId],
+    );
+    if (!participantResult.rowCount) {
+      await client.query("rollback");
+      return res.status(404).json({ error: "Grimpeur introuvable." });
+    }
+
+    const beforeResult = await client.query(
+      `select participant_id
+       from session_participants
+       where session_id = $1
+       order by created_at asc, participant_id asc`,
+      [session.id],
+    );
+    const beforeParticipantIds = beforeResult.rows.map((row) => String(row.participant_id));
+
+    let changed = false;
+    if (remove) {
+      const deletion = await client.query(
+        `delete from session_participants
+         where session_id = $1 and participant_id = $2
+         returning participant_id`,
+        [session.id, targetParticipantId],
+      );
+      changed = deletion.rowCount > 0;
+    } else {
+      const registration = await registerParticipantForSession(client, {
+        sessionId: session.id,
+        participantId: targetParticipantId,
+        session,
+        participantIds: beforeParticipantIds,
+        allowClosed: isAdmin,
+      });
+      changed = registration.registered;
+    }
+
+    const afterResult = await client.query(
+      `select participant_id
+       from session_participants
+       where session_id = $1
+       order by created_at asc, participant_id asc`,
+      [session.id],
+    );
+    const participantIds = afterResult.rows.map((row) => String(row.participant_id));
+
+    if (changed || created) {
+      await writePlanningAuditLog(
+        client,
+        req,
+        created ? "planning_session_created" : "planning_session_updated",
+        {
+          sessionId: String(session.id),
+          changes: created ? ["creation"] : ["participants"],
+          before: created ? null : sessionAuditSnapshot(session, beforeParticipantIds),
+          after: sessionAuditSnapshot(session, participantIds),
+        },
+      );
+    }
+
+    await client.query("commit");
+    return res.json({
+      ok: true,
+      changed,
+      participantIds,
+    });
+  } catch (error) {
+    await client.query("rollback").catch(() => undefined);
+    return res.status(error.status || 500).json({
+      error: error.message || "Modification de l’inscription impossible",
+      fields: error.fields || undefined,
+    });
+  } finally {
+    client.release();
+  }
+}
+
+export function addSessionParticipantWithAuthorization(req, res) {
+  return mutateSessionParticipant(req, res);
+}
+
+export function removeSessionParticipantWithAuthorization(req, res) {
+  return mutateSessionParticipant(req, res, { remove: true });
+}
+
 /** Contrôleur sécurisé remplaçant PUT /sessions/:id. */
 export async function updateSessionWithAuthorization(req, res) {
   const client = await getPool().connect();
@@ -310,9 +519,27 @@ export async function updateSessionWithAuthorization(req, res) {
     )];
 
     const privileges = await loadActorPrivileges(client, actorParticipantId);
+    const preserveParticipants = Boolean(existing && req.body?.participantMode === "preserve");
+    const policyRequestedSession = preserveParticipants
+      ? { ...requested, participantIds: previousParticipantIds }
+      : requested;
+
+    if (existing && isAdmin && !preserveParticipants) {
+      const participantChanges = symmetricDifference(
+        new Set(previousParticipantIds),
+        new Set(requested.participantIds.map(String)),
+      );
+      if (participantChanges.length > 0) {
+        await client.query("rollback");
+        return res.status(409).json({
+          error: "Les inscriptions doivent être modifiées avec les opérations dédiées du planning.",
+        });
+      }
+    }
+
     const policy = evaluateSessionMutation({
       existingSession: existing,
-      requestedSession: requested,
+      requestedSession: policyRequestedSession,
       previousParticipantIds,
       actorParticipantId,
       isAdmin,
@@ -354,31 +581,41 @@ export async function updateSessionWithAuthorization(req, res) {
       );
       sessionRow = result.rows[0];
 
-      const nextParticipantIds = assertSessionCapacity(requested.participantIds.map(String));
-      const previousParticipantSet = new Set(previousParticipantIds);
-      const nextParticipantSet = new Set(nextParticipantIds);
-      const newlyAdded = nextParticipantIds.filter((id) => !previousParticipantSet.has(id));
-      const removedParticipantIds = previousParticipantIds.filter((id) => !nextParticipantSet.has(id));
-      if (resolvedStatus === "libre") {
-        for (const participantId of newlyAdded) await assertLibreEligibility(client, participantId);
-      }
-
-      for (const participantId of removedParticipantIds) {
-        await client.query(
-          `delete from session_participants where session_id = $1 and participant_id = $2`,
-          [requested.id, participantId],
-        );
-      }
-      for (const participantId of newlyAdded) {
-        await client.query(
-          `insert into session_participants (session_id, participant_id, created_at)
-           values ($1,$2,clock_timestamp())
-           on conflict do nothing`,
-          [requested.id, participantId],
-        );
+      if (!existing) {
+        const nextParticipantIds = assertSessionCapacity(requested.participantIds.map(String));
+        const previousParticipantSet = new Set(previousParticipantIds);
+        const nextParticipantSet = new Set(nextParticipantIds);
+        const newlyAdded = nextParticipantIds.filter((id) => !previousParticipantSet.has(id));
+        const removedParticipantIds = previousParticipantIds.filter((id) => !nextParticipantSet.has(id));
+        if (resolvedStatus === "libre") {
+          for (const participantId of newlyAdded) await assertLibreEligibility(client, participantId);
+        }
+  
+        for (const participantId of removedParticipantIds) {
+          await client.query(
+            `delete from session_participants where session_id = $1 and participant_id = $2`,
+            [requested.id, participantId],
+          );
+        }
+        for (const participantId of newlyAdded) {
+          await client.query(
+            `insert into session_participants (session_id, participant_id, created_at)
+             values ($1,$2,clock_timestamp())
+             on conflict do nothing`,
+            [requested.id, participantId],
+          );
+        }
       }
     } else {
-      if (policy.statusChanged) {
+      if (!existing) {
+        const result = await client.query(
+          `insert into sessions (id, date, slot, status, encadrant_id, referent_id)
+           values ($1,$2,$3,$4,null,null)
+           returning id, date, slot, status, encadrant_id, referent_id`,
+          [requested.id, requested.date, requested.slot, resolvedStatus],
+        );
+        sessionRow = result.rows[0];
+      } else if (policy.statusChanged) {
         const result = await client.query(
           `update sessions set status = $2, updated_at = now() where id = $1 returning id, date, slot, status, encadrant_id, referent_id`,
           [requested.id, resolvedStatus],

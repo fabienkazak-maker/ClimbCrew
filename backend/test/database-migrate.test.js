@@ -43,6 +43,7 @@ test("un seul répertoire canonique conserve toutes les versions historiques dan
     "025_typed_business_dates.sql",
     "026_email_confirmation_schema_repair.sql",
     "027_unify_realisation_chat_kudos.sql",
+    "028_session_participant_integrity_convergence.sql",
   ]);
   assert.equal(new Set(versions).size, versions.length);
   assert.ok(migrations.every((migration) => migration.source === "database"));

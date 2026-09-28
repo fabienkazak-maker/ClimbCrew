@@ -6,6 +6,7 @@ import {
   REALISATIONS_PAGE_SIZE,
   fetchPaginatedCollection,
   mergeBootstrapCollections,
+  mergeSessionWindow,
   summarizeBootstrapResults,
 } from "../lib/bootstrap-data.js";
 
@@ -20,9 +21,15 @@ function isoDayOffset(days, now = new Date()) {
   return date.toISOString().slice(0, 10);
 }
 
+export function recentSessionWindow(now = new Date()) {
+  return {
+    from: isoDayOffset(-SESSION_WINDOW_PAST_DAYS, now),
+    to: isoDayOffset(SESSION_WINDOW_FUTURE_DAYS, now),
+  };
+}
+
 export function recentSessionsPath(now = new Date()) {
-  const from = isoDayOffset(-SESSION_WINDOW_PAST_DAYS, now);
-  const to = isoDayOffset(SESSION_WINDOW_FUTURE_DAYS, now);
+  const { from, to } = recentSessionWindow(now);
   return `${SESSIONS_PATH}?from=${from}&to=${to}`;
 }
 
@@ -258,20 +265,37 @@ export function useAppBootstrap({
     if (!useApi || !authUserId) return undefined;
 
     let cancelled = false;
-    const refreshPlanning = () => {
+    const refreshPlanning = async () => {
       if (cancelled || document.visibilityState === "hidden") return;
-      void reloadApiState({
-        isMounted: () => !cancelled,
-        recentOnly: true,
-      }).catch(() => undefined);
+
+      const windowRange = recentSessionWindow();
+      setIsSyncing(true);
+      try {
+        const sessions = await apiFetch(recentSessionsPath());
+        if (cancelled || !Array.isArray(sessions)) return;
+        setState((previous) => ({
+          ...previous,
+          sessions: mergeSessionWindow(previous.sessions, sessions, windowRange),
+        }));
+        setSyncMessage("Planning actualisé");
+      } catch (error) {
+        if (!cancelled) {
+          setSyncMessage("Actualisation du planning impossible · données précédentes conservées");
+          console.error(error);
+        }
+      } finally {
+        if (!cancelled) setIsSyncing(false);
+      }
     };
 
-    const intervalId = window.setInterval(refreshPlanning, 30000);
+    const intervalId = window.setInterval(() => {
+      void refreshPlanning();
+    }, 30000);
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [authUserId, reloadApiState, useApi]);
+  }, [authUserId, setIsSyncing, setState, setSyncMessage, useApi]);
 
   useEffect(() => {
     if (!useApi || !authUserId) {
