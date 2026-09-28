@@ -519,9 +519,24 @@ export async function updateSessionWithAuthorization(req, res) {
     )];
 
     const privileges = await loadActorPrivileges(client, actorParticipantId);
-    const policyRequestedSession = existing
+    const preserveParticipants = Boolean(existing && req.body?.participantMode === "preserve");
+    const policyRequestedSession = preserveParticipants
       ? { ...requested, participantIds: previousParticipantIds }
       : requested;
+
+    if (existing && isAdmin && !preserveParticipants) {
+      const participantChanges = symmetricDifference(
+        new Set(previousParticipantIds),
+        new Set(requested.participantIds.map(String)),
+      );
+      if (participantChanges.length > 0) {
+        await client.query("rollback");
+        return res.status(409).json({
+          error: "Les inscriptions doivent être modifiées avec les opérations dédiées du planning.",
+        });
+      }
+    }
+
     const policy = evaluateSessionMutation({
       existingSession: existing,
       requestedSession: policyRequestedSession,
