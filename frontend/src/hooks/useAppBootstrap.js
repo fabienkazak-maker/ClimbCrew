@@ -255,6 +255,25 @@ export function useAppBootstrap({
   ]);
 
   useEffect(() => {
+    if (!useApi || !authUserId) return undefined;
+
+    let cancelled = false;
+    const refreshPlanning = () => {
+      if (cancelled || document.visibilityState === "hidden") return;
+      void reloadApiState({
+        isMounted: () => !cancelled,
+        recentOnly: true,
+      }).catch(() => undefined);
+    };
+
+    const intervalId = window.setInterval(refreshPlanning, 30000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [authUserId, reloadApiState, useApi]);
+
+  useEffect(() => {
     if (!useApi || !authUserId) {
       setPendingBroadcastMessages([]);
       return undefined;
