@@ -248,6 +248,12 @@ export async function listRealisationsWithPrivacy(req, res) {
           r.assureur_id as "assureurId",
           r.video_urls as "videoUrls",
           (select count(*)::integer from realisation_kudos k where k.realisation_id = r.id) as "kudosCount",
+          array(
+            select k.participant_id::text
+            from realisation_kudos k
+            where k.realisation_id = r.id
+            order by k.created_at asc, k.participant_id asc
+          ) as "kudosParticipantIds",
           exists(
             select 1 from realisation_kudos k
             where k.realisation_id = r.id and k.participant_id::text = $2

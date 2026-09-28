@@ -108,7 +108,12 @@ export default function Chat({ myParticipantId, participants = [], canPin = fals
         body: JSON.stringify({ reaction }),
       });
       await loadMessages();
-      setFeedback(mine ? "Réaction retirée." : "Réaction ajoutée.");
+      const isRealisationKudo = reaction === "👍" && item.eventType === "realisation" && item.eventRef;
+      setFeedback(
+        isRealisationKudo
+          ? (mine ? "Kudo retiré de la réalisation." : "Kudo enregistré sur la réalisation.")
+          : (mine ? "Réaction retirée." : "Réaction ajoutée."),
+      );
       setError("");
     } catch (err) {
       setError(String(err.message || err));
