@@ -220,7 +220,7 @@ export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
       );
       try {
         const info = await pool.query(
-          `select p.prenom, p.nom, r.nom_voie, r.numero_corde, r.nom_ouvreur, r.cotation_reference, r.cotation_ajustee
+          `select p.prenom, p.nom, r.nom_voie, r.numero_corde, r.couleur_prises, r.nom_ouvreur, r.cotation_reference, r.cotation_ajustee
            from participants p cross join routes r
            where p.id = $1 and r.id = $2 limit 1`,
           [participantId, realisation.voieId],
@@ -229,6 +229,7 @@ export function installRealisationManagementRoutes(app, { requireAuth, pool }) {
         const who = [row.prenom, row.nom].filter(Boolean).join(" ") || "Un grimpeur";
         const routeParts = [
           row.numero_corde ? `corde ${row.numero_corde}` : "",
+          row.couleur_prises ? String(row.couleur_prises).trim() : "",
           row.nom_voie ? `« ${row.nom_voie} »` : "",
           row.nom_ouvreur ? `ouverte par ${row.nom_ouvreur}` : "",
         ].filter(Boolean);

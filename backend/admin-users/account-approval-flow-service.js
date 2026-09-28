@@ -114,7 +114,23 @@ export async function verifyEmailPendingAdminApproval(req, res) {
     return res.status(200).send("Adresse e-mail confirmée.");
   } catch (error) {
     await client.query("rollback").catch(() => undefined);
-    console.error("Confirmation de l’adresse e-mail impossible :", error);
+    console.error("Confirmation de l’adresse e-mail impossible :", {
+      requestId: req.requestId || null,
+      code: error?.code || null,
+      message: error?.message || String(error),
+      stack: error?.stack || null,
+    });
+    await writeAccessLog({
+      userId: null,
+      eventType: "account_request_email_verification_failed",
+      success: false,
+      req,
+      details: {
+        requestId: req.requestId || null,
+        code: error?.code || null,
+        error: String(error?.message || error),
+      },
+    });
     return res.status(500).send("La confirmation de l’adresse e-mail a échoué.");
   } finally {
     client.release();

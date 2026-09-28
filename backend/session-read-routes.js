@@ -91,28 +91,73 @@ export function installSessionReadRoutes(app, { requireAuth, requireAdmin, pool 
   });
 
   app.delete("/sessions/:id", requireAuth, requireAdmin, async (req, res) => {
+    const client = await pool.connect();
     try {
       const { id } = req.params;
-      const history = await pool.query(
+      await client.query("begin");
+      const sessionResult = await client.query(
+        "select id, date, slot, status, encadrant_id, referent_id from sessions where id = $1 for update",
+        [id],
+      );
+      if (!sessionResult.rowCount) {
+        await client.query("rollback");
+        return res.status(404).json({ error: "Séance introuvable" });
+      }
+      const participantsResult = await client.query(
+        "select participant_id from session_participants where session_id = $1 order by participant_id",
+        [id],
+      );
+      const history = await client.query(
         "select count(*)::integer as count from realisations where session_id = $1",
         [id],
       );
       const retainedRealisations = Number(history.rows[0]?.count || 0);
       if (retainedRealisations > 0) {
+        await client.query("rollback");
         return res.status(409).json({
           error: `Cette séance contient ${retainedRealisations} réalisation(s) et ne peut pas être supprimée.`,
           retainedRealisations,
         });
       }
 
-      const result = await pool.query("delete from sessions where id = $1 returning id", [id]);
-      if (!result.rowCount) return res.status(404).json({ error: "Séance introuvable" });
+      await client.query("delete from sessions where id = $1", [id]);
+      const session = sessionResult.rows[0];
+      const participantIds = [...new Set([
+        ...participantsResult.rows.map((row) => String(row.participant_id)),
+        session.encadrant_id ? String(session.encadrant_id) : null,
+        session.referent_id ? String(session.referent_id) : null,
+      ].filter(Boolean))].sort();
+      await client.query(
+        `insert into access_logs (user_id, event_type, success, ip_address, user_agent, details)
+         values ($1,'planning_session_deleted',true,$2,$3,$4::jsonb)`,
+        [
+          req.auth?.user?.id || null,
+          req.ip || null,
+          req.headers?.["user-agent"] || null,
+          JSON.stringify({
+            sessionId: String(id),
+            before: {
+              id: String(session.id),
+              date: session.date,
+              slot: session.slot,
+              status: session.status,
+              encadrantId: session.encadrant_id ? String(session.encadrant_id) : null,
+              referentId: session.referent_id ? String(session.referent_id) : null,
+              participantIds,
+            },
+          }),
+        ],
+      );
+      await client.query("commit");
       return res.status(204).send();
     } catch (error) {
+      await client.query("rollback").catch(() => undefined);
       return res.status(error.status || 500).json({
         error: error.message || "Suppression de la séance impossible",
         fields: error.fields || undefined,
       });
+    } finally {
+      client.release();
     }
   });
 }

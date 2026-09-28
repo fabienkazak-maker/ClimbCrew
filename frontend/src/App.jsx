@@ -644,7 +644,11 @@ function App() {
       return { ...prev, sessions };
     });
 
-    if (USE_API) {
+    // Les créneaux absents restent des placeholders locaux tant qu'aucune action
+    // explicite ne les ouvre. Cela évite de réserver la simple navigation aux
+    // administrateurs et laisse le backend appliquer les droits métier au moment
+    // de la première modification (référent => libre, encadrant => libre/encadrée).
+    if (!USE_API) {
       createdSessions.forEach((session) => syncSessionToApi(session));
     }
   }

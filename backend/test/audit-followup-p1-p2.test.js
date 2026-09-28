@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 import {
+  evaluateSessionMutation,
   registerParticipantForSession,
 } from "../admin-users/session-authorization-service.js";
 import {
@@ -66,4 +67,42 @@ test("l'état des schedulers expose explicitement un mode dégradé", () => {
   markSchedulerHealthy("test-degraded");
   snapshot = getSchedulerHealthSnapshot();
   assert.equal(snapshot.schedulers.find((item) => item.name === "test-degraded")?.status, "healthy");
+});
+
+
+test("un encadrant peut créer une séance libre ou encadrée et un référent une séance libre", () => {
+  const base = {
+    existingSession: null,
+    previousParticipantIds: [],
+    actorParticipantId: "7",
+    isAdmin: false,
+  };
+
+  assert.equal(evaluateSessionMutation({
+    ...base,
+    requestedSession: { id: "2026-09-29-soir", date: "2026-09-29", slot: "soir", status: "libre", participantIds: [] },
+    canEncadrer: true,
+    canReferer: false,
+  }).allowed, true);
+
+  assert.equal(evaluateSessionMutation({
+    ...base,
+    requestedSession: { id: "2026-09-29-soir", date: "2026-09-29", slot: "soir", status: "encadree", participantIds: [] },
+    canEncadrer: true,
+    canReferer: false,
+  }).allowed, true);
+
+  assert.equal(evaluateSessionMutation({
+    ...base,
+    requestedSession: { id: "2026-09-29-soir", date: "2026-09-29", slot: "soir", status: "libre", participantIds: [] },
+    canEncadrer: false,
+    canReferer: true,
+  }).allowed, true);
+
+  assert.equal(evaluateSessionMutation({
+    ...base,
+    requestedSession: { id: "2026-09-29-soir", date: "2026-09-29", slot: "soir", status: "encadree", participantIds: [] },
+    canEncadrer: false,
+    canReferer: true,
+  }).allowed, false);
 });
