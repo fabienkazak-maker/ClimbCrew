@@ -33,11 +33,11 @@ test("la voie est présentée de façon compacte sans répéter la corde", async
   assert.doesNotMatch(voies, /0 réalisation|routeRating\.count\} réalisation/);
 });
 
-test("les formulaires de réalisation présentent corde, cotation, ouvreur puis nom", async () => {
+test("les formulaires de réalisation présentent corde, couleur, cotation, ouvreur puis nom", async () => {
   const domain = await readFile(new URL("../src/lib/domain.js", import.meta.url), "utf8");
   const modal = await readFile(new URL("../src/components/RealisationModal.jsx", import.meta.url), "utf8");
   const progression = await readFile(new URL("../src/pages/Progression.jsx", import.meta.url), "utf8");
-  assert.match(domain, /return \[rope, grade, opener, name\]\.filter\(Boolean\)\.join\(" · "\)/);
+  assert.match(domain, /return \[rope, color, grade, opener, name\]\.filter\(Boolean\)\.join\(" · "\)/);
   assert.match(modal, /formatRouteForRealisation\(route\)/);
   assert.match(progression, /formatRouteForRealisation\(routeOption\)/);
 });
