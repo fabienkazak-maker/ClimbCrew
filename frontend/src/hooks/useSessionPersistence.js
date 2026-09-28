@@ -44,7 +44,11 @@ export function useSessionPersistence({ useApi, setState, onSuccess, onError, re
     if (!hasParticipantChanges || hasSessionMetadataChanges(previousSession, session)) {
       await request(`/sessions/${encodeURIComponent(session.id)}`, {
         method: "PUT",
-        body: JSON.stringify({ ...session, participantIds: [] }),
+        body: JSON.stringify({
+          ...session,
+          participantIds: [],
+          participantMode: "preserve",
+        }),
       });
     }
 
