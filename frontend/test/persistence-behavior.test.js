@@ -188,5 +188,7 @@ test("une modification de métadonnées n'envoie jamais la liste des inscrits da
   assert.equal(calls.length, 1);
   assert.equal(calls[0].path, "/sessions/2026-09-28-soir");
   assert.equal(calls[0].options.method, "PUT");
-  assert.deepEqual(JSON.parse(calls[0].options.body).participantIds, []);
+  const metadataPayload = JSON.parse(calls[0].options.body);
+  assert.deepEqual(metadataPayload.participantIds, []);
+  assert.equal(metadataPayload.participantMode, "preserve");
 });
