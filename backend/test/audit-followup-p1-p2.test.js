@@ -89,7 +89,9 @@ test("l'API des séances conserve l'ordre fourni et n'ajoute pas les rôles aux 
   assert.equal(mapped.participantIds.includes("8"), false);
 
   const routes = await readFile(new URL("../session-read-routes.js", import.meta.url), "utf8");
-  assert.match(routes, /order by session_id asc, created_at asc, participant_id asc/);
+  assert.match(routes, /join sessions s on s\.id = sp\.session_id/);
+  assert.match(routes, /where \(\$1::date is null or s\.date >= \$1::date\)/);
+  assert.match(routes, /order by sp\.session_id asc, sp\.created_at asc, sp\.participant_id asc/);
 });
 
 test("TheCrag réutilise la règle d'inscription et le statut métier par défaut", async () => {
