@@ -7,8 +7,8 @@ export function isManagedSession(session) {
 }
 
 export function getSessionParticipantIds(session) {
-  // participantIds est la liste canonique fournie par l'API : elle inclut déjà
-  // les inscrits, l'encadrant et le référent, sans doublon.
+  // participantIds contient uniquement les personnes explicitement inscrites.
+  // L'encadrant et le référent restent des rôles distincts et peuvent s'inscrire séparément.
   return [...new Set((session?.participantIds || []).map(String))];
 }
 

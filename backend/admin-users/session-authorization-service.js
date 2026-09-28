@@ -254,13 +254,9 @@ export async function registerParticipantForSession(client, {
     )).rows.map((row) => String(row.participant_id))
     : participantIds.map(String);
 
-  const effectiveParticipants = [...new Set([
-    ...listedParticipants,
-    resolvedSession.encadrant_id ? String(resolvedSession.encadrant_id) : null,
-    resolvedSession.referent_id ? String(resolvedSession.referent_id) : null,
-  ].filter(Boolean))];
+  const registeredParticipantIds = [...new Set(listedParticipants.map(String))];
 
-  if (effectiveParticipants.includes(actorId)) {
+  if (registeredParticipantIds.includes(actorId)) {
     return { registered: false, session: resolvedSession };
   }
   if (resolvedSession.status === "fermee" && !allowClosed) {
@@ -269,14 +265,14 @@ export async function registerParticipantForSession(client, {
     throw error;
   }
 
-  assertSessionCapacity([...effectiveParticipants, actorId]);
+  assertSessionCapacity([...registeredParticipantIds, actorId]);
   if (resolvedSession.status === "libre") {
     await assertLibreEligibility(client, actorId);
   }
 
   const registration = await client.query(
-    `insert into session_participants (session_id, participant_id)
-     values ($1, $2)
+    `insert into session_participants (session_id, participant_id, created_at)
+     values ($1, $2, clock_timestamp())
      on conflict (session_id, participant_id) do nothing
      returning session_id`,
     [resolvedSession.id, actorId],
@@ -301,13 +297,17 @@ export async function updateSessionWithAuthorization(req, res) {
     const existing = existingResult.rows[0] || null;
 
     const participantsResult = existing
-      ? await client.query(`select participant_id from session_participants where session_id = $1`, [requested.id])
+      ? await client.query(
+        `select participant_id
+         from session_participants
+         where session_id = $1
+         order by created_at asc, participant_id asc`,
+        [requested.id],
+      )
       : { rows: [] };
-    const previousParticipantIds = [...new Set([
-      ...participantsResult.rows.map((row) => String(row.participant_id)),
-      existing?.encadrant_id ? String(existing.encadrant_id) : null,
-      existing?.referent_id ? String(existing.referent_id) : null,
-    ].filter(Boolean))];
+    const previousParticipantIds = [...new Set(
+      participantsResult.rows.map((row) => String(row.participant_id)),
+    )];
 
     const privileges = await loadActorPrivileges(client, actorParticipantId);
     const policy = evaluateSessionMutation({
@@ -354,20 +354,26 @@ export async function updateSessionWithAuthorization(req, res) {
       );
       sessionRow = result.rows[0];
 
-      const nextParticipantIds = assertSessionCapacity([
-        ...requested.participantIds.map(String),
-        requested.encadrantId ? String(requested.encadrantId) : null,
-        requested.referentId ? String(requested.referentId) : null,
-      ]);
-      const newlyAdded = nextParticipantIds.filter((id) => !previousParticipantIds.includes(id));
+      const nextParticipantIds = assertSessionCapacity(requested.participantIds.map(String));
+      const previousParticipantSet = new Set(previousParticipantIds);
+      const nextParticipantSet = new Set(nextParticipantIds);
+      const newlyAdded = nextParticipantIds.filter((id) => !previousParticipantSet.has(id));
+      const removedParticipantIds = previousParticipantIds.filter((id) => !nextParticipantSet.has(id));
       if (resolvedStatus === "libre") {
         for (const participantId of newlyAdded) await assertLibreEligibility(client, participantId);
       }
 
-      await client.query(`delete from session_participants where session_id = $1`, [requested.id]);
-      for (const participantId of nextParticipantIds) {
+      for (const participantId of removedParticipantIds) {
         await client.query(
-          `insert into session_participants (session_id, participant_id) values ($1,$2) on conflict do nothing`,
+          `delete from session_participants where session_id = $1 and participant_id = $2`,
+          [requested.id, participantId],
+        );
+      }
+      for (const participantId of newlyAdded) {
+        await client.query(
+          `insert into session_participants (session_id, participant_id, created_at)
+           values ($1,$2,clock_timestamp())
+           on conflict do nothing`,
           [requested.id, participantId],
         );
       }
@@ -399,14 +405,15 @@ export async function updateSessionWithAuthorization(req, res) {
     }
 
     const finalParticipants = await client.query(
-      `select participant_id from session_participants where session_id = $1 order by participant_id`,
+      `select participant_id
+       from session_participants
+       where session_id = $1
+       order by created_at asc, participant_id asc`,
       [requested.id],
     );
-    const finalParticipantIds = [...new Set([
-      ...finalParticipants.rows.map((row) => String(row.participant_id)),
-      sessionRow.encadrant_id ? String(sessionRow.encadrant_id) : null,
-      sessionRow.referent_id ? String(sessionRow.referent_id) : null,
-    ].filter(Boolean))].sort();
+    const finalParticipantIds = [...new Set(
+      finalParticipants.rows.map((row) => String(row.participant_id)),
+    )];
     const beforeAudit = sessionAuditSnapshot(existing, previousParticipantIds);
     const afterAudit = sessionAuditSnapshot(sessionRow, finalParticipantIds);
     const changes = sessionAuditChanges(beforeAudit, afterAudit);
