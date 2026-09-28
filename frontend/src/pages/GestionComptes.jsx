@@ -147,24 +147,12 @@ export default function GestionComptes({
     setAssociationMessage(`${approvedLinkedEmails.length} adresse(s) e-mail exportée(s) au format Outlook.`);
   }
 
-  async function runAutomaticAssociations() {
-    setAssociationBusy(true);
-    setAssociationError("");
-    setAssociationMessage("");
-    try {
-      const result = await apiFetch("/admin/auth/associations/auto", { method: "POST" });
-      setAssociationMessage(`${result.associatedCount || 0} association(s) créée(s) par e-mail identique. ${result.ambiguousCount || 0} ambiguë(s), ${result.unavailableCount || 0} déjà utilisée(s), ${result.unmatchedCount || 0} sans correspondance à associer manuellement.`);
-      await refreshAccountData();
-      if ((result.associatedUserIds || []).map(String).includes(String(authUser?.id || ""))) window.location.reload();
-    } catch (error) {
-      setAssociationError(String(error.message || error));
-    } finally {
-      setAssociationBusy(false);
-    }
-  }
-
   async function saveManualAssociation(user) {
     const participantId = draftParticipantId(user);
+    if (user.status === "pending" && !user.email_verified_at) {
+      setAssociationError("L’adresse e-mail doit être confirmée avant d’associer ce compte.");
+      return;
+    }
     if (!participantId) {
       setAssociationError("Choisissez une fiche grimpeur avant de lancer l’association manuelle.");
       return;
@@ -233,17 +221,23 @@ export default function GestionComptes({
     const associatedParticipant = user.participantId ? participantById[String(user.participantId)] : null;
     const selectedParticipantId = draftParticipantId(user);
     const options = participantOptionsForUser(user);
+    const associationAllowed = user.status !== "pending" || Boolean(user.email_verified_at);
     return (
       <div style={{ marginTop: 10 }}>
         <div className="small" style={{ marginBottom: 6 }}>Fiche grimpeur : {associatedParticipant ? <strong>{fullName(associatedParticipant)}</strong> : <strong>aucune association</strong>}</div>
         <div className="group" style={{ alignItems: "center" }}>
-          <select value={selectedParticipantId} onChange={(event) => setAssociationDrafts((current) => ({ ...current, [user.id]: event.target.value }))} disabled={associationBusy} aria-label={`Fiche grimpeur associée au compte de ${user.prenom} ${user.nom}`}>
+          <select value={selectedParticipantId} onChange={(event) => setAssociationDrafts((current) => ({ ...current, [user.id]: event.target.value }))} disabled={associationBusy || !associationAllowed} aria-label={`Fiche grimpeur associée au compte de ${user.prenom} ${user.nom}`}>
             <option value="">Choisir un grimpeur</option>
             {options.map((participant) => <option key={participant.id} value={participant.id}>{fullName(participant)}{participant.email ? ` · ${participant.email}` : ""}</option>)}
           </select>
-          <Button variant="secondary" disabled={associationBusy || !selectedParticipantId || String(selectedParticipantId) === String(user.participantId || "")} onClick={() => saveManualAssociation(user)}>Associer</Button>
+          <Button variant="secondary" disabled={associationBusy || !associationAllowed || !selectedParticipantId || String(selectedParticipantId) === String(user.participantId || "")} onClick={() => saveManualAssociation(user)}>Associer</Button>
           {user.participantId && <Button variant="secondary" disabled={associationBusy} onClick={() => removeManualAssociation(user)}>Dissocier</Button>}
         </div>
+        {!associationAllowed && (
+          <div className="small" style={{ marginTop: 6 }}>
+            Confirmez d’abord l’adresse e-mail du compte avant de l’associer à une fiche grimpeur.
+          </div>
+        )}
       </div>
     );
   };
@@ -280,7 +274,6 @@ export default function GestionComptes({
       <div className="card-header">
         <h2>Gestion des comptes</h2>
         <div className="group">
-          <Button onClick={runAutomaticAssociations} disabled={associationBusy}>Associations</Button>
           <Button
             variant="secondary"
             onClick={() => setAccountSort((current) => current === "name" ? "created" : "name")}
@@ -292,7 +285,7 @@ export default function GestionComptes({
           <Button variant="secondary" onClick={exportApprovedLinkedEmailsOutlook} disabled={approvedLinkedEmails.length === 0}>Exporter les e-mails (Outlook)</Button>
         </div>
       </div>
-      <div className="small" style={{ marginBottom: 10 }}>Associations rattache les comptes non associés uniquement par adresse e-mail strictement identique. Les associations existantes ne sont jamais remplacées automatiquement. L'export e-mail ne reprend que les comptes approuvés reliés à une fiche grimpeur.</div>
+      <div className="small" style={{ marginBottom: 10 }}>Parcours d’un nouveau compte : confirmation de l’adresse e-mail, association manuelle à une fiche grimpeur, puis approbation. Une fiche déjà associée à un autre compte n’est pas proposée. L'export e-mail ne reprend que les comptes approuvés reliés à une fiche grimpeur.</div>
       {associationMessage && <div className="success" style={{ marginBottom: 12 }}>{associationMessage}</div>}
       {associationError && <div className="error" style={{ marginBottom: 12 }}>{associationError}</div>}
       {generatedResetToken && <div className="success" style={{ marginBottom: 12 }}>{generatedResetToken}</div>}
