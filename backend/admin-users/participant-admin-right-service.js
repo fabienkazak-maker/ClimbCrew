@@ -221,6 +221,13 @@ export async function setUserParticipantAssociationWithAdminRight(req, res) {
       return res.status(404).json({ error: "Compte introuvable" });
     }
 
+    if (participantId !== null && user.status === "pending" && !user.email_verified_at) {
+      await client.query("rollback");
+      return res.status(409).json({
+        error: "L’adresse e-mail doit être confirmée avant d’associer ce compte à une fiche grimpeur.",
+      });
+    }
+
     let targetParticipant = null;
     if (participantId !== null) {
       const participantResult = await client.query(
