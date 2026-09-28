@@ -23,6 +23,46 @@ export function assertSessionCapacity(participantIds) {
   return uniqueParticipantIds;
 }
 
+
+function sessionAuditSnapshot(session, participantIds = []) {
+  if (!session) return null;
+  return {
+    id: String(session.id),
+    date: session.date,
+    slot: session.slot,
+    status: session.status,
+    encadrantId: normalizedId(session.encadrant_id ?? session.encadrantId),
+    referentId: normalizedId(session.referent_id ?? session.referentId),
+    participantIds: [...new Set((participantIds || []).filter(Boolean).map(String))].sort(),
+  };
+}
+
+function sessionAuditChanges(before, after) {
+  if (!before) return ["creation"];
+  const changes = [];
+  if (before.date !== after.date) changes.push("date");
+  if (before.slot !== after.slot) changes.push("creneau");
+  if (before.status !== after.status) changes.push("statut");
+  if (before.encadrantId !== after.encadrantId) changes.push("encadrant");
+  if (before.referentId !== after.referentId) changes.push("referent");
+  if (JSON.stringify(before.participantIds) !== JSON.stringify(after.participantIds)) changes.push("participants");
+  return changes;
+}
+
+async function writePlanningAuditLog(client, req, eventType, details) {
+  await client.query(
+    `insert into access_logs (user_id, event_type, success, ip_address, user_agent, details)
+     values ($1,$2,true,$3,$4,$5::jsonb)`,
+    [
+      req.auth?.user?.id || null,
+      eventType,
+      req.ip || null,
+      req.headers?.["user-agent"] || null,
+      JSON.stringify(details || {}),
+    ],
+  );
+}
+
 function symmetricDifference(left, right) {
   const changed = [];
   for (const value of left) if (!right.has(value)) changed.push(value);
@@ -362,6 +402,27 @@ export async function updateSessionWithAuthorization(req, res) {
       `select participant_id from session_participants where session_id = $1 order by participant_id`,
       [requested.id],
     );
+    const finalParticipantIds = [...new Set([
+      ...finalParticipants.rows.map((row) => String(row.participant_id)),
+      sessionRow.encadrant_id ? String(sessionRow.encadrant_id) : null,
+      sessionRow.referent_id ? String(sessionRow.referent_id) : null,
+    ].filter(Boolean))].sort();
+    const beforeAudit = sessionAuditSnapshot(existing, previousParticipantIds);
+    const afterAudit = sessionAuditSnapshot(sessionRow, finalParticipantIds);
+    const changes = sessionAuditChanges(beforeAudit, afterAudit);
+    if (changes.length > 0) {
+      await writePlanningAuditLog(
+        client,
+        req,
+        existing ? "planning_session_updated" : "planning_session_created",
+        {
+          sessionId: String(requested.id),
+          changes,
+          before: beforeAudit,
+          after: afterAudit,
+        },
+      );
+    }
 
     await client.query("commit");
     return res.json({
@@ -371,11 +432,7 @@ export async function updateSessionWithAuthorization(req, res) {
       status: sessionRow.status,
       encadrantId: sessionRow.encadrant_id ? String(sessionRow.encadrant_id) : null,
       referentId: sessionRow.referent_id ? String(sessionRow.referent_id) : null,
-      participantIds: [...new Set([
-        ...finalParticipants.rows.map((row) => String(row.participant_id)),
-        sessionRow.encadrant_id ? String(sessionRow.encadrant_id) : null,
-        sessionRow.referent_id ? String(sessionRow.referent_id) : null,
-      ].filter(Boolean))],
+      participantIds: finalParticipantIds,
     });
   } catch (error) {
     await client.query("rollback").catch(() => undefined);
