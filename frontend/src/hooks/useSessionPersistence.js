@@ -40,7 +40,8 @@ export function useSessionPersistence({ useApi, setState, onSuccess, onError, re
   async function performSessionSync(previousSession, session, existed) {
     const { added, removed } = getSessionParticipantChanges(previousSession, session);
 
-    if (!existed || hasSessionMetadataChanges(previousSession, session)) {
+    const hasParticipantChanges = added.length > 0 || removed.length > 0;
+    if (!hasParticipantChanges || hasSessionMetadataChanges(previousSession, session)) {
       await request(`/sessions/${encodeURIComponent(session.id)}`, {
         method: "PUT",
         body: JSON.stringify({ ...session, participantIds: [] }),
@@ -56,6 +57,9 @@ export function useSessionPersistence({ useApi, setState, onSuccess, onError, re
     for (const participantId of added) {
       await request(participantRegistrationPath(session.id, participantId), {
         method: "POST",
+        body: JSON.stringify({
+          session: { ...session, participantIds: [] },
+        }),
       });
     }
   }
