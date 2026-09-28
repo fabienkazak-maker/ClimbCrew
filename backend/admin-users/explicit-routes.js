@@ -40,7 +40,11 @@ import {
   getParticipantCustomAvatar,
   updateOwnParticipantProfile,
 } from "./participant-avatar-service.js";
-import { updateSessionWithAuthorization } from "./session-authorization-service.js";
+import {
+  addSessionParticipantWithAuthorization,
+  removeSessionParticipantWithAuthorization,
+  updateSessionWithAuthorization,
+} from "./session-authorization-service.js";
 import { updateParticipantInitiatorQualifications } from "./initiator-qualification-service.js";
 import { startAccessLogRetentionScheduler } from "./access-log-retention.js";
 import { startSecurityRetentionScheduler } from "./security-retention-service.js";
@@ -150,6 +154,8 @@ export function installExplicitAdminUserRoutes(app, {
   app.delete("/participants/:id", requireAuth, requireAdmin, deleteParticipantSafely);
   app.get("/realisations", requireAuth, listRealisationsWithPrivacy);
   app.put("/sessions/:id", requireAuth, updateSessionWithAuthorization);
+  app.post("/sessions/:id/participants/:participantId", requireAuth, addSessionParticipantWithAuthorization);
+  app.delete("/sessions/:id/participants/:participantId", requireAuth, removeSessionParticipantWithAuthorization);
   app.post("/admin/import-data", requireAuth, requireAdmin, importBusinessDataSafely);
   app.post("/admin/reset/:type", requireAuth, requireAdmin, resetAdminData);
   app.get("/admin/export-data", requireAuth, requireAdmin, exportAllData);
