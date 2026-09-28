@@ -61,11 +61,17 @@ export function installSessionReadRoutes(app, { requireAuth, requireAdmin, pool 
         [window.from, window.to],
       );
 
-      const inscriptionsResult = await pool.query(`
-        select session_id, participant_id
-        from session_participants
-        order by session_id asc, created_at asc, participant_id asc
-      `);
+      const inscriptionsResult = await pool.query(
+        `
+          select sp.session_id, sp.participant_id
+          from session_participants sp
+          join sessions s on s.id = sp.session_id
+          where ($1::date is null or s.date >= $1::date)
+            and ($2::date is null or s.date <= $2::date)
+          order by sp.session_id asc, sp.created_at asc, sp.participant_id asc
+        `,
+        [window.from, window.to],
+      );
 
       const participantIdsBySession = new Map();
       for (const inscription of inscriptionsResult.rows) {
