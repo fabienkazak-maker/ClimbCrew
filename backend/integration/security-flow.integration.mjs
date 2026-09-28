@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import bcrypt from "bcryptjs";
 import pg from "pg";
 import { purgeExpiredSecurityData } from "../admin-users/security-retention-service.js";
+import { hashToken } from "../admin-users/security.js";
 
 const { Pool } = pg;
 const PORT = Number(process.env.PORT || 3100);
@@ -212,6 +213,94 @@ async function run() {
     [unverifiedEmail],
   );
   assert.equal(prematureParticipant.rowCount, 0, "une fiche participant a été créée avant vérification e-mail");
+
+  const associationTargetEmail = `association-target-${Date.now()}@integration.test`;
+  const associationTarget = await jsonRequest("/participants", {
+    method: "POST",
+    cookies: admin.cookies,
+    csrf: admin.csrf,
+    body: {
+      nom: "Association",
+      prenom: "Cible",
+      email: associationTargetEmail,
+      passport: "jaune",
+      sexe: "",
+      cotisation: false,
+      ffme: false,
+      canEncadrer: false,
+      canReferer: false,
+      canAdmin: false,
+      avatarId: "gecko",
+      crestId: "cristal",
+      profilePublic: true,
+    },
+  });
+  assert.equal(associationTarget.response.status, 201, JSON.stringify(associationTarget.payload));
+  const associationTargetId = String(associationTarget.payload.id);
+
+  const prematureAssociation = await jsonRequest(`/admin/auth/users/${pendingUser.rows[0].id}/participant`, {
+    method: "PUT",
+    cookies: admin.cookies,
+    csrf: admin.csrf,
+    body: { participantId: associationTargetId },
+  });
+  assert.equal(
+    prematureAssociation.response.status,
+    409,
+    "un compte non confirmé a pu être associé à une fiche grimpeur",
+  );
+  const stillUnassociated = await pool.query(
+    `select participant_id from users where id = $1`,
+    [pendingUser.rows[0].id],
+  );
+  assert.equal(stillUnassociated.rows[0].participant_id, null);
+
+  const verificationToken = `integration-verification-${Date.now()}`;
+  await pool.query(
+    `insert into email_verification_tokens (user_id, token_hash, expires_at)
+     values ($1, $2, now() + interval '1 hour')`,
+    [pendingUser.rows[0].id, hashToken(verificationToken)],
+  );
+  const verifyEmail = await jsonRequest(
+    `/auth/verify-email?token=${encodeURIComponent(verificationToken)}`,
+    { method: "POST" },
+  );
+  assert.equal(verifyEmail.response.status, 200, JSON.stringify(verifyEmail.payload));
+
+  const verifiedAssociation = await jsonRequest(`/admin/auth/users/${pendingUser.rows[0].id}/participant`, {
+    method: "PUT",
+    cookies: admin.cookies,
+    csrf: admin.csrf,
+    body: { participantId: associationTargetId },
+  });
+  assert.equal(verifiedAssociation.response.status, 200, JSON.stringify(verifiedAssociation.payload));
+
+  const persistedAssociation = await pool.query(
+    `
+      select u.participant_id, u.email_verified_at, p.email, p.login_email
+      from users u
+      join participants p on p.id = u.participant_id
+      where u.id = $1
+    `,
+    [pendingUser.rows[0].id],
+  );
+  assert.equal(String(persistedAssociation.rows[0].participant_id), associationTargetId);
+  assert.ok(persistedAssociation.rows[0].email_verified_at);
+  assert.equal(persistedAssociation.rows[0].email, unverifiedEmail);
+  assert.equal(persistedAssociation.rows[0].login_email, unverifiedEmail);
+
+  const approvePendingAccount = await jsonRequest(`/admin/auth/users/${pendingUser.rows[0].id}/approve`, {
+    method: "POST",
+    cookies: admin.cookies,
+    csrf: admin.csrf,
+  });
+  assert.equal(approvePendingAccount.response.status, 200, JSON.stringify(approvePendingAccount.payload));
+  const activatedAccount = await pool.query(
+    `select status, participant_id from users where id = $1`,
+    [pendingUser.rows[0].id],
+  );
+  assert.equal(activatedAccount.rows[0].status, "active");
+  assert.equal(String(activatedAccount.rows[0].participant_id), associationTargetId);
 
   const staleEmail = `stale-${Date.now()}@integration.test`;
   const oldTimestamp = "2026-08-10T10:00:00.000Z";
