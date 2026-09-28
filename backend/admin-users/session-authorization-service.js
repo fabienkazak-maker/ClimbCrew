@@ -38,7 +38,7 @@ function symmetricDifference(left, right) {
  * - encadrant : peut passer une séance à libre ou à tout autre statut ;
  * - membre standard : peut uniquement s'inscrire ou se désinscrire lui-même ;
  * - une séance fermée refuse toute nouvelle inscription non administrateur ;
- * - création d'une séance : administrateur uniquement.
+ * - création d'une séance : administrateur, ou référent/encadrant selon le statut demandé.
  */
 export function evaluateSessionMutation({
   existingSession,
@@ -54,9 +54,30 @@ export function evaluateSessionMutation({
   const actorId = normalizedId(actorParticipantId);
 
   if (!existingSession) {
-    return isAdmin
-      ? { allowed: true, canManageAll: true, canChangeStatus: true }
-      : { allowed: false, status: 403, error: "Seul un administrateur peut créer une séance." };
+    const requestedStatus = requestedSession.status || getDefaultSessionStatus(
+      requestedSession.date,
+      requestedSession.slot,
+    );
+    const canCreateRequestedStatus = requestedStatus === "libre"
+      ? Boolean(canEncadrer || canReferer)
+      : Boolean(canEncadrer);
+
+    if (isAdmin || canCreateRequestedStatus) {
+      return {
+        allowed: true,
+        canManageAll: true,
+        canChangeStatus: true,
+        statusChanged: true,
+      };
+    }
+
+    return {
+      allowed: false,
+      status: 403,
+      error: requestedStatus === "libre"
+        ? "Seuls les référents, encadrants ou administrateurs peuvent créer une séance libre."
+        : "Seuls les encadrants ou administrateurs peuvent créer une séance encadrée ou fermée.",
+    };
   }
 
   const requestedStatus = requestedSession.status || existingSession.status;
