@@ -355,10 +355,52 @@ async function mutateSessionParticipant(req, res, { remove = false } = {}) {
        from sessions where id = $1 for update`,
       [req.params.id],
     );
-    const session = sessionResult.rows[0];
+    let session = sessionResult.rows[0] || null;
+    let created = false;
+
     if (!session) {
-      await client.query("rollback");
-      return res.status(404).json({ error: "Séance introuvable." });
+      if (remove) {
+        await client.query("rollback");
+        return res.status(404).json({ error: "Séance introuvable." });
+      }
+
+      const requestedSession = validateSessionPayload(req.body?.session || {}, req.params.id);
+      const privileges = await loadActorPrivileges(client, actorParticipantId);
+      const creationPolicy = evaluateSessionMutation({
+        existingSession: null,
+        requestedSession: {
+          ...requestedSession,
+          participantIds: [targetParticipantId],
+        },
+        previousParticipantIds: [],
+        actorParticipantId,
+        isAdmin,
+        ...privileges,
+      });
+      if (!creationPolicy.allowed) {
+        await client.query("rollback");
+        return res.status(creationPolicy.status || 403).json({
+          error: creationPolicy.error || "Création de la séance non autorisée",
+        });
+      }
+
+      const resolvedStatus = requestedSession.status
+        || getDefaultSessionStatus(requestedSession.date, requestedSession.slot);
+      const createdSession = await client.query(
+        `insert into sessions (id, date, slot, status, encadrant_id, referent_id)
+         values ($1,$2,$3,$4,$5,$6)
+         returning id, date, slot, status, encadrant_id, referent_id`,
+        [
+          requestedSession.id,
+          requestedSession.date,
+          requestedSession.slot,
+          resolvedStatus,
+          creationPolicy.canManageAll ? requestedSession.encadrantId || null : null,
+          creationPolicy.canManageAll ? requestedSession.referentId || null : null,
+        ],
+      );
+      session = createdSession.rows[0];
+      created = true;
     }
 
     const participantResult = await client.query(
@@ -408,13 +450,18 @@ async function mutateSessionParticipant(req, res, { remove = false } = {}) {
     );
     const participantIds = afterResult.rows.map((row) => String(row.participant_id));
 
-    if (changed) {
-      await writePlanningAuditLog(client, req, "planning_session_updated", {
-        sessionId: String(session.id),
-        changes: ["participants"],
-        before: sessionAuditSnapshot(session, beforeParticipantIds),
-        after: sessionAuditSnapshot(session, participantIds),
-      });
+    if (changed || created) {
+      await writePlanningAuditLog(
+        client,
+        req,
+        created ? "planning_session_created" : "planning_session_updated",
+        {
+          sessionId: String(session.id),
+          changes: created ? ["creation"] : ["participants"],
+          before: created ? null : sessionAuditSnapshot(session, beforeParticipantIds),
+          after: sessionAuditSnapshot(session, participantIds),
+        },
+      );
     }
 
     await client.query("commit");
