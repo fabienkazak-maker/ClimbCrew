@@ -45,9 +45,10 @@ export function sortParticipantsCurrentUserFirst(participants, currentParticipan
 }
 
 export function formatRouteName(route) {
+  const color = String(route?.couleurPrises || "").trim();
   const opener = String(route?.nomOuvreur || "").trim();
   const name = String(route?.nomVoie || "").trim();
-  const label = [opener, name].filter(Boolean).join(" · ");
+  const label = [color, opener, name].filter(Boolean).join(" · ");
   return label || "Voie";
 }
 
@@ -67,10 +68,11 @@ export function normalizeRopeNumber(value) {
 
 export function formatRouteForRealisation(route) {
   const rope = `Corde ${normalizeRopeNumber(route?.numeroCorde)}`;
+  const color = String(route?.couleurPrises || "").trim();
   const grade = String(route?.cotationAjustee || route?.cotationReference || "nc").trim();
   const opener = String(route?.nomOuvreur || "").trim();
   const name = String(route?.nomVoie || "").trim();
-  return [rope, grade, opener, name].filter(Boolean).join(" · ");
+  return [rope, color, grade, opener, name].filter(Boolean).join(" · ");
 }
 
 export function toLocalIso(date) {
