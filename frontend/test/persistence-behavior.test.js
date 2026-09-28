@@ -2,7 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { useRealisationPersistence } from "../src/hooks/useRealisationPersistence.js";
-import { useSessionPersistence } from "../src/hooks/useSessionPersistence.js";
+import {
+  getSessionParticipantChanges,
+  hasSessionMetadataChanges,
+  useSessionPersistence,
+} from "../src/hooks/useSessionPersistence.js";
 
 function createStore(initialState) {
   let state = initialState;
@@ -69,6 +73,14 @@ test("les sauvegardes de séance sont sérialisées et un premier échec ne remp
   assert.deepEqual(store.get().sessions[0], secondUpdate);
   assert.equal(errors.length, 1);
   assert.equal(successes.length, 1);
+  assert.deepEqual(
+    network.pending.map(({ path, options }) => ({ path, method: options.method })),
+    [
+      { path: "/sessions/2026-09-28-midi/participants/1", method: "POST" },
+      { path: "/sessions/2026-09-28-midi/participants/2", method: "POST" },
+    ],
+    "chaque inscription doit être une mutation atomique indépendante",
+  );
 });
 
 test("les sauvegardes de réalisation restent ordonnées et conservent la dernière version optimiste", async () => {
@@ -123,4 +135,58 @@ test("les sauvegardes de réalisation restent ordonnées et conservent la derni�
     network.pending.map(({ options }) => JSON.parse(options.body)),
     [{ commentaire: "première modification" }, { rating: 5 }],
   );
+});
+
+
+test("les différences d'inscriptions sont calculées sans modifier les métadonnées", () => {
+  const previous = {
+    id: "2026-09-28-midi",
+    date: "2026-09-28",
+    slot: "midi",
+    status: "libre",
+    encadrantId: null,
+    referentId: null,
+    participantIds: ["1", "2"],
+  };
+  const updated = {
+    ...previous,
+    participantIds: ["2", "3"],
+  };
+
+  assert.deepEqual(getSessionParticipantChanges(previous, updated), {
+    added: ["3"],
+    removed: ["1"],
+  });
+  assert.equal(hasSessionMetadataChanges(previous, updated), false);
+});
+
+test("une modification de métadonnées n'envoie jamais la liste des inscrits dans le PUT", async () => {
+  const initial = {
+    id: "2026-09-28-soir",
+    date: "2026-09-28",
+    slot: "soir",
+    status: "fermee",
+    encadrantId: null,
+    referentId: null,
+    participantIds: ["1", "2"],
+  };
+  const updated = { ...initial, status: "libre" };
+  const store = createStore({ sessions: [initial] });
+  const calls = [];
+
+  const { persistSessionChange } = useSessionPersistence({
+    useApi: true,
+    setState: store.set,
+    request: async (path, options) => {
+      calls.push({ path, options });
+      return { ok: true };
+    },
+  });
+
+  await persistSessionChange(initial.id, initial, updated, true);
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].path, "/sessions/2026-09-28-soir");
+  assert.equal(calls[0].options.method, "PUT");
+  assert.deepEqual(JSON.parse(calls[0].options.body).participantIds, []);
 });
