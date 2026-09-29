@@ -76,7 +76,7 @@ import {
   buildRealisationDraft,
   buildRealisationPayload,
   getParticipantSessionDays,
-  getSessionParticipantIds,
+  getSessionAttendanceIds,
   isManagedSession,
   resolveSessionIdForRealisation,
 } from "./lib/realisation-workflow.js";
@@ -289,10 +289,10 @@ function App() {
       state.sessions
         .filter((session) => session.date === newRealisation.selectedDay)
         .filter(isManagedSession)
-        .flatMap((session) => getSessionParticipantIds(session))
+        .flatMap((session) => getSessionAttendanceIds(session))
     );
 
-    return modalAllEligibleParticipants.filter((participant) => participantIdsForSelectedDay.has(participant.id));
+    return modalAllEligibleParticipants.filter((participant) => participantIdsForSelectedDay.has(String(participant.id)));
   }, [newRealisation.selectedDay, modalAllEligibleParticipants, state.sessions]);
 
   const { selectedDate, daySessions, weekSessions } = usePlanningSessions(state);
@@ -370,10 +370,10 @@ function App() {
   }
 
   const sessionStats = useMemo(() => {
-    const unique = new Set(state.sessions.flatMap((session) => getSessionParticipantIds(session)));
+    const unique = new Set(state.sessions.flatMap((session) => getSessionAttendanceIds(session)));
     const participationCount = {};
     state.sessions.forEach((session) => {
-      getSessionParticipantIds(session).forEach((id) => {
+      getSessionAttendanceIds(session).forEach((id) => {
         participationCount[id] = (participationCount[id] || 0) + 1;
       });
     });
@@ -672,7 +672,8 @@ function App() {
     const existingSession = state.sessions.find((session) => session.id === sessionId);
     const currentSession = existingSession || buildDefaultSession(sessionId);
     const currentParticipantIds = currentSession.participantIds.map(String);
-    if (currentParticipantIds.length >= MAX_PARTICIPANTS || currentParticipantIds.includes(requestedId)) return;
+    const currentAttendanceIds = getSessionAttendanceIds(currentSession);
+    if (currentAttendanceIds.length >= MAX_PARTICIPANTS || currentAttendanceIds.includes(requestedId)) return;
 
     persistSessionChange(sessionId, currentSession, {
       ...currentSession,

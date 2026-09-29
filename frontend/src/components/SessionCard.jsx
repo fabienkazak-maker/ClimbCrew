@@ -9,7 +9,7 @@ import {
   normalizePassport,
 } from "../lib/domain.js";
 import { hasBuddyAvailabilityForSession } from "../lib/buddy-preferences.js";
-import { getSessionParticipantIds } from "../lib/realisation-workflow.js";
+import { getSessionAttendanceIds, getSessionParticipantIds } from "../lib/realisation-workflow.js";
 
 export default function SessionCard({
   session,
@@ -24,13 +24,20 @@ export default function SessionCard({
   onRemoveParticipant,
 }) {
   const sessionParticipantIds = getSessionParticipantIds(session);
-  const inscrits = sessionParticipantIds.map((id) => participantsById[id]).filter(Boolean);
-  const occupied = inscrits.length;
+  const sessionAttendanceIds = getSessionAttendanceIds(session);
+  const roleParticipantIds = new Set(
+    [session.encadrantId, session.referentId].filter(Boolean).map(String),
+  );
+  const inscrits = sessionParticipantIds
+    .filter((id) => !roleParticipantIds.has(String(id)))
+    .map((id) => participantsById[id])
+    .filter(Boolean);
+  const occupied = sessionAttendanceIds.length;
   const missingSupervisor = (session.status === "encadree" && !session.encadrantId)
     || (session.status === "libre" && !session.referentId);
   const freeSessionPassports = new Set(["jaune", "orange", "vert", "bleu"]);
   const availableParticipants = participants.filter((participant) => (
-    !sessionParticipantIds.includes(String(participant.id))
+    !sessionAttendanceIds.includes(String(participant.id))
     && (session.status !== "libre" || freeSessionPassports.has(normalizePassport(participant.passport)))
   ));
 

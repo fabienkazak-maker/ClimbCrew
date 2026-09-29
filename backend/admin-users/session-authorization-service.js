@@ -1,7 +1,7 @@
 import { getPool } from "./database.js";
 import { validateSessionPayload } from "../validation.js";
 import { getDefaultSessionStatus } from "../../shared/session-default-status.js";
-import { MAX_SESSION_PARTICIPANTS } from "../../shared/session-rules.js";
+import { getSessionAttendanceIds, MAX_SESSION_PARTICIPANTS } from "../../shared/session-rules.js";
 
 function normalizedId(value) {
   return value === null || value === undefined || value === "" ? null : String(value);
@@ -11,11 +11,14 @@ function sameId(left, right) {
   return normalizedId(left) === normalizedId(right);
 }
 
-export function assertSessionCapacity(participantIds) {
+export function assertSessionCapacity(participantIds, session = null) {
   const uniqueParticipantIds = [...new Set((participantIds || [])
     .filter((value) => value !== null && value !== undefined && value !== "")
     .map(String))];
-  if (uniqueParticipantIds.length > MAX_SESSION_PARTICIPANTS) {
+  const attendanceIds = session
+    ? getSessionAttendanceIds({ ...session, participantIds: uniqueParticipantIds })
+    : uniqueParticipantIds;
+  if (attendanceIds.length > MAX_SESSION_PARTICIPANTS) {
     const error = new Error(`Une séance ne peut pas dépasser ${MAX_SESSION_PARTICIPANTS} participants.`);
     error.status = 409;
     throw error;
@@ -75,7 +78,7 @@ function symmetricDifference(left, right) {
  *
  * - administrateur : gestion complète de la séance hors changement de statut, qui reste soumis aux qualifications métier ;
  * - référent : peut uniquement passer une séance au statut libre ;
- * - encadrant : peut passer une séance à libre ou à tout autre statut ;
+ * - encadrant : peut passer une séance à libre ou à tout autre statut et s'affecter/se retirer lui-même comme encadrant ;
  * - membre standard : peut uniquement s'inscrire ou se désinscrire lui-même ;
  * - une séance fermée refuse toute nouvelle inscription non administrateur ;
  * - création d'une séance : administrateur, ou référent/encadrant selon le statut demandé.
@@ -122,19 +125,24 @@ export function evaluateSessionMutation({
       };
     }
 
-    if (requestedSession.encadrantId || requestedSession.referentId) {
-      return {
-        allowed: false,
-        status: 403,
-        error: "L’encadrant et le référent ne peuvent être affectés que par un administrateur.",
-      };
-    }
-
     if (!actorId) {
       return {
         allowed: false,
         status: 403,
         error: "Le compte doit être associé à un grimpeur pour créer une séance.",
+      };
+    }
+
+    const requestedEncadrantId = normalizedId(requestedSession.encadrantId);
+    const requestedReferentId = normalizedId(requestedSession.referentId);
+    const canAssignSelfAsEncadrant = Boolean(
+      canEncadrer && requestedEncadrantId && requestedEncadrantId === actorId,
+    );
+    if (requestedReferentId || (requestedEncadrantId && !canAssignSelfAsEncadrant)) {
+      return {
+        allowed: false,
+        status: 403,
+        error: "Un encadrant peut uniquement s’affecter lui-même ; l’affectation des autres rôles reste réservée à un administrateur.",
       };
     }
 
@@ -161,6 +169,8 @@ export function evaluateSessionMutation({
       canManageAll: false,
       canChangeStatus: true,
       statusChanged: true,
+      encadrantChanged: Boolean(requestedEncadrantId),
+      canManageOwnEncadrant: canAssignSelfAsEncadrant,
       actorJoins,
       actorLeaves: false,
     };
@@ -191,24 +201,36 @@ export function evaluateSessionMutation({
     };
   }
 
-  if (
-    requestedSession.date !== existingSession.date
-    || requestedSession.slot !== existingSession.slot
-    || !sameId(requestedSession.encadrantId, existingSession.encadrant_id)
-    || !sameId(requestedSession.referentId, existingSession.referent_id)
-  ) {
-    return {
-      allowed: false,
-      status: 403,
-      error: "La date, le créneau, l’encadrant et le référent ne peuvent être modifiés que par un administrateur.",
-    };
-  }
-
   if (!actorId) {
     return {
       allowed: false,
       status: 403,
       error: "Le compte doit être associé à un grimpeur pour modifier une inscription.",
+    };
+  }
+
+  const existingEncadrantId = normalizedId(existingSession.encadrant_id ?? existingSession.encadrantId);
+  const requestedEncadrantId = normalizedId(requestedSession.encadrantId);
+  const encadrantChanged = existingEncadrantId !== requestedEncadrantId;
+  const canManageOwnEncadrant = Boolean(
+    encadrantChanged
+    && canEncadrer
+    && [existingEncadrantId, requestedEncadrantId].every(
+      (encadrantId) => encadrantId === null || encadrantId === actorId,
+    ),
+  );
+  const referentChanged = !sameId(requestedSession.referentId, existingSession.referent_id);
+
+  if (
+    requestedSession.date !== existingSession.date
+    || requestedSession.slot !== existingSession.slot
+    || referentChanged
+    || (encadrantChanged && !canManageOwnEncadrant)
+  ) {
+    return {
+      allowed: false,
+      status: 403,
+      error: "Un encadrant peut uniquement s’affecter ou se retirer lui-même ; les autres modifications de rôle restent réservées à un administrateur.",
     };
   }
 
@@ -236,6 +258,8 @@ export function evaluateSessionMutation({
     canManageAll: false,
     canChangeStatus: canChangeRequestedStatus,
     statusChanged,
+    encadrantChanged,
+    canManageOwnEncadrant,
     actorJoins,
     actorLeaves,
   };
@@ -301,8 +325,12 @@ export async function registerParticipantForSession(client, {
     : participantIds.map(String);
 
   const registeredParticipantIds = [...new Set(listedParticipants.map(String))];
+  const attendanceIds = getSessionAttendanceIds({
+    ...resolvedSession,
+    participantIds: registeredParticipantIds,
+  });
 
-  if (registeredParticipantIds.includes(actorId)) {
+  if (attendanceIds.includes(actorId)) {
     return { registered: false, session: resolvedSession };
   }
   if (resolvedSession.status === "fermee" && !allowClosed) {
@@ -311,7 +339,7 @@ export async function registerParticipantForSession(client, {
     throw error;
   }
 
-  assertSessionCapacity([...registeredParticipantIds, actorId]);
+  assertSessionCapacity([...registeredParticipantIds, actorId], resolvedSession);
   if (resolvedSession.status === "libre") {
     await assertLibreEligibility(client, actorId);
   }
@@ -551,6 +579,11 @@ export async function updateSessionWithAuthorization(req, res) {
       return res.status(policy.status || 403).json({ error: policy.error || "Action non autorisée" });
     }
 
+    const normalizedRequestedParticipantIds = assertSessionCapacity(
+      policyRequestedSession.participantIds,
+      policyRequestedSession,
+    );
+
     const resolvedStatus = requested.status
       || existing?.status
       || getDefaultSessionStatus(requested.date, requested.slot);
@@ -582,7 +615,7 @@ export async function updateSessionWithAuthorization(req, res) {
       sessionRow = result.rows[0];
 
       if (!existing) {
-        const nextParticipantIds = assertSessionCapacity(requested.participantIds.map(String));
+        const nextParticipantIds = normalizedRequestedParticipantIds;
         const previousParticipantSet = new Set(previousParticipantIds);
         const nextParticipantSet = new Set(nextParticipantIds);
         const newlyAdded = nextParticipantIds.filter((id) => !previousParticipantSet.has(id));
@@ -610,15 +643,28 @@ export async function updateSessionWithAuthorization(req, res) {
       if (!existing) {
         const result = await client.query(
           `insert into sessions (id, date, slot, status, encadrant_id, referent_id)
-           values ($1,$2,$3,$4,null,null)
+           values ($1,$2,$3,$4,$5,null)
            returning id, date, slot, status, encadrant_id, referent_id`,
-          [requested.id, requested.date, requested.slot, resolvedStatus],
+          [
+            requested.id,
+            requested.date,
+            requested.slot,
+            resolvedStatus,
+            policy.canManageOwnEncadrant ? requested.encadrantId || null : null,
+          ],
         );
         sessionRow = result.rows[0];
-      } else if (policy.statusChanged) {
+      } else if (policy.statusChanged || policy.encadrantChanged) {
         const result = await client.query(
-          `update sessions set status = $2, updated_at = now() where id = $1 returning id, date, slot, status, encadrant_id, referent_id`,
-          [requested.id, resolvedStatus],
+          `update sessions
+           set status = $2, encadrant_id = $3, updated_at = now()
+           where id = $1
+           returning id, date, slot, status, encadrant_id, referent_id`,
+          [
+            requested.id,
+            resolvedStatus,
+            policy.encadrantChanged ? requested.encadrantId || null : existing.encadrant_id,
+          ],
         );
         sessionRow = result.rows[0];
       } else {
