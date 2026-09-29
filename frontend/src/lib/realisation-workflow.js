@@ -8,8 +8,8 @@ export function isManagedSession(session) {
 }
 
 export function getSessionParticipantIds(session) {
-  // participantIds contient uniquement les personnes explicitement inscrites.
-  // L'encadrant et le référent restent des rôles distincts et peuvent s'inscrire séparément.
+  // participantIds reste la liste des inscriptions explicites affichées dans le planning.
+  // L'effectif réel est calculé séparément avec les rôles de séance.
   return [...new Set((session?.participantIds || []).map(String))];
 }
 
@@ -28,7 +28,7 @@ export function resolveSessionIdForRealisation(sessions, participantId, selected
   return (sessions || [])
     .filter((session) => session.date === selectedDay)
     .filter(isManagedSession)
-    .filter((session) => getSessionParticipantIds(session).includes(String(participantId)))
+    .filter((session) => getSessionAttendanceIds(session).includes(String(participantId)))
     .sort((a, b) => a.slot.localeCompare(b.slot))[0]?.id || "";
 }
 
