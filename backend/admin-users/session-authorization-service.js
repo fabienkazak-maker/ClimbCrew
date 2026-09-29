@@ -7,6 +7,11 @@ function normalizedId(value) {
   return value === null || value === undefined || value === "" ? null : String(value);
 }
 
+function normalizedSessionDate(value) {
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return String(value ?? "").slice(0, 10);
+}
+
 function sameId(left, right) {
   return normalizedId(left) === normalizedId(right);
 }
@@ -31,7 +36,7 @@ function sessionAuditSnapshot(session, participantIds = []) {
   if (!session) return null;
   return {
     id: String(session.id),
-    date: session.date,
+    date: normalizedSessionDate(session.date),
     slot: session.slot,
     status: session.status,
     encadrantId: normalizedId(session.encadrant_id ?? session.encadrantId),
@@ -251,7 +256,7 @@ export function evaluateSessionMutation({
   );
 
   if (
-    requestedSession.date !== existingSession.date
+    normalizedSessionDate(requestedSession.date) !== normalizedSessionDate(existingSession.date)
     || requestedSession.slot !== existingSession.slot
     || (referentChanged && !canManageOwnReferent && !canClearReferentForStatusChange)
     || (encadrantChanged && !canManageOwnEncadrant && !canClearEncadrantForStatusChange)
