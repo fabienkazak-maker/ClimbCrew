@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const source = await readFile(new URL("../src/sections/StatisticsSection.jsx", import.meta.url), "utf8");
+const source = await readFile(new URL("../src/components/RouteRealisationStatisticsTable.jsx", import.meta.url), "utf8");
 
 test("les filtres du tableau de réalisations restent contenus dans leur colonne", () => {
   assert.match(source, /minWidth: 1280/);
