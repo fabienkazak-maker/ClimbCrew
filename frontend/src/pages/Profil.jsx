@@ -519,6 +519,8 @@ export default function Profil({
                 formatRouteName={formatRouteName}
                 title="Voies du grimpeur"
                 description="Nombre de réalisations par corde, difficulté, mode et critère."
+                collapsible
+                defaultExpanded={false}
               />
 
               {isOwnProfile && (
