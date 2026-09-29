@@ -46,6 +46,7 @@ export default function RouteRealisationStatisticsTable({
   );
 
   const body = (
+    <>
       <div className="group" style={{ marginBottom: 8, justifyContent: "flex-end" }}>
         <button type="button" disabled={!hasFilters} onClick={() => setFilters({})}>Effacer les filtres</button>
       </div>
