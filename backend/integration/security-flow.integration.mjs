@@ -220,6 +220,40 @@ async function run() {
     participantId,
     "l'auto-affectation de l'encadrant n'a pas été persistée",
   );
+  // Régression planning : un référent qualifié doit pouvoir s’affecter lui-même,
+  // y compris lors du passage d’une séance encadrée à une séance libre.
+  await pool.query(
+    `update participants set can_referer = true where id = $1`,
+    [participantId],
+  );
+  const selfAssignReferent = await jsonRequest(`/sessions/${sessionId}`, {
+    method: "PUT",
+    cookies: member.cookies,
+    csrf: member.csrf,
+    body: {
+      ...sessionPayload,
+      status: "libre",
+      encadrantId: null,
+      referentId: participantId,
+    },
+  });
+  assert.equal(
+    selfAssignReferent.response.status,
+    200,
+    JSON.stringify(selfAssignReferent.payload),
+  );
+  assert.equal(String(selfAssignReferent.payload.referentId), participantId);
+  assert.equal(selfAssignReferent.payload.encadrantId, null);
+  const persistedReferent = await pool.query(
+    `select encadrant_id, referent_id from sessions where id = $1`,
+    [sessionId],
+  );
+  assert.equal(persistedReferent.rows[0].encadrant_id, null);
+  assert.equal(
+    String(persistedReferent.rows[0].referent_id),
+    participantId,
+    "l'auto-affectation du référent n'a pas été persistée",
+  );
 
   const unverifiedEmail = `unverified-${Date.now()}@integration.test`;
   const requestAccess = await jsonRequest("/auth/request-access", {
