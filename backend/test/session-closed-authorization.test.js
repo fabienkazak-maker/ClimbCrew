@@ -270,6 +270,32 @@ test("un encadrant peut changer une séance libre en encadrée en retirant le r�
   assert.equal(result.statusChanged, true);
   assert.equal(result.referentChanged, true);
 });
+test("une date PostgreSQL native ne bloque pas l’auto-affectation d’un encadrant", () => {
+  const result = evaluateSessionMutation({
+    existingSession: baseSession({
+      date: new Date("2026-08-24T00:00:00.000Z"),
+      status: "libre",
+      referent_id: "99",
+    }),
+    requestedSession: requestedSession({
+      date: "2026-08-24",
+      status: "encadree",
+      participantIds: [],
+      encadrantId: "42",
+      referentId: null,
+    }),
+    previousParticipantIds: [],
+    actorParticipantId: "42",
+    canEncadrer: true,
+  });
+
+  assert.equal(result.allowed, true);
+  assert.equal(result.statusChanged, true);
+  assert.equal(result.encadrantChanged, true);
+  assert.equal(result.canManageOwnEncadrant, true);
+  assert.equal(result.referentChanged, true);
+});
+
 test("un encadrant peut s'affecter puis se retirer lui-même sur une séance existante", () => {
   const assignment = evaluateSessionMutation({
     existingSession: baseSession({ status: "encadree" }),
