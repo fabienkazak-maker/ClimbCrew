@@ -6,8 +6,41 @@ import {
   validateChatPollOption,
   validateChatReaction,
 } from "./validation.js";
+import { addRealisationKudo, removeRealisationKudo } from "./realisation-kudo-service.js";
 
 const CHAT_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
+const KUDO_REACTION = "👍";
+const CHAT_REACTIONS_SQL = `coalesce((
+  select json_agg(
+    json_build_object('reaction', reaction_items.reaction, 'participantId', reaction_items.participant_id)
+    order by reaction_items.created_at asc
+  )
+  from (
+    select r.reaction, r.participant_id, r.created_at
+    from chat_message_reactions r
+    where r.message_id = cm.id
+      and not (
+        r.reaction = '👍'
+        and cm.kind = 'system'
+        and cm.event_type = 'realisation'
+        and cm.event_ref is not null
+      )
+    union all
+    select '👍'::text, k.participant_id, k.created_at
+    from realisation_kudos k
+    where cm.kind = 'system'
+      and cm.event_type = 'realisation'
+      and cm.event_ref is not null
+      and k.realisation_id = cm.event_ref
+  ) reaction_items
+), '[]'::json)`;
+
+function isRealisationKudoMessage(message, reaction) {
+  return reaction === KUDO_REACTION
+    && message?.kind === "system"
+    && message?.eventType === "realisation"
+    && Boolean(message?.eventRef);
+}
 
 function participantIdFromRequest(req) {
   return req.auth?.user?.participantId || req.enhancementAuth?.user?.participantId || null;
@@ -57,8 +90,7 @@ export function installChatRoutes(app, { requireAuth, requireAdmin, pool }) {
                   cm.attachment_size as "attachmentSize", cm.kind, cm.event_type as "eventType", cm.event_ref as "eventRef",
                   cm.edited_at as "editedAt", cm.pinned, cm.poll,
                   case when parent.id is null then null else json_build_object('id', parent.id, 'participantId', parent.participant_id, 'message', parent.message, 'attachmentName', parent.attachment_name) end as "replyTo",
-                  coalesce((select json_agg(json_build_object('reaction', r.reaction, 'participantId', r.participant_id))
-                    from chat_message_reactions r where r.message_id = cm.id), '[]'::json) as reactions
+                  ${CHAT_REACTIONS_SQL} as reactions
            from chat_messages cm
            left join chat_messages parent on parent.id = cm.reply_to_id
            order by cm.created_at desc
@@ -75,8 +107,7 @@ export function installChatRoutes(app, { requireAuth, requireAdmin, pool }) {
                   cm.attachment_size as "attachmentSize", cm.kind, cm.event_type as "eventType", cm.event_ref as "eventRef",
                   cm.edited_at as "editedAt", cm.pinned, cm.poll,
                   null::json as "replyTo",
-                  coalesce((select json_agg(json_build_object('reaction', r.reaction, 'participantId', r.participant_id))
-                    from chat_message_reactions r where r.message_id = cm.id), '[]'::json) as reactions
+                  ${CHAT_REACTIONS_SQL} as reactions
            from chat_messages cm
            order by cm.created_at desc
            limit 200`
@@ -246,7 +277,25 @@ export function installChatRoutes(app, { requireAuth, requireAdmin, pool }) {
 
   app.get("/chat/kudos", requireAuth, async (_req, res) => {
     try {
-      const { rows } = await pool.query(`select participant_id as "participantId", count(*)::int as kudos from chat_message_reactions where reaction='👍' group by participant_id order by kudos desc`);
+      const { rows } = await pool.query(`
+        select participant_id as "participantId", count(*)::int as kudos
+        from (
+          select r.participant_id
+          from chat_message_reactions r
+          join chat_messages cm on cm.id = r.message_id
+          where r.reaction = '👍'
+            and not (
+              cm.kind = 'system'
+              and cm.event_type = 'realisation'
+              and cm.event_ref is not null
+            )
+          union all
+          select participant_id
+          from realisation_kudos
+        ) kudo_sources
+        group by participant_id
+        order by kudos desc, participant_id asc
+      `);
       return res.json(rows);
     } catch (error) { return res.status(500).json({ error: "Classement Kudos indisponible." }); }
   });
@@ -256,8 +305,22 @@ export function installChatRoutes(app, { requireAuth, requireAdmin, pool }) {
       const participantId = participantIdFromRequest(req);
       if (!participantId) return res.status(403).json({ error: "Compte non relié à un grimpeur." });
       const reaction = validateChatReaction(req.body?.reaction);
-      const exists = await pool.query("select 1 from chat_messages where id = $1", [req.params.id]);
-      if (!exists.rowCount) return res.status(404).json({ error: "Message introuvable." });
+      const messageResult = await pool.query(
+        `select kind, event_type as "eventType", event_ref as "eventRef"
+         from chat_messages where id = $1 limit 1`,
+        [req.params.id],
+      );
+      const message = messageResult.rows[0];
+      if (!message) return res.status(404).json({ error: "Message introuvable." });
+
+      if (isRealisationKudoMessage(message, reaction)) {
+        const state = await addRealisationKudo(pool, {
+          realisationId: message.eventRef,
+          participantId,
+        });
+        return res.json({ ok: true, realisationId: message.eventRef, ...state });
+      }
+
       await pool.query(
         `insert into chat_message_reactions (message_id, participant_id, reaction)
          values ($1,$2,$3) on conflict (message_id, participant_id, reaction) do nothing`,
@@ -266,7 +329,9 @@ export function installChatRoutes(app, { requireAuth, requireAdmin, pool }) {
       return res.json({ ok: true });
     } catch (error) {
       console.error("chat reaction error:", error);
-      return res.status(500).json({ error: "Réaction impossible." });
+      return res.status(error.status || 500).json({
+        error: error.status ? error.message : "Réaction impossible.",
+      });
     }
   });
 
@@ -275,6 +340,22 @@ export function installChatRoutes(app, { requireAuth, requireAdmin, pool }) {
       const participantId = participantIdFromRequest(req);
       const reaction = validateChatReaction(req.body?.reaction);
       if (!participantId) return res.status(403).json({ error: "Compte non relié à un grimpeur." });
+      const messageResult = await pool.query(
+        `select kind, event_type as "eventType", event_ref as "eventRef"
+         from chat_messages where id = $1 limit 1`,
+        [req.params.id],
+      );
+      const message = messageResult.rows[0];
+      if (!message) return res.status(404).json({ error: "Message introuvable." });
+
+      if (isRealisationKudoMessage(message, reaction)) {
+        const state = await removeRealisationKudo(pool, {
+          realisationId: message.eventRef,
+          participantId,
+        });
+        return res.json({ ok: true, realisationId: message.eventRef, ...state });
+      }
+
       await pool.query(
         "delete from chat_message_reactions where message_id = $1 and participant_id = $2 and reaction = $3",
         [req.params.id, participantId, reaction],
@@ -282,7 +363,9 @@ export function installChatRoutes(app, { requireAuth, requireAdmin, pool }) {
       return res.json({ ok: true });
     } catch (error) {
       console.error("chat reaction delete error:", error);
-      return res.status(500).json({ error: "Retrait de la réaction impossible." });
+      return res.status(error.status || 500).json({
+        error: error.status ? error.message : "Retrait de la réaction impossible.",
+      });
     }
   });
 

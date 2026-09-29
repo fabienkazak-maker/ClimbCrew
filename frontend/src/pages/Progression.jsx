@@ -49,6 +49,7 @@ export default function Progression({
 }) {
   const defaultParticipantApplied = React.useRef(false);
   const [kudosPendingId, setKudosPendingId] = React.useState("");
+  const [kudoDetailsId, setKudoDetailsId] = React.useState("");
 
   async function toggleKudo(realisation) {
     if (!myParticipantId || kudosPendingId) return;
@@ -172,6 +173,10 @@ export default function Progression({
             const forcedMoulinette = Boolean(route?.moulinetteOnly);
             const modeLabel = REALISATION_MODE_LABELS[modeRealisation] || modeRealisation;
             const criterionLabel = criterionRealisation ? REALISATION_CRITERION_LABELS[criterionRealisation] : "Critère non précisé (historique)";
+            const kudoDonorNames = (Array.isArray(realisation.kudosParticipantIds) ? realisation.kudosParticipantIds : [])
+              .map((participantId) => participantsById[String(participantId)])
+              .filter(Boolean)
+              .map(fullName);
             const routeVideoUrls = Array.isArray(route?.videoUrls) ? route.videoUrls : [];
             const selectedVideoUrls = Array.isArray(realisation.videoUrls) ? realisation.videoUrls : [];
             return (
@@ -185,9 +190,33 @@ export default function Progression({
                     {isIncludedInCpr && <span className="pill">Prise en compte dans le CPR</span>}
                     {selectedVideoUrls.length > 0 && <span className="pill">{selectedVideoUrls.length} vidéo{selectedVideoUrls.length > 1 ? "s" : ""}</span>}
                     <Button variant="secondary" disabled={!myParticipantId || kudosPendingId === realisation.id} aria-pressed={Boolean(realisation.kudosByMe)} onClick={(event) => { event.preventDefault(); event.stopPropagation(); void toggleKudo(realisation); }}>👍 {Number(realisation.kudosCount || 0)}</Button>
+                    {Number(realisation.kudosCount || 0) > 0 && (
+                      <Button
+                        variant="secondary"
+                        title="Voir qui a donné un Kudo"
+                        aria-label="Voir qui a donné un Kudo"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          setRealisationExpanded(realisation.id, true);
+                          setKudoDetailsId(realisation.id);
+                        }}
+                      >
+                        👥
+                      </Button>
+                    )}
                     {canEditRealisation && <Button variant="remove" className="progression-realisation-remove" title="Supprimer cette réalisation" aria-label="Supprimer cette réalisation" onClick={(event) => { event.preventDefault(); event.stopPropagation(); deleteRealisation(realisation); }}>×</Button>}
                   </div>
                 </summary>
+                {kudoDetailsId === realisation.id && (
+                  <div className="muted-box" role="dialog" aria-label="Personnes ayant donné un Kudo">
+                    <div>
+                      <strong>Kudos donnés par :</strong>{" "}
+                      {kudoDonorNames.length > 0 ? kudoDonorNames.join(", ") : "Aucun nom disponible."}
+                    </div>
+                    <Button variant="secondary" onClick={() => setKudoDetailsId("")}>Fermer</Button>
+                  </div>
+                )}
                 <div className="grid three">
                   <div><label>Séance</label><select value={realisation.sessionId} disabled={!canEditRealisation} onChange={(event) => updateRealisation(realisation.id, { sessionId: event.target.value })}>{availableSessionsForRealisation.length === 0 ? <option value="">Aucune séance inscrite</option> : availableSessionsForRealisation.map((sessionOption) => <option key={sessionOption.id} value={sessionOption.id}>{formatDateShortFr(sessionOption.date)} · {sessionOption.slot}</option>)}</select></div>
                   <div><label>Voie</label><select value={realisation.voieId} disabled={!canEditRealisation} onChange={(event) => updateRealisation(realisation.id, { voieId: event.target.value, videoUrls: [] })}>{routes.map((routeOption) => <option key={routeOption.id} value={routeOption.id}>{formatRouteForRealisation(routeOption)}</option>)}</select></div>

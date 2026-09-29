@@ -26,12 +26,8 @@ export function parseSessionWindow(query = {}) {
   return { from, to };
 }
 
-function sessionDbToApi(row, participantIds = []) {
-  const effectiveParticipantIds = [...new Set([
-    ...participantIds.map(String),
-    row.encadrant_id ? String(row.encadrant_id) : null,
-    row.referent_id ? String(row.referent_id) : null,
-  ].filter(Boolean))];
+export function sessionDbToApi(row, participantIds = []) {
+  const registeredParticipantIds = [...new Set(participantIds.map(String))];
 
   return {
     id: row.id,
@@ -40,7 +36,7 @@ function sessionDbToApi(row, participantIds = []) {
     status: row.status,
     encadrantId: row.encadrant_id ? String(row.encadrant_id) : null,
     referentId: row.referent_id ? String(row.referent_id) : null,
-    participantIds: effectiveParticipantIds,
+    participantIds: registeredParticipantIds,
   };
 }
 
@@ -65,11 +61,17 @@ export function installSessionReadRoutes(app, { requireAuth, requireAdmin, pool 
         [window.from, window.to],
       );
 
-      const inscriptionsResult = await pool.query(`
-        select session_id, participant_id
-        from session_participants
-        order by session_id asc
-      `);
+      const inscriptionsResult = await pool.query(
+        `
+          select sp.session_id, sp.participant_id
+          from session_participants sp
+          join sessions s on s.id = sp.session_id
+          where ($1::date is null or s.date >= $1::date)
+            and ($2::date is null or s.date <= $2::date)
+          order by sp.session_id asc, sp.created_at asc, sp.participant_id asc
+        `,
+        [window.from, window.to],
+      );
 
       const participantIdsBySession = new Map();
       for (const inscription of inscriptionsResult.rows) {
@@ -104,7 +106,7 @@ export function installSessionReadRoutes(app, { requireAuth, requireAdmin, pool 
         return res.status(404).json({ error: "Séance introuvable" });
       }
       const participantsResult = await client.query(
-        "select participant_id from session_participants where session_id = $1 order by participant_id",
+        "select participant_id from session_participants where session_id = $1 order by created_at asc, participant_id asc",
         [id],
       );
       const history = await client.query(
@@ -122,11 +124,9 @@ export function installSessionReadRoutes(app, { requireAuth, requireAdmin, pool 
 
       await client.query("delete from sessions where id = $1", [id]);
       const session = sessionResult.rows[0];
-      const participantIds = [...new Set([
-        ...participantsResult.rows.map((row) => String(row.participant_id)),
-        session.encadrant_id ? String(session.encadrant_id) : null,
-        session.referent_id ? String(session.referent_id) : null,
-      ].filter(Boolean))].sort();
+      const participantIds = [...new Set(
+        participantsResult.rows.map((row) => String(row.participant_id)),
+      )];
       await client.query(
         `insert into access_logs (user_id, event_type, success, ip_address, user_agent, details)
          values ($1,'planning_session_deleted',true,$2,$3,$4::jsonb)`,

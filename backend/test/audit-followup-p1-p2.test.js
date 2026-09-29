@@ -6,6 +6,7 @@ import {
   evaluateSessionMutation,
   registerParticipantForSession,
 } from "../admin-users/session-authorization-service.js";
+import { sessionDbToApi } from "../session-read-routes.js";
 import {
   getSchedulerHealthSnapshot,
   markSchedulerDegraded,
@@ -34,6 +35,63 @@ test("la règle d'inscription centralisée refuse une séance fermée et une sé
     }),
     /18 participants/i,
   );
+});
+
+test("encadrant et référent restent disponibles tant qu'ils ne s'inscrivent pas explicitement", async () => {
+  const queries = [];
+  const client = {
+    query: async (sql, params = []) => {
+      const text = String(sql);
+      queries.push({ text, params });
+      if (text.includes("select id from participants")) {
+        return { rowCount: 1, rows: [{ id: params[0] }] };
+      }
+      if (text.includes("insert into session_participants")) {
+        return { rowCount: 1, rows: [{ session_id: params[0] }] };
+      }
+      throw new Error(`Requête inattendue dans le test : ${text}`);
+    },
+  };
+
+  const encadrant = await registerParticipantForSession(client, {
+    sessionId: "encadree",
+    participantId: "7",
+    session: { id: "encadree", status: "encadree", encadrant_id: "7", referent_id: null },
+    participantIds: [],
+  });
+  const referent = await registerParticipantForSession(client, {
+    sessionId: "libre",
+    participantId: "8",
+    session: { id: "libre", status: "libre", encadrant_id: null, referent_id: "8" },
+    participantIds: [],
+  });
+
+  assert.equal(encadrant.registered, true);
+  assert.equal(referent.registered, true);
+  assert.equal(queries.filter(({ text }) => text.includes("insert into session_participants")).length, 2);
+  assert.ok(queries
+    .filter(({ text }) => text.includes("insert into session_participants"))
+    .every(({ text }) => text.includes("clock_timestamp()")));
+});
+
+test("l'API des séances conserve l'ordre fourni et n'ajoute pas les rôles aux inscrits", async () => {
+  const mapped = sessionDbToApi({
+    id: "2026-09-29-soir",
+    date: "2026-09-29",
+    slot: "soir",
+    status: "encadree",
+    encadrant_id: "7",
+    referent_id: "8",
+  }, ["12", "3", "9", "12"]);
+
+  assert.deepEqual(mapped.participantIds, ["12", "3", "9"]);
+  assert.equal(mapped.participantIds.includes("7"), false);
+  assert.equal(mapped.participantIds.includes("8"), false);
+
+  const routes = await readFile(new URL("../session-read-routes.js", import.meta.url), "utf8");
+  assert.match(routes, /join sessions s on s\.id = sp\.session_id/);
+  assert.match(routes, /where \(\$1::date is null or s\.date >= \$1::date\)/);
+  assert.match(routes, /order by sp\.session_id asc, sp\.created_at asc, sp\.participant_id asc/);
 });
 
 test("TheCrag réutilise la règle d'inscription et le statut métier par défaut", async () => {
