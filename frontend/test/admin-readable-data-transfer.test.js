@@ -16,3 +16,8 @@ test("Administration expose un export et import JSON lisibles", () => {
   assert.match(administration, /L’import remplace les données métier actuelles/);
   assert.match(administration, /<SaveFeedback status=\{dataTransferState\.status\}/);
 });
+
+
+test("Voies du grimpeur est replié par défaut et extensible au clic", () => {
+  assert.match(profile, /title="Voies du grimpeur"[\s\S]*collapsible[\s\S]*defaultExpanded=\{false\}/);
+});

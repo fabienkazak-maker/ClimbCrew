@@ -22,6 +22,8 @@ export default function RouteRealisationStatisticsTable({
   formatRouteName,
   title = "Réalisations par voie",
   description = "Nombre de réalisations par mode et par critère.",
+  collapsible = false,
+  defaultExpanded = true,
 }) {
   const [filters, setFilters] = useState({});
   const [sort, setSort] = useState({ key: "rope", direction: "asc" });
@@ -36,12 +38,15 @@ export default function RouteRealisationStatisticsTable({
       : { key, direction: "asc" });
   }
 
-  return (
-    <div className="card route-realisation-statistics">
-      <div className="card-header">
-        <div><h2>{title}</h2><div className="small">{description}</div></div>
-        <span className="badge">{displayedRows.length}/{rows.length} voie{rows.length > 1 ? "s" : ""}</span>
-      </div>
+  const header = (
+    <>
+      <div><h2>{title}</h2><div className="small">{description}</div></div>
+      <span className="badge">{displayedRows.length}/{rows.length} voie{rows.length > 1 ? "s" : ""}</span>
+    </>
+  );
+
+  const body = (
+    <>
       <div className="group" style={{ marginBottom: 8, justifyContent: "flex-end" }}>
         <button type="button" disabled={!hasFilters} onClick={() => setFilters({})}>Effacer les filtres</button>
       </div>
@@ -68,6 +73,22 @@ export default function RouteRealisationStatisticsTable({
             })}</tr>)}</tbody>
         </table>
       </div>
+    </>
+  );
+
+  if (collapsible) {
+    return (
+      <details className="card route-realisation-statistics" open={defaultExpanded || undefined}>
+        <summary className="card-header" style={{ cursor: "pointer" }}>{header}</summary>
+        <div style={{ marginTop: 10 }}>{body}</div>
+      </details>
+    );
+  }
+
+  return (
+    <div className="card route-realisation-statistics">
+      <div className="card-header">{header}</div>
+      {body}
     </div>
   );
 }
