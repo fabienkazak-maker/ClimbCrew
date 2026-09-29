@@ -1,3 +1,4 @@
+import { getSessionAttendanceIds } from "../../../shared/session-rules.js";
 import { normalizeRealisationCriterion, normalizeRealisationMode } from "./realisation-mode.js";
 
 export function isManagedSession(session) {
@@ -17,7 +18,7 @@ export function getParticipantSessionDays(sessions, participantId) {
   const targetId = String(participantId);
   return [...new Set((sessions || [])
     .filter(isManagedSession)
-    .filter((session) => getSessionParticipantIds(session).includes(targetId))
+    .filter((session) => getSessionAttendanceIds(session).includes(targetId))
     .map((session) => session.date))]
     .sort((a, b) => b.localeCompare(a));
 }
@@ -68,3 +69,5 @@ export function buildRealisationPayload({ draft, sessionId, route = null, now = 
     assureurId: draft?.assureurId || "",
   };
 }
+
+export { getSessionAttendanceIds };

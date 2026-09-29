@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { evaluateSessionMutation } from "../admin-users/session-authorization-service.js";
+import { assertSessionCapacity, evaluateSessionMutation } from "../admin-users/session-authorization-service.js";
 
 function baseSession(overrides = {}) {
   return {
@@ -197,4 +197,21 @@ test("un encadrant peut créer une séance et s'inscrire lui-même si elle n'est
   assert.equal(result.allowed, true);
   assert.equal(result.canManageAll, false);
   assert.equal(result.actorJoins, true);
+});
+
+test("la capacité compte les rôles sans les dupliquer", () => {
+  const seventeenParticipants = Array.from({ length: 17 }, (_, index) => String(index + 1));
+
+  assert.doesNotThrow(() => assertSessionCapacity(
+    seventeenParticipants,
+    { encadrant_id: "18", referent_id: "17" },
+  ));
+
+  assert.throws(
+    () => assertSessionCapacity(
+      seventeenParticipants,
+      { encadrant_id: "18", referent_id: "19" },
+    ),
+    /18 participants/,
+  );
 });

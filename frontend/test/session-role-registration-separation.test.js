@@ -27,7 +27,9 @@ test("la désinscription d'un participant ne retire pas son rôle de séance", (
   assert.doesNotMatch(removeBlock, /referentId:/);
 });
 
-test("un référent non inscrit reste proposé à l'inscription", () => {
-  assert.match(sessionCardSource, /!sessionParticipantIds\.includes\(String\(participant\.id\)\)/);
-  assert.doesNotMatch(sessionCardSource, /participant\.id\) !== String\(session\.referentId/);
+test("les rôles comptent dans l'effectif sans apparaître dans la liste des inscrits", () => {
+  assert.match(sessionCardSource, /const sessionAttendanceIds = getSessionAttendanceIds\(session\)/);
+  assert.match(sessionCardSource, /const occupied = sessionAttendanceIds\.length/);
+  assert.match(sessionCardSource, /\.filter\(\(id\) => !roleParticipantIds\.has\(String\(id\)\)\)/);
+  assert.match(sessionCardSource, /!sessionAttendanceIds\.includes\(String\(participant\.id\)\)/);
 });
