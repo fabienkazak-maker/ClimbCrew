@@ -1,7 +1,7 @@
 import { getPool } from "./database.js";
 import { validateSessionPayload } from "../validation.js";
 import { getDefaultSessionStatus } from "../../shared/session-default-status.js";
-import { MAX_SESSION_PARTICIPANTS } from "../../shared/session-rules.js";
+import { getSessionAttendanceIds, MAX_SESSION_PARTICIPANTS } from "../../shared/session-rules.js";
 
 function normalizedId(value) {
   return value === null || value === undefined || value === "" ? null : String(value);
@@ -11,11 +11,14 @@ function sameId(left, right) {
   return normalizedId(left) === normalizedId(right);
 }
 
-export function assertSessionCapacity(participantIds) {
+export function assertSessionCapacity(participantIds, session = null) {
   const uniqueParticipantIds = [...new Set((participantIds || [])
     .filter((value) => value !== null && value !== undefined && value !== "")
     .map(String))];
-  if (uniqueParticipantIds.length > MAX_SESSION_PARTICIPANTS) {
+  const attendanceIds = session
+    ? getSessionAttendanceIds({ ...session, participantIds: uniqueParticipantIds })
+    : uniqueParticipantIds;
+  if (attendanceIds.length > MAX_SESSION_PARTICIPANTS) {
     const error = new Error(`Une séance ne peut pas dépasser ${MAX_SESSION_PARTICIPANTS} participants.`);
     error.status = 409;
     throw error;
@@ -301,8 +304,12 @@ export async function registerParticipantForSession(client, {
     : participantIds.map(String);
 
   const registeredParticipantIds = [...new Set(listedParticipants.map(String))];
+  const attendanceIds = getSessionAttendanceIds({
+    ...resolvedSession,
+    participantIds: registeredParticipantIds,
+  });
 
-  if (registeredParticipantIds.includes(actorId)) {
+  if (attendanceIds.includes(actorId)) {
     return { registered: false, session: resolvedSession };
   }
   if (resolvedSession.status === "fermee" && !allowClosed) {
@@ -311,7 +318,7 @@ export async function registerParticipantForSession(client, {
     throw error;
   }
 
-  assertSessionCapacity([...registeredParticipantIds, actorId]);
+  assertSessionCapacity([...registeredParticipantIds, actorId], resolvedSession);
   if (resolvedSession.status === "libre") {
     await assertLibreEligibility(client, actorId);
   }
@@ -551,6 +558,11 @@ export async function updateSessionWithAuthorization(req, res) {
       return res.status(policy.status || 403).json({ error: policy.error || "Action non autorisée" });
     }
 
+    const normalizedRequestedParticipantIds = assertSessionCapacity(
+      policyRequestedSession.participantIds,
+      policyRequestedSession,
+    );
+
     const resolvedStatus = requested.status
       || existing?.status
       || getDefaultSessionStatus(requested.date, requested.slot);
@@ -582,7 +594,7 @@ export async function updateSessionWithAuthorization(req, res) {
       sessionRow = result.rows[0];
 
       if (!existing) {
-        const nextParticipantIds = assertSessionCapacity(requested.participantIds.map(String));
+        const nextParticipantIds = normalizedRequestedParticipantIds;
         const previousParticipantSet = new Set(previousParticipantIds);
         const nextParticipantSet = new Set(nextParticipantIds);
         const newlyAdded = nextParticipantIds.filter((id) => !previousParticipantSet.has(id));

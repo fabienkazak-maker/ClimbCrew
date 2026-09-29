@@ -1,3 +1,4 @@
+import { getSessionAttendanceIds } from "../../../shared/session-rules.js";
 import { normalizeRealisationCriterion, normalizeRealisationMode } from "./realisation-mode.js";
 
 export function isManagedSession(session) {
@@ -7,8 +8,8 @@ export function isManagedSession(session) {
 }
 
 export function getSessionParticipantIds(session) {
-  // participantIds contient uniquement les personnes explicitement inscrites.
-  // L'encadrant et le référent restent des rôles distincts et peuvent s'inscrire séparément.
+  // participantIds reste la liste des inscriptions explicites affichées dans le planning.
+  // L'effectif réel est calculé séparément avec les rôles de séance.
   return [...new Set((session?.participantIds || []).map(String))];
 }
 
@@ -17,7 +18,7 @@ export function getParticipantSessionDays(sessions, participantId) {
   const targetId = String(participantId);
   return [...new Set((sessions || [])
     .filter(isManagedSession)
-    .filter((session) => getSessionParticipantIds(session).includes(targetId))
+    .filter((session) => getSessionAttendanceIds(session).includes(targetId))
     .map((session) => session.date))]
     .sort((a, b) => b.localeCompare(a));
 }
@@ -27,7 +28,7 @@ export function resolveSessionIdForRealisation(sessions, participantId, selected
   return (sessions || [])
     .filter((session) => session.date === selectedDay)
     .filter(isManagedSession)
-    .filter((session) => getSessionParticipantIds(session).includes(String(participantId)))
+    .filter((session) => getSessionAttendanceIds(session).includes(String(participantId)))
     .sort((a, b) => a.slot.localeCompare(b.slot))[0]?.id || "";
 }
 
@@ -68,3 +69,5 @@ export function buildRealisationPayload({ draft, sessionId, route = null, now = 
     assureurId: draft?.assureurId || "",
   };
 }
+
+export { getSessionAttendanceIds };
