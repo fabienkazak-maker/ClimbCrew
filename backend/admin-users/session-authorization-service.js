@@ -77,7 +77,7 @@ function symmetricDifference(left, right) {
  * Politique d'autorisation indépendante de PostgreSQL, afin d'être testable.
  *
  * - administrateur : gestion complète de la séance hors changement de statut, qui reste soumis aux qualifications métier ;
- * - référent : peut uniquement passer une séance au statut libre ;
+ * - référent : peut passer une séance au statut libre et s'affecter/se retirer lui-même comme référent ;
  * - encadrant : peut passer une séance à libre ou à tout autre statut et s'affecter/se retirer lui-même comme encadrant ;
  * - membre standard : peut uniquement s'inscrire ou se désinscrire lui-même ;
  * - une séance fermée refuse toute nouvelle inscription non administrateur ;
@@ -138,11 +138,17 @@ export function evaluateSessionMutation({
     const canAssignSelfAsEncadrant = Boolean(
       canEncadrer && requestedEncadrantId && requestedEncadrantId === actorId,
     );
-    if (requestedReferentId || (requestedEncadrantId && !canAssignSelfAsEncadrant)) {
+    const canAssignSelfAsReferent = Boolean(
+      canReferer && requestedReferentId && requestedReferentId === actorId,
+    );
+    if (
+      (requestedEncadrantId && !canAssignSelfAsEncadrant)
+      || (requestedReferentId && !canAssignSelfAsReferent)
+    ) {
       return {
         allowed: false,
         status: 403,
-        error: "Un encadrant peut uniquement s’affecter lui-même ; l’affectation des autres rôles reste réservée à un administrateur.",
+        error: "Un encadrant ou référent peut uniquement s’affecter lui-même ; l’affectation des autres rôles reste réservée à un administrateur.",
       };
     }
 
@@ -171,6 +177,8 @@ export function evaluateSessionMutation({
       statusChanged: true,
       encadrantChanged: Boolean(requestedEncadrantId),
       canManageOwnEncadrant: canAssignSelfAsEncadrant,
+      referentChanged: Boolean(requestedReferentId),
+      canManageOwnReferent: canAssignSelfAsReferent,
       actorJoins,
       actorLeaves: false,
     };
@@ -219,18 +227,39 @@ export function evaluateSessionMutation({
       (encadrantId) => encadrantId === null || encadrantId === actorId,
     ),
   );
-  const referentChanged = !sameId(requestedSession.referentId, existingSession.referent_id);
+  const existingReferentId = normalizedId(existingSession.referent_id ?? existingSession.referentId);
+  const requestedReferentId = normalizedId(requestedSession.referentId);
+  const referentChanged = existingReferentId !== requestedReferentId;
+  const canManageOwnReferent = Boolean(
+    referentChanged
+    && canReferer
+    && [existingReferentId, requestedReferentId].every(
+      (referentId) => referentId === null || referentId === actorId,
+    ),
+  );
+  const canClearEncadrantForStatusChange = Boolean(
+    encadrantChanged
+    && statusChanged
+    && requestedStatus !== "encadree"
+    && requestedEncadrantId === null,
+  );
+  const canClearReferentForStatusChange = Boolean(
+    referentChanged
+    && statusChanged
+    && requestedStatus !== "libre"
+    && requestedReferentId === null,
+  );
 
   if (
     requestedSession.date !== existingSession.date
     || requestedSession.slot !== existingSession.slot
-    || referentChanged
-    || (encadrantChanged && !canManageOwnEncadrant)
+    || (referentChanged && !canManageOwnReferent && !canClearReferentForStatusChange)
+    || (encadrantChanged && !canManageOwnEncadrant && !canClearEncadrantForStatusChange)
   ) {
     return {
       allowed: false,
       status: 403,
-      error: "Un encadrant peut uniquement s’affecter ou se retirer lui-même ; les autres modifications de rôle restent réservées à un administrateur.",
+      error: "Un encadrant ou référent peut uniquement s’affecter ou se retirer lui-même ; les autres modifications de rôle restent réservées à un administrateur.",
     };
   }
 
@@ -260,6 +289,8 @@ export function evaluateSessionMutation({
     statusChanged,
     encadrantChanged,
     canManageOwnEncadrant,
+    referentChanged,
+    canManageOwnReferent,
     actorJoins,
     actorLeaves,
   };
@@ -643,7 +674,7 @@ export async function updateSessionWithAuthorization(req, res) {
       if (!existing) {
         const result = await client.query(
           `insert into sessions (id, date, slot, status, encadrant_id, referent_id)
-           values ($1,$2,$3,$4,$5,null)
+           values ($1,$2,$3,$4,$5,$6)
            returning id, date, slot, status, encadrant_id, referent_id`,
           [
             requested.id,
@@ -651,19 +682,21 @@ export async function updateSessionWithAuthorization(req, res) {
             requested.slot,
             resolvedStatus,
             policy.canManageOwnEncadrant ? requested.encadrantId || null : null,
+            policy.canManageOwnReferent ? requested.referentId || null : null,
           ],
         );
         sessionRow = result.rows[0];
-      } else if (policy.statusChanged || policy.encadrantChanged) {
+      } else if (policy.statusChanged || policy.encadrantChanged || policy.referentChanged) {
         const result = await client.query(
           `update sessions
-           set status = $2, encadrant_id = $3, updated_at = now()
+           set status = $2, encadrant_id = $3, referent_id = $4, updated_at = now()
            where id = $1
            returning id, date, slot, status, encadrant_id, referent_id`,
           [
             requested.id,
             resolvedStatus,
             policy.encadrantChanged ? requested.encadrantId || null : existing.encadrant_id,
+            policy.referentChanged ? requested.referentId || null : existing.referent_id,
           ],
         );
         sessionRow = result.rows[0];
