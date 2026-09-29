@@ -1,8 +1,5 @@
-import React, { useMemo, useState } from "react";
-import {
-  filterAndSortRouteRealisationStatistics,
-  routeRealisationStatisticValue,
-} from "../lib/route-realisation-statistics.js";
+import React from "react";
+import RouteRealisationStatisticsTable from "../components/RouteRealisationStatisticsTable.jsx";
 
 const PASSPORT_STATISTICS = [
   ["sans", "Sans"],
@@ -13,21 +10,6 @@ const PASSPORT_STATISTICS = [
   ["decouverte", "Découverte"],
 ];
 
-const ROUTE_REALISATION_COLUMNS = [
-  { key: "rope", label: "Corde", numeric: true },
-  { key: "route", label: "Voie", numeric: false },
-  { key: "grade", label: "Cotation", numeric: false },
-  { key: "total", label: "Total", numeric: true },
-  { key: "lead", label: "En tête", numeric: true },
-  { key: "toprope", label: "Moulinette", numeric: true },
-  { key: "onsight", label: "À vue", numeric: true },
-  { key: "flash", label: "Flash", numeric: true },
-  { key: "worked", label: "Travaillée", numeric: true },
-  { key: "withRest", label: "Avec repos", numeric: true },
-  { key: "project", label: "Projet", numeric: true },
-  { key: "notSent", label: "Non enchaînée", numeric: true },
-  { key: "test", label: "Essai / test", numeric: true },
-];
 
 export default function StatisticsSection({
   sessionStats,
@@ -44,29 +26,6 @@ export default function StatisticsSection({
   normalizePassport,
   getPassportDotStyle,
 }) {
-  const [routeColumnFilters, setRouteColumnFilters] = useState({});
-  const [routeSort, setRouteSort] = useState({ key: "rope", direction: "asc" });
-
-  const displayedRouteRealisationStats = useMemo(
-    () => filterAndSortRouteRealisationStatistics(routeRealisationStats, {
-      filters: routeColumnFilters,
-      sortKey: routeSort.key,
-      sortDirection: routeSort.direction,
-      formatRouteName,
-    }),
-    [routeRealisationStats, routeColumnFilters, routeSort, formatRouteName],
-  );
-
-  const hasRouteColumnFilters = Object.values(routeColumnFilters).some((value) => String(value || "").trim());
-
-  function toggleRouteSort(key) {
-    setRouteSort((current) => (
-      current.key === key
-        ? { key, direction: current.direction === "asc" ? "desc" : "asc" }
-        : { key, direction: "asc" }
-    ));
-  }
-
   return (
     <>
       <div className="stats-grid">
@@ -135,125 +94,7 @@ export default function StatisticsSection({
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-header">
-          <div>
-            <h2>Réalisations par voie</h2>
-            <div className="small">Nombre de réalisations par mode et par critère.</div>
-          </div>
-          <span className="badge">
-            {displayedRouteRealisationStats.length}/{routeRealisationStats.length} voie{routeRealisationStats.length > 1 ? "s" : ""}
-          </span>
-        </div>
-
-        <div className="group" style={{ marginBottom: 8, justifyContent: "flex-end" }}>
-          <button
-            type="button"
-            disabled={!hasRouteColumnFilters}
-            onClick={() => setRouteColumnFilters({})}
-          >
-            Effacer les filtres
-          </button>
-        </div>
-
-        <div style={{ overflowX: "auto", border: "1px solid var(--border, #bbb)", borderRadius: 8 }}>
-          <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 1280, background: "var(--surface, white)", fontSize: "clamp(.72rem, .8vw, .86rem)" }}>
-            <thead style={{ background: "var(--card-bg, #eee)" }}>
-              <tr>
-                {ROUTE_REALISATION_COLUMNS.map((column) => {
-                  const activeSort = routeSort.key === column.key;
-                  return (
-                    <th
-                      key={column.key}
-                      style={{
-                        padding: "6px 5px",
-                        border: "1px solid #bbb",
-                        textAlign: column.key === "route" ? "left" : "center",
-                        verticalAlign: "top",
-                        whiteSpace: "normal",
-                        minWidth: column.key === "route" ? 180 : column.key === "grade" ? 100 : 90,
-                      }}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => toggleRouteSort(column.key)}
-                        aria-label={`Trier par ${column.label}`}
-                        style={{
-                          width: "100%",
-                          minHeight: 28,
-                          padding: "2px 4px",
-                          fontWeight: 700,
-                          background: "transparent",
-                          border: 0,
-                          color: "inherit",
-                          cursor: "pointer",
-                          display: "block",
-                          whiteSpace: "normal",
-                        }}
-                      >
-                        {column.label} <span aria-hidden="true">{activeSort ? (routeSort.direction === "asc" ? "▲" : "▼") : "↕"}</span>
-                      </button>
-                      <input
-                        type="search"
-                        value={routeColumnFilters[column.key] || ""}
-                        onChange={(event) => {
-                          const value = event.target.value;
-                          setRouteColumnFilters((current) => ({ ...current, [column.key]: value }));
-                        }}
-                        aria-label={`Filtrer ${column.label}`}
-                        placeholder={column.numeric ? "ex. >=1" : "Filtrer"}
-                        style={{
-                          width: "100%",
-                          maxWidth: "100%",
-                          minWidth: 0,
-                          display: "block",
-                          boxSizing: "border-box",
-                          marginTop: 3,
-                          padding: "4px 5px",
-                          fontSize: "inherit",
-                        }}
-                      />
-                    </th>
-                  );
-                })}
-              </tr>
-            </thead>
-            <tbody>
-              {displayedRouteRealisationStats.length === 0 ? (
-                <tr>
-                  <td colSpan={ROUTE_REALISATION_COLUMNS.length} style={{ padding: 12, textAlign: "center", border: "1px solid #ccc" }}>
-                    Aucune voie ne correspond aux filtres sélectionnés.
-                  </td>
-                </tr>
-              ) : displayedRouteRealisationStats.map((entry) => (
-                <tr key={entry.route.id}>
-                  {ROUTE_REALISATION_COLUMNS.map((column) => {
-                    const value = routeRealisationStatisticValue(entry, column.key, { formatRouteName });
-                    return (
-                      <td
-                        key={column.key}
-                        style={{
-                          padding: 6,
-                          textAlign: column.key === "route" ? "left" : "center",
-                          border: "1px solid #ccc",
-                          minWidth: column.key === "route" ? 180 : undefined,
-                          whiteSpace: column.key === "route" ? "normal" : "nowrap",
-                          fontVariantNumeric: column.numeric ? "tabular-nums" : undefined,
-                        }}
-                      >
-                        {value}
-                        {column.key === "route" && entry.route.moulinetteOnly && (
-                          <span className="small"> · Moulinette uniquement</span>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <RouteRealisationStatisticsTable rows={routeRealisationStats} formatRouteName={formatRouteName} />
 
       <div className="card">
         <div className="card-header">
