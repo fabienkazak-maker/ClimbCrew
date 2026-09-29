@@ -5,6 +5,7 @@ import ParticipantBadges from "../components/ParticipantBadges.jsx";
 import ProfileGecko from "../components/ProfileGecko.jsx";
 import PhysicalProfileCard from "../components/PhysicalProfileCard.jsx";
 import ProfileRealisationRecorder from "../components/ProfileRealisationRecorder.jsx";
+import RouteRealisationStatisticsTable from "../components/RouteRealisationStatisticsTable.jsx";
 import RealisationVideoAnalysis from "../components/RealisationVideoAnalysis.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import CprEvolutionChart from "../sections/CprEvolutionChart.jsx";
@@ -15,6 +16,7 @@ import {
   formatPoints,
   formatDateShortFr,
   formatRouteForRealisation,
+  formatRouteName,
   gradeToIndex,
   normalizeRopeNumber,
 } from "../lib/domain.js";
@@ -25,6 +27,7 @@ import {
   getRealisationMode,
 } from "../lib/realisation-mode.js";
 import { bestRealisationIds, realisationQualityScore } from "../lib/profile-physical.js";
+import { buildRouteRealisationStatistics } from "../lib/route-realisation-statistics.js";
 import {
   BUDDY_DAYS,
   BUDDY_SLOTS,
@@ -186,6 +189,7 @@ export default function Profil({
     .sort((a, b) => String(b.dateRealisation || "").localeCompare(String(a.dateRealisation || "")));
   const bestIds = bestRealisationIds(selectedRealisations, routesById);
   const displayedRealisations = sortRealisationsForDisplay(selectedRealisations, routesById, realisationSort, bestIds);
+  const selectedRouteRealisationStats = buildRouteRealisationStatistics(Object.values(routesById || {}), selectedRealisations);
   const cpr = cprByParticipantId[selectedParticipantId] || {};
   const points = pointsByParticipantId[selectedParticipantId] || 0;
   const participations = sessionStats.participationCount[selectedParticipantId] || 0;
@@ -509,6 +513,15 @@ export default function Profil({
                   </div>
                 </div>
               </details>
+
+              <RouteRealisationStatisticsTable
+                rows={selectedRouteRealisationStats}
+                formatRouteName={formatRouteName}
+                title="Voies du grimpeur"
+                description="Nombre de réalisations par corde, difficulté, mode et critère."
+                collapsible
+                defaultExpanded={false}
+              />
 
               {isOwnProfile && (
                 <div className="card">
