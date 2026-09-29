@@ -37,19 +37,12 @@ test("la règle d'inscription centralisée refuse une séance fermée et une sé
   );
 });
 
-test("encadrant et référent restent disponibles tant qu'ils ne s'inscrivent pas explicitement", async () => {
+test("encadrant et référent sont déjà présents sans inscription explicite", async () => {
   const queries = [];
   const client = {
     query: async (sql, params = []) => {
-      const text = String(sql);
-      queries.push({ text, params });
-      if (text.includes("select id from participants")) {
-        return { rowCount: 1, rows: [{ id: params[0] }] };
-      }
-      if (text.includes("insert into session_participants")) {
-        return { rowCount: 1, rows: [{ session_id: params[0] }] };
-      }
-      throw new Error(`Requête inattendue dans le test : ${text}`);
+      queries.push({ text: String(sql), params });
+      throw new Error("Aucune requête d'inscription ne doit être exécutée pour un rôle déjà présent.");
     },
   };
 
@@ -66,12 +59,9 @@ test("encadrant et référent restent disponibles tant qu'ils ne s'inscrivent pa
     participantIds: [],
   });
 
-  assert.equal(encadrant.registered, true);
-  assert.equal(referent.registered, true);
-  assert.equal(queries.filter(({ text }) => text.includes("insert into session_participants")).length, 2);
-  assert.ok(queries
-    .filter(({ text }) => text.includes("insert into session_participants"))
-    .every(({ text }) => text.includes("clock_timestamp()")));
+  assert.equal(encadrant.registered, false);
+  assert.equal(referent.registered, false);
+  assert.equal(queries.length, 0);
 });
 
 test("l'API des séances conserve l'ordre fourni et n'ajoute pas les rôles aux inscrits", async () => {
