@@ -391,13 +391,6 @@ export default function Profil({
                 </div>
               </div>
 
-              <RouteRealisationStatisticsTable
-                rows={selectedRouteRealisationStats}
-                formatRouteName={formatRouteName}
-                title="Voies du grimpeur"
-                description="Nombre de réalisations par corde, difficulté, mode et critère."
-              />
-
               <ClimberProfilePanel realisations={selectedRealisations} routesById={routesById} cprGrade={cpr.currentGrade || ""} />
               <ParticipantBadges participant={selectedParticipant} realisations={selectedRealisations} allRealisations={realisations} routesById={routesById} sessions={getParticipantSessions(selectedParticipantId)} />
               <div className="card"><CprEvolutionChart realisations={selectedRealisations} routesById={routesById} /></div>
@@ -520,6 +513,13 @@ export default function Profil({
                   </div>
                 </div>
               </details>
+
+              <RouteRealisationStatisticsTable
+                rows={selectedRouteRealisationStats}
+                formatRouteName={formatRouteName}
+                title="Voies du grimpeur"
+                description="Nombre de réalisations par corde, difficulté, mode et critère."
+              />
 
               {isOwnProfile && (
                 <div className="card">

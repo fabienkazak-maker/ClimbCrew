@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Button from "../components/Button.jsx";
 import SaveFeedback from "../components/SaveFeedback.jsx";
-import { apiFetch, USE_API } from "../lib/api.js";
+import { apiFetch, downloadFile, USE_API } from "../lib/api.js";
 import { fullName } from "../lib/domain.js";
 
 function AdminSection({ title, summary, children }) {
@@ -37,6 +37,7 @@ export default function Administration({
   const [nativeAdminError, setNativeAdminError] = useState("");
   const [participantDrafts, setParticipantDrafts] = useState({});
   const [participantSaveState, setParticipantSaveState] = useState({});
+  const [dataTransferState, setDataTransferState] = useState({ status: "idle", message: "" });
 
   useEffect(() => {
     setParticipantDrafts(Object.fromEntries(
@@ -206,6 +207,42 @@ export default function Administration({
     }
   }
 
+  async function exportReadableData() {
+    setDataTransferState({ status: "saving", message: "Export en cours…" });
+    try {
+      const result = await apiFetch("/admin/export-data");
+      const data = result?.data || result;
+      const date = new Date().toISOString().slice(0, 10);
+      downloadFile(`climbcrew-export-clair-${date}.json`, JSON.stringify(data, null, 2));
+      setDataTransferState({ status: "success", message: "✓ Export JSON téléchargé" });
+    } catch (error) {
+      setDataTransferState({ status: "error", message: `Export impossible : ${String(error?.message || error)}` });
+    }
+  }
+
+  async function importReadableData(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!window.confirm("L’import remplace les données métier actuelles. Continuer ?")) return;
+
+    setDataTransferState({ status: "saving", message: "Import en cours…" });
+    try {
+      const parsed = JSON.parse(await file.text());
+      const payload = parsed?.data || parsed;
+      const result = await apiFetch("/admin/import-data", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      setDataTransferState({
+        status: "success",
+        message: `✓ Import terminé : ${result?.participantsImported || 0} participants, ${result?.routesImported || 0} voies, ${result?.realisationsImported || 0} réalisations`,
+      });
+    } catch (error) {
+      setDataTransferState({ status: "error", message: `Import impossible : ${String(error?.message || error)}` });
+    }
+  }
+
   if (!adminUnlocked) {
     return (
       <div className="card">
@@ -257,6 +294,37 @@ export default function Administration({
       </AdminSection>
 
 
+
+      <AdminSection
+        title="Export / import des données"
+        summary="JSON lisible en clair, sans mots de passe ni jetons"
+      >
+        <div className="small" style={{ marginBottom: 10 }}>
+          L’export contient les données métier dans un fichier JSON lisible. L’import remplace les données métier actuelles ; les comptes et droits administrateur existants restent protégés.
+        </div>
+        <div className="group">
+          <Button type="button" variant="secondary" disabled={dataTransferState.status === "saving"} onClick={exportReadableData}>
+            Exporter les données en clair
+          </Button>
+          <input
+            id="admin-readable-import-file"
+            type="file"
+            accept=".json,application/json"
+            style={{ display: "none" }}
+            disabled={dataTransferState.status === "saving"}
+            onChange={importReadableData}
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={dataTransferState.status === "saving"}
+            onClick={() => document.getElementById("admin-readable-import-file")?.click()}
+          >
+            Importer des données en clair
+          </Button>
+        </div>
+        <SaveFeedback status={dataTransferState.status} message={dataTransferState.message} />
+      </AdminSection>
 
       <AdminSection title="Gestion des participants" summary={`${adminParticipants.length} participant${adminParticipants.length > 1 ? "s" : ""}`}>
         <div className="stack">
