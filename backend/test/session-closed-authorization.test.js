@@ -129,3 +129,72 @@ test("un administrateur sans qualification métier ne peut pas contourner la rè
   assert.equal(result.status, 403);
   assert.match(result.error, /seuls les encadrants/i);
 });
+
+test("un référent peut créer une séance libre sans obtenir les droits administrateur", () => {
+  const result = evaluateSessionMutation({
+    existingSession: null,
+    requestedSession: requestedSession({
+      status: "libre",
+      participantIds: [],
+    }),
+    previousParticipantIds: [],
+    actorParticipantId: "42",
+    canReferer: true,
+  });
+
+  assert.equal(result.allowed, true);
+  assert.equal(result.canCreate, true);
+  assert.equal(result.canManageAll, false);
+});
+
+test("un référent ne peut pas inscrire un autre grimpeur lors de la création", () => {
+  const result = evaluateSessionMutation({
+    existingSession: null,
+    requestedSession: requestedSession({
+      status: "libre",
+      participantIds: ["99"],
+    }),
+    previousParticipantIds: [],
+    actorParticipantId: "42",
+    canReferer: true,
+  });
+
+  assert.equal(result.allowed, false);
+  assert.equal(result.status, 403);
+  assert.match(result.error, /inscrire que lui-même/i);
+});
+
+test("un encadrant non administrateur ne peut pas affecter les rôles lors de la création", () => {
+  const result = evaluateSessionMutation({
+    existingSession: null,
+    requestedSession: requestedSession({
+      status: "encadree",
+      participantIds: [],
+      encadrantId: "99",
+    }),
+    previousParticipantIds: [],
+    actorParticipantId: "42",
+    canEncadrer: true,
+  });
+
+  assert.equal(result.allowed, false);
+  assert.equal(result.status, 403);
+  assert.match(result.error, /affectés que par un administrateur/i);
+});
+
+test("un encadrant peut créer une séance et s'inscrire lui-même si elle n'est pas fermée", () => {
+  const result = evaluateSessionMutation({
+    existingSession: null,
+    requestedSession: requestedSession({
+      status: "encadree",
+      participantIds: ["42"],
+    }),
+    previousParticipantIds: [],
+    actorParticipantId: "42",
+    canEncadrer: true,
+  });
+
+  assert.equal(result.allowed, true);
+  assert.equal(result.canManageAll, false);
+  assert.equal(result.actorJoins, true);
+});

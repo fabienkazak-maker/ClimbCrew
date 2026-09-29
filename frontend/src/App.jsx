@@ -659,11 +659,7 @@ function App() {
     const patchedSession = { ...currentSession, ...patch };
     const updatedSession = {
       ...patchedSession,
-      participantIds: [...new Set([
-        ...(patchedSession.participantIds || []).map(String),
-        patchedSession.encadrantId ? String(patchedSession.encadrantId) : null,
-        patchedSession.referentId ? String(patchedSession.referentId) : null,
-      ].filter(Boolean))],
+      participantIds: [...new Set((patchedSession.participantIds || []).map(String))],
     };
 
     persistSessionChange(sessionId, currentSession, updatedSession, Boolean(existingSession));
@@ -691,8 +687,6 @@ function App() {
 
     persistSessionChange(sessionId, currentSession, {
       ...currentSession,
-      encadrantId: String(currentSession.encadrantId || "") === removedId ? null : currentSession.encadrantId,
-      referentId: String(currentSession.referentId || "") === removedId ? null : currentSession.referentId,
       participantIds: currentSession.participantIds.filter((id) => String(id) !== removedId),
     }, Boolean(existingSession));
   }

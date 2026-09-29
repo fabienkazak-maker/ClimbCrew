@@ -74,7 +74,7 @@ function installSessionTestPool({ status, eligible }) {
           rowCount: 1,
         };
       }
-      if (normalized.includes("select participant_id from session_participants") && !normalized.includes("order by")) {
+      if (normalized.includes("select participant_id from session_participants")) {
         return { rows: [], rowCount: 0 };
       }
       if (normalized.includes("select can_encadrer, can_referer from participants")) {
