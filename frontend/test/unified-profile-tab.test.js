@@ -35,3 +35,9 @@ test("les réglages privés restent réservés au profil connecté", () => {
   assert.match(profileSource, /editable=\{isOwnProfile\}/);
   assert.match(profileSource, /profilePublic !== false/);
 });
+
+test("Profil affiche le tableau filtrable des voies du grimpeur", () => {
+  assert.match(profileSource, /buildRouteRealisationStatistics\(Object\.values\(routesById \|\| \{\}\), selectedRealisations\)/);
+  assert.match(profileSource, /<RouteRealisationStatisticsTable/);
+  assert.match(profileSource, /title="Voies du grimpeur"/);
+});
