@@ -200,6 +200,76 @@ test("un encadrant peut s'affecter lui-même lors de la création", () => {
   assert.equal(result.canManageOwnEncadrant, true);
 });
 
+test("un référent peut s’affecter lui-même lors de la création", () => {
+  const result = evaluateSessionMutation({
+    existingSession: null,
+    requestedSession: requestedSession({
+      status: "libre",
+      participantIds: [],
+      referentId: "42",
+    }),
+    previousParticipantIds: [],
+    actorParticipantId: "42",
+    canReferer: true,
+  });
+
+  assert.equal(result.allowed, true);
+  assert.equal(result.referentChanged, true);
+  assert.equal(result.canManageOwnReferent, true);
+});
+
+test("un référent peut s’affecter puis se retirer lui-même sur une séance existante", () => {
+  const assignment = evaluateSessionMutation({
+    existingSession: baseSession({ status: "libre" }),
+    requestedSession: requestedSession({
+      status: "libre",
+      participantIds: [],
+      referentId: "42",
+    }),
+    previousParticipantIds: [],
+    actorParticipantId: "42",
+    canReferer: true,
+  });
+
+  assert.equal(assignment.allowed, true);
+  assert.equal(assignment.referentChanged, true);
+  assert.equal(assignment.canManageOwnReferent, true);
+
+  const removal = evaluateSessionMutation({
+    existingSession: baseSession({ status: "libre", referent_id: "42" }),
+    requestedSession: requestedSession({
+      status: "libre",
+      participantIds: [],
+      referentId: null,
+    }),
+    previousParticipantIds: [],
+    actorParticipantId: "42",
+    canReferer: true,
+  });
+
+  assert.equal(removal.allowed, true);
+  assert.equal(removal.referentChanged, true);
+  assert.equal(removal.canManageOwnReferent, true);
+});
+
+test("un encadrant peut changer une séance libre en encadrée en retirant le référent devenu incompatible", () => {
+  const result = evaluateSessionMutation({
+    existingSession: baseSession({ status: "libre", referent_id: "99" }),
+    requestedSession: requestedSession({
+      status: "encadree",
+      participantIds: [],
+      encadrantId: null,
+      referentId: null,
+    }),
+    previousParticipantIds: [],
+    actorParticipantId: "42",
+    canEncadrer: true,
+  });
+
+  assert.equal(result.allowed, true);
+  assert.equal(result.statusChanged, true);
+  assert.equal(result.referentChanged, true);
+});
 test("un encadrant peut s'affecter puis se retirer lui-même sur une séance existante", () => {
   const assignment = evaluateSessionMutation({
     existingSession: baseSession({ status: "encadree" }),
