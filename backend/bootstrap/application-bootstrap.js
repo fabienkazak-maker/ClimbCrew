@@ -82,13 +82,20 @@ export async function startApplication({
       causeMessage: error?.cause?.message || null,
     };
     console.error(JSON.stringify(errorRecord));
-    if (
+    const isAccountCreationError = (
       ["/auth/request-access", "/api/auth/request-access", "/v1/auth/request-access"].includes(errorRecord.path)
       || String(errorRecord.diagnosticStage || "").startsWith("request_access.")
-    ) {
+    );
+    const isEmailVerificationError = (
+      ["/auth/verify-email", "/api/auth/verify-email", "/v1/auth/verify-email"].includes(errorRecord.path)
+      || String(errorRecord.diagnosticStage || "").startsWith("verify_email.")
+    );
+    if (isAccountCreationError || isEmailVerificationError) {
       writeRuntimeDiagnosticLog({
         req,
-        eventType: "account_creation_unhandled_error",
+        eventType: isEmailVerificationError
+          ? "account_email_verification_unhandled_error"
+          : "account_creation_unhandled_error",
         success: false,
         details: errorRecord,
       });
