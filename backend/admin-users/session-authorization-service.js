@@ -1,7 +1,7 @@
 import { getPool } from "./database.js";
 import { validateSessionPayload } from "../validation.js";
 import { getDefaultSessionStatus } from "../../shared/session-default-status.js";
-import { getSessionAttendanceIds, MAX_SESSION_PARTICIPANTS } from "../../shared/session-rules.js";
+import { getSessionAttendanceIds, getSessionSupervisorRole, isSessionManager, normalizeSessionRoles, MAX_SESSION_PARTICIPANTS } from "../../shared/session-rules.js";
 
 function normalizedId(value) {
   return value === null || value === undefined || value === "" ? null : String(value);
@@ -81,12 +81,12 @@ function symmetricDifference(left, right) {
 /**
  * Politique d'autorisation indépendante de PostgreSQL, afin d'être testable.
  *
- * - administrateur : gestion complète de la séance hors changement de statut, qui reste soumis aux qualifications métier ;
- * - référent : peut passer une séance au statut libre et s'affecter/se retirer lui-même comme référent ;
- * - encadrant : peut passer une séance à libre ou à tout autre statut et s'affecter/se retirer lui-même comme encadrant ;
+ * - encadrant ou référent : peut changer le type de séance et sélectionner un responsable qualifié ;
+ * - séance libre : le responsable sélectionné doit être référent ;
+ * - séance encadrée : le responsable sélectionné doit être encadrant ;
+ * - administrateur : peut gérer les données de séance, mais un changement de type reste réservé à un encadrant/référent ;
  * - membre standard : peut uniquement s'inscrire ou se désinscrire lui-même ;
- * - une séance fermée refuse toute nouvelle inscription non administrateur ;
- * - création d'une séance : administrateur, ou référent/encadrant selon le statut demandé.
+ * - une séance fermée refuse toute nouvelle inscription non administrateur.
  */
 export function evaluateSessionMutation({
   existingSession,
@@ -100,23 +100,19 @@ export function evaluateSessionMutation({
   const previous = new Set(previousParticipantIds.map(String));
   const requested = new Set((requestedSession.participantIds || []).map(String));
   const actorId = normalizedId(actorParticipantId);
+  const canManageSession = isSessionManager({ canEncadrer, canReferer });
 
   if (!existingSession) {
     const requestedStatus = requestedSession.status || getDefaultSessionStatus(
       requestedSession.date,
       requestedSession.slot,
     );
-    const canCreateRequestedStatus = requestedStatus === "libre"
-      ? Boolean(canEncadrer || canReferer)
-      : Boolean(canEncadrer);
 
-    if (!isAdmin && !canCreateRequestedStatus) {
+    if (!isAdmin && !canManageSession) {
       return {
         allowed: false,
         status: 403,
-        error: requestedStatus === "libre"
-          ? "Seuls les référents, encadrants ou administrateurs peuvent créer une séance libre."
-          : "Seuls les encadrants ou administrateurs peuvent créer une séance encadrée ou fermée.",
+        error: "Seuls les encadrants ou référents peuvent créer et paramétrer une séance.",
       };
     }
 
@@ -125,6 +121,7 @@ export function evaluateSessionMutation({
         allowed: true,
         canCreate: true,
         canManageAll: true,
+        canManageRoles: true,
         canChangeStatus: true,
         statusChanged: true,
       };
@@ -135,25 +132,6 @@ export function evaluateSessionMutation({
         allowed: false,
         status: 403,
         error: "Le compte doit être associé à un grimpeur pour créer une séance.",
-      };
-    }
-
-    const requestedEncadrantId = normalizedId(requestedSession.encadrantId);
-    const requestedReferentId = normalizedId(requestedSession.referentId);
-    const canAssignSelfAsEncadrant = Boolean(
-      canEncadrer && requestedEncadrantId && requestedEncadrantId === actorId,
-    );
-    const canAssignSelfAsReferent = Boolean(
-      canReferer && requestedReferentId && requestedReferentId === actorId,
-    );
-    if (
-      (requestedEncadrantId && !canAssignSelfAsEncadrant)
-      || (requestedReferentId && !canAssignSelfAsReferent)
-    ) {
-      return {
-        allowed: false,
-        status: 403,
-        error: "Un encadrant ou référent peut uniquement s’affecter lui-même ; l’affectation des autres rôles reste réservée à un administrateur.",
       };
     }
 
@@ -178,12 +156,11 @@ export function evaluateSessionMutation({
       allowed: true,
       canCreate: true,
       canManageAll: false,
+      canManageRoles: true,
       canChangeStatus: true,
       statusChanged: true,
-      encadrantChanged: Boolean(requestedEncadrantId),
-      canManageOwnEncadrant: canAssignSelfAsEncadrant,
-      referentChanged: Boolean(requestedReferentId),
-      canManageOwnReferent: canAssignSelfAsReferent,
+      encadrantChanged: Boolean(normalizedId(requestedSession.encadrantId)),
+      referentChanged: Boolean(normalizedId(requestedSession.referentId)),
       actorJoins,
       actorLeaves: false,
     };
@@ -191,17 +168,12 @@ export function evaluateSessionMutation({
 
   const requestedStatus = requestedSession.status || existingSession.status;
   const statusChanged = requestedStatus !== existingSession.status;
-  const canChangeRequestedStatus = requestedStatus === "libre"
-    ? Boolean(canEncadrer || canReferer)
-    : Boolean(canEncadrer);
 
-  if (statusChanged && !canChangeRequestedStatus) {
+  if (statusChanged && !canManageSession) {
     return {
       allowed: false,
       status: 403,
-      error: requestedStatus === "libre"
-        ? "Seuls les référents ou encadrants peuvent passer une séance au statut libre."
-        : "Seuls les encadrants peuvent passer une séance dans un autre statut.",
+      error: "Seuls les encadrants ou référents peuvent changer le type d’une séance.",
     };
   }
 
@@ -209,7 +181,8 @@ export function evaluateSessionMutation({
     return {
       allowed: true,
       canManageAll: true,
-      canChangeStatus: canChangeRequestedStatus,
+      canManageRoles: true,
+      canChangeStatus: canManageSession,
       statusChanged,
     };
   }
@@ -225,46 +198,26 @@ export function evaluateSessionMutation({
   const existingEncadrantId = normalizedId(existingSession.encadrant_id ?? existingSession.encadrantId);
   const requestedEncadrantId = normalizedId(requestedSession.encadrantId);
   const encadrantChanged = existingEncadrantId !== requestedEncadrantId;
-  const canManageOwnEncadrant = Boolean(
-    encadrantChanged
-    && canEncadrer
-    && [existingEncadrantId, requestedEncadrantId].every(
-      (encadrantId) => encadrantId === null || encadrantId === actorId,
-    ),
-  );
   const existingReferentId = normalizedId(existingSession.referent_id ?? existingSession.referentId);
   const requestedReferentId = normalizedId(requestedSession.referentId);
   const referentChanged = existingReferentId !== requestedReferentId;
-  const canManageOwnReferent = Boolean(
-    referentChanged
-    && canReferer
-    && [existingReferentId, requestedReferentId].every(
-      (referentId) => referentId === null || referentId === actorId,
-    ),
-  );
-  const canClearEncadrantForStatusChange = Boolean(
-    encadrantChanged
-    && statusChanged
-    && requestedStatus !== "encadree"
-    && requestedEncadrantId === null,
-  );
-  const canClearReferentForStatusChange = Boolean(
-    referentChanged
-    && statusChanged
-    && requestedStatus !== "libre"
-    && requestedReferentId === null,
-  );
 
   if (
     normalizedSessionDate(requestedSession.date) !== normalizedSessionDate(existingSession.date)
     || requestedSession.slot !== existingSession.slot
-    || (referentChanged && !canManageOwnReferent && !canClearReferentForStatusChange)
-    || (encadrantChanged && !canManageOwnEncadrant && !canClearEncadrantForStatusChange)
   ) {
     return {
       allowed: false,
       status: 403,
-      error: "Un encadrant ou référent peut uniquement s’affecter ou se retirer lui-même ; les autres modifications de rôle restent réservées à un administrateur.",
+      error: "La date et le créneau d’une séance ne peuvent pas être modifiés depuis le planning.",
+    };
+  }
+
+  if ((encadrantChanged || referentChanged) && !canManageSession) {
+    return {
+      allowed: false,
+      status: 403,
+      error: "Seuls les encadrants ou référents peuvent modifier le rôle de séance.",
     };
   }
 
@@ -290,15 +243,37 @@ export function evaluateSessionMutation({
   return {
     allowed: true,
     canManageAll: false,
-    canChangeStatus: canChangeRequestedStatus,
+    canManageRoles: canManageSession,
+    canChangeStatus: canManageSession,
     statusChanged,
     encadrantChanged,
-    canManageOwnEncadrant,
     referentChanged,
-    canManageOwnReferent,
     actorJoins,
     actorLeaves,
   };
+}
+
+async function assertSessionSupervisorEligibility(client, session) {
+  const role = getSessionSupervisorRole(session?.status);
+  const participantId = role === "encadrant"
+    ? normalizedId(session?.encadrantId)
+    : role === "referent"
+      ? normalizedId(session?.referentId)
+      : null;
+
+  if (!participantId) return;
+
+  const column = role === "encadrant" ? "can_encadrer" : "can_referer";
+  const result = await client.query(
+    `select id from participants where id = $1 and ${column} = true limit 1`,
+    [participantId],
+  );
+  if (!result.rowCount) {
+    const label = role === "encadrant" ? "encadrant" : "référent";
+    const error = new Error(`Le grimpeur sélectionné n’est pas habilité comme ${label}.`);
+    error.status = 400;
+    throw error;
+  }
 }
 
 async function loadActorPrivileges(client, participantId) {
@@ -450,6 +425,11 @@ async function mutateSessionParticipant(req, res, { remove = false } = {}) {
 
       const resolvedStatus = requestedSession.status
         || getDefaultSessionStatus(requestedSession.date, requestedSession.slot);
+      const roleSelection = normalizeSessionRoles({
+        ...requestedSession,
+        status: resolvedStatus,
+      });
+      await assertSessionSupervisorEligibility(client, roleSelection);
       const createdSession = await client.query(
         `insert into sessions (id, date, slot, status, encadrant_id, referent_id)
          values ($1,$2,$3,$4,$5,$6)
@@ -459,8 +439,12 @@ async function mutateSessionParticipant(req, res, { remove = false } = {}) {
           requestedSession.date,
           requestedSession.slot,
           resolvedStatus,
-          creationPolicy.canManageAll ? requestedSession.encadrantId || null : null,
-          creationPolicy.canManageAll ? requestedSession.referentId || null : null,
+          creationPolicy.canManageAll || creationPolicy.canManageRoles
+            ? roleSelection.encadrantId
+            : null,
+          creationPolicy.canManageAll || creationPolicy.canManageRoles
+            ? roleSelection.referentId
+            : null,
         ],
       );
       session = createdSession.rows[0];
@@ -583,10 +567,17 @@ export async function updateSessionWithAuthorization(req, res) {
     )];
 
     const privileges = await loadActorPrivileges(client, actorParticipantId);
+    const resolvedStatus = requested.status
+      || existing?.status
+      || getDefaultSessionStatus(requested.date, requested.slot);
+    const canonicalRequestedSession = normalizeSessionRoles({
+      ...requested,
+      status: resolvedStatus,
+    });
     const preserveParticipants = Boolean(existing && req.body?.participantMode === "preserve");
     const policyRequestedSession = preserveParticipants
-      ? { ...requested, participantIds: previousParticipantIds }
-      : requested;
+      ? { ...canonicalRequestedSession, participantIds: previousParticipantIds }
+      : canonicalRequestedSession;
 
     if (existing && isAdmin && !preserveParticipants) {
       const participantChanges = symmetricDifference(
@@ -615,14 +606,11 @@ export async function updateSessionWithAuthorization(req, res) {
       return res.status(policy.status || 403).json({ error: policy.error || "Action non autorisée" });
     }
 
+    await assertSessionSupervisorEligibility(client, policyRequestedSession);
     const normalizedRequestedParticipantIds = assertSessionCapacity(
       policyRequestedSession.participantIds,
       policyRequestedSession,
     );
-
-    const resolvedStatus = requested.status
-      || existing?.status
-      || getDefaultSessionStatus(requested.date, requested.slot);
 
     let sessionRow;
     if (policy.canManageAll) {
@@ -644,8 +632,8 @@ export async function updateSessionWithAuthorization(req, res) {
           requested.date,
           requested.slot,
           resolvedStatus,
-          requested.encadrantId || null,
-          requested.referentId || null,
+          policyRequestedSession.encadrantId,
+          policyRequestedSession.referentId,
         ],
       );
       sessionRow = result.rows[0];
@@ -686,8 +674,8 @@ export async function updateSessionWithAuthorization(req, res) {
             requested.date,
             requested.slot,
             resolvedStatus,
-            policy.canManageOwnEncadrant ? requested.encadrantId || null : null,
-            policy.canManageOwnReferent ? requested.referentId || null : null,
+            policy.canManageRoles ? policyRequestedSession.encadrantId : null,
+            policy.canManageRoles ? policyRequestedSession.referentId : null,
           ],
         );
         sessionRow = result.rows[0];
@@ -700,8 +688,8 @@ export async function updateSessionWithAuthorization(req, res) {
           [
             requested.id,
             resolvedStatus,
-            policy.encadrantChanged ? requested.encadrantId || null : existing.encadrant_id,
-            policy.referentChanged ? requested.referentId || null : existing.referent_id,
+            policy.encadrantChanged ? policyRequestedSession.encadrantId : existing.encadrant_id,
+            policy.referentChanged ? policyRequestedSession.referentId : existing.referent_id,
           ],
         );
         sessionRow = result.rows[0];
