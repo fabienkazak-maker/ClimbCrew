@@ -53,7 +53,7 @@ async function withHttpStackServer(run) {
   });
   try {
     const address = server.address();
-    await run(\`http://127.0.0.1:\${address.port}\`);
+    await run(`http://127.0.0.1:\${address.port}`);
   } finally {
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
@@ -61,7 +61,7 @@ async function withHttpStackServer(run) {
 
 test("le formulaire POST de confirmation par token n'est pas bloqué par CORS", async () => {
   await withHttpStackServer(async (baseUrl) => {
-    const confirmation = await fetch(\`${baseUrl}/api/auth/verify-email?token=test-token\`, {
+    const confirmation = await fetch(`${baseUrl}/api/auth/verify-email?token=test-token`, {
       method: "POST",
       headers: {
         origin: "null",
@@ -71,7 +71,17 @@ test("le formulaire POST de confirmation par token n'est pas bloqué par CORS", 
     });
     assert.equal(confirmation.status, 204);
 
-    const ordinaryWrite = await fetch(\`${baseUrl}/ordinary-write\`, {
+    const missingToken = await fetch(`${baseUrl}/api/auth/verify-email`, {
+      method: "POST",
+      headers: {
+        origin: "https://unexpected.example",
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      body: "",
+    });
+    assert.equal(missingToken.status, 403);
+
+    const ordinaryWrite = await fetch(`${baseUrl}/ordinary-write`, {
       method: "POST",
       headers: {
         origin: "https://unexpected.example",
