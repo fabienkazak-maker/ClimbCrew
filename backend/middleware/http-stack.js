@@ -314,11 +314,16 @@ export function installHttpStack(app, config, { isSafeMethod, getClientIp }) {
   app.use(rateLimitLogMiddleware);
   app.use(markAccountRequestStage("http.cors"));
   app.use(cors((req, callback) => {
-    if (isTokenConfirmationFormPost(req)) {
+    const origin = normalizeOrigin(req.headers?.origin);
+
+    // Certains navigateurs/webviews ouverts depuis un e-mail soumettent le
+    // formulaire de confirmation avec une origine opaque ("null"). Le jeton
+    // secret présent dans l'URL authentifie cette action ; on ne désactive
+    // CORS que pour ce cas précis, jamais pour une origine externe réelle.
+    if (origin === "null" && isTokenConfirmationFormPost(req)) {
       return callback(null, { origin: false, credentials: false });
     }
 
-    const origin = normalizeOrigin(req.headers?.origin);
     if (!origin) return callback(null, { origin: true, credentials: true });
 
     const requestOrigin = publicRequestOrigin(req);
