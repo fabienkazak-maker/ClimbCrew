@@ -34,6 +34,13 @@ test("le déploiement main exige une PR associée", async () => {
   assert.match(source, /degraded/);
 });
 
+test("le déploiement PPD synchronise l'origine publique du backend", async () => {
+  const source = await workflow("deploy.yml");
+  assert.match(source, /set_env_var PUBLIC_URL "https:\/\/\$\{PPD_DOMAIN\}"/);
+  assert.match(source, /set_env_var FRONTEND_ORIGIN "https:\/\/\$\{PPD_DOMAIN\}"/);
+  assert.match(source, /set_env_var CORS_ORIGIN "https:\/\/\$\{PPD_DOMAIN\}"/);
+});
+
 test("les actions GitHub critiques sont épinglées par SHA", async () => {
   const entries = await readdir(workflowsUrl, { withFileTypes: true });
   const offenders = [];
