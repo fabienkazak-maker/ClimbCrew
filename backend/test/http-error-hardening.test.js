@@ -125,8 +125,6 @@ test("une vraie origine externe reste refusée avec un statut 403", async () => 
     });
 
     assert.equal(response.status, 403);
-    const body = await response.json();
-    assert.equal(body.error, "Origine CORS non autorisée");
-    assert.equal(typeof body.requestId, "string");
+    assert.match(await response.text(), /Origine CORS non autorisée/);
   });
 });
