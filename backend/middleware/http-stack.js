@@ -220,7 +220,7 @@ function createRateLimiter({ keyPrefix, windowMs, max, getClientIp }) {
   };
 }
 
-function normalizeOrigin(value) {
+export function normalizeOrigin(value) {
   const raw = String(value || "").trim();
   if (!raw) return "";
   try {
@@ -230,7 +230,7 @@ function normalizeOrigin(value) {
   }
 }
 
-function publicRequestOrigin(req) {
+export function publicRequestOrigin(req) {
   const forwardedProto = String(req.headers?.["x-forwarded-proto"] || "").split(",")[0].trim();
   const forwardedHost = String(req.headers?.["x-forwarded-host"] || "").split(",")[0].trim();
   const protocol = forwardedProto || String(req.protocol || "").trim();
