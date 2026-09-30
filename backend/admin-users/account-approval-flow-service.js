@@ -4,6 +4,7 @@ import { hashToken } from "./security.js";
 import { serializeUser } from "./user-serializer.js";
 import { notifyAccountRequestReviewers } from "./account-notification-preference-service.js";
 import { sendApprovalNotificationEmail } from "./account-service.js";
+import { writeRuntimeDiagnosticLog } from "../runtime-diagnostic-log-service.js";
 
 /**
  * Valide la propriété de l'adresse e-mail sans activer automatiquement le compte.
@@ -14,16 +15,72 @@ export async function verifyEmailPendingAdminApproval(req, res) {
   const rawToken = String(req.query?.token || req.body?.token || "").trim();
   if (!rawToken) return res.status(400).send("Lien de confirmation invalide.");
 
-  const tokenHash = hashToken(rawToken);
-  const client = await getPool().connect();
+  let client = null;
+  let transactionStarted = false;
+  let transactionCommitted = false;
+  let stage = "verification.request_received";
+  let userId = null;
+
+  const setStage = (nextStage) => {
+    stage = nextStage;
+    req.requestDiagnosticStage = `verify_email.${nextStage}`;
+    writeRuntimeDiagnosticLog({
+      req,
+      eventType: "account_email_verification_trace",
+      details: {
+        requestId: req.requestId || null,
+        stage,
+        userId,
+        transactionCommitted,
+      },
+    });
+  };
+
+  const traceError = (error) => {
+    const details = {
+      requestId: req.requestId || null,
+      stage,
+      userId,
+      transactionCommitted,
+      errorName: error?.name || null,
+      errorCode: error?.code || null,
+      severity: error?.severity || null,
+      detail: error?.detail || null,
+      hint: error?.hint || null,
+      schema: error?.schema || null,
+      table: error?.table || null,
+      column: error?.column || null,
+      constraint: error?.constraint || null,
+      routine: error?.routine || null,
+      message: error?.message || String(error),
+      stack: error?.stack || null,
+    };
+    console.error(JSON.stringify({ event: "account_email_verification_error", ...details }));
+    writeRuntimeDiagnosticLog({
+      req,
+      eventType: "account_email_verification_error",
+      success: false,
+      details,
+    });
+  };
 
   try {
+    setStage("token_hash");
+    const tokenHash = hashToken(rawToken);
+
+    setStage("database_connect");
+    client = await getPool().connect();
+
+    setStage("transaction_begin");
     await client.query("begin");
+    transactionStarted = true;
+
+    setStage("token_lookup");
     const tokenResult = await client.query(
       `
         select evt.id, evt.user_id, evt.expires_at, evt.used_at,
-               u.id as user_id, u.email, u.prenom, u.nom, u.status,
-               u.email_verified_at, u.participant_id
+               u.email, u.prenom, u.nom, u.status,
+               u.email_verified_at, u.participant_id, u.is_admin
         from email_verification_tokens evt
         join users u on u.id = evt.user_id
         where evt.token_hash = $1
@@ -35,105 +92,121 @@ export async function verifyEmailPendingAdminApproval(req, res) {
 
     const tokenRow = tokenResult.rows[0];
     if (!tokenRow) {
+      setStage("token_not_found");
       await client.query("rollback");
+      transactionStarted = false;
       return res.status(404).send("Ce lien de confirmation est introuvable ou a déjà été supprimé.");
     }
+    userId = tokenRow.user_id;
+    setStage("token_found");
 
-    if (tokenRow.used_at && tokenRow.status === "active") {
+    if (tokenRow.used_at) {
+      setStage("token_already_used");
       await client.query("rollback");
-      return res.status(200).send("Cette adresse e-mail a déjà été confirmée et le compte est actif.");
-    }
-    if (tokenRow.used_at && tokenRow.status === "pending") {
-      await client.query("rollback");
+      transactionStarted = false;
+      if (tokenRow.status === "active") {
+        return res.status(200).send("Cette adresse e-mail a déjà été confirmée et le compte est actif.");
+      }
       return res.status(200).send(
         "Cette adresse e-mail a déjà été confirmée. Le compte reste en attente d’association et d’approbation par un administrateur.",
       );
     }
-    if (!tokenRow.used_at && new Date(tokenRow.expires_at).getTime() <= Date.now()) {
+
+    const expiresAt = new Date(tokenRow.expires_at).getTime();
+    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+      setStage("token_expired");
       await client.query("rollback");
+      transactionStarted = false;
       return res.status(410).send("Ce lien de confirmation a expiré.");
     }
 
-    if (!tokenRow.used_at) {
-      await client.query(
-        `update email_verification_tokens set used_at = now() where id = $1`,
-        [tokenRow.id],
-      );
-    }
+    setStage("token_mark_used");
+    await client.query(
+      "update email_verification_tokens set used_at = now() where id = $1 and used_at is null",
+      [tokenRow.id],
+    );
 
-    // La vérification de l'e-mail ne crée, n'associe ni n'active de fiche.
+    setStage("user_mark_verified");
     const verifiedUserResult = await client.query(
       `
         update users
         set email_verified_at = coalesce(email_verified_at, now())
         where id = $1
-        returning id, participant_id, email, prenom, nom, role, is_admin,
-                  status, approved_at, email_verified_at
+        returning id, participant_id, email, prenom, nom, is_admin,
+                  status, email_verified_at
       `,
       [tokenRow.user_id],
     );
-    await client.query("commit");
 
     const verifiedUser = verifiedUserResult.rows[0];
+    if (!verifiedUser) {
+      throw new Error(`Utilisateur introuvable pendant la confirmation (id=${tokenRow.user_id})`);
+    }
 
-    await writeAccessLog({
-      userId: verifiedUser.id,
-      eventType: "account_request_email_verified",
-      req,
-      details: {
-        email: verifiedUser.email,
-        status: verifiedUser.status,
-        autoActivated: false,
-        awaitingAdminApproval: verifiedUser.status === "pending",
-        participantId: verifiedUser.participant_id ? String(verifiedUser.participant_id) : null,
-        isAdmin: Boolean(verifiedUser.is_admin),
-      },
-    });
+    setStage("transaction_commit");
+    await client.query("commit");
+    transactionStarted = false;
+    transactionCommitted = true;
+    setStage("database_committed");
+
+    // Les opérations de journalisation et de notification ne doivent jamais
+    // transformer une confirmation déjà validée en erreur HTTP 500.
+    try {
+      setStage("access_log_write");
+      await writeAccessLog({
+        userId: verifiedUser.id,
+        eventType: "account_request_email_verified",
+        req,
+        details: {
+          email: verifiedUser.email,
+          status: verifiedUser.status,
+          autoActivated: false,
+          awaitingAdminApproval: verifiedUser.status === "pending",
+          participantId: verifiedUser.participant_id ? String(verifiedUser.participant_id) : null,
+          isAdmin: Boolean(verifiedUser.is_admin),
+        },
+      });
+    } catch (loggingError) {
+      traceError(loggingError);
+    }
 
     if (verifiedUser.status === "pending") {
       try {
+        setStage("admin_notification");
         await notifyAccountRequestReviewers({ user: verifiedUser, req });
-      } catch (error) {
-        console.error("Recherche des administrateurs à notifier impossible :", error);
-        await writeAccessLog({
-          userId: verifiedUser.id,
-          eventType: "account_request_ready_admin_lookup_failed",
-          success: false,
-          req,
-          details: { error: String(error.message || error) },
-        });
+      } catch (notificationError) {
+        traceError(notificationError);
       }
     }
 
+    setStage("completed");
     if (verifiedUser.status === "pending") {
       return res.status(200).send(
         "Adresse e-mail confirmée. Un administrateur doit maintenant associer le compte à une fiche grimpeur puis l’approuver.",
       );
     }
-
     return res.status(200).send("Adresse e-mail confirmée.");
   } catch (error) {
-    await client.query("rollback").catch(() => undefined);
-    console.error("Confirmation de l’adresse e-mail impossible :", {
-      requestId: req.requestId || null,
-      code: error?.code || null,
-      message: error?.message || String(error),
-      stack: error?.stack || null,
-    });
+    if (client && transactionStarted && !transactionCommitted) {
+      await client.query("rollback").catch(() => undefined);
+      transactionStarted = false;
+    }
+    traceError(error);
     await writeAccessLog({
-      userId: null,
+      userId,
       eventType: "account_request_email_verification_failed",
       success: false,
       req,
       details: {
         requestId: req.requestId || null,
+        stage,
         code: error?.code || null,
         error: String(error?.message || error),
       },
     });
     return res.status(500).send("La confirmation de l’adresse e-mail a échoué.");
   } finally {
-    client.release();
+    client?.release();
   }
 }
 
