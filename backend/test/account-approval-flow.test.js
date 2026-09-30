@@ -58,9 +58,10 @@ test("un compte pending déjà vérifié reste pending jusqu'à l'approbation ad
   assert.doesNotMatch(approvalSource, /status = case when/);
 });
 
-test("la confirmation e-mail trace l'étape exacte et protège le succès après commit", () => {
-  assert.match(approvalSource, /account_email_verification_trace/);
-  assert.match(approvalSource, /account_email_verification_error/);
+test("la confirmation e-mail conserve le diagnostic de réponse sans logs temporaires et protège le succès après commit", () => {
+  assert.doesNotMatch(approvalSource, /account_email_verification_trace/);
+  assert.doesNotMatch(approvalSource, /account_email_verification_error/);
+  assert.match(approvalSource, /requestDiagnosticStage/);
   assert.match(approvalSource, /transactionCommitted = true/);
   assert.match(approvalSource, /admin_notification/);
   assert.match(approvalSource, /client\?\.release\(\)/);
