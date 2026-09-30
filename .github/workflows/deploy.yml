@@ -317,6 +317,9 @@ jobs:
             fi
           }
           set_env_var ALLOW_FIRST_ADMIN_BOOTSTRAP false
+          set_env_var PUBLIC_URL "https://${PPD_DOMAIN}"
+          set_env_var FRONTEND_ORIGIN "https://${PPD_DOMAIN}"
+          set_env_var CORS_ORIGIN "https://${PPD_DOMAIN}"
           if [ -n "${SMTP_USER:-}" ] && [ -n "${SMTP_PASSWORD:-}" ]; then
             set_env_var EMAIL_ENABLED true
             set_env_var SMTP_HOST smtp.gmail.com
