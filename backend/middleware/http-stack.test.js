@@ -53,7 +53,7 @@ async function withHttpStackServer(run) {
   });
   try {
     const address = server.address();
-    await run(`http://127.0.0.1:\${address.port}`);
+    await run(`http://127.0.0.1:${address.port}`);
   } finally {
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
