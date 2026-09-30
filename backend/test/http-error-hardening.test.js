@@ -65,10 +65,11 @@ test("les erreurs métier 4xx restent explicites", async () => {
   });
 });
 
-test("le formulaire de confirmation e-mail accepte l'origine publique PPD", async () => {
+test("le formulaire de confirmation e-mail accepte toujours son origine publique réelle", async () => {
   const app = express();
   const config = testConfig();
-  config.corsOrigins = ["https://pre-climbcrew.dip-tcs.com"];
+  config.trustProxy = 1;
+  config.corsOrigins = ["https://ancienne-config.example"];
   installHttpStack(app, config, {
     isSafeMethod: (method) => ["GET", "HEAD", "OPTIONS"].includes(String(method).toUpperCase()),
     getClientIp: () => "127.0.0.1",
@@ -82,6 +83,8 @@ test("le formulaire de confirmation e-mail accepte l'origine publique PPD", asyn
       method: "POST",
       headers: {
         Origin: "https://pre-climbcrew.dip-tcs.com",
+        "X-Forwarded-Proto": "https",
+        "X-Forwarded-Host": "pre-climbcrew.dip-tcs.com",
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: "",
@@ -93,5 +96,37 @@ test("le formulaire de confirmation e-mail accepte l'origine publique PPD", asyn
       "https://pre-climbcrew.dip-tcs.com",
     );
     assert.deepEqual(await response.json(), { error: "Lien de confirmation invalide." });
+  });
+});
+
+test("une vraie origine externe reste refusée avec un statut 403", async () => {
+  const app = express();
+  const config = testConfig();
+  config.trustProxy = 1;
+  config.corsOrigins = ["https://pre-climbcrew.dip-tcs.com"];
+  installHttpStack(app, config, {
+    isSafeMethod: (method) => ["GET", "HEAD", "OPTIONS"].includes(String(method).toUpperCase()),
+    getClientIp: () => "127.0.0.1",
+  });
+  app.post("/auth/verify-email", (_req, res) => {
+    res.status(204).end();
+  });
+
+  await withServer(app, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/auth/verify-email?token=test`, {
+      method: "POST",
+      headers: {
+        Origin: "https://malveillant.example",
+        "X-Forwarded-Proto": "https",
+        "X-Forwarded-Host": "pre-climbcrew.dip-tcs.com",
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: "",
+    });
+
+    assert.equal(response.status, 403);
+    const body = await response.json();
+    assert.equal(body.error, "Origine CORS non autorisée");
+    assert.equal(typeof body.requestId, "string");
   });
 });
