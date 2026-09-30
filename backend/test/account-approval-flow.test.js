@@ -52,10 +52,18 @@ test("la vérification de l'e-mail conserve le compte pending jusqu'à l'action 
 });
 
 test("un compte pending déjà vérifié reste pending jusqu'à l'approbation administrateur", () => {
-  assert.match(approvalSource, /if \(tokenRow\.used_at && tokenRow\.status === "active"\)/);
-  assert.match(approvalSource, /if \(tokenRow\.used_at && tokenRow\.status === "pending"\)/);
-  assert.match(approvalSource, /if \(!tokenRow\.used_at\)/);
+  assert.match(approvalSource, /if \(tokenRow\.used_at\)/);
+  assert.match(approvalSource, /tokenRow\.status === "active"/);
+  assert.match(approvalSource, /compte reste en attente d’association et d’approbation/);
   assert.doesNotMatch(approvalSource, /status = case when/);
+});
+
+test("la confirmation e-mail trace l'étape exacte et protège le succès après commit", () => {
+  assert.match(approvalSource, /account_email_verification_trace/);
+  assert.match(approvalSource, /account_email_verification_error/);
+  assert.match(approvalSource, /transactionCommitted = true/);
+  assert.match(approvalSource, /admin_notification/);
+  assert.match(approvalSource, /client\?\.release\(\)/);
 });
 
 test("toutes les demandes pending restent visibles dans Gestion des comptes avec leur statut d'envoi", () => {
