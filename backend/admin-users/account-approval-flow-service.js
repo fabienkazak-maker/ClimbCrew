@@ -4,7 +4,6 @@ import { hashToken } from "./security.js";
 import { serializeUser } from "./user-serializer.js";
 import { notifyAccountRequestReviewers } from "./account-notification-preference-service.js";
 import { sendApprovalNotificationEmail } from "./account-service.js";
-import { writeRuntimeDiagnosticLog } from "../runtime-diagnostic-log-service.js";
 
 /**
  * Valide la propriété de l'adresse e-mail sans activer automatiquement le compte.
@@ -24,44 +23,10 @@ export async function verifyEmailPendingAdminApproval(req, res) {
   const setStage = (nextStage) => {
     stage = nextStage;
     req.requestDiagnosticStage = `verify_email.${nextStage}`;
-    writeRuntimeDiagnosticLog({
-      req,
-      eventType: "account_email_verification_trace",
-      details: {
-        requestId: req.requestId || null,
-        stage,
-        userId,
-        transactionCommitted,
-      },
-    });
   };
 
-  const traceError = (error) => {
-    const details = {
-      requestId: req.requestId || null,
-      stage,
-      userId,
-      transactionCommitted,
-      errorName: error?.name || null,
-      errorCode: error?.code || null,
-      severity: error?.severity || null,
-      detail: error?.detail || null,
-      hint: error?.hint || null,
-      schema: error?.schema || null,
-      table: error?.table || null,
-      column: error?.column || null,
-      constraint: error?.constraint || null,
-      routine: error?.routine || null,
-      message: error?.message || String(error),
-      stack: error?.stack || null,
-    };
-    console.error(JSON.stringify({ event: "account_email_verification_error", ...details }));
-    writeRuntimeDiagnosticLog({
-      req,
-      eventType: "account_email_verification_error",
-      success: false,
-      details,
-    });
+  const logVerificationError = (error) => {
+    console.error("Erreur pendant la confirmation e-mail :", error);
   };
 
   try {
@@ -167,7 +132,7 @@ export async function verifyEmailPendingAdminApproval(req, res) {
         },
       });
     } catch (loggingError) {
-      traceError(loggingError);
+      logVerificationError(loggingError);
     }
 
     if (verifiedUser.status === "pending") {
@@ -175,7 +140,7 @@ export async function verifyEmailPendingAdminApproval(req, res) {
         setStage("admin_notification");
         await notifyAccountRequestReviewers({ user: verifiedUser, req });
       } catch (notificationError) {
-        traceError(notificationError);
+        logVerificationError(notificationError);
       }
     }
 
@@ -191,7 +156,7 @@ export async function verifyEmailPendingAdminApproval(req, res) {
       await client.query("rollback").catch(() => undefined);
       transactionStarted = false;
     }
-    traceError(error);
+    logVerificationError(error);
     await writeAccessLog({
       userId,
       eventType: "account_request_email_verification_failed",
