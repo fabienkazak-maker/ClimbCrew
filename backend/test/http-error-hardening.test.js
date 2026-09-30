@@ -64,3 +64,34 @@ test("les erreurs métier 4xx restent explicites", async () => {
     assert.deepEqual(await response.json(), { error: "Champ invalide" });
   });
 });
+
+test("le formulaire de confirmation e-mail accepte l'origine publique PPD", async () => {
+  const app = express();
+  const config = testConfig();
+  config.corsOrigins = ["https://pre-climbcrew.dip-tcs.com"];
+  installHttpStack(app, config, {
+    isSafeMethod: (method) => ["GET", "HEAD", "OPTIONS"].includes(String(method).toUpperCase()),
+    getClientIp: () => "127.0.0.1",
+  });
+  app.post("/auth/verify-email", (_req, res) => {
+    res.status(400).json({ error: "Lien de confirmation invalide." });
+  });
+
+  await withServer(app, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/auth/verify-email?token=test`, {
+      method: "POST",
+      headers: {
+        Origin: "https://pre-climbcrew.dip-tcs.com",
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: "",
+    });
+
+    assert.equal(response.status, 400);
+    assert.equal(
+      response.headers.get("access-control-allow-origin"),
+      "https://pre-climbcrew.dip-tcs.com",
+    );
+    assert.deepEqual(await response.json(), { error: "Lien de confirmation invalide." });
+  });
+});
