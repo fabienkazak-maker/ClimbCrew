@@ -110,11 +110,18 @@ function installOutboundErrorSanitizer(req, res) {
   };
 }
 
+const ACCOUNT_DIAGNOSTIC_PATHS = new Set([
+  "/auth/request-access",
+  "/api/auth/request-access",
+  "/v1/auth/request-access",
+  "/auth/verify-email",
+  "/api/auth/verify-email",
+  "/v1/auth/verify-email",
+]);
+
 function isAccountRequest(req) {
   const path = String(req?.url || "/").split("?", 1)[0];
-  return path === "/auth/request-access"
-    || path === "/api/auth/request-access"
-    || path === "/v1/auth/request-access";
+  return ACCOUNT_DIAGNOSTIC_PATHS.has(path);
 }
 
 function markAccountRequestStage(stage) {
