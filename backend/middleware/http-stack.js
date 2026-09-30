@@ -220,6 +220,25 @@ function createRateLimiter({ keyPrefix, windowMs, max, getClientIp }) {
   };
 }
 
+function normalizeOrigin(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return raw.replace(/\/$/, "");
+  }
+}
+
+function publicRequestOrigin(req) {
+  const forwardedProto = String(req.headers?.["x-forwarded-proto"] || "").split(",")[0].trim();
+  const forwardedHost = String(req.headers?.["x-forwarded-host"] || "").split(",")[0].trim();
+  const protocol = forwardedProto || String(req.protocol || "").trim();
+  const host = forwardedHost || String(req.headers?.host || "").trim();
+  if (!protocol || !host) return "";
+  return normalizeOrigin(`${protocol}://${host}`);
+}
+
 export function installHttpStack(app, config, { isSafeMethod, getClientIp }) {
   installExpress4AsyncSafety(app);
   app.disable("x-powered-by");
@@ -276,14 +295,33 @@ export function installHttpStack(app, config, { isSafeMethod, getClientIp }) {
   app.use(markAccountRequestStage("http.rate_limit_log"));
   app.use(rateLimitLogMiddleware);
   app.use(markAccountRequestStage("http.cors"));
-  app.use(cors({
-    origin(origin, callback) {
-      if (!origin) return callback(null, true);
-      const normalizedOrigin = origin.replace(/\/$/, "");
-      if (config.corsOrigins.includes(normalizedOrigin)) return callback(null, true);
-      return callback(new Error("Origine CORS non autorisée"));
-    },
-    credentials: true,
+  app.use(cors((req, callback) => {
+    const origin = normalizeOrigin(req.headers?.origin);
+    if (!origin) return callback(null, { origin: true, credentials: true });
+
+    const requestOrigin = publicRequestOrigin(req);
+    const configuredOrigins = config.corsOrigins.map(normalizeOrigin);
+    if (origin === requestOrigin || configuredOrigins.includes(origin)) {
+      return callback(null, { origin, credentials: true });
+    }
+
+    if (isAccountRequest(req)) {
+      writeRuntimeDiagnosticLog({
+        req,
+        eventType: "cors_origin_rejected",
+        success: false,
+        details: {
+          requestId: req.requestId || null,
+          origin,
+          requestOrigin,
+          configuredOrigins,
+        },
+      });
+    }
+
+    const error = new Error("Origine CORS non autorisée");
+    error.status = 403;
+    return callback(error);
   }));
   app.use(markAccountRequestStage("http.json_body_parser"));
   app.use(express.json({ limit: config.maxJsonBodySize }));
