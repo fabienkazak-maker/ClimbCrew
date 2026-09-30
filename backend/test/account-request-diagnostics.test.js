@@ -66,3 +66,9 @@ test("le parcours HTTP de création de compte expose une étape sûre et journal
   assert.match(bootstrapSource, /diagnosticStage/);
   assert.doesNotMatch(bootstrapSource, /error\?\.body/);
 });
+
+test("la confirmation e-mail est diagnostiquée jusque dans la pile HTTP globale", () => {
+  assert.match(httpStackSource, /\/auth\/verify-email/);
+  assert.match(bootstrapSource, /account_email_verification_unhandled_error/);
+  assert.match(bootstrapSource, /verify_email\./);
+});
