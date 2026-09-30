@@ -1,6 +1,5 @@
 import bcrypt from "bcryptjs";
 import { runDatabaseMigrations } from "../database/migrate.js";
-import { writeRuntimeDiagnosticLog } from "../runtime-diagnostic-log-service.js";
 
 async function cleanupExpiredSecurityData(pool) {
   await pool.query("update user_sessions set revoked_at = now() where revoked_at is null and expires_at <= now()");
@@ -82,24 +81,6 @@ export async function startApplication({
       causeMessage: error?.cause?.message || null,
     };
     console.error(JSON.stringify(errorRecord));
-    const isAccountCreationError = (
-      ["/auth/request-access", "/api/auth/request-access", "/v1/auth/request-access"].includes(errorRecord.path)
-      || String(errorRecord.diagnosticStage || "").startsWith("request_access.")
-    );
-    const isEmailVerificationError = (
-      ["/auth/verify-email", "/api/auth/verify-email", "/v1/auth/verify-email"].includes(errorRecord.path)
-      || String(errorRecord.diagnosticStage || "").startsWith("verify_email.")
-    );
-    if (isAccountCreationError || isEmailVerificationError) {
-      writeRuntimeDiagnosticLog({
-        req,
-        eventType: isEmailVerificationError
-          ? "account_email_verification_unhandled_error"
-          : "account_creation_unhandled_error",
-        success: false,
-        details: errorRecord,
-      });
-    }
     if (res.headersSent) return next(error);
 
     const requestedStatus = Number(error?.status);
