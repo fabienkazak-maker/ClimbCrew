@@ -119,6 +119,19 @@ const ACCOUNT_DIAGNOSTIC_PATHS = new Set([
   "/v1/auth/verify-email",
 ]);
 
+const TOKEN_CONFIRMATION_FORM_PATHS = new Set([
+  "/auth/verify-email",
+  "/auth/change-email/confirm",
+]);
+
+function isTokenConfirmationFormPost(req) {
+  if (String(req?.method || "").toUpperCase() !== "POST") return false;
+  const path = String(req?.url || "/").split("?", 1)[0];
+  if (!TOKEN_CONFIRMATION_FORM_PATHS.has(path)) return false;
+  const contentType = String(req?.headers?.["content-type"] || "").toLowerCase();
+  return contentType.startsWith("application/x-www-form-urlencoded");
+}
+
 function isAccountRequest(req) {
   const path = String(req?.url || "/").split("?", 1)[0];
   return ACCOUNT_DIAGNOSTIC_PATHS.has(path);
@@ -296,6 +309,10 @@ export function installHttpStack(app, config, { isSafeMethod, getClientIp }) {
   app.use(rateLimitLogMiddleware);
   app.use(markAccountRequestStage("http.cors"));
   app.use(cors((req, callback) => {
+    if (isTokenConfirmationFormPost(req)) {
+      return callback(null, { origin: false, credentials: false });
+    }
+
     const origin = normalizeOrigin(req.headers?.origin);
     if (!origin) return callback(null, { origin: true, credentials: true });
 
