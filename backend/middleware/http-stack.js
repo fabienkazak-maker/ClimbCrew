@@ -126,8 +126,13 @@ const TOKEN_CONFIRMATION_FORM_PATHS = new Set([
 
 function isTokenConfirmationFormPost(req) {
   if (String(req?.method || "").toUpperCase() !== "POST") return false;
-  const path = String(req?.url || "/").split("?", 1)[0];
+  const requestUrl = String(req?.url || "/");
+  const path = requestUrl.split("?", 1)[0];
   if (!TOKEN_CONFIRMATION_FORM_PATHS.has(path)) return false;
+
+  const token = new URL(requestUrl, "http://localhost").searchParams.get("token");
+  if (!String(token || "").trim()) return false;
+
   const contentType = String(req?.headers?.["content-type"] || "").toLowerCase();
   return contentType.startsWith("application/x-www-form-urlencoded");
 }
