@@ -5,7 +5,6 @@ import { getPool } from "./database.js";
 import { writeAccessLog } from "./access-log-service.js";
 import { cleanEmail, hashToken, isStrongPassword } from "./security.js";
 import { sendAccountRequestConfirmation } from "./email-service.js";
-import { writeRuntimeDiagnosticLog } from "../runtime-diagnostic-log-service.js";
 
 const EMAIL_VERIFICATION_DURATION_MS = 1000 * 60 * 60 * 24 * 7;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -33,102 +32,6 @@ function emailLogDetails(result, email) {
     reason: result?.reason || null,
     messageId: result?.messageId || null,
   };
-}
-
-function traceAccountRequest({ req, stage, email, userId = null, transactionCommitted = false, error = null }) {
-  const emailDomain = String(email || "").split("@")[1]?.toLowerCase() || null;
-  const record = {
-    event: "account_request_trace",
-    requestId: req?.requestId || null,
-    stage,
-    userId,
-    emailDomain,
-    transactionCommitted: Boolean(transactionCommitted),
-  };
-
-  if (error) {
-    Object.assign(record, {
-      errorName: error?.name || null,
-      errorCode: error?.code || null,
-      severity: error?.severity || null,
-      detail: error?.detail || null,
-      hint: error?.hint || null,
-      schema: error?.schema || null,
-      table: error?.table || null,
-      column: error?.column || null,
-      constraint: error?.constraint || null,
-      routine: error?.routine || null,
-      message: error?.message || String(error),
-      stack: error?.stack || null,
-    });
-    console.error(JSON.stringify(record));
-    writeRuntimeDiagnosticLog({
-      req,
-      eventType: "account_creation_error",
-      success: false,
-      details: record,
-    });
-    return;
-  }
-
-  console.info(JSON.stringify(record));
-  writeRuntimeDiagnosticLog({
-    req,
-    eventType: "account_creation_trace",
-    details: record,
-  });
-}
-
-async function traceAccountRequestSchema(req, client) {
-  if (!client) return;
-
-  try {
-    const diagnostic = await client.query(`
-      select
-        to_regprocedure('climbcrew_normalize_email(text)') is not null as normalize_email_function,
-        to_regclass('public.users') is not null as users_table,
-        to_regclass('public.email_verification_tokens') is not null as verification_tokens_table,
-        exists(
-          select 1 from information_schema.columns
-          where table_schema = 'public' and table_name = 'users' and column_name = 'participant_id'
-        ) as users_participant_id,
-        exists(
-          select 1 from information_schema.columns
-          where table_schema = 'public' and table_name = 'users' and column_name = 'status'
-        ) as users_status,
-        exists(
-          select 1 from information_schema.columns
-          where table_schema = 'public' and table_name = 'email_verification_tokens' and column_name = 'token_hash'
-        ) as verification_token_hash
-    `);
-
-    const record = {
-      event: "account_request_schema_diagnostics",
-      requestId: req?.requestId || null,
-      ...diagnostic.rows[0],
-    };
-    console.error(JSON.stringify(record));
-    writeRuntimeDiagnosticLog({
-      req,
-      eventType: "account_creation_schema",
-      success: false,
-      details: record,
-    });
-  } catch (error) {
-    const record = {
-      event: "account_request_schema_diagnostics_failed",
-      requestId: req?.requestId || null,
-      errorCode: error?.code || null,
-      message: error?.message || String(error),
-    };
-    console.error(JSON.stringify(record));
-    writeRuntimeDiagnosticLog({
-      req,
-      eventType: "account_creation_schema_error",
-      success: false,
-      details: record,
-    });
-  }
 }
 
 function validatePublicRequestIdentity({ prenom, nom, email }) {
@@ -237,8 +140,6 @@ export async function requestAccessByEmailOnly(req, res) {
   let transactionCommitted = false;
   let userId = null;
 
-  traceAccountRequest({ req, stage: "request_validated", email });
-
   try {
     client = await getPool().connect();
 
@@ -256,7 +157,6 @@ export async function requestAccessByEmailOnly(req, res) {
       await client.query("rollback");
       transactionStarted = false;
       userId = existing.rows[0].id;
-      traceAccountRequest({ req, stage: "existing_account", email, userId });
       await writeAccessLog({
         userId,
         eventType: "request_access_existing_email",
@@ -307,13 +207,6 @@ export async function requestAccessByEmailOnly(req, res) {
     await client.query("commit");
     transactionStarted = false;
     transactionCommitted = true;
-    traceAccountRequest({
-      req,
-      stage: "database_committed",
-      email,
-      userId,
-      transactionCommitted,
-    });
 
     setStage("access_log_write");
     await writeAccessLog({
@@ -336,13 +229,6 @@ export async function requestAccessByEmailOnly(req, res) {
         nom,
         verificationUrl: buildEmailVerificationUrl(verificationToken),
       });
-      traceAccountRequest({
-        req,
-        stage: emailResult.sent ? "confirmation_email_sent" : "confirmation_email_skipped",
-        email,
-        userId,
-        transactionCommitted,
-      });
       await writeAccessLog({
         userId: user.id,
         eventType: emailResult.sent
@@ -356,14 +242,6 @@ export async function requestAccessByEmailOnly(req, res) {
         },
       });
     } catch (error) {
-      traceAccountRequest({
-        req,
-        stage: "confirmation_email_failed",
-        email,
-        userId,
-        transactionCommitted,
-        error,
-      });
       await writeAccessLog({
         userId: user.id,
         eventType: "account_request_confirmation_email_failed",
@@ -373,13 +251,6 @@ export async function requestAccessByEmailOnly(req, res) {
       });
     }
 
-    traceAccountRequest({
-      req,
-      stage: "request_completed",
-      email,
-      userId,
-      transactionCommitted,
-    });
     return publicRequestResponse(res);
   } catch (error) {
     if (client && transactionStarted && !transactionCommitted) {
@@ -387,26 +258,11 @@ export async function requestAccessByEmailOnly(req, res) {
         await client.query("rollback");
         transactionStarted = false;
       } catch (rollbackError) {
-        traceAccountRequest({
-          req,
-          stage: "transaction_rollback_failed",
-          email,
-          userId,
-          transactionCommitted,
-          error: rollbackError,
-        });
+        console.error("Rollback de création de compte impossible :", rollbackError);
       }
     }
 
-    traceAccountRequest({
-      req,
-      stage,
-      email,
-      userId,
-      transactionCommitted,
-      error,
-    });
-    await traceAccountRequestSchema(req, client);
+    console.error("Création de compte impossible :", error);
     return res.status(500).json({ error: "Création de compte momentanément impossible" });
   } finally {
     client?.release();
