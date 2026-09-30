@@ -119,6 +119,24 @@ const ACCOUNT_DIAGNOSTIC_PATHS = new Set([
   "/v1/auth/verify-email",
 ]);
 
+const TOKEN_CONFIRMATION_FORM_PATHS = new Set([
+  "/auth/verify-email",
+  "/auth/change-email/confirm",
+]);
+
+function isTokenConfirmationFormPost(req) {
+  if (String(req?.method || "").toUpperCase() !== "POST") return false;
+  const requestUrl = String(req?.url || "/");
+  const path = requestUrl.split("?", 1)[0];
+  if (!TOKEN_CONFIRMATION_FORM_PATHS.has(path)) return false;
+
+  const token = new URL(requestUrl, "http://localhost").searchParams.get("token");
+  if (!String(token || "").trim()) return false;
+
+  const contentType = String(req?.headers?.["content-type"] || "").toLowerCase();
+  return contentType.startsWith("application/x-www-form-urlencoded");
+}
+
 function isAccountRequest(req) {
   const path = String(req?.url || "/").split("?", 1)[0];
   return ACCOUNT_DIAGNOSTIC_PATHS.has(path);
@@ -297,6 +315,15 @@ export function installHttpStack(app, config, { isSafeMethod, getClientIp }) {
   app.use(markAccountRequestStage("http.cors"));
   app.use(cors((req, callback) => {
     const origin = normalizeOrigin(req.headers?.origin);
+
+    // Certains navigateurs/webviews ouverts depuis un e-mail soumettent le
+    // formulaire de confirmation avec une origine opaque ("null"). Le jeton
+    // secret présent dans l'URL authentifie cette action ; on ne désactive
+    // CORS que pour ce cas précis, jamais pour une origine externe réelle.
+    if (origin === "null" && isTokenConfirmationFormPost(req)) {
+      return callback(null, { origin: false, credentials: false });
+    }
+
     if (!origin) return callback(null, { origin: true, credentials: true });
 
     const requestOrigin = publicRequestOrigin(req);
