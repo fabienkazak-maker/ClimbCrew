@@ -33,11 +33,12 @@ test("la désinscription d'un participant ne retire pas son rôle de séance", (
   assert.doesNotMatch(removeBlock, /referentId:/);
 });
 
-test("les rôles apparaissent dans les inscrits mais sont exclus du compteur", () => {
+test("un rôle n'est compté que lorsqu'il est inscrit explicitement", () => {
   assert.match(sessionCardSource, /const inscrits = sessionParticipantIds/);
-  assert.match(sessionCardSource, /const occupied = sessionParticipantIds\.filter\(\(id\) => !roleParticipantIds\.has\(String\(id\)\)\)\.length/);
+  assert.match(sessionCardSource, /const occupied = sessionParticipantIds\.length/);
   assert.match(sessionCardSource, /!sessionParticipantIds\.includes\(participantId\)/);
-  assert.match(sessionCardSource, /occupied < MAX_PARTICIPANTS \|\| isSessionRole/);
+  assert.match(sessionCardSource, /occupied < MAX_PARTICIPANTS/);
+  assert.doesNotMatch(sessionCardSource, /roleParticipantIds/);
 });
 
 
