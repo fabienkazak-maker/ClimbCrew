@@ -7,7 +7,12 @@ import {
   isSessionManager,
   normalizeSessionRoles,
 } from "../../shared/session-rules.js";
-import { getPassportDotLabel, getPassportDotStyle } from "../src/lib/domain.js";
+import {
+  getPassportDotLabel,
+  getPassportDotStyle,
+  isLibreEligiblePassport,
+  PASSPORT_OPTIONS,
+} from "../src/lib/domain.js";
 
 const appSource = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
 const sessionCardSource = await readFile(new URL("../src/components/SessionCard.jsx", import.meta.url), "utf8");
@@ -136,13 +141,27 @@ test("tous les utilisateurs disposent de l'action de désinscription", () => {
   );
 });
 
-test("les passeports sont affichés par une bulle colorée avec un D noir", () => {
-  for (const passport of ["jaune", "orange", "vert", "bleu", "decouverte"]) {
-    assert.equal(getPassportDotLabel({ passport }), "D");
-    assert.equal(getPassportDotStyle({ passport }).color, "#000000");
+test("chaque couleur de passeport existe avec et sans D", () => {
+  const values = PASSPORT_OPTIONS.map(({ value }) => value);
+
+  for (const color of ["jaune", "orange", "vert", "bleu"]) {
+    assert.ok(values.includes(color));
+    assert.ok(values.includes(`${color}_d`));
+    assert.equal(getPassportDotLabel({ passport: color }), "");
+    assert.equal(getPassportDotLabel({ passport: `${color}_d` }), "D");
+    assert.equal(
+      getPassportDotStyle({ passport: color }).backgroundColor,
+      getPassportDotStyle({ passport: `${color}_d` }).backgroundColor,
+    );
+    assert.equal(getPassportDotStyle({ passport: `${color}_d` }).color, "#000000");
+    assert.equal(isLibreEligiblePassport(color), true);
+    assert.equal(isLibreEligiblePassport(`${color}_d`), true);
   }
+
   assert.equal(getPassportDotLabel({ passport: "sans" }), "");
+  assert.equal(getPassportDotLabel({ passport: "decouverte" }), "D");
   assert.equal(getPassportDotStyle({ passport: "decouverte" }).backgroundColor, "#64748b");
+  assert.equal(isLibreEligiblePassport("decouverte"), false);
 });
 
 test("la liste Inscriptions propose tous les grimpeurs éligibles et pas seulement le compte courant", () => {

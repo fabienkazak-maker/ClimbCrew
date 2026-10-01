@@ -7,6 +7,7 @@ import {
   getPassportDotLabel,
   getPassportDotStyle,
   getPassportStyle,
+  isLibreEligiblePassport,
   normalizePassport,
 } from "../lib/domain.js";
 import { hasBuddyAvailabilityForSession } from "../lib/buddy-preferences.js";
@@ -41,12 +42,11 @@ export default function SessionCard({
   const currentParticipant = participantsById[String(currentParticipantId || "")] || null;
   const canManageSession = isSessionManager(currentParticipant);
   const canManageSupervisor = Boolean(isAdmin || canManageSession);
-  const freeSessionPassports = new Set(["jaune", "orange", "vert", "bleu"]);
   const availableParticipants = participants.filter((participant) => {
     const participantId = String(participant.id);
     return !sessionParticipantIds.includes(participantId)
       && occupied < MAX_PARTICIPANTS
-      && (session.status !== "libre" || freeSessionPassports.has(normalizePassport(participant.passport)));
+      && (session.status !== "libre" || isLibreEligiblePassport(participant.passport));
   });
   const eligibleSupervisors = alphabeticalParticipants.filter((participant) =>
     isQualifiedSessionSupervisor(participant, session.status)

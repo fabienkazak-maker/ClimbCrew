@@ -43,7 +43,7 @@ test("encadrant et référent doivent s'inscrire explicitement comme les autres 
     query: async (sql, params = []) => {
       const text = String(sql);
       queries.push({ text, params });
-      if (/lower\(passport\)/.test(text)) return { rowCount: 1, rows: [{ id: params[0] }] };
+      if (/select passport from participants/.test(text)) return { rowCount: 1, rows: [{ passport: "jaune_d" }] };
       if (/insert into session_participants/.test(text)) return { rowCount: 1, rows: [{ session_id: params[0] }] };
       throw new Error(`Requête inattendue : ${text}`);
     },

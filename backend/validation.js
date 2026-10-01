@@ -1,5 +1,6 @@
 import { GRADES } from "../shared/climbing-grades.js";
 import { MAX_SESSION_PARTICIPANTS } from "../shared/session-rules.js";
+import { PASSPORT_VALUES } from "../shared/passports.js";
 
 /**
  * Validation des données reçues par l'API.
@@ -9,7 +10,7 @@ import { MAX_SESSION_PARTICIPANTS } from "../shared/session-rules.js";
  */
 
 export { GRADES };
-export const PASSPORTS = ["sans", "jaune", "orange", "vert", "bleu", "decouverte"];
+export const PASSPORTS = PASSPORT_VALUES;
 export const SEXES = ["", "h", "f"];
 export const SESSION_SLOTS = ["matin", "midi", "soir"];
 export const SESSION_STATUSES = [

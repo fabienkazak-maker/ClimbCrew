@@ -28,6 +28,17 @@ test("valide et normalise un participant", () => {
   assert.equal(participant.ffme, false);
 });
 
+test("accepte les variantes D des passeports de couleur", () => {
+  for (const passport of ["jaune_d", "orange_d", "vert_d", "bleu_d"]) {
+    const participant = validateParticipantPayload({
+      nom: "Dupont",
+      prenom: "Alice",
+      passport,
+    });
+    assert.equal(participant.passport, passport);
+  }
+});
+
 test("refuse un email et un passeport invalides", () => {
   assert.throws(
     () => validateParticipantPayload({
