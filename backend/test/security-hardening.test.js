@@ -40,24 +40,26 @@ test("la production refuse server.js sans préchargement sécurité", () => {
   }), true);
 });
 
-test("un membre standard ne peut changer que sa propre inscription", () => {
-  const allowed = evaluateSessionMutation({
+test("un membre standard peut gérer les inscriptions des autres participants", () => {
+  const addition = evaluateSessionMutation({
     existingSession,
     requestedSession: requested({ participantIds: ["20", "21", "22"] }),
     previousParticipantIds: ["20", "21"],
     actorParticipantId: "22",
   });
-  assert.equal(allowed.allowed, true);
-  assert.equal(allowed.actorJoins, true);
+  assert.equal(addition.allowed, true);
+  assert.equal(addition.actorJoins, true);
+  assert.deepEqual(addition.participantJoins, ["22"]);
 
-  const rejected = evaluateSessionMutation({
+  const replacement = evaluateSessionMutation({
     existingSession,
     requestedSession: requested({ participantIds: ["20", "22"] }),
     previousParticipantIds: ["20", "21"],
     actorParticipantId: "22",
   });
-  assert.equal(rejected.allowed, false);
-  assert.match(rejected.error, /propre inscription/);
+  assert.equal(replacement.allowed, true);
+  assert.deepEqual(replacement.participantJoins, ["22"]);
+  assert.deepEqual(replacement.participantLeaves, ["21"]);
 });
 
 test("seuls les référents et encadrants peuvent changer le type de séance", () => {
