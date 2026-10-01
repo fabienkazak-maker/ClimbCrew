@@ -7,13 +7,20 @@ const sessions = [
   { id:"2026-09-05-soir", date:"2026-09-05", slot:"soir", status:"libre", referentId:"r1", participantIds:["p1"] },
 ];
 
-test("les jours et la séance de réalisation proviennent de la présence effective", () => {
+test("les jours et la séance de réalisation proviennent de l'inscription explicite", () => {
   assert.deepEqual(getParticipantSessionDays(sessions, "p1"), ["2026-09-05", "2026-09-04"]);
-  assert.deepEqual(getParticipantSessionDays(sessions, "e1"), ["2026-09-04"]);
-  assert.deepEqual(getParticipantSessionDays(sessions, "r1"), ["2026-09-05"]);
+  assert.deepEqual(getParticipantSessionDays(sessions, "e1"), []);
+  assert.deepEqual(getParticipantSessionDays(sessions, "r1"), []);
   assert.equal(resolveSessionIdForRealisation(sessions, "p1", "2026-09-04"), "2026-09-04-midi");
-  assert.equal(resolveSessionIdForRealisation(sessions, "e1", "2026-09-04"), "2026-09-04-midi");
-  assert.equal(resolveSessionIdForRealisation(sessions, "r1", "2026-09-05"), "2026-09-05-soir");
+  assert.equal(resolveSessionIdForRealisation(sessions, "e1", "2026-09-04"), "");
+  assert.equal(resolveSessionIdForRealisation(sessions, "r1", "2026-09-05"), "");
+
+  const registeredRoles = [
+    { ...sessions[0], participantIds: ["p1", "e1"] },
+    { ...sessions[1], participantIds: ["p1", "r1"] },
+  ];
+  assert.deepEqual(getParticipantSessionDays(registeredRoles, "e1"), ["2026-09-04"]);
+  assert.deepEqual(getParticipantSessionDays(registeredRoles, "r1"), ["2026-09-05"]);
 });
 
 test("le draft sépare le mode du critère", () => {
