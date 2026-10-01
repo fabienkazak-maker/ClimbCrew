@@ -18,6 +18,10 @@ import {
   formatRouteForRealisation,
   formatRouteName,
   gradeToIndex,
+  getPassportDotLabel,
+  getPassportDotStyle,
+  getPassportStyle,
+  normalizePassport,
   normalizeRopeNumber,
 } from "../lib/domain.js";
 import {
@@ -296,7 +300,9 @@ export default function Profil({
           <div className="card" style={getPassportStyle(selectedParticipant)} data-passport={normalizePassport(selectedParticipant.passport)}>
             <div className="card-header">
               <div className="participant-identity">
-                <span className="passport-dot" style={getPassportDotStyle(selectedParticipant)} aria-hidden="true" />
+                <span className="passport-dot" style={getPassportDotStyle(selectedParticipant)} aria-hidden="true">
+                  {getPassportDotLabel(selectedParticipant)}
+                </span>
                 <div>
                   <h2 style={{ margin: 0 }}>{fullName(selectedParticipant)}</h2>
                   {isOwnProfile && <div className="small">{authUser.email}</div>}
