@@ -389,20 +389,19 @@ test("un encadrant peut créer une séance et s'inscrire lui-même si elle n'est
   assert.equal(result.actorJoins, true);
 });
 
-test("la capacité exclut l'encadrant et le référent du compteur", () => {
+test("la capacité compte toute inscription explicite, y compris encadrant ou référent", () => {
   const eighteenParticipants = Array.from({ length: 18 }, (_, index) => String(index + 1));
   const eighteenPlusEncadrant = [...eighteenParticipants, "19"];
-  const nineteenParticipants = Array.from({ length: 19 }, (_, index) => String(index + 1));
 
   assert.doesNotThrow(() => assertSessionCapacity(
-    eighteenPlusEncadrant,
+    eighteenParticipants,
     { status: "encadree", encadrant_id: "19", referent_id: null },
   ));
 
   assert.throws(
     () => assertSessionCapacity(
-      nineteenParticipants,
-      { status: "encadree", encadrant_id: "20", referent_id: null },
+      eighteenPlusEncadrant,
+      { status: "encadree", encadrant_id: "19", referent_id: null },
     ),
     /18 participants/,
   );

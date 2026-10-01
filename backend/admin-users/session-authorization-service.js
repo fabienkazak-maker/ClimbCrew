@@ -20,19 +20,8 @@ export function assertSessionCapacity(participantIds, session = null) {
   const uniqueParticipantIds = [...new Set((participantIds || [])
     .filter((value) => value !== null && value !== undefined && value !== "")
     .map(String))];
-  const roleParticipantIds = new Set(
-    session
-      ? [
-        normalizedId(session.encadrant_id ?? session.encadrantId),
-        normalizedId(session.referent_id ?? session.referentId),
-      ].filter(Boolean)
-      : [],
-  );
-  const countedParticipantIds = uniqueParticipantIds.filter((participantId) =>
-    !roleParticipantIds.has(participantId)
-  );
-  if (countedParticipantIds.length > MAX_SESSION_PARTICIPANTS) {
-    const error = new Error(`Une séance ne peut pas dépasser ${MAX_SESSION_PARTICIPANTS} participants (hors encadrant/référent).`);
+  if (uniqueParticipantIds.length > MAX_SESSION_PARTICIPANTS) {
+    const error = new Error(`Une séance ne peut pas dépasser ${MAX_SESSION_PARTICIPANTS} participants.`);
     error.status = 409;
     throw error;
   }
