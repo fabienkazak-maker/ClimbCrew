@@ -4,6 +4,7 @@ import AvailableParticipantOptions from "./AvailableParticipantOptions.jsx";
 import {
   MAX_PARTICIPANTS,
   fullName,
+  getPassportDotLabel,
   getPassportDotStyle,
   getPassportStyle,
   normalizePassport,
@@ -131,7 +132,7 @@ export default function SessionCard({
             }}
           >
             <option value="">
-              {availableParticipants.length === 0 ? "Aucune personne disponible" : "S'inscrire"}
+              {availableParticipants.length === 0 ? "Aucune personne disponible" : "Inscrire un participant"}
             </option>
             <AvailableParticipantOptions
               participants={availableParticipants}
@@ -156,7 +157,9 @@ export default function SessionCard({
               data-passport={normalizePassport(participant.passport)}
             >
               <span className="participant-identity">
-                <span className="passport-dot" style={getPassportDotStyle(participant)} aria-hidden="true" />
+                <span className="passport-dot" style={getPassportDotStyle(participant)} aria-hidden="true">
+                  {getPassportDotLabel(participant)}
+                </span>
                 <span
                   className="participant-name"
                   style={hasBuddyAvailabilityForSession(preferencesByParticipantId, participant.id, session)
@@ -166,9 +169,7 @@ export default function SessionCard({
                   {fullName(participant)}
                 </span>
               </span>
-              {(isAdmin || String(participant.id) === String(currentParticipantId || "")) && (
-                <Button variant="remove" onClick={() => onRemoveParticipant(session.id, participant.id)} aria-label="Retirer">×</Button>
-              )}
+              <Button variant="remove" onClick={() => onRemoveParticipant(session.id, participant.id)} aria-label="Retirer">×</Button>
             </div>
           ))
         )}
