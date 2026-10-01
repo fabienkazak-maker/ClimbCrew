@@ -7,6 +7,7 @@ import {
   isSessionManager,
   normalizeSessionRoles,
 } from "../../shared/session-rules.js";
+import { getPassportDotLabel, getPassportDotStyle } from "../src/lib/domain.js";
 
 const appSource = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
 const sessionCardSource = await readFile(new URL("../src/components/SessionCard.jsx", import.meta.url), "utf8");
@@ -123,6 +124,26 @@ test("les statistiques de participation utilisent uniquement les inscriptions ex
   assert.doesNotMatch(statisticsBlock, /getSessionAttendanceIds\(session\)/);
 });
 
+
+test("tous les utilisateurs disposent de l'action de désinscription", () => {
+  assert.doesNotMatch(
+    sessionCardSource,
+    /\{\(isAdmin \|\| String\(participant\.id\)/,
+  );
+  assert.match(
+    sessionCardSource,
+    /onRemoveParticipant\(session\.id, participant\.id\)/,
+  );
+});
+
+test("les passeports sont affichés par une bulle colorée avec un D noir", () => {
+  for (const passport of ["jaune", "orange", "vert", "bleu", "decouverte"]) {
+    assert.equal(getPassportDotLabel({ passport }), "D");
+    assert.equal(getPassportDotStyle({ passport }).color, "#000000");
+  }
+  assert.equal(getPassportDotLabel({ passport: "sans" }), "");
+  assert.equal(getPassportDotStyle({ passport: "decouverte" }).backgroundColor, "#64748b");
+});
 
 test("la liste Inscriptions propose tous les grimpeurs éligibles et pas seulement le compte courant", () => {
   const availableBlock = sessionCardSource.slice(
