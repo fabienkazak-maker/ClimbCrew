@@ -1,7 +1,7 @@
 import { getPool } from "./database.js";
 import { validateSessionPayload } from "../validation.js";
 import { getDefaultSessionStatus } from "../../shared/session-default-status.js";
-import { getSessionAttendanceIds, getSessionSupervisorRole, isSessionManager, normalizeSessionRoles, MAX_SESSION_PARTICIPANTS } from "../../shared/session-rules.js";
+import { getSessionSupervisorRole, isSessionManager, normalizeSessionRoles, MAX_SESSION_PARTICIPANTS } from "../../shared/session-rules.js";
 
 function normalizedId(value) {
   return value === null || value === undefined || value === "" ? null : String(value);
