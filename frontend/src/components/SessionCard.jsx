@@ -49,7 +49,7 @@ export default function SessionCard({
     const isSessionRole = roleParticipantIds.has(participantId);
     return !sessionParticipantIds.includes(participantId)
       && (occupied < MAX_PARTICIPANTS || isSessionRole)
-      && (session.status !== "libre" || isSessionRole || freeSessionPassports.has(normalizePassport(participant.passport)));
+      && (session.status !== "libre" || freeSessionPassports.has(normalizePassport(participant.passport)));
   });
   const canRegisterAtCapacity = availableParticipants.some((participant) =>
     roleParticipantIds.has(String(participant.id))
