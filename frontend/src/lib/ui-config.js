@@ -43,6 +43,7 @@ export const ROUTE_TAGS = [
 export const TABS = [
   { key: "inscriptions", label: "Planning" },
   { key: "voies", label: "Voies" },
+  { key: "scan_qr", label: "Scan QR code" },
   { key: "mon_profil", label: "Profil" },
   { key: "chat", label: "Chat" },
   { key: "statistiques", label: "Statistiques" },
