@@ -48,6 +48,8 @@ test("seuls les encadrants et référents pilotent le type de séance dans l'int
   assert.equal(isSessionManager({ canEncadrer: true }), true);
   assert.equal(isSessionManager({ canReferer: true }), true);
   assert.equal(isSessionManager({ canEncadrer: false, canReferer: false }), false);
+  assert.equal(isSessionManager(null), false);
+  assert.equal(isSessionManager(undefined), false);
 });
 
 test("la liste de rôle dépend strictement du type de séance", () => {
