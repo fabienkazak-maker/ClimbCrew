@@ -4,8 +4,8 @@ function normalizeSessionPersonId(value) {
   return value === null || value === undefined || value === "" ? null : String(value);
 }
 
-export function isSessionManager({ canEncadrer = false, canReferer = false } = {}) {
-  return Boolean(canEncadrer || canReferer);
+export function isSessionManager(participant = null) {
+  return Boolean(participant?.canEncadrer || participant?.canReferer);
 }
 
 export function getSessionSupervisorRole(status) {
