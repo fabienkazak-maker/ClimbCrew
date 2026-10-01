@@ -11,7 +11,6 @@ import ConfirmDialog from "./components/ConfirmDialog.jsx";
 import FaqSection from "./sections/FaqSection.jsx";
 import Inscriptions from "./pages/Inscriptions.jsx";
 import Voies from "./pages/Voies.jsx";
-import ScanQr from "./pages/ScanQr.jsx";
 import Progression from "./pages/Progression.jsx";
 import Profil from "./pages/Profil.jsx";
 import Chat from "./pages/Chat.jsx";
@@ -72,7 +71,6 @@ import { usePlanningSessions } from "./lib/planning-view.js";
 import { useBuddyAvailability } from "./hooks/useBuddyAvailability.js";
 import { useSessionPersistence } from "./hooks/useSessionPersistence.js";
 import { useRealisationPersistence } from "./hooks/useRealisationPersistence.js";
-import { useQrRealisationFlow } from "./hooks/useQrRealisationFlow.js";
 import { useConfirmationDialog } from "./hooks/useConfirmationDialog.js";
 import {
   buildRealisationDraft,
@@ -416,14 +414,6 @@ function App() {
 
   const myParticipantId = authUser?.participantId ? String(authUser.participantId) : "";
   const myParticipant = participantsById[myParticipantId] || null;
-  const { openScannedRoute, rememberQrBelayer } = useQrRealisationFlow({
-    myParticipantId,
-    routesById,
-    sessions: state.sessions,
-    setNewRealisation,
-    setRealisationModalRouteId,
-    setSyncMessage,
-  });
 
   const {
     addParticipant,
@@ -833,7 +823,6 @@ async function deleteRealisation(realisation) {
     try {
       const savedRealisation = await persistRealisationToApi(realisation);
       setState((prev) => ({ ...prev, realisations: [...prev.realisations, savedRealisation || realisation] }));
-      rememberQrBelayer(newRealisation);
       setNewRealisation((prev) => ({
         ...prev,
         participantId: "",
@@ -1362,13 +1351,6 @@ async function handleThemePreferenceChange(nextTheme) {
             deleteRoute={deleteRoute}
             savingRouteId={savingRouteId}
             participants={state.participants}
-          />
-        )}
-
-        {tab === "scan_qr" && (
-          <ScanQr
-            routes={state.routes.filter((route) => route.active !== false)}
-            onScanRoute={openScannedRoute}
           />
         )}
 
