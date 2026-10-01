@@ -11,6 +11,7 @@ import ConfirmDialog from "./components/ConfirmDialog.jsx";
 import FaqSection from "./sections/FaqSection.jsx";
 import Inscriptions from "./pages/Inscriptions.jsx";
 import Voies from "./pages/Voies.jsx";
+import ScanQr from "./pages/ScanQr.jsx";
 import Progression from "./pages/Progression.jsx";
 import Profil from "./pages/Profil.jsx";
 import Chat from "./pages/Chat.jsx";
@@ -77,6 +78,7 @@ import {
   buildRealisationPayload,
   getParticipantSessionDays,
   getSessionAttendanceIds,
+  getSessionParticipantIds,
   isManagedSession,
   resolveSessionIdForRealisation,
 } from "./lib/realisation-workflow.js";
@@ -290,7 +292,7 @@ function App() {
       state.sessions
         .filter((session) => session.date === newRealisation.selectedDay)
         .filter(isManagedSession)
-        .flatMap((session) => getSessionAttendanceIds(session))
+        .flatMap((session) => getSessionParticipantIds(session))
     );
 
     return modalAllEligibleParticipants.filter((participant) => participantIdsForSelectedDay.has(String(participant.id)));
@@ -673,8 +675,13 @@ function App() {
     const existingSession = state.sessions.find((session) => session.id === sessionId);
     const currentSession = existingSession || buildDefaultSession(sessionId);
     const currentParticipantIds = currentSession.participantIds.map(String);
-    const currentAttendanceIds = getSessionAttendanceIds(currentSession);
-    if (currentAttendanceIds.length >= MAX_PARTICIPANTS || currentAttendanceIds.includes(requestedId)) return;
+    const normalizedSession = normalizeSessionRoles(currentSession);
+    const roleParticipantIds = new Set(
+      [normalizedSession.encadrantId, normalizedSession.referentId].filter(Boolean).map(String),
+    );
+    const countedParticipantIds = currentParticipantIds.filter((id) => !roleParticipantIds.has(id));
+    if (currentParticipantIds.includes(requestedId)) return;
+    if (countedParticipantIds.length >= MAX_PARTICIPANTS && !roleParticipantIds.has(requestedId)) return;
 
     persistSessionChange(sessionId, currentSession, {
       ...currentSession,
@@ -714,15 +721,18 @@ function App() {
       : "";
     const defaultParticipantId = latestRegisteredDay ? requestedParticipantId : "";
 
-    setNewRealisation((previous) => buildRealisationDraft({
-      previous,
-      route,
-      routeId,
-      participantId: defaultParticipantId,
-      selectedDay: latestRegisteredDay,
-      sessionId: defaultParticipantId && latestRegisteredDay
-        ? resolveSessionIdForRealisation(state.sessions, defaultParticipantId, latestRegisteredDay)
-        : "",
+    setNewRealisation((previous) => ({
+      ...buildRealisationDraft({
+        previous,
+        route,
+        routeId,
+        participantId: defaultParticipantId,
+        selectedDay: latestRegisteredDay,
+        sessionId: defaultParticipantId && latestRegisteredDay
+          ? resolveSessionIdForRealisation(state.sessions, defaultParticipantId, latestRegisteredDay)
+          : "",
+      }),
+      scanQr: false,
     }));
 
     setRealisationModalRouteId(routeId || "");
@@ -730,6 +740,44 @@ function App() {
 
   function closeRealisationModal() {
     setRealisationModalRouteId(null);
+  }
+
+  function openScannedRoute(routeId) {
+    const participantId = myParticipantId || "";
+    const route = routesById[routeId];
+    const today = todayIso();
+
+    if (!route) {
+      setSyncMessage("Erreur : voie inconnue.");
+      return;
+    }
+    if (!participantId) {
+      setSyncMessage("Erreur : aucun grimpeur n’est associé à ce compte.");
+      return;
+    }
+
+    const sessionId = resolveSessionIdForRealisation(state.sessions, participantId, today);
+    if (!sessionId) {
+      setSyncMessage("Erreur : vous devez être inscrit à une séance aujourd’hui avant d’enregistrer une réalisation par QR code.");
+      return;
+    }
+
+    const storageKey = `climbcrew-qr-belayer:${participantId}:${today}`;
+    const rememberedBelayer = window.sessionStorage?.getItem(storageKey) || "";
+
+    setNewRealisation((previous) => ({
+      ...buildRealisationDraft({
+        previous,
+        route,
+        routeId,
+        participantId,
+        selectedDay: today,
+        sessionId,
+      }),
+      assureurId: rememberedBelayer,
+      scanQr: true,
+    }));
+    setRealisationModalRouteId(routeId);
   }
 
 
@@ -815,6 +863,10 @@ async function deleteRealisation(realisation) {
     try {
       const savedRealisation = await persistRealisationToApi(realisation);
       setState((prev) => ({ ...prev, realisations: [...prev.realisations, savedRealisation || realisation] }));
+      if (newRealisation.scanQr && newRealisation.selectedDay === todayIso() && newRealisation.assureurId) {
+        const storageKey = `climbcrew-qr-belayer:${myParticipantId}:${newRealisation.selectedDay}`;
+        window.sessionStorage?.setItem(storageKey, String(newRealisation.assureurId));
+      }
       setNewRealisation((prev) => ({
         ...prev,
         participantId: "",
@@ -825,6 +877,7 @@ async function deleteRealisation(realisation) {
         rating: 0,
         chute: false,
         assureurId: "",
+        scanQr: false,
       }));
       setRealisationModalRouteId(null);
       setConfirmationMessage("Réalisation enregistrée.");
@@ -1342,6 +1395,13 @@ async function handleThemePreferenceChange(nextTheme) {
             deleteRoute={deleteRoute}
             savingRouteId={savingRouteId}
             participants={state.participants}
+          />
+        )}
+
+        {tab === "scan_qr" && (
+          <ScanQr
+            routes={state.routes.filter((route) => route.active !== false)}
+            onScanRoute={openScannedRoute}
           />
         )}
 
