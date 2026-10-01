@@ -45,10 +45,13 @@ export default function SessionCard({
   const canManageSession = isSessionManager(currentParticipant);
   const canManageSupervisor = Boolean(isAdmin || canManageSession);
   const freeSessionPassports = new Set(["jaune", "orange", "vert", "bleu"]);
-  const availableParticipants = participants.filter((participant) => (
-    !sessionParticipantIds.includes(String(participant.id))
-    && (session.status !== "libre" || freeSessionPassports.has(normalizePassport(participant.passport)))
-  ));
+  const availableParticipants = participants.filter((participant) => {
+    const participantId = String(participant.id);
+    const isSessionRole = roleParticipantIds.has(participantId);
+    return !sessionParticipantIds.includes(participantId)
+      && (occupied < MAX_PARTICIPANTS || isSessionRole)
+      && (session.status !== "libre" || isSessionRole || freeSessionPassports.has(normalizePassport(participant.passport)));
+  });
   const canRegisterAtCapacity = availableParticipants.some((participant) =>
     roleParticipantIds.has(String(participant.id))
   );
