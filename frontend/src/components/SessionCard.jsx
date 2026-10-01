@@ -37,7 +37,7 @@ export default function SessionCard({
   const inscrits = sessionParticipantIds
     .map((id) => participantsById[id])
     .filter(Boolean);
-  const occupied = sessionParticipantIds.filter((id) => !roleParticipantIds.has(String(id))).length;
+  const occupied = sessionParticipantIds.length;
   const missingSupervisor = (session.status === "encadree" && !session.encadrantId)
     || (session.status === "libre" && !session.referentId);
   const currentParticipant = participantsById[String(currentParticipantId || "")] || null;
@@ -46,14 +46,10 @@ export default function SessionCard({
   const freeSessionPassports = new Set(["jaune", "orange", "vert", "bleu"]);
   const availableParticipants = participants.filter((participant) => {
     const participantId = String(participant.id);
-    const isSessionRole = roleParticipantIds.has(participantId);
     return !sessionParticipantIds.includes(participantId)
-      && (occupied < MAX_PARTICIPANTS || isSessionRole)
+      && occupied < MAX_PARTICIPANTS
       && (session.status !== "libre" || freeSessionPassports.has(normalizePassport(participant.passport)));
   });
-  const canRegisterAtCapacity = availableParticipants.some((participant) =>
-    roleParticipantIds.has(String(participant.id))
-  );
   const eligibleSupervisors = alphabeticalParticipants.filter((participant) =>
     isQualifiedSessionSupervisor(participant, session.status)
   );
@@ -129,7 +125,7 @@ export default function SessionCard({
           <label>Inscription</label>
           <select
             defaultValue=""
-            disabled={availableParticipants.length === 0 || (occupied >= MAX_PARTICIPANTS && !canRegisterAtCapacity)}
+            disabled={availableParticipants.length === 0 || occupied >= MAX_PARTICIPANTS}
             onChange={(event) => {
               const participantId = event.currentTarget.value;
               if (!participantId) return;
