@@ -20,11 +20,19 @@ export function assertSessionCapacity(participantIds, session = null) {
   const uniqueParticipantIds = [...new Set((participantIds || [])
     .filter((value) => value !== null && value !== undefined && value !== "")
     .map(String))];
-  const attendanceIds = session
-    ? getSessionAttendanceIds({ ...session, participantIds: uniqueParticipantIds })
-    : uniqueParticipantIds;
-  if (attendanceIds.length > MAX_SESSION_PARTICIPANTS) {
-    const error = new Error(`Une séance ne peut pas dépasser ${MAX_SESSION_PARTICIPANTS} participants.`);
+  const roleParticipantIds = new Set(
+    session
+      ? [
+        normalizedId(session.encadrant_id ?? session.encadrantId),
+        normalizedId(session.referent_id ?? session.referentId),
+      ].filter(Boolean)
+      : [],
+  );
+  const countedParticipantIds = uniqueParticipantIds.filter((participantId) =>
+    !roleParticipantIds.has(participantId)
+  );
+  if (countedParticipantIds.length > MAX_SESSION_PARTICIPANTS) {
+    const error = new Error(`Une séance ne peut pas dépasser ${MAX_SESSION_PARTICIPANTS} participants (hors encadrant/référent).`);
     error.status = 409;
     throw error;
   }
@@ -336,12 +344,8 @@ export async function registerParticipantForSession(client, {
     : participantIds.map(String);
 
   const registeredParticipantIds = [...new Set(listedParticipants.map(String))];
-  const attendanceIds = getSessionAttendanceIds({
-    ...resolvedSession,
-    participantIds: registeredParticipantIds,
-  });
 
-  if (attendanceIds.includes(actorId)) {
+  if (registeredParticipantIds.includes(actorId)) {
     return { registered: false, session: resolvedSession };
   }
   if (resolvedSession.status === "fermee" && !allowClosed) {
