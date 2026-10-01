@@ -65,6 +65,44 @@ test("un membre standard ne peut ni changer le type ni le rôle de séance", () 
   assert.match(roleChange.error, /encadrants ou référents/i);
 });
 
+test("un membre peut inscrire puis désinscrire un autre grimpeur sur une séance ouverte", () => {
+  const addResult = evaluateSessionMutation({
+    existingSession: baseSession({ status: "libre" }),
+    requestedSession: requestedSession({ status: "libre", participantIds: ["99"] }),
+    previousParticipantIds: [],
+    actorParticipantId: "42",
+    isAdmin: false,
+  });
+
+  assert.equal(addResult.allowed, true);
+  assert.deepEqual(addResult.participantJoins, ["99"]);
+
+  const removeResult = evaluateSessionMutation({
+    existingSession: baseSession({ status: "libre" }),
+    requestedSession: requestedSession({ status: "libre", participantIds: [] }),
+    previousParticipantIds: ["99"],
+    actorParticipantId: "42",
+    isAdmin: false,
+  });
+
+  assert.equal(removeResult.allowed, true);
+  assert.deepEqual(removeResult.participantLeaves, ["99"]);
+});
+
+test("un membre ne peut pas inscrire un autre grimpeur sur une séance fermée", () => {
+  const result = evaluateSessionMutation({
+    existingSession: baseSession(),
+    requestedSession: requestedSession({ participantIds: ["99"] }),
+    previousParticipantIds: [],
+    actorParticipantId: "42",
+    isAdmin: false,
+  });
+
+  assert.equal(result.allowed, false);
+  assert.equal(result.status, 409);
+  assert.match(result.error, /séance est fermée/i);
+});
+
 test("un membre déjà inscrit peut toujours quitter une séance fermée", () => {
   const result = evaluateSessionMutation({
     existingSession: baseSession(),
@@ -171,7 +209,7 @@ test("un référent peut créer une séance libre sans obtenir les droits admini
   assert.equal(result.canManageAll, false);
 });
 
-test("un référent ne peut pas inscrire un autre grimpeur lors de la création", () => {
+test("un référent peut inscrire un autre grimpeur lors de la création", () => {
   const result = evaluateSessionMutation({
     existingSession: null,
     requestedSession: requestedSession({
@@ -183,9 +221,8 @@ test("un référent ne peut pas inscrire un autre grimpeur lors de la création"
     canReferer: true,
   });
 
-  assert.equal(result.allowed, false);
-  assert.equal(result.status, 403);
-  assert.match(result.error, /inscrire que lui-même/i);
+  assert.equal(result.allowed, true);
+  assert.equal(result.actorJoins, false);
 });
 
 test("un gestionnaire de séance peut sélectionner un autre encadrant qualifié", () => {
