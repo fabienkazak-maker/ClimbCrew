@@ -82,7 +82,7 @@ function symmetricDifference(left, right) {
  * - séance libre : le responsable sélectionné doit être référent ;
  * - séance encadrée : le responsable sélectionné doit être encadrant ;
  * - administrateur : peut gérer les données de séance, mais un changement de type reste réservé à un encadrant/référent ;
- * - membre standard : peut uniquement s'inscrire ou se désinscrire lui-même ;
+ * - tout utilisateur associé à un grimpeur peut inscrire ou désinscrire un participant ;
  * - une séance fermée refuse toute nouvelle inscription non administrateur.
  */
 export function evaluateSessionMutation({
@@ -132,16 +132,9 @@ export function evaluateSessionMutation({
       };
     }
 
-    if ([...requested].some((participantId) => participantId !== actorId)) {
-      return {
-        allowed: false,
-        status: 403,
-        error: "Un utilisateur ne peut inscrire que lui-même lors de la création d’une séance.",
-      };
-    }
-
+    const participantJoins = [...requested];
     const actorJoins = requested.has(actorId);
-    if (actorJoins && requestedStatus === "fermee") {
+    if (participantJoins.length > 0 && requestedStatus === "fermee") {
       return {
         allowed: false,
         status: 409,
@@ -219,17 +212,11 @@ export function evaluateSessionMutation({
   }
 
   const participantChanges = symmetricDifference(previous, requested);
-  if (participantChanges.some((participantId) => participantId !== actorId)) {
-    return {
-      allowed: false,
-      status: 403,
-      error: "Un utilisateur ne peut modifier que sa propre inscription à une séance.",
-    };
-  }
-
+  const participantJoins = [...requested].filter((participantId) => !previous.has(participantId));
+  const participantLeaves = [...previous].filter((participantId) => !requested.has(participantId));
   const actorJoins = requested.has(actorId) && !previous.has(actorId);
   const actorLeaves = previous.has(actorId) && !requested.has(actorId);
-  if (actorJoins && requestedStatus === "fermee") {
+  if (participantJoins.length > 0 && requestedStatus === "fermee") {
     return {
       allowed: false,
       status: 409,
@@ -245,6 +232,9 @@ export function evaluateSessionMutation({
     statusChanged,
     encadrantChanged,
     referentChanged,
+    participantChanges,
+    participantJoins,
+    participantLeaves,
     actorJoins,
     actorLeaves,
   };
@@ -378,12 +368,6 @@ async function mutateSessionParticipant(req, res, { remove = false } = {}) {
     if (!isAdmin && !actorParticipantId) {
       return res.status(403).json({
         error: "Le compte doit être associé à un grimpeur pour modifier les inscriptions.",
-      });
-    }
-
-    if (remove && !isAdmin && targetParticipantId !== actorParticipantId) {
-      return res.status(403).json({
-        error: "Un utilisateur ne peut retirer que sa propre inscription à une séance.",
       });
     }
 
