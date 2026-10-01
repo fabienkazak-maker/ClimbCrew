@@ -37,12 +37,15 @@ test("la règle d'inscription centralisée refuse une séance fermée et une sé
   );
 });
 
-test("encadrant et référent sont déjà présents sans inscription explicite", async () => {
+test("encadrant et référent doivent s'inscrire explicitement comme les autres grimpeurs", async () => {
   const queries = [];
   const client = {
     query: async (sql, params = []) => {
-      queries.push({ text: String(sql), params });
-      throw new Error("Aucune requête d'inscription ne doit être exécutée pour un rôle déjà présent.");
+      const text = String(sql);
+      queries.push({ text, params });
+      if (/lower\(passport\)/.test(text)) return { rowCount: 1, rows: [{ id: params[0] }] };
+      if (/insert into session_participants/.test(text)) return { rowCount: 1, rows: [{ session_id: params[0] }] };
+      throw new Error(`Requête inattendue : ${text}`);
     },
   };
 
@@ -59,9 +62,9 @@ test("encadrant et référent sont déjà présents sans inscription explicite",
     participantIds: [],
   });
 
-  assert.equal(encadrant.registered, false);
-  assert.equal(referent.registered, false);
-  assert.equal(queries.length, 0);
+  assert.equal(encadrant.registered, true);
+  assert.equal(referent.registered, true);
+  assert.equal(queries.filter((query) => /insert into session_participants/.test(query.text)).length, 2);
 });
 
 test("l'API des séances conserve l'ordre fourni et n'ajoute pas les rôles aux inscrits", async () => {

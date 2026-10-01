@@ -33,11 +33,11 @@ test("la désinscription d'un participant ne retire pas son rôle de séance", (
   assert.doesNotMatch(removeBlock, /referentId:/);
 });
 
-test("les rôles comptent dans l'effectif sans apparaître dans la liste des inscrits", () => {
-  assert.match(sessionCardSource, /const sessionAttendanceIds = getSessionAttendanceIds\(normalizedSession\)/);
-  assert.match(sessionCardSource, /const occupied = sessionAttendanceIds\.length/);
-  assert.match(sessionCardSource, /\.filter\(\(id\) => !roleParticipantIds\.has\(String\(id\)\)\)/);
-  assert.match(sessionCardSource, /!sessionAttendanceIds\.includes\(String\(participant\.id\)\)/);
+test("les rôles apparaissent dans les inscrits mais sont exclus du compteur", () => {
+  assert.match(sessionCardSource, /const inscrits = sessionParticipantIds/);
+  assert.match(sessionCardSource, /const occupied = sessionParticipantIds\.filter\(\(id\) => !roleParticipantIds\.has\(String\(id\)\)\)\.length/);
+  assert.match(sessionCardSource, /!sessionParticipantIds\.includes\(participantId\)/);
+  assert.match(sessionCardSource, /occupied < MAX_PARTICIPANTS \|\| isSessionRole/);
 });
 
 
@@ -110,13 +110,14 @@ test("le rôle actif vaut une présence unique pour l'effectif", () => {
 });
 
 
-test("les statistiques de participation utilisent le même effectif que le planning", () => {
+test("les statistiques de participation utilisent uniquement les inscriptions explicites", () => {
   const statisticsBlock = appSource.slice(
     appSource.indexOf("const sessionStats = useMemo"),
     appSource.indexOf("const alphabeticalParticipants"),
   );
 
-  assert.match(statisticsBlock, /getSessionAttendanceIds\(session\)/);
+  assert.match(statisticsBlock, /getSessionParticipantIds\(session\)/);
+  assert.doesNotMatch(statisticsBlock, /getSessionAttendanceIds\(session\)/);
 });
 
 
