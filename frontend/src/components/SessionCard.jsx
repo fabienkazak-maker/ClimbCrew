@@ -9,7 +9,7 @@ import {
   normalizePassport,
 } from "../lib/domain.js";
 import { hasBuddyAvailabilityForSession } from "../lib/buddy-preferences.js";
-import { getSessionAttendanceIds, getSessionParticipantIds } from "../lib/realisation-workflow.js";
+import { getSessionParticipantIds } from "../lib/realisation-workflow.js";
 import {
   isQualifiedSessionSupervisor,
   isSessionManager,
