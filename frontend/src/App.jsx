@@ -72,6 +72,7 @@ import { usePlanningSessions } from "./lib/planning-view.js";
 import { useBuddyAvailability } from "./hooks/useBuddyAvailability.js";
 import { useSessionPersistence } from "./hooks/useSessionPersistence.js";
 import { useRealisationPersistence } from "./hooks/useRealisationPersistence.js";
+import { useQrRealisationFlow } from "./hooks/useQrRealisationFlow.js";
 import { useConfirmationDialog } from "./hooks/useConfirmationDialog.js";
 import {
   buildRealisationDraft,
@@ -415,6 +416,14 @@ function App() {
 
   const myParticipantId = authUser?.participantId ? String(authUser.participantId) : "";
   const myParticipant = participantsById[myParticipantId] || null;
+  const { openScannedRoute, rememberQrBelayer } = useQrRealisationFlow({
+    myParticipantId,
+    routesById,
+    sessions: state.sessions,
+    setNewRealisation,
+    setRealisationModalRouteId,
+    setSyncMessage,
+  });
 
   const {
     addParticipant,
@@ -742,45 +751,6 @@ function App() {
     setRealisationModalRouteId(null);
   }
 
-  function openScannedRoute(routeId) {
-    const participantId = myParticipantId || "";
-    const route = routesById[routeId];
-    const today = todayIso();
-
-    if (!route) {
-      setSyncMessage("Erreur : voie inconnue.");
-      return;
-    }
-    if (!participantId) {
-      setSyncMessage("Erreur : aucun grimpeur n’est associé à ce compte.");
-      return;
-    }
-
-    const sessionId = resolveSessionIdForRealisation(state.sessions, participantId, today);
-    if (!sessionId) {
-      setSyncMessage("Erreur : vous devez être inscrit à une séance aujourd’hui avant d’enregistrer une réalisation par QR code.");
-      return;
-    }
-
-    const storageKey = `climbcrew-qr-belayer:${participantId}:${today}`;
-    const rememberedBelayer = window.localStorage?.getItem(storageKey) || "";
-
-    setNewRealisation((previous) => ({
-      ...buildRealisationDraft({
-        previous,
-        route,
-        routeId,
-        participantId,
-        selectedDay: today,
-        sessionId,
-      }),
-      assureurId: rememberedBelayer,
-      scanQr: true,
-    }));
-    setRealisationModalRouteId(routeId);
-  }
-
-
 async function persistRealisationToApi(realisation) {
   if (!USE_API) return realisation;
   if (!authUser) {
@@ -863,10 +833,7 @@ async function deleteRealisation(realisation) {
     try {
       const savedRealisation = await persistRealisationToApi(realisation);
       setState((prev) => ({ ...prev, realisations: [...prev.realisations, savedRealisation || realisation] }));
-      if (newRealisation.scanQr && newRealisation.selectedDay === todayIso() && newRealisation.assureurId) {
-        const storageKey = `climbcrew-qr-belayer:${myParticipantId}:${newRealisation.selectedDay}`;
-        window.localStorage?.setItem(storageKey, String(newRealisation.assureurId));
-      }
+      rememberQrBelayer(newRealisation);
       setNewRealisation((prev) => ({
         ...prev,
         participantId: "",
