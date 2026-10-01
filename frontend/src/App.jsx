@@ -763,7 +763,7 @@ function App() {
     }
 
     const storageKey = `climbcrew-qr-belayer:${participantId}:${today}`;
-    const rememberedBelayer = window.sessionStorage?.getItem(storageKey) || "";
+    const rememberedBelayer = window.localStorage?.getItem(storageKey) || "";
 
     setNewRealisation((previous) => ({
       ...buildRealisationDraft({
@@ -865,7 +865,7 @@ async function deleteRealisation(realisation) {
       setState((prev) => ({ ...prev, realisations: [...prev.realisations, savedRealisation || realisation] }));
       if (newRealisation.scanQr && newRealisation.selectedDay === todayIso() && newRealisation.assureurId) {
         const storageKey = `climbcrew-qr-belayer:${myParticipantId}:${newRealisation.selectedDay}`;
-        window.sessionStorage?.setItem(storageKey, String(newRealisation.assureurId));
+        window.localStorage?.setItem(storageKey, String(newRealisation.assureurId));
       }
       setNewRealisation((prev) => ({
         ...prev,
