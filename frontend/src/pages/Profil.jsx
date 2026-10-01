@@ -15,6 +15,7 @@ import {
   fullName,
   formatPoints,
   formatDateShortFr,
+  formatPassportLabel,
   formatRouteForRealisation,
   formatRouteName,
   gradeToIndex,
@@ -310,7 +311,7 @@ export default function Profil({
               </div>
             </div>
             <div className="group" style={{ marginTop: 10 }}>
-              <span className="pill">Couleur de passeport : {selectedParticipant.passport || "-"}</span>
+              <span className="pill">Couleur de passeport : {formatPassportLabel(selectedParticipant.passport)}</span>
               <span className="pill">Passeport FFME : {selectedParticipant.passeportFfme ? "Oui" : "Non"}</span>
               <span className="pill">Cotisation : {selectedParticipant.cotisation ? "Oui" : "Non"}</span>
               <span className="pill">Licence FFME : {selectedParticipant.ffme ? "Oui" : "Non"}</span>
