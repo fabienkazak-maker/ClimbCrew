@@ -127,7 +127,14 @@ export function getPassportDotStyle(participant) {
     ? PASSPORT_STYLES.decouverte
     : PASSPORT_STYLES[participant?.passport] || PASSPORT_STYLES.sans;
 
-  return { backgroundColor: baseStyle.backgroundColor };
+  return {
+    backgroundColor: baseStyle.backgroundColor,
+    color: "#000000",
+  };
+}
+
+export function getPassportDotLabel(participant) {
+  return normalizePassport(participant?.passport) === "sans" ? "" : "D";
 }
 
 export function gradeToIndex(grade) {
