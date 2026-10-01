@@ -389,19 +389,20 @@ test("un encadrant peut créer une séance et s'inscrire lui-même si elle n'est
   assert.equal(result.actorJoins, true);
 });
 
-test("la capacité compte uniquement le rôle actif de la séance sans doublon", () => {
-  const seventeenParticipants = Array.from({ length: 17 }, (_, index) => String(index + 1));
+test("la capacité exclut l'encadrant et le référent du compteur", () => {
   const eighteenParticipants = Array.from({ length: 18 }, (_, index) => String(index + 1));
+  const eighteenPlusEncadrant = [...eighteenParticipants, "19"];
+  const nineteenParticipants = Array.from({ length: 19 }, (_, index) => String(index + 1));
 
   assert.doesNotThrow(() => assertSessionCapacity(
-    seventeenParticipants,
-    { status: "encadree", encadrant_id: "18", referent_id: "19" },
+    eighteenPlusEncadrant,
+    { status: "encadree", encadrant_id: "19", referent_id: null },
   ));
 
   assert.throws(
     () => assertSessionCapacity(
-      eighteenParticipants,
-      { status: "encadree", encadrant_id: "19", referent_id: "20" },
+      nineteenParticipants,
+      { status: "encadree", encadrant_id: "20", referent_id: null },
     ),
     /18 participants/,
   );
