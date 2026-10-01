@@ -31,7 +31,6 @@ export default function SessionCard({
 }) {
   const normalizedSession = normalizeSessionRoles(session);
   const sessionParticipantIds = getSessionParticipantIds(session);
-  const sessionAttendanceIds = getSessionAttendanceIds(normalizedSession);
   const roleParticipantIds = new Set(
     [normalizedSession.encadrantId, normalizedSession.referentId].filter(Boolean).map(String),
   );
