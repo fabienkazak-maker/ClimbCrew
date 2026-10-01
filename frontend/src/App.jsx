@@ -373,10 +373,10 @@ function App() {
   }
 
   const sessionStats = useMemo(() => {
-    const unique = new Set(state.sessions.flatMap((session) => getSessionAttendanceIds(session)));
+    const unique = new Set(state.sessions.flatMap((session) => getSessionParticipantIds(session)));
     const participationCount = {};
     state.sessions.forEach((session) => {
-      getSessionAttendanceIds(session).forEach((id) => {
+      getSessionParticipantIds(session).forEach((id) => {
         participationCount[id] = (participationCount[id] || 0) + 1;
       });
     });
