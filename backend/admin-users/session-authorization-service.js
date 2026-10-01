@@ -2,6 +2,7 @@ import { getPool } from "./database.js";
 import { validateSessionPayload } from "../validation.js";
 import { getDefaultSessionStatus } from "../../shared/session-default-status.js";
 import { getSessionSupervisorRole, isSessionManager, normalizeSessionRoles, MAX_SESSION_PARTICIPANTS } from "../../shared/session-rules.js";
+import { isLibreEligiblePassport } from "../../shared/passports.js";
 
 function normalizedId(value) {
   return value === null || value === undefined || value === "" ? null : String(value);
@@ -279,10 +280,10 @@ async function loadActorPrivileges(client, participantId) {
 
 async function assertLibreEligibility(client, participantId) {
   const result = await client.query(
-    `select id from participants where id = $1 and lower(passport) in ('jaune', 'orange', 'vert', 'bleu')`,
+    `select passport from participants where id = $1 limit 1`,
     [participantId],
   );
-  if (!result.rowCount) {
+  if (!result.rowCount || !isLibreEligiblePassport(result.rows[0]?.passport)) {
     const error = new Error(
       "Une séance libre est réservée aux passeports Jaune, Orange, Vert ou Bleu pour toute nouvelle inscription.",
     );
