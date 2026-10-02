@@ -51,7 +51,8 @@ export default function Administration({
         nom: participant.nom || "",
         prenom: participant.prenom || "",
         email: participant.email || "",
-        passport: participant.passport || "sans",
+        passport: participant.passport || "gris",
+        passportDecouverte: Boolean(participant.passportDecouverte),
         sexe: participant.sexe || "",
       }])
     ));
@@ -74,7 +75,8 @@ export default function Administration({
       nom: participant.nom || "",
       prenom: participant.prenom || "",
       email: participant.email || "",
-      passport: participant.passport || "sans",
+      passport: participant.passport || "gris",
+      passportDecouverte: Boolean(participant.passportDecouverte),
       sexe: participant.sexe || "",
     };
   }
@@ -275,10 +277,13 @@ export default function Administration({
           <div><label>Prénom</label><input value={newParticipant.prenom} onChange={(event) => setNewParticipant((participant) => ({ ...participant, prenom: event.target.value }))} /></div>
           <div><label>Adresse e-mail</label><input type="email" value={newParticipant.email} onChange={(event) => setNewParticipant((participant) => ({ ...participant, email: event.target.value }))} /></div>
           <div>
-            <label>Passeport</label>
+            <label>Couleur de passeport</label>
             <select value={newParticipant.passport} onChange={(event) => setNewParticipant((participant) => ({ ...participant, passport: event.target.value }))}>
               <PassportOptions />
             </select>
+          </div>
+          <div>
+            <label><input type="checkbox" checked={Boolean(newParticipant.passportDecouverte)} onChange={(event) => setNewParticipant((participant) => ({ ...participant, passportDecouverte: event.target.checked }))} /> Découverte</label>
           </div>
           <div>
             <label>Sexe</label>
@@ -351,10 +356,13 @@ export default function Administration({
                   <div><label>Prénom</label><input value={draft.prenom} onChange={(event) => setParticipantDraftField(participant, "prenom", event.target.value)} /></div>
                   <div><label>Adresse e-mail</label><input type="email" value={draft.email} onChange={(event) => setParticipantDraftField(participant, "email", event.target.value)} /></div>
                   <div>
-                    <label>Passeport</label>
+                    <label>Couleur de passeport</label>
                     <select value={draft.passport} onChange={(event) => setParticipantDraftField(participant, "passport", event.target.value)}>
                       <PassportOptions />
                     </select>
+                  </div>
+                  <div>
+                    <label><input type="checkbox" checked={Boolean(draft.passportDecouverte)} onChange={(event) => setParticipantDraftField(participant, "passportDecouverte", event.target.checked)} /> Découverte</label>
                   </div>
                   <div>
                     <label>Sexe</label>
