@@ -312,6 +312,7 @@ export default function Profil({
             </div>
             <div className="group" style={{ marginTop: 10 }}>
               <span className="pill">Couleur de passeport : {formatPassportLabel(selectedParticipant.passport)}</span>
+              <span className="pill">Découverte : {selectedParticipant.passportDecouverte ? "Oui" : "Non"}</span>
               <span className="pill">Passeport FFME : {selectedParticipant.passeportFfme ? "Oui" : "Non"}</span>
               <span className="pill">Cotisation : {selectedParticipant.cotisation ? "Oui" : "Non"}</span>
               <span className="pill">Licence FFME : {selectedParticipant.ffme ? "Oui" : "Non"}</span>
