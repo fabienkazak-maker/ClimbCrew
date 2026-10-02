@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from "react";
 import { apiFetch } from "../lib/api.js";
 
-const BOOLEAN_KEYS = new Set(["accountAssociated","cotisation","passeportFfme","ffme","canEncadrer","canReferer","canAdmin","initiateurSae","initiateurSne"]);
+const BOOLEAN_KEYS = new Set(["accountAssociated","passportDecouverte","cotisation","passeportFfme","ffme","canEncadrer","canReferer","canAdmin","initiateurSae","initiateurSne"]);
 const COLUMNS = [
-  ["nom","Nom"],["prenom","Prénom"],["email","E-mail"],["accountAssociated","Compte associé"],["sexe","Sexe"],["passport","Couleur passeport"],
+  ["nom","Nom"],["prenom","Prénom"],["email","E-mail"],["accountAssociated","Compte associé"],["sexe","Sexe"],["passport","Couleur passeport"],["passportDecouverte","Découverte"],
   ["passeportFfme","Passeport FFME"],["cotisation","Cotisation"],["ffme","FFME"],["canEncadrer","Encadrant"],["canReferer","Référent"],
   ["canAdmin","Administrateur"],["initiateurSae","Initiateur SAE"],["initiateurSne","Initiateur SNE"],["sessions","Séances"],
 ];
@@ -27,6 +27,7 @@ const COLUMN_WIDTHS = {
   accountAssociated: "6%",
   sexe: "4%",
   passport: "7%",
+  passportDecouverte: "6%",
   passeportFfme: "6%",
   cotisation: "5%",
   ffme: "4%",
@@ -113,7 +114,7 @@ export default function DonneesUtilisateurs({ participants = [], sessions = [], 
           body:JSON.stringify({
             ...p,...d,
             nom:String(d.nom||"").trim(), prenom:String(d.prenom||"").trim(), email:String(d.email||"").trim(),
-            sexe:d.sexe||"", passport:d.passport||"sans", passeportFfme:Boolean(d.passeportFfme),
+            sexe:d.sexe||"", passport:d.passport||"sans", passportDecouverte:Boolean(d.passportDecouverte), passeportFfme:Boolean(d.passeportFfme),
             cotisation:Boolean(d.cotisation), ffme:Boolean(d.ffme), canEncadrer:Boolean(d.canEncadrer),
             canReferer:Boolean(d.canReferer), canAdmin:Boolean(d.canAdmin),
           }),
