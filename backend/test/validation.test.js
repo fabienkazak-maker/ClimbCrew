@@ -26,16 +26,40 @@ test("valide et normalise un participant", () => {
   assert.equal(participant.cotisation, true);
   assert.equal(participant.sexe, "f");
   assert.equal(participant.ffme, false);
+  assert.equal(participant.passportDecouverte, false);
 });
 
-test("accepte les variantes D des passeports de couleur", () => {
-  for (const passport of ["jaune_d", "orange_d", "vert_d", "bleu_d"]) {
+test("sépare la couleur du passeport de l'option Découverte", () => {
+  for (const passport of ["gris", "jaune", "orange", "bleu", "vert"]) {
     const participant = validateParticipantPayload({
       nom: "Dupont",
       prenom: "Alice",
       passport,
+      passportDecouverte: true,
     });
     assert.equal(participant.passport, passport);
+    assert.equal(participant.passportDecouverte, true);
+  }
+});
+
+test("normalise les anciennes variantes D sans perdre l'information Découverte", () => {
+  const legacyVariants = [
+    ["sans", "gris", false],
+    ["jaune_d", "jaune", true],
+    ["orange_d", "orange", true],
+    ["vert_d", "vert", true],
+    ["bleu_d", "bleu", true],
+    ["decouverte", "gris", true],
+  ];
+
+  for (const [legacyPassport, passport, passportDecouverte] of legacyVariants) {
+    const participant = validateParticipantPayload({
+      nom: "Dupont",
+      prenom: "Alice",
+      passport: legacyPassport,
+    });
+    assert.equal(participant.passport, passport);
+    assert.equal(participant.passportDecouverte, passportDecouverte);
   }
 });
 
@@ -196,6 +220,8 @@ test("normalise un import legacy avant toute transaction", () => {
     }],
   });
 
+  assert.equal(payload.participants[0].passport, "gris");
+  assert.equal(payload.participants[0].passportDecouverte, false);
   assert.equal(payload.routes[0].numeroCorde, 0);
   assert.equal(payload.ropes[0].numeroCorde, 0);
   assert.equal(payload.routes[0].nomOuvreur, "Inconnu");
