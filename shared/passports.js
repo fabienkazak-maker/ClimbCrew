@@ -1,14 +1,9 @@
 export const PASSPORT_OPTIONS = [
-  { value: "sans", label: "Sans" },
+  { value: "gris", label: "Gris clair" },
   { value: "jaune", label: "Jaune" },
-  { value: "jaune_d", label: "Jaune D" },
   { value: "orange", label: "Orange" },
-  { value: "orange_d", label: "Orange D" },
-  { value: "vert", label: "Vert" },
-  { value: "vert_d", label: "Vert D" },
   { value: "bleu", label: "Bleu" },
-  { value: "bleu_d", label: "Bleu D" },
-  { value: "decouverte", label: "Découverte" },
+  { value: "vert", label: "Vert" },
 ];
 
 export const PASSPORT_VALUES = PASSPORT_OPTIONS.map(({ value }) => value);
@@ -18,6 +13,7 @@ const PASSPORT_LABELS = Object.fromEntries(
 );
 
 const LIBRE_ELIGIBLE_COLORS = new Set(["jaune", "orange", "vert", "bleu"]);
+const LEGACY_DISCOVERY_VALUES = new Set(["decouverte", "decouvertes"]);
 
 export function normalizePassport(value) {
   return String(value || "")
@@ -27,17 +23,29 @@ export function normalizePassport(value) {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-export function getPassportColor(value) {
+export function resolvePassportSelection(value, passportDecouverte = false) {
   const normalized = normalizePassport(value);
-  if (normalized === "decouverte" || normalized === "decouvertes") return "decouverte";
-  return normalized.endsWith("_d") ? normalized.slice(0, -2) : normalized;
+  const legacyDiscovery = LEGACY_DISCOVERY_VALUES.has(normalized) || normalized.endsWith("_d");
+  let passport = normalized;
+
+  if (!passport || passport === "sans" || LEGACY_DISCOVERY_VALUES.has(passport)) {
+    passport = "gris";
+  } else if (passport.endsWith("_d")) {
+    passport = passport.slice(0, -2);
+  }
+
+  return {
+    passport,
+    passportDecouverte: Boolean(passportDecouverte) || legacyDiscovery,
+  };
 }
 
-export function hasPassportDiscoveryMark(value) {
-  const normalized = normalizePassport(value);
-  return normalized === "decouverte"
-    || normalized === "decouvertes"
-    || normalized.endsWith("_d");
+export function getPassportColor(value) {
+  return resolvePassportSelection(value).passport;
+}
+
+export function hasPassportDiscoveryMark(value, passportDecouverte = false) {
+  return resolvePassportSelection(value, passportDecouverte).passportDecouverte;
 }
 
 export function isLibreEligiblePassport(value) {
@@ -45,7 +53,6 @@ export function isLibreEligiblePassport(value) {
 }
 
 export function formatPassportLabel(value) {
-  const normalized = normalizePassport(value);
-  if (normalized === "decouvertes") return "Découverte";
-  return PASSPORT_LABELS[normalized] || String(value || "Sans");
+  const passport = getPassportColor(value);
+  return PASSPORT_LABELS[passport] || String(value || "Gris clair");
 }
