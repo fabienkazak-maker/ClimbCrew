@@ -137,7 +137,7 @@ export function validateParticipantPayload(payload = {}) {
     nom: requiredString(payload.nom, "nom", 120),
     prenom: requiredString(payload.prenom, "prenom", 120),
     email: email(payload.email),
-    passport: enumValue(passportSelection.passport, "passport", PASSPORTS, "gris"),
+    passport: enumValue(passportSelection.passport, "passport", PASSPORTS, "sans"),
     passportDecouverte: passportSelection.passportDecouverte,
     passeportFfme: strictBoolean(payload.passeportFfme, "passeportFfme"),
     sexe: enumValue(payload.sexe, "sexe", SEXES, ""),

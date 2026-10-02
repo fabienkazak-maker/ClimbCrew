@@ -143,7 +143,7 @@ test("tous les utilisateurs disposent de l'action de désinscription", () => {
 
 test("Découverte ajoute un D noir sans modifier la couleur du passeport", () => {
   const values = PASSPORT_OPTIONS.map(({ value }) => value);
-  assert.deepEqual(values, ["gris", "jaune", "orange", "bleu", "vert"]);
+  assert.deepEqual(values, ["sans", "jaune", "orange", "bleu", "vert"]);
 
   for (const color of values) {
     const regular = { passport: color, passportDecouverte: false };
@@ -158,8 +158,8 @@ test("Découverte ajoute un D noir sans modifier la couleur du passeport", () =>
     assert.equal(getPassportDotStyle(discovery).color, "#000000");
   }
 
-  assert.equal(getPassportDotStyle({ passport: "gris" }).backgroundColor, "#cbd5e1");
-  assert.equal(isLibreEligiblePassport("gris"), false);
+  assert.equal(getPassportDotStyle({ passport: "sans" }).backgroundColor, "#cbd5e1");
+  assert.equal(isLibreEligiblePassport("sans"), false);
   for (const color of ["jaune", "orange", "bleu", "vert"]) {
     assert.equal(isLibreEligiblePassport(color), true);
   }

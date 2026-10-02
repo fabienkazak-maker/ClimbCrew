@@ -51,7 +51,7 @@ export default function Administration({
         nom: participant.nom || "",
         prenom: participant.prenom || "",
         email: participant.email || "",
-        passport: participant.passport || "gris",
+        passport: participant.passport || "sans",
         passportDecouverte: Boolean(participant.passportDecouverte),
         sexe: participant.sexe || "",
       }])
@@ -75,7 +75,7 @@ export default function Administration({
       nom: participant.nom || "",
       prenom: participant.prenom || "",
       email: participant.email || "",
-      passport: participant.passport || "gris",
+      passport: participant.passport || "sans",
       passportDecouverte: Boolean(participant.passportDecouverte),
       sexe: participant.sexe || "",
     };

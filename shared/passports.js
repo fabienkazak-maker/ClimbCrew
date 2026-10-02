@@ -1,5 +1,5 @@
 export const PASSPORT_OPTIONS = [
-  { value: "gris", label: "Gris clair" },
+  { value: "sans", label: "Gris clair" },
   { value: "jaune", label: "Jaune" },
   { value: "orange", label: "Orange" },
   { value: "bleu", label: "Bleu" },
@@ -28,8 +28,8 @@ export function resolvePassportSelection(value, passportDecouverte = false) {
   const legacyDiscovery = LEGACY_DISCOVERY_VALUES.has(normalized) || normalized.endsWith("_d");
   let passport = normalized;
 
-  if (!passport || passport === "sans" || LEGACY_DISCOVERY_VALUES.has(passport)) {
-    passport = "gris";
+  if (!passport || passport === "sans" || passport === "gris" || LEGACY_DISCOVERY_VALUES.has(passport)) {
+    passport = "sans";
   } else if (passport.endsWith("_d")) {
     passport = passport.slice(0, -2);
   }

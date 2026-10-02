@@ -170,7 +170,7 @@ export async function importBusinessDataSafely(req, res) {
           String(participant.nom || "").trim() || "?",
           String(participant.prenom || "").trim() || "?",
           cleanEmail(participant.email),
-          String(participant.passport || "gris").trim() || "gris",
+          String(participant.passport || "sans").trim() || "gris",
           Boolean(participant.passportDecouverte),
           Boolean(participant.passeportFfme),
           String(participant.sexe || "").trim().toLowerCase(),

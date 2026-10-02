@@ -30,7 +30,7 @@ test("valide et normalise un participant", () => {
 });
 
 test("sépare la couleur du passeport de l'option Découverte", () => {
-  for (const passport of ["gris", "jaune", "orange", "bleu", "vert"]) {
+  for (const passport of ["sans", "jaune", "orange", "bleu", "vert"]) {
     const participant = validateParticipantPayload({
       nom: "Dupont",
       prenom: "Alice",
@@ -44,12 +44,12 @@ test("sépare la couleur du passeport de l'option Découverte", () => {
 
 test("normalise les anciennes variantes D sans perdre l'information Découverte", () => {
   const legacyVariants = [
-    ["sans", "gris", false],
+    ["sans", "sans", false],
     ["jaune_d", "jaune", true],
     ["orange_d", "orange", true],
     ["vert_d", "vert", true],
     ["bleu_d", "bleu", true],
-    ["decouverte", "gris", true],
+    ["decouverte", "sans", true],
   ];
 
   for (const [legacyPassport, passport, passportDecouverte] of legacyVariants) {
@@ -220,7 +220,7 @@ test("normalise un import legacy avant toute transaction", () => {
     }],
   });
 
-  assert.equal(payload.participants[0].passport, "gris");
+  assert.equal(payload.participants[0].passport, "sans");
   assert.equal(payload.participants[0].passportDecouverte, false);
   assert.equal(payload.routes[0].numeroCorde, 0);
   assert.equal(payload.ropes[0].numeroCorde, 0);
