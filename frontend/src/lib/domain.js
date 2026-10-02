@@ -105,8 +105,8 @@ export function todayIso() {
   return toLocalIso(date);
 }
 
-export function isDiscoveryPassport(passport) {
-  return getPassportColor(passport) === "decouverte";
+export function isDiscoveryPassport(passport, passportDecouverte = false) {
+  return hasPassportDiscoveryMark(passport, passportDecouverte);
 }
 
 export function getPassportStyle(participant) {
@@ -134,7 +134,10 @@ export function getPassportDotStyle(participant) {
 }
 
 export function getPassportDotLabel(participant) {
-  return hasPassportDiscoveryMark(participant?.passport) ? "D" : "";
+  return hasPassportDiscoveryMark(
+    participant?.passport,
+    participant?.passportDecouverte,
+  ) ? "D" : "";
 }
 
 export function gradeToIndex(grade) {

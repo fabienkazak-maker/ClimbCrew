@@ -59,6 +59,7 @@ export function serializeParticipant(row) {
     prenom: row.prenom,
     email: row.login_email || row.email || "",
     passport: row.passport,
+    passportDecouverte: Boolean(row.passport_decouverte),
     passeportFfme: Boolean(row.passeport_ffme),
     sexe: row.sexe,
     cotisation: Boolean(row.cotisation),
@@ -103,6 +104,7 @@ export function serializePublicParticipant(row) {
     prenom: row.prenom,
     email: "",
     passport: row.passport,
+    passportDecouverte: Boolean(row.passport_decouverte),
     passeportFfme: Boolean(row.passeport_ffme),
     sexe: row.sexe,
     cotisation: Boolean(row.cotisation),
@@ -144,6 +146,7 @@ export function serializePrivateParticipant(row) {
     prenom: row.prenom,
     email: "",
     passport: row.passport,
+    passportDecouverte: Boolean(row.passport_decouverte),
     passeportFfme: Boolean(row.passeport_ffme),
     sexe: "",
     cotisation: Boolean(row.cotisation),
@@ -175,7 +178,7 @@ export async function listParticipantsWithPrivacy(req, res) {
   try {
     const result = await getPool().query(`
       select
-        id, nom, prenom, email, login_email, passport, passeport_ffme, sexe, cotisation, ffme,
+        id, nom, prenom, email, login_email, passport, passport_decouverte, passeport_ffme, sexe, cotisation, ffme,
         initiateur_sae, initiateur_sne,
         can_encadrer, can_referer, can_admin, avatar_id, crest_id,
         exists(select 1 from users u where u.participant_id::text = participants.id::text) as account_associated,

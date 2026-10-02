@@ -141,27 +141,34 @@ test("tous les utilisateurs disposent de l'action de désinscription", () => {
   );
 });
 
-test("chaque couleur de passeport existe avec et sans D", () => {
+test("Découverte ajoute un D noir sans modifier la couleur du passeport", () => {
   const values = PASSPORT_OPTIONS.map(({ value }) => value);
+  assert.deepEqual(values, ["gris", "jaune", "orange", "bleu", "vert"]);
 
-  for (const color of ["jaune", "orange", "vert", "bleu"]) {
-    assert.ok(values.includes(color));
-    assert.ok(values.includes(`${color}_d`));
-    assert.equal(getPassportDotLabel({ passport: color }), "");
-    assert.equal(getPassportDotLabel({ passport: `${color}_d` }), "D");
+  for (const color of values) {
+    const regular = { passport: color, passportDecouverte: false };
+    const discovery = { passport: color, passportDecouverte: true };
+
+    assert.equal(getPassportDotLabel(regular), "");
+    assert.equal(getPassportDotLabel(discovery), "D");
     assert.equal(
-      getPassportDotStyle({ passport: color }).backgroundColor,
-      getPassportDotStyle({ passport: `${color}_d` }).backgroundColor,
+      getPassportDotStyle(regular).backgroundColor,
+      getPassportDotStyle(discovery).backgroundColor,
     );
-    assert.equal(getPassportDotStyle({ passport: `${color}_d` }).color, "#000000");
-    assert.equal(isLibreEligiblePassport(color), true);
-    assert.equal(isLibreEligiblePassport(`${color}_d`), true);
+    assert.equal(getPassportDotStyle(discovery).color, "#000000");
   }
 
-  assert.equal(getPassportDotLabel({ passport: "sans" }), "");
+  assert.equal(getPassportDotStyle({ passport: "gris" }).backgroundColor, "#cbd5e1");
+  assert.equal(isLibreEligiblePassport("gris"), false);
+  for (const color of ["jaune", "orange", "bleu", "vert"]) {
+    assert.equal(isLibreEligiblePassport(color), true);
+  }
+
+  // Compatibilité avec les valeurs existantes jusqu'à leur migration.
+  assert.equal(getPassportDotLabel({ passport: "jaune_d" }), "D");
+  assert.equal(getPassportDotStyle({ passport: "jaune_d" }).backgroundColor, "#fde047");
   assert.equal(getPassportDotLabel({ passport: "decouverte" }), "D");
-  assert.equal(getPassportDotStyle({ passport: "decouverte" }).backgroundColor, "#64748b");
-  assert.equal(isLibreEligiblePassport("decouverte"), false);
+  assert.equal(getPassportDotStyle({ passport: "decouverte" }).backgroundColor, "#cbd5e1");
 });
 
 test("la liste Inscriptions propose tous les grimpeurs éligibles et pas seulement le compte courant", () => {
