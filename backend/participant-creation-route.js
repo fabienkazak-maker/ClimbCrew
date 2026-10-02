@@ -7,6 +7,7 @@ function participantDbToApi(row) {
     prenom: row.prenom,
     email: row.email || "",
     passport: row.passport,
+    passportDecouverte: Boolean(row.passport_decouverte),
     passeportFfme: Boolean(row.passeport_ffme),
     sexe: row.sexe || "",
     cotisation: row.cotisation,
@@ -30,6 +31,7 @@ export function installParticipantCreationRoute(app, { requireAuth, requireAdmin
         prenom,
         email,
         passport,
+        passportDecouverte,
         passeportFfme,
         sexe,
         cotisation,
@@ -45,15 +47,16 @@ export function installParticipantCreationRoute(app, { requireAuth, requireAdmin
       const result = await pool.query(
         `
           insert into participants
-          (nom, prenom, email, passport, passeport_ffme, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin, avatar_id, crest_id, profile_public)
-          values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
-          returning id, nom, prenom, email, passport, passeport_ffme, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin, avatar_id, crest_id, profile_public
+          (nom, prenom, email, passport, passport_decouverte, passeport_ffme, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin, avatar_id, crest_id, profile_public)
+          values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+          returning id, nom, prenom, email, passport, passport_decouverte, passeport_ffme, sexe, cotisation, ffme, can_encadrer, can_referer, can_admin, avatar_id, crest_id, profile_public
         `,
         [
           nom,
           prenom,
           String(email || "").trim().toLowerCase(),
           passport,
+          passportDecouverte,
           passeportFfme,
           sexe,
           cotisation,
