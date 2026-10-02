@@ -7,7 +7,7 @@ const COLUMNS = [
   ["passeportFfme","Passeport FFME"],["cotisation","Cotisation"],["ffme","FFME"],["canEncadrer","Encadrant"],["canReferer","Référent"],
   ["canAdmin","Administrateur"],["initiateurSae","Initiateur SAE"],["initiateurSne","Initiateur SNE"],["sessions","Séances"],
 ];
-const PASSPORTS = ["sans","decouverte","jaune","orange","vert","bleu"];
+const PASSPORTS = ["sans","jaune","orange","vert","bleu"];
 const FILTER_CHOICES = {
   sexe: [["h","H"],["f","F"]],
   passport: PASSPORTS.map((value) => [value, value]),
@@ -161,6 +161,7 @@ export default function DonneesUtilisateurs({ participants = [], sessions = [], 
       </div>
       <div className="group" style={{marginTop:10}}>
         <label><input type="checkbox" checked={Boolean(newParticipant.passeportFfme)} onChange={e=>setNewParticipant(p=>({...p,passeportFfme:e.target.checked}))} /> Passeport FFME</label>
+        <label><input type="checkbox" checked={Boolean(newParticipant.passportDecouverte)} onChange={e=>setNewParticipant(p=>({...p,passportDecouverte:e.target.checked}))} /> Découverte</label>
         <label><input type="checkbox" checked={Boolean(newParticipant.cotisation)} onChange={e=>setNewParticipant(p=>({...p,cotisation:e.target.checked}))} /> Cotisation</label>
         <label><input type="checkbox" checked={Boolean(newParticipant.ffme)} onChange={e=>setNewParticipant(p=>({...p,ffme:e.target.checked}))} /> FFME</label>
         <label><input type="checkbox" checked={Boolean(newParticipant.canEncadrer)} onChange={e=>setNewParticipant(p=>({...p,canEncadrer:e.target.checked}))} /> Encadrant</label>
