@@ -6,7 +6,7 @@ const EMPTY_PARTICIPANT_DRAFT = {
   nom: "",
   prenom: "",
   email: "",
-  passport: "gris",
+  passport: "sans",
   passportDecouverte: false,
   passeportFfme: false,
   sexe: "",
