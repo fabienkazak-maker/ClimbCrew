@@ -4,12 +4,14 @@ import AvailableParticipantOptions from "./AvailableParticipantOptions.jsx";
 import {
   MAX_PARTICIPANTS,
   fullName,
+  getPassportDotLabel,
   getPassportDotStyle,
   getPassportStyle,
+  isLibreEligiblePassport,
   normalizePassport,
 } from "../lib/domain.js";
 import { hasBuddyAvailabilityForSession } from "../lib/buddy-preferences.js";
-import { getSessionAttendanceIds, getSessionParticipantIds } from "../lib/realisation-workflow.js";
+import { getSessionParticipantIds } from "../lib/realisation-workflow.js";
 import {
   isQualifiedSessionSupervisor,
   isSessionManager,
@@ -31,25 +33,21 @@ export default function SessionCard({
 }) {
   const normalizedSession = normalizeSessionRoles(session);
   const sessionParticipantIds = getSessionParticipantIds(session);
-  const sessionAttendanceIds = getSessionAttendanceIds(normalizedSession);
-  const roleParticipantIds = new Set(
-    [normalizedSession.encadrantId, normalizedSession.referentId].filter(Boolean).map(String),
-  );
   const inscrits = sessionParticipantIds
-    .filter((id) => !roleParticipantIds.has(String(id)))
     .map((id) => participantsById[id])
     .filter(Boolean);
-  const occupied = sessionAttendanceIds.length;
+  const occupied = sessionParticipantIds.length;
   const missingSupervisor = (session.status === "encadree" && !session.encadrantId)
     || (session.status === "libre" && !session.referentId);
   const currentParticipant = participantsById[String(currentParticipantId || "")] || null;
   const canManageSession = isSessionManager(currentParticipant);
   const canManageSupervisor = Boolean(isAdmin || canManageSession);
-  const freeSessionPassports = new Set(["jaune", "orange", "vert", "bleu"]);
-  const availableParticipants = participants.filter((participant) => (
-    !sessionAttendanceIds.includes(String(participant.id))
-    && (session.status !== "libre" || freeSessionPassports.has(normalizePassport(participant.passport)))
-  ));
+  const availableParticipants = participants.filter((participant) => {
+    const participantId = String(participant.id);
+    return !sessionParticipantIds.includes(participantId)
+      && occupied < MAX_PARTICIPANTS
+      && (session.status !== "libre" || isLibreEligiblePassport(participant.passport));
+  });
   const eligibleSupervisors = alphabeticalParticipants.filter((participant) =>
     isQualifiedSessionSupervisor(participant, session.status)
   );
@@ -134,7 +132,7 @@ export default function SessionCard({
             }}
           >
             <option value="">
-              {availableParticipants.length === 0 ? "Aucune personne disponible" : "S'inscrire"}
+              {availableParticipants.length === 0 ? "Aucune personne disponible" : "Inscrire un participant"}
             </option>
             <AvailableParticipantOptions
               participants={availableParticipants}
@@ -159,7 +157,9 @@ export default function SessionCard({
               data-passport={normalizePassport(participant.passport)}
             >
               <span className="participant-identity">
-                <span className="passport-dot" style={getPassportDotStyle(participant)} aria-hidden="true" />
+                <span className="passport-dot" style={getPassportDotStyle(participant)} aria-hidden="true">
+                  {getPassportDotLabel(participant)}
+                </span>
                 <span
                   className="participant-name"
                   style={hasBuddyAvailabilityForSession(preferencesByParticipantId, participant.id, session)
@@ -169,9 +169,7 @@ export default function SessionCard({
                   {fullName(participant)}
                 </span>
               </span>
-              {(isAdmin || String(participant.id) === String(currentParticipantId || "")) && (
-                <Button variant="remove" onClick={() => onRemoveParticipant(session.id, participant.id)} aria-label="Retirer">×</Button>
-              )}
+              <Button variant="remove" onClick={() => onRemoveParticipant(session.id, participant.id)} aria-label="Retirer">×</Button>
             </div>
           ))
         )}

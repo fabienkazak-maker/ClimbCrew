@@ -7,6 +7,12 @@ import {
   isSessionManager,
   normalizeSessionRoles,
 } from "../../shared/session-rules.js";
+import {
+  getPassportDotLabel,
+  getPassportDotStyle,
+  isLibreEligiblePassport,
+  PASSPORT_OPTIONS,
+} from "../src/lib/domain.js";
 
 const appSource = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
 const sessionCardSource = await readFile(new URL("../src/components/SessionCard.jsx", import.meta.url), "utf8");
@@ -33,11 +39,12 @@ test("la désinscription d'un participant ne retire pas son rôle de séance", (
   assert.doesNotMatch(removeBlock, /referentId:/);
 });
 
-test("les rôles comptent dans l'effectif sans apparaître dans la liste des inscrits", () => {
-  assert.match(sessionCardSource, /const sessionAttendanceIds = getSessionAttendanceIds\(normalizedSession\)/);
-  assert.match(sessionCardSource, /const occupied = sessionAttendanceIds\.length/);
-  assert.match(sessionCardSource, /\.filter\(\(id\) => !roleParticipantIds\.has\(String\(id\)\)\)/);
-  assert.match(sessionCardSource, /!sessionAttendanceIds\.includes\(String\(participant\.id\)\)/);
+test("un rôle n'est compté que lorsqu'il est inscrit explicitement", () => {
+  assert.match(sessionCardSource, /const inscrits = sessionParticipantIds/);
+  assert.match(sessionCardSource, /const occupied = sessionParticipantIds\.length/);
+  assert.match(sessionCardSource, /!sessionParticipantIds\.includes\(participantId\)/);
+  assert.match(sessionCardSource, /occupied < MAX_PARTICIPANTS/);
+  assert.doesNotMatch(sessionCardSource, /roleParticipantIds/);
 });
 
 
@@ -47,6 +54,8 @@ test("seuls les encadrants et référents pilotent le type de séance dans l'int
   assert.equal(isSessionManager({ canEncadrer: true }), true);
   assert.equal(isSessionManager({ canReferer: true }), true);
   assert.equal(isSessionManager({ canEncadrer: false, canReferer: false }), false);
+  assert.equal(isSessionManager(null), false);
+  assert.equal(isSessionManager(undefined), false);
 });
 
 test("la liste de rôle dépend strictement du type de séance", () => {
@@ -110,15 +119,57 @@ test("le rôle actif vaut une présence unique pour l'effectif", () => {
 });
 
 
-test("les statistiques de participation utilisent le même effectif que le planning", () => {
+test("les statistiques de participation utilisent uniquement les inscriptions explicites", () => {
   const statisticsBlock = appSource.slice(
     appSource.indexOf("const sessionStats = useMemo"),
     appSource.indexOf("const alphabeticalParticipants"),
   );
 
-  assert.match(statisticsBlock, /getSessionAttendanceIds\(session\)/);
+  assert.match(statisticsBlock, /getSessionParticipantIds\(session\)/);
+  assert.doesNotMatch(statisticsBlock, /getSessionAttendanceIds\(session\)/);
 });
 
+
+test("tous les utilisateurs disposent de l'action de désinscription", () => {
+  assert.doesNotMatch(
+    sessionCardSource,
+    /\{\(isAdmin \|\| String\(participant\.id\)/,
+  );
+  assert.match(
+    sessionCardSource,
+    /onRemoveParticipant\(session\.id, participant\.id\)/,
+  );
+});
+
+test("Découverte ajoute un D noir sans modifier la couleur du passeport", () => {
+  const values = PASSPORT_OPTIONS.map(({ value }) => value);
+  assert.deepEqual(values, ["sans", "jaune", "orange", "bleu", "vert"]);
+
+  for (const color of values) {
+    const regular = { passport: color, passportDecouverte: false };
+    const discovery = { passport: color, passportDecouverte: true };
+
+    assert.equal(getPassportDotLabel(regular), "");
+    assert.equal(getPassportDotLabel(discovery), "D");
+    assert.equal(
+      getPassportDotStyle(regular).backgroundColor,
+      getPassportDotStyle(discovery).backgroundColor,
+    );
+    assert.equal(getPassportDotStyle(discovery).color, "#000000");
+  }
+
+  assert.equal(getPassportDotStyle({ passport: "sans" }).backgroundColor, "#cbd5e1");
+  assert.equal(isLibreEligiblePassport("sans"), false);
+  for (const color of ["jaune", "orange", "bleu", "vert"]) {
+    assert.equal(isLibreEligiblePassport(color), true);
+  }
+
+  // Compatibilité avec les valeurs existantes jusqu'à leur migration.
+  assert.equal(getPassportDotLabel({ passport: "jaune_d" }), "D");
+  assert.equal(getPassportDotStyle({ passport: "jaune_d" }).backgroundColor, "#fde047");
+  assert.equal(getPassportDotLabel({ passport: "decouverte" }), "D");
+  assert.equal(getPassportDotStyle({ passport: "decouverte" }).backgroundColor, "#cbd5e1");
+});
 
 test("la liste Inscriptions propose tous les grimpeurs éligibles et pas seulement le compte courant", () => {
   const availableBlock = sessionCardSource.slice(

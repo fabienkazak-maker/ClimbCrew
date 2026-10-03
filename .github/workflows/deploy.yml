@@ -344,7 +344,12 @@ jobs:
           set -euo pipefail
           cd "$DEPLOY_ROOT"
           export GITHUB_SHA="$VALIDATED_SHA"
-          docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+          if ! docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build; then
+            echo "ERROR: démarrage de la pile PPD impossible"
+            docker compose --env-file .env.production -f docker-compose.prod.yml ps || true
+            docker logs --tail 300 climbcrew-backend || true
+            exit 1
+          fi
           echo "Pile PPD démarrée pour $VALIDATED_SHA"
 
       - name: Contrôler la santé locale

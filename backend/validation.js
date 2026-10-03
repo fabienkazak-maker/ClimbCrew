@@ -1,5 +1,6 @@
 import { GRADES } from "../shared/climbing-grades.js";
 import { MAX_SESSION_PARTICIPANTS } from "../shared/session-rules.js";
+import { PASSPORT_VALUES, resolvePassportSelection } from "../shared/passports.js";
 
 /**
  * Validation des données reçues par l'API.
@@ -9,7 +10,7 @@ import { MAX_SESSION_PARTICIPANTS } from "../shared/session-rules.js";
  */
 
 export { GRADES };
-export const PASSPORTS = ["sans", "jaune", "orange", "vert", "bleu", "decouverte"];
+export const PASSPORTS = PASSPORT_VALUES;
 export const SEXES = ["", "h", "f"];
 export const SESSION_SLOTS = ["matin", "midi", "soir"];
 export const SESSION_STATUSES = [
@@ -124,12 +125,20 @@ function email(value) {
 }
 
 export function validateParticipantPayload(payload = {}) {
+  const requestedDiscovery = strictBoolean(
+    payload.passportDecouverte,
+    "passportDecouverte",
+    false,
+  );
+  const passportSelection = resolvePassportSelection(payload.passport, requestedDiscovery);
+
   return {
     ...payload,
     nom: requiredString(payload.nom, "nom", 120),
     prenom: requiredString(payload.prenom, "prenom", 120),
     email: email(payload.email),
-    passport: enumValue(payload.passport, "passport", PASSPORTS, "sans"),
+    passport: enumValue(passportSelection.passport, "passport", PASSPORTS, "sans"),
+    passportDecouverte: passportSelection.passportDecouverte,
     passeportFfme: strictBoolean(payload.passeportFfme, "passeportFfme"),
     sexe: enumValue(payload.sexe, "sexe", SEXES, ""),
     cotisation: strictBoolean(payload.cotisation, "cotisation"),

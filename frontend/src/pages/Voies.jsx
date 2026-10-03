@@ -1,6 +1,7 @@
 import React from "react";
 import Button from "../components/Button.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
+import RouteQrCode from "../components/RouteQrCode.jsx";
 import { API_BASE, apiFetch, apiUploadVideoInChunks } from "../lib/api.js";
 import { GRADES, formatRouteName, getRouteCardStyle, normalizeRopeNumber } from "../lib/domain.js";
 import { ROPE_NUMBERS, ROUTE_COLORS, ROUTE_TAGS } from "../lib/ui-config.js";
@@ -66,9 +67,13 @@ export default function Voies({
   const [selectedComparisonVideos, setSelectedComparisonVideos] = React.useState([]);
   const [comparisonOpen, setComparisonOpen] = React.useState(false);
   const [videoDeleteCandidate, setVideoDeleteCandidate] = React.useState(null);
+  const [qrRouteId, setQrRouteId] = React.useState("");
 
   const allRoutes = routeDisplayGroups.flatMap((group) => group.routes);
   const videoRoute = allRoutes.find((route) => String(route.id) === String(videoRouteId)) || null;
+  const qrRoute = adminUnlocked
+    ? allRoutes.find((route) => String(route.id) === String(qrRouteId)) || null
+    : null;
 
   React.useEffect(() => {
     setSelectedComparisonVideos([]);
@@ -425,7 +430,7 @@ export default function Voies({
                               </strong>
                               <div className="route-meta-line" aria-label="Détails de la voie"><span>Consensus {routeAggregatesById[route.id]?.consensusGrade || "nc"}</span>{route.moulinetteOnly && <span className="pill moulinette-badge" title="Moulinette uniquement">Moulinette</span>}{route.tags?.length > 0 ? route.tags.map((tag) => <span className="route-characteristic" key={tag}>{ROUTE_TAGS.find((item) => item.value === tag)?.label || tag}</span>) : <span className="route-characteristics-empty">Sans caractéristique</span>}<span className="rating-average">{routeRating.count ? `★ ${routeRating.average.toFixed(1)}` : "Pas encore notée"}</span></div>
                             </div>
-                            <div className="group"><Button variant="secondary" onClick={() => openRealisationModal(route.id, selectedParticipantProgress)}>Réalisation</Button>{adminUnlocked && <Button variant="secondary" onClick={() => startRouteEdition(route)}>Modifier</Button>}</div>
+                            <div className="group"><Button variant="secondary" onClick={() => openRealisationModal(route.id, selectedParticipantProgress)}>Réalisation</Button>{adminUnlocked && <Button variant="secondary" onClick={() => setQrRouteId(route.id)}>QR code</Button>}{adminUnlocked && <Button variant="secondary" onClick={() => startRouteEdition(route)}>Modifier</Button>}</div>
                           </div>
                         )}
                       </div>
@@ -437,6 +442,7 @@ export default function Voies({
           ))}
         </div>
       </div>
+      <RouteQrCode route={qrRoute} onClose={() => setQrRouteId("")} />
     </>
   );
 }

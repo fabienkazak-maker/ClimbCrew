@@ -1,14 +1,13 @@
 export const PASSPORT_STYLES = {
-  sans: { backgroundColor: "#334155", color: "#f8fafc" },
+  gris: { backgroundColor: "#cbd5e1", color: "#111827" },
   jaune: { backgroundColor: "#fde047", color: "#111827" },
   orange: { backgroundColor: "#fb923c", color: "#111827" },
-  vert: { backgroundColor: "#22c55e", color: "#052e16" },
   bleu: { backgroundColor: "#60a5fa", color: "#0f172a" },
+  vert: { backgroundColor: "#22c55e", color: "#052e16" },
 
-  decouverte: { backgroundColor: "#64748b", color: "#ffffff" },
-  "découverte": { backgroundColor: "#64748b", color: "#ffffff" },
-  decouvertes: { backgroundColor: "#64748b", color: "#ffffff" },
-  "découvertes": { backgroundColor: "#64748b", color: "#ffffff" },
+  // Compatibilité visuelle temporaire avec les anciennes données non migrées.
+  sans: { backgroundColor: "#cbd5e1", color: "#111827" },
+  decouverte: { backgroundColor: "#cbd5e1", color: "#111827" },
 };
 
 export const ROPE_NUMBERS = Array.from({ length: 22 }, (_, index) => index);
@@ -44,6 +43,7 @@ export const TABS = [
   { key: "inscriptions", label: "Planning" },
   { key: "voies", label: "Voies" },
   { key: "mon_profil", label: "Profil" },
+  { key: "challenges", label: "Challenges" },
   { key: "chat", label: "Chat" },
   { key: "statistiques", label: "Statistiques" },
   { key: "wall_of_fame", label: "Tableau d’honneur" },

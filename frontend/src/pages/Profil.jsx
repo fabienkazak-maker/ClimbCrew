@@ -15,9 +15,14 @@ import {
   fullName,
   formatPoints,
   formatDateShortFr,
+  formatPassportLabel,
   formatRouteForRealisation,
   formatRouteName,
   gradeToIndex,
+  getPassportDotLabel,
+  getPassportDotStyle,
+  getPassportStyle,
+  normalizePassport,
   normalizeRopeNumber,
 } from "../lib/domain.js";
 import {
@@ -296,7 +301,9 @@ export default function Profil({
           <div className="card" style={getPassportStyle(selectedParticipant)} data-passport={normalizePassport(selectedParticipant.passport)}>
             <div className="card-header">
               <div className="participant-identity">
-                <span className="passport-dot" style={getPassportDotStyle(selectedParticipant)} aria-hidden="true" />
+                <span className="passport-dot" style={getPassportDotStyle(selectedParticipant)} aria-hidden="true">
+                  {getPassportDotLabel(selectedParticipant)}
+                </span>
                 <div>
                   <h2 style={{ margin: 0 }}>{fullName(selectedParticipant)}</h2>
                   {isOwnProfile && <div className="small">{authUser.email}</div>}
@@ -304,7 +311,8 @@ export default function Profil({
               </div>
             </div>
             <div className="group" style={{ marginTop: 10 }}>
-              <span className="pill">Couleur de passeport : {selectedParticipant.passport || "-"}</span>
+              <span className="pill">Couleur de passeport : {formatPassportLabel(selectedParticipant.passport)}</span>
+              <span className="pill">Découverte : {selectedParticipant.passportDecouverte ? "Oui" : "Non"}</span>
               <span className="pill">Passeport FFME : {selectedParticipant.passeportFfme ? "Oui" : "Non"}</span>
               <span className="pill">Cotisation : {selectedParticipant.cotisation ? "Oui" : "Non"}</span>
               <span className="pill">Licence FFME : {selectedParticipant.ffme ? "Oui" : "Non"}</span>

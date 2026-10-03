@@ -2,7 +2,13 @@ import React, { useEffect, useState } from "react";
 import Button from "../components/Button.jsx";
 import SaveFeedback from "../components/SaveFeedback.jsx";
 import { apiFetch, downloadFile, USE_API } from "../lib/api.js";
-import { fullName } from "../lib/domain.js";
+import { fullName, PASSPORT_OPTIONS } from "../lib/domain.js";
+
+function PassportOptions() {
+  return PASSPORT_OPTIONS.map((passport) => (
+    <option key={passport.value} value={passport.value}>{passport.label}</option>
+  ));
+}
 
 function AdminSection({ title, summary, children }) {
   return (
@@ -46,6 +52,7 @@ export default function Administration({
         prenom: participant.prenom || "",
         email: participant.email || "",
         passport: participant.passport || "sans",
+        passportDecouverte: Boolean(participant.passportDecouverte),
         sexe: participant.sexe || "",
       }])
     ));
@@ -69,6 +76,7 @@ export default function Administration({
       prenom: participant.prenom || "",
       email: participant.email || "",
       passport: participant.passport || "sans",
+      passportDecouverte: Boolean(participant.passportDecouverte),
       sexe: participant.sexe || "",
     };
   }
@@ -269,10 +277,13 @@ export default function Administration({
           <div><label>Prénom</label><input value={newParticipant.prenom} onChange={(event) => setNewParticipant((participant) => ({ ...participant, prenom: event.target.value }))} /></div>
           <div><label>Adresse e-mail</label><input type="email" value={newParticipant.email} onChange={(event) => setNewParticipant((participant) => ({ ...participant, email: event.target.value }))} /></div>
           <div>
-            <label>Passeport</label>
+            <label>Couleur de passeport</label>
             <select value={newParticipant.passport} onChange={(event) => setNewParticipant((participant) => ({ ...participant, passport: event.target.value }))}>
-              <option value="sans">Sans</option><option value="jaune">Jaune</option><option value="orange">Orange</option><option value="vert">Vert</option><option value="bleu">Bleu</option><option value="decouverte">Découverte</option>
+              <PassportOptions />
             </select>
+          </div>
+          <div>
+            <label><input type="checkbox" checked={Boolean(newParticipant.passportDecouverte)} onChange={(event) => setNewParticipant((participant) => ({ ...participant, passportDecouverte: event.target.checked }))} /> Découverte</label>
           </div>
           <div>
             <label>Sexe</label>
@@ -345,10 +356,13 @@ export default function Administration({
                   <div><label>Prénom</label><input value={draft.prenom} onChange={(event) => setParticipantDraftField(participant, "prenom", event.target.value)} /></div>
                   <div><label>Adresse e-mail</label><input type="email" value={draft.email} onChange={(event) => setParticipantDraftField(participant, "email", event.target.value)} /></div>
                   <div>
-                    <label>Passeport</label>
+                    <label>Couleur de passeport</label>
                     <select value={draft.passport} onChange={(event) => setParticipantDraftField(participant, "passport", event.target.value)}>
-                      <option value="sans">Sans</option><option value="jaune">Jaune</option><option value="orange">Orange</option><option value="vert">Vert</option><option value="bleu">Bleu</option><option value="decouverte">Découverte</option>
+                      <PassportOptions />
                     </select>
+                  </div>
+                  <div>
+                    <label><input type="checkbox" checked={Boolean(draft.passportDecouverte)} onChange={(event) => setParticipantDraftField(participant, "passportDecouverte", event.target.checked)} /> Découverte</label>
                   </div>
                   <div>
                     <label>Sexe</label>

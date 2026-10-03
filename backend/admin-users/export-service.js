@@ -33,6 +33,7 @@ function serializeParticipant(row) {
     prenom: row.prenom,
     email: row.login_email || row.email || "",
     passport: row.passport || "sans",
+    passportDecouverte: Boolean(row.passport_decouverte),
     passeportFfme: Boolean(row.passeport_ffme),
     sexe: row.sexe || "",
     cotisation: Boolean(row.cotisation),
