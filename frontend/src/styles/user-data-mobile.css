@@ -4,6 +4,15 @@
   align-items: center;
 }
 
+.user-data-desktop-table thead input,
+.user-data-desktop-table thead select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 3px 2px;
+  font-size: inherit;
+}
+
 .user-data-mobile-controls,
 .user-data-mobile-list {
   display: none;
