@@ -9,6 +9,7 @@ import { installSessionReadRoutes } from "./session-read-routes.js";
 import { installParticipantCreationRoute } from "./participant-creation-route.js";
 import { installBroadcastMessageRoutes } from "./broadcast-message-routes.js";
 import { installEvolutionRequestRoutes } from "./evolution-request-routes.js";
+import { installChallengeRoutes } from "./challenge-routes.js";
 import { installChatRoutes } from "./chat-routes.js";
 import { installBuddyRoutes } from "./buddy-routes.js";
 import { installAuthSessionRoutes } from "./auth-session-routes.js";
@@ -132,6 +133,7 @@ installExplicitAdminUserRoutes(app, {
 });
 installBroadcastMessageRoutes(app, { requireAuth, requireAdmin, pool });
 installEvolutionRequestRoutes(app, { requireAuth, requireAdmin, pool });
+installChallengeRoutes(app, { requireAuth, requireAdmin, pool });
 installChatRoutes(app, { requireAuth, requireAdmin, pool });
 installBuddyRoutes(app, { requireAuth, pool });
 installRealisationManagementRoutes(app, { requireAuth, pool });

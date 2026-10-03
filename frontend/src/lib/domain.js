@@ -3,6 +3,17 @@ import { GRADES } from "../../../shared/climbing-grades.js";
 import { MAX_SESSION_PARTICIPANTS } from "../../../shared/session-rules.js";
 import { PASSPORT_STYLES } from "./ui-config.js";
 import {
+  getPassportColor,
+  hasPassportDiscoveryMark,
+  normalizePassport,
+} from "../../../shared/passports.js";
+export {
+  formatPassportLabel,
+  isLibreEligiblePassport,
+  normalizePassport,
+  PASSPORT_OPTIONS,
+} from "../../../shared/passports.js";
+import {
   REALISATION_CRITERION_WEIGHTS,
   getRealisationWeight,
   isSuccessfulLeadRealisation,
@@ -94,17 +105,8 @@ export function todayIso() {
   return toLocalIso(date);
 }
 
-export function normalizePassport(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-export function isDiscoveryPassport(passport) {
-  const normalized = normalizePassport(passport);
-  return normalized === "decouverte" || normalized === "decouvertes";
+export function isDiscoveryPassport(passport, passportDecouverte = false) {
+  return hasPassportDiscoveryMark(passport, passportDecouverte);
 }
 
 export function getPassportStyle(participant) {
@@ -123,11 +125,19 @@ export function getPassportStyle(participant) {
 }
 
 export function getPassportDotStyle(participant) {
-  const baseStyle = isDiscoveryPassport(participant?.passport)
-    ? PASSPORT_STYLES.decouverte
-    : PASSPORT_STYLES[participant?.passport] || PASSPORT_STYLES.sans;
+  const baseStyle = PASSPORT_STYLES[getPassportColor(participant?.passport)] || PASSPORT_STYLES.sans;
 
-  return { backgroundColor: baseStyle.backgroundColor };
+  return {
+    backgroundColor: baseStyle.backgroundColor,
+    color: "#000000",
+  };
+}
+
+export function getPassportDotLabel(participant) {
+  return hasPassportDiscoveryMark(
+    participant?.passport,
+    participant?.passportDecouverte,
+  ) ? "D" : "";
 }
 
 export function gradeToIndex(grade) {

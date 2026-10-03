@@ -35,7 +35,7 @@
         .add-participant-field { grid-column: span 1; }
         .passport-row { color: inherit; background: transparent; }
         .participant-identity { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
-        .passport-dot { width: 14px; height: 14px; flex: 0 0 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.72); box-shadow: 0 0 0 1px rgba(15,23,42,.35); }
+        .passport-dot { width: 14px; height: 14px; flex: 0 0 14px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; border: 1px solid rgba(255,255,255,.72); box-shadow: 0 0 0 1px rgba(15,23,42,.35); font-size: 9px; font-weight: 900; line-height: 1; }
         .participant-name { font-weight: 800; }
         .remove-button { display: inline-flex; align-items: center; justify-content: center; width: 26px; min-width: 26px; height: 26px; min-height: 26px; background: rgba(148,163,184,.28); color: inherit; border: 1px solid rgba(148,163,184,.45); border-radius: 999px; padding: 0; font-size: 20px; line-height: 1; box-shadow: none; }
         .remove-button:hover { background: rgba(148,163,184,.45); color: inherit; }
@@ -1414,4 +1414,93 @@ textarea:focus-visible,
 button:focus-visible {
   outline: 2px solid var(--theme-accent);
   outline-offset: 2px;
+}
+
+
+/* ==========================================================================
+   Ambiance daltonien : contraste fort + repères de forme/motif
+   ========================================================================== */
+:root[data-theme="daltonien"] {
+  --theme-page-bg: #07121f;
+  --theme-app-bg: linear-gradient(145deg,#07121f,#102a43,#16324f);
+  --theme-card-bg: rgba(8, 25, 42, .96);
+  --theme-card-soft: rgba(18, 48, 74, .82);
+  --theme-card-border: rgba(255, 213, 79, .62);
+  --theme-text: #fffaf0;
+  --theme-text-muted: #d9e2ec;
+  --theme-input-bg: #0b1f33;
+  --theme-input-border: rgba(255, 213, 79, .68);
+  --theme-sidebar-bg: rgba(5, 18, 31, .98);
+  --theme-accent: #ffd54f;
+  --theme-accent-text: #07121f;
+  --theme-stat-bg: rgba(18, 48, 74, .9);
+}
+
+:root[data-theme="daltonien"] .passport-row {
+  border-width: 2px !important;
+  border-color: #fffaf0 !important;
+  background-blend-mode: overlay;
+}
+:root[data-theme="daltonien"] .passport-row[data-passport="jaune"] {
+  background-image: repeating-linear-gradient(45deg, transparent 0 8px, rgba(0,0,0,.18) 8px 11px);
+}
+:root[data-theme="daltonien"] .passport-row[data-passport="orange"] {
+  background-image: repeating-linear-gradient(90deg, transparent 0 8px, rgba(0,0,0,.20) 8px 11px);
+}
+:root[data-theme="daltonien"] .passport-row[data-passport="vert"] {
+  background-image: radial-gradient(circle at 5px 5px, rgba(0,0,0,.28) 0 2px, transparent 2.5px);
+  background-size: 12px 12px;
+}
+:root[data-theme="daltonien"] .passport-row[data-passport="bleu"] {
+  background-image: repeating-linear-gradient(135deg, transparent 0 8px, rgba(255,255,255,.22) 8px 11px);
+}
+:root[data-theme="daltonien"] .session-card {
+  border-left-width: 7px !important;
+}
+:root[data-theme="daltonien"] .session-card.session-status-libre {
+  border-left-style: double !important;
+}
+:root[data-theme="daltonien"] .session-card.session-status-encadree {
+  border-left-style: solid !important;
+}
+:root[data-theme="daltonien"] .session-card.session-status-fermee {
+  border-left-style: dashed !important;
+}
+
+/* QR voies et scanner */
+.route-qr-modal { max-width: 420px; }
+.route-qr-content { display: grid; justify-items: center; gap: 12px; text-align: center; }
+.route-qr-content img { max-width: 100%; height: auto; background: #fff; padding: 10px; border-radius: 14px; }
+.qr-download-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: var(--theme-accent);
+  color: var(--theme-accent-text);
+  font-weight: 800;
+  text-decoration: none;
+}
+.scan-qr-page { display: grid; gap: 12px; }
+.qr-scanner-frame {
+  position: relative;
+  width: min(100%, 560px);
+  aspect-ratio: 4 / 3;
+  margin: 0 auto 12px;
+  overflow: hidden;
+  border: 2px solid var(--theme-card-border);
+  border-radius: 18px;
+  background: #020617;
+}
+.qr-scanner-frame video { width: 100%; height: 100%; object-fit: cover; }
+.qr-scanner-placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #e2e8f0;
+  background: #0f172a;
+  font-weight: 800;
 }

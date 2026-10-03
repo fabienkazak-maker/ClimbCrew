@@ -80,8 +80,11 @@ function installSessionTestPool({ status, eligible }) {
       if (normalized.includes("select can_encadrer, can_referer from participants")) {
         return { rows: [{ can_encadrer: false, can_referer: false }], rowCount: 1 };
       }
-      if (normalized.includes("select id from participants where id = $1")) {
-        return eligible ? { rows: [{ id: params[0] }], rowCount: 1 } : { rows: [], rowCount: 0 };
+      if (normalized.includes("select passport from participants where id = $1")) {
+        return {
+          rows: [{ passport: eligible ? "jaune_d" : "sans" }],
+          rowCount: 1,
+        };
       }
       if (normalized.includes("insert into session_participants")) return { rows: [], rowCount: 1 };
       if (normalized.includes("order by participant_id")) return { rows: [{ participant_id: 7 }], rowCount: 1 };
@@ -126,7 +129,7 @@ test("HTTP séance : une séance libre refuse un passeport non éligible", async
     assert.match(payload.error, /passeports jaune, orange, vert ou bleu/i);
   });
 
-  assert.equal(calls.some((call) => call.sql.includes("select id from participants where id = $1")), true);
+  assert.equal(calls.some((call) => call.sql.includes("select passport from participants where id = $1")), true);
   assert.equal(calls.some((call) => call.sql.includes("insert into session_participants")), false);
 });
 

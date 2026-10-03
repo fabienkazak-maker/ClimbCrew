@@ -77,6 +77,7 @@ import {
   buildRealisationPayload,
   getParticipantSessionDays,
   getSessionAttendanceIds,
+  getSessionParticipantIds,
   isManagedSession,
   resolveSessionIdForRealisation,
 } from "./lib/realisation-workflow.js";
@@ -290,7 +291,7 @@ function App() {
       state.sessions
         .filter((session) => session.date === newRealisation.selectedDay)
         .filter(isManagedSession)
-        .flatMap((session) => getSessionAttendanceIds(session))
+        .flatMap((session) => getSessionParticipantIds(session))
     );
 
     return modalAllEligibleParticipants.filter((participant) => participantIdsForSelectedDay.has(String(participant.id)));
@@ -371,10 +372,10 @@ function App() {
   }
 
   const sessionStats = useMemo(() => {
-    const unique = new Set(state.sessions.flatMap((session) => getSessionAttendanceIds(session)));
+    const unique = new Set(state.sessions.flatMap((session) => getSessionParticipantIds(session)));
     const participationCount = {};
     state.sessions.forEach((session) => {
-      getSessionAttendanceIds(session).forEach((id) => {
+      getSessionParticipantIds(session).forEach((id) => {
         participationCount[id] = (participationCount[id] || 0) + 1;
       });
     });
@@ -673,8 +674,13 @@ function App() {
     const existingSession = state.sessions.find((session) => session.id === sessionId);
     const currentSession = existingSession || buildDefaultSession(sessionId);
     const currentParticipantIds = currentSession.participantIds.map(String);
-    const currentAttendanceIds = getSessionAttendanceIds(currentSession);
-    if (currentAttendanceIds.length >= MAX_PARTICIPANTS || currentAttendanceIds.includes(requestedId)) return;
+    const normalizedSession = normalizeSessionRoles(currentSession);
+    const roleParticipantIds = new Set(
+      [normalizedSession.encadrantId, normalizedSession.referentId].filter(Boolean).map(String),
+    );
+    const countedParticipantIds = currentParticipantIds.filter((id) => !roleParticipantIds.has(id));
+    if (currentParticipantIds.includes(requestedId)) return;
+    if (countedParticipantIds.length >= MAX_PARTICIPANTS && !roleParticipantIds.has(requestedId)) return;
 
     persistSessionChange(sessionId, currentSession, {
       ...currentSession,
@@ -714,15 +720,18 @@ function App() {
       : "";
     const defaultParticipantId = latestRegisteredDay ? requestedParticipantId : "";
 
-    setNewRealisation((previous) => buildRealisationDraft({
-      previous,
-      route,
-      routeId,
-      participantId: defaultParticipantId,
-      selectedDay: latestRegisteredDay,
-      sessionId: defaultParticipantId && latestRegisteredDay
-        ? resolveSessionIdForRealisation(state.sessions, defaultParticipantId, latestRegisteredDay)
-        : "",
+    setNewRealisation((previous) => ({
+      ...buildRealisationDraft({
+        previous,
+        route,
+        routeId,
+        participantId: defaultParticipantId,
+        selectedDay: latestRegisteredDay,
+        sessionId: defaultParticipantId && latestRegisteredDay
+          ? resolveSessionIdForRealisation(state.sessions, defaultParticipantId, latestRegisteredDay)
+          : "",
+      }),
+      scanQr: false,
     }));
 
     setRealisationModalRouteId(routeId || "");
@@ -731,7 +740,6 @@ function App() {
   function closeRealisationModal() {
     setRealisationModalRouteId(null);
   }
-
 
 async function persistRealisationToApi(realisation) {
   if (!USE_API) return realisation;
@@ -825,6 +833,7 @@ async function deleteRealisation(realisation) {
         rating: 0,
         chute: false,
         assureurId: "",
+        scanQr: false,
       }));
       setRealisationModalRouteId(null);
       setConfirmationMessage("Réalisation enregistrée.");

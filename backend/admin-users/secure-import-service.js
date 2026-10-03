@@ -159,18 +159,19 @@ export async function importBusinessDataSafely(req, res) {
       const result = await client.query(
         `
           insert into participants (
-            nom, prenom, email, login_email, passport, passeport_ffme, sexe, cotisation, ffme,
+            nom, prenom, email, login_email, passport, passport_decouverte, passeport_ffme, sexe, cotisation, ffme,
             initiateur_sae, initiateur_sne, can_encadrer, can_referer, can_admin,
             avatar_id, crest_id, profile_public, custom_avatar_image
           )
-          values ($1,$2,$3,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,false,$13,$14,$15,$16)
+          values ($1,$2,$3,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,false,$14,$15,$16,$17)
           returning id
         `,
         [
           String(participant.nom || "").trim() || "?",
           String(participant.prenom || "").trim() || "?",
           cleanEmail(participant.email),
-          String(participant.passport || "sans").trim() || "sans",
+          String(participant.passport || "sans").trim() || "gris",
+          Boolean(participant.passportDecouverte),
           Boolean(participant.passeportFfme),
           String(participant.sexe || "").trim().toLowerCase(),
           Boolean(participant.cotisation),

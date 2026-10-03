@@ -1,7 +1,8 @@
 import { getPool } from "./database.js";
 import { validateSessionPayload } from "../validation.js";
 import { getDefaultSessionStatus } from "../../shared/session-default-status.js";
-import { getSessionAttendanceIds, getSessionSupervisorRole, isSessionManager, normalizeSessionRoles, MAX_SESSION_PARTICIPANTS } from "../../shared/session-rules.js";
+import { getSessionSupervisorRole, isSessionManager, normalizeSessionRoles, MAX_SESSION_PARTICIPANTS } from "../../shared/session-rules.js";
+import { isLibreEligiblePassport } from "../../shared/passports.js";
 
 function normalizedId(value) {
   return value === null || value === undefined || value === "" ? null : String(value);
@@ -20,10 +21,7 @@ export function assertSessionCapacity(participantIds, session = null) {
   const uniqueParticipantIds = [...new Set((participantIds || [])
     .filter((value) => value !== null && value !== undefined && value !== "")
     .map(String))];
-  const attendanceIds = session
-    ? getSessionAttendanceIds({ ...session, participantIds: uniqueParticipantIds })
-    : uniqueParticipantIds;
-  if (attendanceIds.length > MAX_SESSION_PARTICIPANTS) {
+  if (uniqueParticipantIds.length > MAX_SESSION_PARTICIPANTS) {
     const error = new Error(`Une séance ne peut pas dépasser ${MAX_SESSION_PARTICIPANTS} participants.`);
     error.status = 409;
     throw error;
@@ -85,7 +83,7 @@ function symmetricDifference(left, right) {
  * - séance libre : le responsable sélectionné doit être référent ;
  * - séance encadrée : le responsable sélectionné doit être encadrant ;
  * - administrateur : peut gérer les données de séance, mais un changement de type reste réservé à un encadrant/référent ;
- * - membre standard : peut uniquement s'inscrire ou se désinscrire lui-même ;
+ * - tout utilisateur associé à un grimpeur peut inscrire ou désinscrire un participant ;
  * - une séance fermée refuse toute nouvelle inscription non administrateur.
  */
 export function evaluateSessionMutation({
@@ -135,16 +133,9 @@ export function evaluateSessionMutation({
       };
     }
 
-    if ([...requested].some((participantId) => participantId !== actorId)) {
-      return {
-        allowed: false,
-        status: 403,
-        error: "Un utilisateur ne peut inscrire que lui-même lors de la création d’une séance.",
-      };
-    }
-
+    const participantJoins = [...requested];
     const actorJoins = requested.has(actorId);
-    if (actorJoins && requestedStatus === "fermee") {
+    if (participantJoins.length > 0 && requestedStatus === "fermee") {
       return {
         allowed: false,
         status: 409,
@@ -222,17 +213,11 @@ export function evaluateSessionMutation({
   }
 
   const participantChanges = symmetricDifference(previous, requested);
-  if (participantChanges.some((participantId) => participantId !== actorId)) {
-    return {
-      allowed: false,
-      status: 403,
-      error: "Un utilisateur ne peut modifier que sa propre inscription à une séance.",
-    };
-  }
-
+  const participantJoins = [...requested].filter((participantId) => !previous.has(participantId));
+  const participantLeaves = [...previous].filter((participantId) => !requested.has(participantId));
   const actorJoins = requested.has(actorId) && !previous.has(actorId);
   const actorLeaves = previous.has(actorId) && !requested.has(actorId);
-  if (actorJoins && requestedStatus === "fermee") {
+  if (participantJoins.length > 0 && requestedStatus === "fermee") {
     return {
       allowed: false,
       status: 409,
@@ -248,6 +233,9 @@ export function evaluateSessionMutation({
     statusChanged,
     encadrantChanged,
     referentChanged,
+    participantChanges,
+    participantJoins,
+    participantLeaves,
     actorJoins,
     actorLeaves,
   };
@@ -292,10 +280,10 @@ async function loadActorPrivileges(client, participantId) {
 
 async function assertLibreEligibility(client, participantId) {
   const result = await client.query(
-    `select id from participants where id = $1 and lower(passport) in ('jaune', 'orange', 'vert', 'bleu')`,
+    `select passport from participants where id = $1 limit 1`,
     [participantId],
   );
-  if (!result.rowCount) {
+  if (!result.rowCount || !isLibreEligiblePassport(result.rows[0]?.passport)) {
     const error = new Error(
       "Une séance libre est réservée aux passeports Jaune, Orange, Vert ou Bleu pour toute nouvelle inscription.",
     );
@@ -336,12 +324,8 @@ export async function registerParticipantForSession(client, {
     : participantIds.map(String);
 
   const registeredParticipantIds = [...new Set(listedParticipants.map(String))];
-  const attendanceIds = getSessionAttendanceIds({
-    ...resolvedSession,
-    participantIds: registeredParticipantIds,
-  });
 
-  if (attendanceIds.includes(actorId)) {
+  if (registeredParticipantIds.includes(actorId)) {
     return { registered: false, session: resolvedSession };
   }
   if (resolvedSession.status === "fermee" && !allowClosed) {
@@ -385,12 +369,6 @@ async function mutateSessionParticipant(req, res, { remove = false } = {}) {
     if (!isAdmin && !actorParticipantId) {
       return res.status(403).json({
         error: "Le compte doit être associé à un grimpeur pour modifier les inscriptions.",
-      });
-    }
-
-    if (remove && !isAdmin && targetParticipantId !== actorParticipantId) {
-      return res.status(403).json({
-        error: "Un utilisateur ne peut retirer que sa propre inscription à une séance.",
       });
     }
 
