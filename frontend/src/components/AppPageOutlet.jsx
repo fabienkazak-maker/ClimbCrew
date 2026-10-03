@@ -31,19 +31,24 @@ function useShellTarget(active) {
       return undefined;
     }
 
+    let cancelled = false;
+    let frameId = null;
+
     const resolveTarget = () => {
+      if (cancelled) return;
       const shell = document.querySelector(".shell");
-      if (shell) setTarget(shell);
-      return shell;
+      if (shell) {
+        setTarget(shell);
+        return;
+      }
+      frameId = window.requestAnimationFrame(resolveTarget);
     };
 
-    if (resolveTarget()) return undefined;
-
-    const observer = new MutationObserver(() => {
-      if (resolveTarget()) observer.disconnect();
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
+    resolveTarget();
+    return () => {
+      cancelled = true;
+      if (frameId !== null) window.cancelAnimationFrame(frameId);
+    };
   }, [active]);
 
   return target;
