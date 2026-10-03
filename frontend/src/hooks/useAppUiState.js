@@ -1,12 +1,7 @@
 import { useState } from "react";
+import { getStoredActiveTab, storeActiveTab } from "../lib/tab-navigation.js";
 
 const PLANNING_VIEW_KEY = "climbcrew-planning-view";
-const ACTIVE_TAB_KEY = "climbcrew-active-tab";
-
-function getInitialTab() {
-  if (typeof window === "undefined") return "inscriptions";
-  return window.sessionStorage.getItem(ACTIVE_TAB_KEY) || "inscriptions";
-}
 
 function getInitialPlanningView() {
   if (typeof window === "undefined") return "jour";
@@ -20,10 +15,10 @@ function getInitialPlanningView() {
 }
 
 export function useAppUiState({ useApi }) {
-  const [tabState, setTabState] = useState(getInitialTab);
+  const [tabState, setTabState] = useState(getStoredActiveTab);
   const setTab = (nextTab) => {
     setTabState(nextTab);
-    if (typeof window !== "undefined") window.sessionStorage.setItem(ACTIVE_TAB_KEY, nextTab);
+    storeActiveTab(nextTab);
   };
   const tab = tabState;
   const [viewModeState, setViewModeState] = useState(getInitialPlanningView);
