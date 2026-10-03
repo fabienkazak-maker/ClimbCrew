@@ -1,7 +1,6 @@
 import React from "react";
 import Button from "../components/Button.jsx";
 import { apiFetch } from "../lib/api.js";
-import { ROUTE_COLORS } from "../lib/ui-config.js";
 
 function localTodayIso() {
   const now = new Date();
@@ -17,16 +16,10 @@ function formatDate(value) {
   return year && month && day ? `${day}/${month}/${year}` : String(value);
 }
 
-function challengeCriteriaLabel(criteria = {}) {
-  const parts = [];
-  if (criteria.color) parts.push(`Couleur : ${criteria.color}`);
-  if (criteria.opener) parts.push(`Ouvreur : ${criteria.opener}`);
-  return parts.join(" · ") || "Critères non précisés";
-}
-
 function routeLabel(route) {
   const rope = route.numeroCorde === null || route.numeroCorde === undefined ? "" : `Corde ${route.numeroCorde}`;
-  return [rope, route.couleurPrises, route.cotation, route.nomOuvreur, route.nomVoie]
+  const grade = route.cotation || route.cotationAjustee || route.cotationReference || "";
+  return [rope, route.couleurPrises, grade, route.nomOuvreur, route.nomVoie]
     .filter(Boolean)
     .join(" · ") || `Voie ${route.numeroVoieUnique || route.id}`;
 }
@@ -36,9 +29,7 @@ const EMPTY_FORM = Object.freeze({
   description: "",
   startsOn: "",
   endsOn: "",
-  color: "",
-  opener: "",
-  activeOnly: true,
+  routeIds: [],
 });
 
 export default function Challenges({ isAdmin = false }) {
@@ -46,7 +37,9 @@ export default function Challenges({ isAdmin = false }) {
   const [selectedChallengeId, setSelectedChallengeId] = React.useState("");
   const [detail, setDetail] = React.useState(null);
   const [badges, setBadges] = React.useState([]);
+  const [availableRoutes, setAvailableRoutes] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
+  const [routesLoading, setRoutesLoading] = React.useState(false);
   const [detailLoading, setDetailLoading] = React.useState(false);
   const [error, setError] = React.useState("");
   const [message, setMessage] = React.useState("");
@@ -82,6 +75,26 @@ export default function Challenges({ isAdmin = false }) {
   }, [loadChallenges]);
 
   React.useEffect(() => {
+    if (!isAdmin) {
+      setAvailableRoutes([]);
+      return undefined;
+    }
+    let mounted = true;
+    setRoutesLoading(true);
+    apiFetch("/routes")
+      .then((value) => {
+        if (mounted) setAvailableRoutes(Array.isArray(value) ? value : []);
+      })
+      .catch((loadError) => {
+        if (mounted) setError(String(loadError.message || loadError));
+      })
+      .finally(() => {
+        if (mounted) setRoutesLoading(false);
+      });
+    return () => { mounted = false; };
+  }, [isAdmin]);
+
+  React.useEffect(() => {
     if (!selectedChallengeId) {
       setDetail(null);
       return;
@@ -102,13 +115,23 @@ export default function Challenges({ isAdmin = false }) {
     return () => { mounted = false; };
   }, [selectedChallengeId]);
 
+  function toggleRoute(routeId) {
+    const id = String(routeId);
+    setForm((current) => ({
+      ...current,
+      routeIds: current.routeIds.includes(id)
+        ? current.routeIds.filter((value) => value !== id)
+        : [...current.routeIds, id],
+    }));
+  }
+
   async function createNewChallenge(event) {
     event.preventDefault();
     if (saving) return;
     setMessage("");
     setError("");
-    if (!form.color && !form.opener.trim()) {
-      setError("Choisissez au moins une couleur ou un ouvreur.");
+    if (form.routeIds.length === 0) {
+      setError("Sélectionnez au moins une voie pour le challenge.");
       return;
     }
 
@@ -121,11 +144,7 @@ export default function Challenges({ isAdmin = false }) {
           description: form.description,
           startsOn: form.startsOn,
           endsOn: form.endsOn || null,
-          criteria: {
-            color: form.color,
-            opener: form.opener,
-            activeOnly: form.activeOnly,
-          },
+          routeIds: form.routeIds,
         }),
       });
       setForm({ ...EMPTY_FORM, startsOn: localTodayIso() });
@@ -140,7 +159,7 @@ export default function Challenges({ isAdmin = false }) {
 
   async function closeSelectedChallenge() {
     if (!detail || detail.status === "closed" || closing) return;
-    if (!window.confirm(`Clôturer définitivement le challenge « ${detail.name} » et attribuer le badge Challenge aux 3 premiers ?`)) return;
+    if (!window.confirm(`Clôturer définitivement le challenge « ${detail.name} » et figer son classement ?`)) return;
 
     setMessage("");
     setError("");
@@ -148,7 +167,7 @@ export default function Challenges({ isAdmin = false }) {
       setClosing(true);
       const closed = await apiFetch(`/admin/challenges/${encodeURIComponent(detail.id)}/close`, { method: "POST" });
       setDetail(closed);
-      setMessage("Challenge clôturé. Le classement est figé et les badges ont été attribués aux 3 premiers.");
+      setMessage(`Challenge « ${closed.name} » clôturé. Le classement est figé et les badges portent désormais le nom du challenge.`);
       await loadChallenges(closed.id);
     } catch (closeError) {
       setError(String(closeError.message || closeError));
@@ -170,11 +189,14 @@ export default function Challenges({ isAdmin = false }) {
         </div>
         {badges.length > 0 && (
           <div className="group" style={{ marginTop: 12 }}>
-            {badges.map((badge) => (
-              <span className="pill" key={badge.id} title={badge.metadata?.challengeName || "Challenge"}>
-                🏅 {badge.label} · {badge.metadata?.challengeName || "Challenge"} · #{badge.metadata?.rank || "?"}
-              </span>
-            ))}
+            {badges.map((badge) => {
+              const badgeName = badge.metadata?.challengeName || badge.label || "Challenge";
+              return (
+                <span className="pill" key={badge.id} title={badgeName}>
+                  🏅 {badgeName} · #{badge.metadata?.rank || "?"}
+                </span>
+              );
+            })}
           </div>
         )}
       </div>
@@ -196,28 +218,34 @@ export default function Challenges({ isAdmin = false }) {
                 Date de fin (facultative)
                 <input type="date" min={form.startsOn || undefined} value={form.endsOn} onChange={(event) => setForm((current) => ({ ...current, endsOn: event.target.value }))} />
               </label>
-              <label>
-                Couleur des prises
-                <select value={form.color} onChange={(event) => setForm((current) => ({ ...current, color: event.target.value }))}>
-                  <option value="">Toutes les couleurs</option>
-                  {ROUTE_COLORS.map((color) => <option key={color} value={color}>{color}</option>)}
-                </select>
-              </label>
-              <label>
-                Ouvreur
-                <input value={form.opener} maxLength={120} placeholder="Ex. Sylvain" onChange={(event) => setForm((current) => ({ ...current, opener: event.target.value }))} />
-              </label>
-              <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <input type="checkbox" checked={form.activeOnly} onChange={(event) => setForm((current) => ({ ...current, activeOnly: event.target.checked }))} />
-                Uniquement les voies actives au lancement
-              </label>
             </div>
             <label>
               Description
               <textarea value={form.description} maxLength={2000} rows={3} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
             </label>
-            <div className="small">Couleur et ouvreur peuvent être combinés. Les voies correspondantes sont figées au lancement du challenge.</div>
-            <Button type="submit" disabled={saving}>{saving ? "Création…" : "Créer le challenge"}</Button>
+            <div>
+              <strong>Voies du challenge</strong>
+              <div className="small" style={{ marginTop: 4 }}>Sélectionnez directement une ou plusieurs voies. Les voies choisies sont figées à la création du challenge.</div>
+              {routesLoading ? (
+                <div className="muted-box" style={{ marginTop: 10 }}>Chargement des voies…</div>
+              ) : availableRoutes.length === 0 ? (
+                <div className="muted-box" style={{ marginTop: 10 }}>Aucune voie disponible.</div>
+              ) : (
+                <div className="stack" style={{ marginTop: 10, maxHeight: 320, overflowY: "auto" }}>
+                  {availableRoutes.map((route) => {
+                    const id = String(route.id);
+                    return (
+                      <label className="muted-box" key={id} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                        <input type="checkbox" checked={form.routeIds.includes(id)} onChange={() => toggleRoute(id)} />
+                        <span>{routeLabel(route)}{route.active === false ? " · inactive" : ""}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="small" style={{ marginTop: 8 }}>{form.routeIds.length} voie{form.routeIds.length > 1 ? "s" : ""} sélectionnée{form.routeIds.length > 1 ? "s" : ""}</div>
+            </div>
+            <Button type="submit" disabled={saving || routesLoading || availableRoutes.length === 0}>{saving ? "Création…" : "Créer le challenge"}</Button>
           </form>
         </details>
       )}
@@ -250,7 +278,7 @@ export default function Challenges({ isAdmin = false }) {
             <div className="card-header">
               <div>
                 <h2 style={{ margin: 0 }}>{detail.name}</h2>
-                <div className="small">{challengeCriteriaLabel(detail.criteria)}</div>
+                <div className="small">{detail.targetRouteCount} voie{detail.targetRouteCount > 1 ? "s" : ""} sélectionnée{detail.targetRouteCount > 1 ? "s" : ""}</div>
               </div>
               <span className="badge">{detail.status === "closed" ? "Clôturé" : "En cours"}</span>
             </div>
@@ -264,7 +292,7 @@ export default function Challenges({ isAdmin = false }) {
               <div className="muted-box" style={{ marginTop: 12 }}>
                 <strong>Ma progression : {detail.myProgress.score} / {detail.targetRouteCount}</strong>
                 {detail.myProgress.rank && <span> · classement #{detail.myProgress.rank}</span>}
-                {detail.myProgress.challengeBadge && <span> · 🏅 Badge Challenge</span>}
+                {detail.myProgress.challengeBadge && <span> · 🏅 Badge {detail.name}</span>}
               </div>
             )}
             {isAdmin && detail.status !== "closed" && (
@@ -290,7 +318,7 @@ export default function Challenges({ isAdmin = false }) {
                         <td><strong>#{entry.rank}</strong></td>
                         <td>{entry.participantName}</td>
                         <td>{entry.score} / {detail.targetRouteCount}</td>
-                        <td>{detail.status === "closed" && entry.challengeBadge ? "🏅 Challenge" : "—"}</td>
+                        <td>{detail.status === "closed" && entry.challengeBadge ? `🏅 ${detail.name}` : "—"}</td>
                       </tr>
                     ))}
                   </tbody>
