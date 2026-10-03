@@ -119,11 +119,11 @@ function challengeBadgeDescriptors(items) {
   return (Array.isArray(items) ? items : []).map((item) => {
     const distinction = String(item.metadata?.distinction || "participation");
     const podiumLabel = { or: "Or", argent: "Argent", bronze: "Bronze" }[distinction] || "";
-    const challengeName = item.metadata?.challengeName || "Challenge";
+    const challengeName = item.label || item.metadata?.challengeName || "Challenge";
     const rank = item.metadata?.rank;
     return {
       id: `challenge_${item.sourceId}`,
-      name: podiumLabel ? `Challenge ${podiumLabel}` : "Challenge",
+      name: challengeName,
       family: "prestige",
       shape: "ribbon",
       condition: podiumLabel
