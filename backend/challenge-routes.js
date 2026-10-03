@@ -73,6 +73,18 @@ export function installChallengeRoutes(app, { requireAuth, requireAdmin, pool })
     }
   });
 
+  app.get("/challenge-badges/:participantId", requireAuth, async (req, res) => {
+    try {
+      const participantId = Number(req.params.participantId);
+      if (!Number.isInteger(participantId) || participantId <= 0) {
+        return res.status(400).json({ error: "Participant invalide." });
+      }
+      res.json(await listParticipantChallengeBadges(pool, participantId));
+    } catch (error) {
+      sendChallengeError(res, error, "Chargement des badges challenge impossible.");
+    }
+  });
+
   app.post("/admin/challenges", requireAuth, requireAdmin, async (req, res) => {
     const client = await pool.connect();
     try {
