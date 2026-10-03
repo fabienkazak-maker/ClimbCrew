@@ -29,6 +29,13 @@ function compareParticipantIds(a, b) {
   return String(a).localeCompare(String(b), "fr");
 }
 
+export function challengeBadgeDistinction(rank) {
+  if (Number(rank) === 1) return "or";
+  if (Number(rank) === 2) return "argent";
+  if (Number(rank) === 3) return "bronze";
+  return "participation";
+}
+
 export function normalizeChallengeCriteria(value) {
   const criteria = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const color = String(criteria.color || "").trim().slice(0, 80);
@@ -56,9 +63,9 @@ export async function findMatchingRoutes(db, criteria) {
             nom_ouvreur as "nomOuvreur",
             active
        from routes
-      where ($1::text = '' or lower(trim(couleur_prises)) = lower(trim($1)))
-        and ($2::text = '' or lower(trim(nom_ouvreur)) = lower(trim($2)))
-        and (not $3::boolean or active = true)
+      where ($1::text = '' or lower(btrim(coalesce(couleur_prises, ''))) = lower(btrim($1)))
+        and ($2::text = '' or lower(btrim(coalesce(nom_ouvreur, ''))) = lower(btrim($2)))
+        and ($3::boolean = false or active is true)
       order by numero_corde asc nulls last, numero_voie_unique asc`,
     [normalized.color, normalized.opener, normalized.activeOnly],
   );
@@ -96,7 +103,7 @@ export async function loadChallengeRoutes(db, challengeId) {
     `select route_id as id, route_snapshot as snapshot
        from challenge_routes
       where challenge_id = $1
-      order by coalesce((route_snapshot->>'numeroCorde')::integer, 9999),
+      order by coalesce(nullif(route_snapshot->>'numeroCorde', '')::integer, 9999),
                route_snapshot->>'numeroVoieUnique'`,
     [challengeId],
   );
@@ -117,8 +124,8 @@ export async function calculateChallengeRanking(db, challenge, targetRoutes) {
             p.nom,
             p.prenom
        from realisations r
-       join participants p on p.id::text = r.participant_id
-      where r.voie_id = any($1::text[])
+       join participants p on p.id::text = r.participant_id::text
+      where r.voie_id::text = any($1::text[])
         and r.date_realisation >= $2::date
         and ($3::date is null or r.date_realisation <= $3::date)
       order by r.date_realisation asc, r.created_at asc`,
@@ -173,15 +180,15 @@ async function loadFrozenRanking(db, challengeId) {
             cr.score,
             cr.completed_route_ids as "completedRouteIds",
             cr.final_scoring_at as "finalScoringAt",
-            exists (
-              select 1 from participant_badges pb
-               where pb.participant_id = cr.participant_id
-                 and pb.badge_type = 'challenge'
-                 and pb.source_type = 'challenge'
-                 and pb.source_id = cr.challenge_id::text
-            ) as "challengeBadge"
+            pb.metadata->>'distinction' as "challengeBadgeDistinction",
+            (pb.id is not null) as "challengeBadge"
        from challenge_results cr
        join participants p on p.id = cr.participant_id
+       left join participant_badges pb
+         on pb.participant_id = cr.participant_id
+        and pb.badge_type = 'challenge'
+        and pb.source_type = 'challenge'
+        and pb.source_id = cr.challenge_id::text
       where cr.challenge_id = $1
       order by cr.rank asc`,
     [challengeId],
@@ -192,6 +199,7 @@ async function loadFrozenRanking(db, challengeId) {
     score: Number(row.score),
     finalScoringAt: isoDate(row.finalScoringAt),
     completedRouteIds: (row.completedRouteIds || []).map(String),
+    challengeBadgeDistinction: row.challengeBadgeDistinction || (row.challengeBadge ? challengeBadgeDistinction(row.rank) : null),
   }));
 }
 
@@ -213,6 +221,7 @@ export async function getChallengeDetail(db, challengeId, currentParticipantId =
         rank: myRanking?.rank || null,
         completedRouteIds: myRanking?.completedRouteIds || [],
         challengeBadge: Boolean(myRanking?.challengeBadge),
+        challengeBadgeDistinction: myRanking?.challengeBadgeDistinction || null,
       }
     : null;
 
@@ -235,7 +244,7 @@ export async function createChallenge(db, { name, description, startsOn, endsOn,
 
   const result = await db.query(
     `insert into challenges (name, description, starts_on, ends_on, criteria, target_mode, created_by)
-     values ($1, $2, $3::date, $4::date, $5::jsonb, 'snapshot', $6)
+     values ($1, $2, $3::date, $4::date, $5::jsonb, 'snapshot', $6::bigint)
      returning id`,
     [name, description, startsOn, endsOn || null, JSON.stringify(normalizedCriteria), createdBy],
   );
@@ -252,7 +261,7 @@ export async function createChallenge(db, { name, description, startsOn, endsOn,
     };
     await db.query(
       `insert into challenge_routes (challenge_id, route_id, route_snapshot)
-       values ($1, $2, $3::jsonb)`,
+       values ($1::bigint, $2::text, $3::jsonb)`,
       [challengeId, String(route.id), JSON.stringify(snapshot)],
     );
   }
@@ -283,16 +292,19 @@ export async function closeChallenge(db, challengeId) {
     );
   }
 
-  for (const winner of ranking.slice(0, 3)) {
+  for (const participant of ranking) {
+    const distinction = challengeBadgeDistinction(participant.rank);
     await db.query(
       `insert into participant_badges
          (participant_id, badge_type, label, source_type, source_id, metadata)
        values ($1::bigint, 'challenge', 'Challenge', 'challenge', $2::text, $3::jsonb)
-       on conflict (participant_id, badge_type, source_type, source_id) do nothing`,
-      [winner.participantId, String(challengeId), JSON.stringify({
+       on conflict (participant_id, badge_type, source_type, source_id)
+       do update set metadata = excluded.metadata`,
+      [participant.participantId, String(challengeId), JSON.stringify({
         challengeName: challenge.name,
-        rank: winner.rank,
-        score: winner.score,
+        rank: participant.rank,
+        score: participant.score,
+        distinction,
       })],
     );
   }
