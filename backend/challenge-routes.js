@@ -107,7 +107,7 @@ export function installChallengeRoutes(app, { requireAuth, requireAdmin, pool })
         description,
         startsOn,
         endsOn,
-        criteria: req.body?.criteria,
+        routeIds: req.body?.routeIds,
         createdBy: req.auth.user.id,
       });
       const participantId = await currentParticipantId(client, req.auth.user);
