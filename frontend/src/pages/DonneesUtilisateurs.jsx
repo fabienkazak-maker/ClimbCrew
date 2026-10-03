@@ -14,6 +14,9 @@ import {
   yesNo,
 } from "../lib/user-data-management.js";
 
+const MOBILE_WIDE_FIELD_KEYS = new Set(["nom", "prenom", "email", "passport"]);
+const MOBILE_READ_ONLY_KEYS = new Set(["accountAssociated", "sessions"]);
+
 function stickyColumnStyle(key, header = false) {
   if (key !== "nom" && key !== "prenom") return {};
   return {
@@ -228,6 +231,34 @@ export default function DonneesUtilisateurs({ participants = [], sessions = [], 
     );
   }
 
+  function filterEditor(key, label) {
+    const commonProps = {
+      "aria-label": `Filtrer ${label}`,
+      value: filters[key] || "",
+      onChange: (event) => setFilters((current) => ({ ...current, [key]: event.target.value })),
+      onClick: (event) => event.stopPropagation(),
+    };
+
+    if (USER_DATA_BOOLEAN_KEYS.has(key)) {
+      return (
+        <select {...commonProps}>
+          <option value="">Tout</option>
+          <option value="oui">Oui</option>
+          <option value="non">Non</option>
+        </select>
+      );
+    }
+    if (USER_DATA_FILTER_CHOICES[key]) {
+      return (
+        <select {...commonProps}>
+          <option value="">Tous</option>
+          {USER_DATA_FILTER_CHOICES[key].map(([value, text]) => <option key={value} value={value}>{text}</option>)}
+        </select>
+      );
+    }
+    return <input {...commonProps} placeholder="Filtrer" />;
+  }
+
   function exportCsv() {
     const quote = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
     const csv = [
@@ -244,7 +275,7 @@ export default function DonneesUtilisateurs({ participants = [], sessions = [], 
   }
 
   return (
-    <div className="card">
+    <div className="card user-data-page">
       {newParticipant && setNewParticipant && addParticipant && (
         <details className="subcard" style={{ marginBottom: 12 }}>
           <summary style={{ cursor: "pointer", fontWeight: 700 }}>Nouvel utilisateur</summary>
@@ -276,7 +307,7 @@ export default function DonneesUtilisateurs({ participants = [], sessions = [], 
           <h2>Données utilisateurs</h2>
           <div className="small">{rows.length} utilisateur{rows.length > 1 ? "s" : ""}</div>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <div className="user-data-actions">
           <button type="button" onClick={exportCsv}>Export CSV</button>
           <button type="button" disabled={!Object.keys(drafts).length || savingAll} onClick={saveAll}>
             {savingAll ? "Enregistrement…" : "Enregistrer"}
@@ -287,7 +318,79 @@ export default function DonneesUtilisateurs({ participants = [], sessions = [], 
       {message && <div className="success" style={{ marginBottom: 10 }}>{message}</div>}
       {error && <div className="error" style={{ marginBottom: 10 }}>{error}</div>}
 
-      <div style={{ overflowY: "auto", overflowX: "auto", maxHeight: "70vh", border: "1px solid var(--border, #bbb)", borderRadius: 8 }}>
+      <details className="subcard user-data-mobile-controls">
+        <summary>Filtres et tri</summary>
+        <div className="user-data-mobile-sort">
+          <div>
+            <label htmlFor="mobile-user-sort">Trier par</label>
+            <select id="mobile-user-sort" value={sortKey} onChange={(event) => setSortKey(event.target.value)}>
+              {USER_DATA_COLUMNS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+            </select>
+          </div>
+          <button type="button" className="secondary" onClick={() => setAscending((value) => !value)}>
+            {ascending ? "Croissant ↑" : "Décroissant ↓"}
+          </button>
+        </div>
+        <div className="user-data-mobile-filter-grid">
+          {USER_DATA_COLUMNS.map(([key, label]) => (
+            <div key={key} className="user-data-mobile-filter-field">
+              <label>{label}</label>
+              {filterEditor(key, label)}
+            </div>
+          ))}
+        </div>
+        <button type="button" className="secondary user-data-clear-filters" onClick={() => setFilters({})}>Effacer les filtres</button>
+      </details>
+
+      <div className="user-data-mobile-list">
+        {rows.map((participant) => {
+          const draft = draftFor(participant);
+          const participantName = `${draft.prenom || ""} ${draft.nom || ""}`.trim() || "Utilisateur sans nom";
+          const participantSessions = sessionCountByParticipantId[String(participant.id)] || 0;
+          return (
+            <details className="user-data-mobile-card" key={participant.id}>
+              <summary>
+                <span className="user-data-mobile-summary-main">
+                  <strong>{participantName}</strong>
+                  <span>{draft.email || "Sans e-mail"}</span>
+                </span>
+                <span className="user-data-mobile-summary-meta">
+                  <span>{displayUserDataValue(draft, "passport")}</span>
+                  <span>{participantSessions} séance{participantSessions > 1 ? "s" : ""}</span>
+                  {drafts[participant.id] && <span className="user-data-modified">Modifié</span>}
+                </span>
+              </summary>
+              <div className="user-data-mobile-fields">
+                {USER_DATA_COLUMNS.map(([key, label]) => {
+                  const isEditableBoolean = USER_DATA_BOOLEAN_KEYS.has(key) && !MOBILE_READ_ONLY_KEYS.has(key);
+                  const classNames = [
+                    "user-data-mobile-field",
+                    MOBILE_WIDE_FIELD_KEYS.has(key) ? "is-wide" : "",
+                    isEditableBoolean ? "is-boolean" : "",
+                    MOBILE_READ_ONLY_KEYS.has(key) ? "is-read-only" : "",
+                  ].filter(Boolean).join(" ");
+                  return (
+                    <div className={classNames} key={key}>
+                      <label>{label}</label>
+                      <div className="user-data-mobile-control">{editor(participant, key)}</div>
+                    </div>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                className="danger user-data-mobile-delete"
+                disabled={savingId === participant.id || savingAll}
+                onClick={() => removeParticipant(participant)}
+              >
+                Supprimer cet utilisateur
+              </button>
+            </details>
+          );
+        })}
+      </div>
+
+      <div className="user-data-desktop-table" style={{ overflowY: "auto", overflowX: "auto", maxHeight: "70vh", border: "1px solid var(--border, #bbb)", borderRadius: 8 }}>
         <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 1500, tableLayout: "fixed", background: "var(--surface, white)", fontSize: "clamp(.68rem, .75vw, .82rem)" }}>
           <thead style={{ position: "sticky", top: 0, zIndex: 10, background: "var(--card-bg, #eee)" }}>
             <tr>
@@ -317,20 +420,9 @@ export default function DonneesUtilisateurs({ participants = [], sessions = [], 
             <tr>
               {USER_DATA_COLUMNS.map(([key, label]) => (
                 <th key={key} style={{ padding: 2, background: "var(--card-bg, #eee)", border: "1px solid #bbb", width: compactUserDataColumnWidth(key), ...stickyColumnStyle(key, true) }}>
-                  {USER_DATA_BOOLEAN_KEYS.has(key) ? (
-                    <select aria-label={`Filtrer ${label}`} value={filters[key] || ""} onChange={(event) => setFilters((current) => ({ ...current, [key]: event.target.value }))} onClick={(event) => event.stopPropagation()} style={{ width: "100%", minWidth: 0, boxSizing: "border-box", fontSize: "inherit", padding: "3px 2px" }}>
-                      <option value="">Tout</option>
-                      <option value="oui">Oui</option>
-                      <option value="non">Non</option>
-                    </select>
-                  ) : USER_DATA_FILTER_CHOICES[key] ? (
-                    <select aria-label={`Filtrer ${label}`} value={filters[key] || ""} onChange={(event) => setFilters((current) => ({ ...current, [key]: event.target.value }))} onClick={(event) => event.stopPropagation()} style={{ width: "100%", minWidth: 0, boxSizing: "border-box", fontSize: "inherit", padding: "3px 2px" }}>
-                      <option value="">Tous</option>
-                      {USER_DATA_FILTER_CHOICES[key].map(([value, text]) => <option key={value} value={value}>{text}</option>)}
-                    </select>
-                  ) : (
-                    <input aria-label={`Filtrer ${label}`} placeholder="Filtrer" value={filters[key] || ""} onChange={(event) => setFilters((current) => ({ ...current, [key]: event.target.value }))} onClick={(event) => event.stopPropagation()} style={{ width: "100%", minWidth: 0, boxSizing: "border-box", fontSize: "inherit", padding: "3px 2px" }} />
-                  )}
+                  <div style={{ width: "100%", minWidth: 0, boxSizing: "border-box", fontSize: "inherit" }}>
+                    {filterEditor(key, label)}
+                  </div>
                 </th>
               ))}
               <th style={{ background: "var(--card-bg, #eee)", border: "1px solid #bbb", width: "12%" }}>
