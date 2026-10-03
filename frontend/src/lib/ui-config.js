@@ -43,6 +43,7 @@ export const TABS = [
   { key: "inscriptions", label: "Planning" },
   { key: "voies", label: "Voies" },
   { key: "mon_profil", label: "Profil" },
+  { key: "challenges", label: "Challenges" },
   { key: "chat", label: "Chat" },
   { key: "statistiques", label: "Statistiques" },
   { key: "wall_of_fame", label: "Tableau d’honneur" },
