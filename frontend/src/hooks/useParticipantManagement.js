@@ -1,6 +1,6 @@
 import { apiFetch } from "../lib/api.js";
 import { fullName } from "../lib/domain.js";
-import { getSessionAttendanceIds } from "../lib/realisation-workflow.js";
+import { getSessionParticipantIds } from "../lib/realisation-workflow.js";
 
 const EMPTY_PARTICIPANT_DRAFT = {
   nom: "",
@@ -226,7 +226,7 @@ export function useParticipantManagement({
     if (!participantId) return [];
 
     return state.sessions
-      .filter((session) => getSessionAttendanceIds(session).includes(String(participantId)))
+      .filter((session) => getSessionParticipantIds(session).includes(String(participantId)))
       .sort((left, right) => {
         const dateCompare = right.date.localeCompare(left.date);
         if (dateCompare !== 0) return dateCompare;
