@@ -36,23 +36,24 @@ export function challengeBadgeDistinction(rank) {
   return "participation";
 }
 
-export function normalizeChallengeCriteria(value) {
-  const criteria = value && typeof value === "object" && !Array.isArray(value) ? value : {};
-  const color = String(criteria.color || "").trim().slice(0, 80);
-  const opener = String(criteria.opener || "").trim().slice(0, 120);
-  const activeOnly = criteria.activeOnly !== false;
-
-  if (!color && !opener) {
-    const error = new Error("Choisissez au moins une couleur ou un ouvreur.");
+export function normalizeChallengeRouteIds(value) {
+  if (!Array.isArray(value)) {
+    const error = new Error("Sélectionnez une ou plusieurs voies pour le challenge.");
     error.statusCode = 400;
     throw error;
   }
 
-  return { color, opener, activeOnly };
+  const routeIds = [...new Set(value.map((routeId) => String(routeId || "").trim()).filter(Boolean))];
+  if (routeIds.length === 0) {
+    const error = new Error("Sélectionnez au moins une voie pour le challenge.");
+    error.statusCode = 400;
+    throw error;
+  }
+  return routeIds;
 }
 
-export async function findMatchingRoutes(db, criteria) {
-  const normalized = normalizeChallengeCriteria(criteria);
+export async function findSelectedRoutes(db, routeIds) {
+  const normalizedRouteIds = normalizeChallengeRouteIds(routeIds);
   const result = await db.query(
     `select id,
             numero_voie_unique as "numeroVoieUnique",
@@ -63,12 +64,19 @@ export async function findMatchingRoutes(db, criteria) {
             nom_ouvreur as "nomOuvreur",
             active
        from routes
-      where ($1::text = '' or lower(btrim(coalesce(couleur_prises, ''))) = lower(btrim($1)))
-        and ($2::text = '' or lower(btrim(coalesce(nom_ouvreur, ''))) = lower(btrim($2)))
-        and ($3::boolean = false or active is true)
+      where id::text = any($1::text[])
       order by numero_corde asc nulls last, numero_voie_unique asc`,
-    [normalized.color, normalized.opener, normalized.activeOnly],
+    [normalizedRouteIds],
   );
+
+  const foundIds = new Set(result.rows.map((route) => String(route.id)));
+  const missingIds = normalizedRouteIds.filter((routeId) => !foundIds.has(routeId));
+  if (missingIds.length > 0) {
+    const error = new Error("Une ou plusieurs voies sélectionnées n’existent plus.");
+    error.statusCode = 400;
+    throw error;
+  }
+
   return result.rows;
 }
 
@@ -233,20 +241,15 @@ export async function getChallengeDetail(db, challengeId, currentParticipantId =
   };
 }
 
-export async function createChallenge(db, { name, description, startsOn, endsOn, criteria, createdBy }) {
-  const normalizedCriteria = normalizeChallengeCriteria(criteria);
-  const routes = await findMatchingRoutes(db, normalizedCriteria);
-  if (routes.length === 0) {
-    const error = new Error("Aucune voie ne correspond aux critères du challenge.");
-    error.statusCode = 400;
-    throw error;
-  }
+export async function createChallenge(db, { name, description, startsOn, endsOn, routeIds, createdBy }) {
+  const normalizedRouteIds = normalizeChallengeRouteIds(routeIds);
+  const routes = await findSelectedRoutes(db, normalizedRouteIds);
 
   const result = await db.query(
     `insert into challenges (name, description, starts_on, ends_on, criteria, target_mode, created_by)
      values ($1, $2, $3::date, $4::date, $5::jsonb, 'snapshot', $6::bigint)
      returning id`,
-    [name, description, startsOn, endsOn || null, JSON.stringify(normalizedCriteria), createdBy],
+    [name, description, startsOn, endsOn || null, JSON.stringify({ routeIds: normalizedRouteIds }), createdBy],
   );
   const challengeId = result.rows[0].id;
 
@@ -297,10 +300,11 @@ export async function closeChallenge(db, challengeId) {
     await db.query(
       `insert into participant_badges
          (participant_id, badge_type, label, source_type, source_id, metadata)
-       values ($1::bigint, 'challenge', 'Challenge', 'challenge', $2::text, $3::jsonb)
+       values ($1::bigint, 'challenge', $2::text, 'challenge', $3::text, $4::jsonb)
        on conflict (participant_id, badge_type, source_type, source_id)
-       do update set metadata = excluded.metadata`,
-      [participant.participantId, String(challengeId), JSON.stringify({
+       do update set label = excluded.label,
+                     metadata = excluded.metadata`,
+      [participant.participantId, challenge.name, String(challengeId), JSON.stringify({
         challengeName: challenge.name,
         rank: participant.rank,
         score: participant.score,
