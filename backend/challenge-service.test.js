@@ -4,31 +4,41 @@ import test from "node:test";
 import {
   calculateChallengeRanking,
   challengeBadgeDistinction,
-  findMatchingRoutes,
-  normalizeChallengeCriteria,
+  findSelectedRoutes,
+  normalizeChallengeRouteIds,
 } from "./challenge-service.js";
 
-test("normalizeChallengeCriteria accepte couleur, ouvreur et combinaison", () => {
-  assert.deepEqual(normalizeChallengeCriteria({ color: " Jaune " }), { color: "Jaune", opener: "", activeOnly: true });
-  assert.deepEqual(normalizeChallengeCriteria({ opener: " Sylvain ", activeOnly: false }), { color: "", opener: "Sylvain", activeOnly: false });
-  assert.deepEqual(normalizeChallengeCriteria({ color: "Jaune", opener: "Sylvain" }), { color: "Jaune", opener: "Sylvain", activeOnly: true });
+test("normalizeChallengeRouteIds accepte plusieurs voies et supprime les doublons", () => {
+  assert.deepEqual(normalizeChallengeRouteIds([" route-1 ", "route-2", "route-1", ""]), ["route-1", "route-2"]);
 });
 
-test("normalizeChallengeCriteria refuse un challenge sans critère", () => {
-  assert.throws(() => normalizeChallengeCriteria({}), /au moins une couleur ou un ouvreur/i);
+test("normalizeChallengeRouteIds refuse un challenge sans voie", () => {
+  assert.throws(() => normalizeChallengeRouteIds([]), /au moins une voie/i);
+  assert.throws(() => normalizeChallengeRouteIds(null), /une ou plusieurs voies/i);
 });
 
-test("findMatchingRoutes accepte une couleur seule avec ouvreur vide", async () => {
+test("findSelectedRoutes charge uniquement les voies explicitement sélectionnées", async () => {
   const db = {
     async query(sql, values) {
-      assert.match(sql, /couleur_prises/);
-      assert.deepEqual(values, ["Rose", "", true]);
-      return { rows: [{ id: "rose-1", couleurPrises: "Rose", nomOuvreur: "" }] };
+      assert.match(sql, /id::text = any/);
+      assert.deepEqual(values, [["route-1", "route-2"]]);
+      return { rows: [
+        { id: "route-1", numeroCorde: 1, numeroVoieUnique: 10 },
+        { id: "route-2", numeroCorde: 2, numeroVoieUnique: 20 },
+      ] };
     },
   };
-  const routes = await findMatchingRoutes(db, { color: "Rose", opener: "", activeOnly: true });
-  assert.equal(routes.length, 1);
-  assert.equal(routes[0].id, "rose-1");
+  const routes = await findSelectedRoutes(db, ["route-1", "route-2"]);
+  assert.deepEqual(routes.map((route) => route.id), ["route-1", "route-2"]);
+});
+
+test("findSelectedRoutes refuse une voie supprimée entre la sélection et la création", async () => {
+  const db = {
+    async query() {
+      return { rows: [{ id: "route-1" }] };
+    },
+  };
+  await assert.rejects(() => findSelectedRoutes(db, ["route-1", "route-2"]), /n.existent plus/i);
 });
 
 test("challengeBadgeDistinction différencie podium et participation", () => {
