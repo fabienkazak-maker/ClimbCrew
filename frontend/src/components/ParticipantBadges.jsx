@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { BADGE_FAMILY_LABELS, calculateParticipantBadges, calculateSafetyBadges } from "../lib/badges.js";
+import { apiFetch } from "../lib/api.js";
 import BadgeIllustration from "./BadgeIllustration.jsx";
 
 export const BADGE_IMAGE_PATH = Object.freeze({
@@ -189,15 +190,50 @@ function participantRoleBadges(participant, routesById) {
   ].filter(Boolean);
 }
 
+function challengeBadgeDescriptors(items) {
+  return (Array.isArray(items) ? items : []).map((item) => ({
+    id: `challenge_${item.sourceId}`,
+    name: "Challenge",
+    family: "prestige",
+    shape: "ribbon",
+    condition: `Top 3 du challenge « ${item.metadata?.challengeName || "Challenge"} » — rang #${item.metadata?.rank || "?"}.`,
+    earned: true,
+  }));
+}
+
 export default function ParticipantBadges({ realisations, allRealisations = [], routesById, sessions, participant }) {
   const [selectedBadge, setSelectedBadge] = useState(null);
+  const [persistedChallengeBadges, setPersistedChallengeBadges] = useState([]);
+
+  useEffect(() => {
+    const participantId = String(participant?.id || "");
+    if (!participantId) {
+      setPersistedChallengeBadges([]);
+      return undefined;
+    }
+
+    let mounted = true;
+    apiFetch(`/challenge-badges/${encodeURIComponent(participantId)}`)
+      .then((items) => {
+        if (mounted) setPersistedChallengeBadges(challengeBadgeDescriptors(items));
+      })
+      .catch((error) => {
+        if (mounted) {
+          setPersistedChallengeBadges([]);
+          console.error("Impossible de charger les badges Challenge.", error);
+        }
+      });
+    return () => { mounted = false; };
+  }, [participant?.id]);
+
   const badges = useMemo(
     () => [
       ...participantRoleBadges(participant, routesById),
+      ...persistedChallengeBadges,
       ...calculateSafetyBadges({ participantId: participant?.id, realisations, allRealisations }),
       ...calculateParticipantBadges({ realisations, routesById, sessions }),
     ],
-    [participant, realisations, allRealisations, routesById, sessions],
+    [participant, persistedChallengeBadges, realisations, allRealisations, routesById, sessions],
   );
 
   const earnedBadges = badges.filter((badge) => badge.earned);
