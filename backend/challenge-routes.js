@@ -30,12 +30,21 @@ function cleanIsoDate(value, { required = false } = {}) {
 
 function sendChallengeError(res, error, fallback) {
   const status = Number(error?.statusCode) || 500;
-  res.status(status).json({ error: error?.message || fallback });
+  res.status(status).json({ error: status >= 500 ? fallback : (error?.message || fallback) });
 }
 
-async function currentParticipantId(pool, authUser) {
+async function rollbackQuietly(client) {
+  if (!client) return;
+  try {
+    await client.query("rollback");
+  } catch {
+    // La réponse d'origine doit rester prioritaire même si PostgreSQL est déjà sorti de transaction.
+  }
+}
+
+async function currentParticipantId(db, authUser) {
   if (authUser?.participantId) return String(authUser.participantId);
-  const result = await pool.query(`select participant_id from users where id = $1`, [Number(authUser?.id)]);
+  const result = await db.query(`select participant_id from users where id = $1::bigint`, [authUser?.id]);
   return result.rows[0]?.participant_id ? String(result.rows[0].participant_id) : null;
 }
 
@@ -51,9 +60,7 @@ export function installChallengeRoutes(app, { requireAuth, requireAdmin, pool })
   app.get("/challenges/:id", requireAuth, async (req, res) => {
     try {
       const challengeId = Number(req.params.id);
-      if (!Number.isInteger(challengeId) || challengeId <= 0) {
-        return res.status(400).json({ error: "Challenge invalide." });
-      }
+      if (!Number.isInteger(challengeId) || challengeId <= 0) return res.status(400).json({ error: "Challenge invalide." });
       const participantId = await currentParticipantId(pool, req.auth.user);
       const challenge = await getChallengeDetail(pool, challengeId, participantId);
       if (!challenge) return res.status(404).json({ error: "Challenge introuvable." });
@@ -76,9 +83,7 @@ export function installChallengeRoutes(app, { requireAuth, requireAdmin, pool })
   app.get("/challenge-badges/:participantId", requireAuth, async (req, res) => {
     try {
       const participantId = Number(req.params.participantId);
-      if (!Number.isInteger(participantId) || participantId <= 0) {
-        return res.status(400).json({ error: "Participant invalide." });
-      }
+      if (!Number.isInteger(participantId) || participantId <= 0) return res.status(400).json({ error: "Participant invalide." });
       res.json(await listParticipantChallengeBadges(pool, participantId));
     } catch (error) {
       sendChallengeError(res, error, "Chargement des badges challenge impossible.");
@@ -86,7 +91,7 @@ export function installChallengeRoutes(app, { requireAuth, requireAdmin, pool })
   });
 
   app.post("/admin/challenges", requireAuth, requireAdmin, async (req, res) => {
-    const client = await pool.connect();
+    let client = null;
     try {
       const name = cleanText(req.body?.name, 120);
       const description = cleanText(req.body?.description, 2000);
@@ -95,6 +100,7 @@ export function installChallengeRoutes(app, { requireAuth, requireAdmin, pool })
       if (name.length < 3) return res.status(400).json({ error: "Le nom doit contenir au moins 3 caractères." });
       if (endsOn && endsOn < startsOn) return res.status(400).json({ error: "La date de fin doit être postérieure à la date de début." });
 
+      client = await pool.connect();
       await client.query("begin");
       const challengeId = await createChallenge(client, {
         name,
@@ -102,37 +108,38 @@ export function installChallengeRoutes(app, { requireAuth, requireAdmin, pool })
         startsOn,
         endsOn,
         criteria: req.body?.criteria,
-        createdBy: Number(req.auth.user.id),
+        createdBy: req.auth.user.id,
       });
+      const participantId = await currentParticipantId(client, req.auth.user);
+      const createdChallenge = await getChallengeDetail(client, Number(challengeId), participantId);
       await client.query("commit");
-      const participantId = await currentParticipantId(pool, req.auth.user);
-      res.status(201).json(await getChallengeDetail(pool, Number(challengeId), participantId));
+      return res.status(201).json(createdChallenge);
     } catch (error) {
-      await client.query("rollback");
-      sendChallengeError(res, error, "Création du challenge impossible.");
+      await rollbackQuietly(client);
+      return sendChallengeError(res, error, "Création du challenge impossible.");
     } finally {
-      client.release();
+      client?.release();
     }
   });
 
   app.post("/admin/challenges/:id/close", requireAuth, requireAdmin, async (req, res) => {
     const challengeId = Number(req.params.id);
-    if (!Number.isInteger(challengeId) || challengeId <= 0) {
-      return res.status(400).json({ error: "Challenge invalide." });
-    }
+    if (!Number.isInteger(challengeId) || challengeId <= 0) return res.status(400).json({ error: "Challenge invalide." });
 
-    const client = await pool.connect();
+    let client = null;
     try {
+      client = await pool.connect();
       await client.query("begin");
       await closeChallenge(client, challengeId);
+      const participantId = await currentParticipantId(client, req.auth.user);
+      const closedChallenge = await getChallengeDetail(client, challengeId, participantId);
       await client.query("commit");
-      const participantId = await currentParticipantId(pool, req.auth.user);
-      res.json(await getChallengeDetail(pool, challengeId, participantId));
+      return res.json(closedChallenge);
     } catch (error) {
-      await client.query("rollback");
-      sendChallengeError(res, error, "Clôture du challenge impossible.");
+      await rollbackQuietly(client);
+      return sendChallengeError(res, error, "Clôture du challenge impossible.");
     } finally {
-      client.release();
+      client?.release();
     }
   });
 }
