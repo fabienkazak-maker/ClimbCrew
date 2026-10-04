@@ -71,6 +71,7 @@ import { usePlanningSessions } from "./lib/planning-view.js";
 import { useBuddyAvailability } from "./hooks/useBuddyAvailability.js";
 import { useSessionPersistence } from "./hooks/useSessionPersistence.js";
 import { useRealisationPersistence } from "./hooks/useRealisationPersistence.js";
+import { useQrRealisationFlow } from "./hooks/useQrRealisationFlow.js";
 import { useConfirmationDialog } from "./hooks/useConfirmationDialog.js";
 import {
   buildRealisationDraft,
@@ -414,6 +415,34 @@ function App() {
 
   const myParticipantId = authUser?.participantId ? String(authUser.participantId) : "";
   const myParticipant = participantsById[myParticipantId] || null;
+  const { openScannedRoute, rememberQrBelayer } = useQrRealisationFlow({
+    myParticipantId,
+    routesById,
+    sessions: state.sessions,
+    setNewRealisation,
+    setRealisationModalRouteId,
+    setSyncMessage,
+  });
+
+  useEffect(() => {
+    if (!authUser || !myParticipantId) return;
+
+    const url = new URL(window.location.href);
+    const routeId = url.searchParams.get("qrRoute");
+    if (!routeId) return;
+
+    if (!routesById[routeId]) {
+      if (state.routes.length === 0) return;
+      setSyncMessage("Erreur : voie inconnue.");
+      url.searchParams.delete("qrRoute");
+      window.history.replaceState(window.history.state, "", url);
+      return;
+    }
+
+    openScannedRoute(routeId);
+    url.searchParams.delete("qrRoute");
+    window.history.replaceState(window.history.state, "", url);
+  }, [authUser, myParticipantId, openScannedRoute, routesById, setSyncMessage, state.routes.length]);
 
   const {
     addParticipant,
@@ -823,6 +852,7 @@ async function deleteRealisation(realisation) {
     try {
       const savedRealisation = await persistRealisationToApi(realisation);
       setState((prev) => ({ ...prev, realisations: [...prev.realisations, savedRealisation || realisation] }));
+      rememberQrBelayer(newRealisation);
       setNewRealisation((prev) => ({
         ...prev,
         participantId: "",
