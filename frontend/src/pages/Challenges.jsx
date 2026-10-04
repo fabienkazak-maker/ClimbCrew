@@ -204,8 +204,8 @@ export default function Challenges({ isAdmin = false }) {
       {isAdmin && (
         <details className="card">
           <summary><strong>Créer un challenge</strong></summary>
-          <form className="stack" style={{ marginTop: 14 }} onSubmit={createNewChallenge}>
-            <div className="form-grid">
+          <form className="stack challenge-create-form" style={{ marginTop: 14 }} onSubmit={createNewChallenge}>
+            <div className="form-grid challenge-form-grid">
               <label>
                 Nom
                 <input value={form.name} minLength={3} maxLength={120} required onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
@@ -223,7 +223,7 @@ export default function Challenges({ isAdmin = false }) {
               Description
               <textarea value={form.description} maxLength={2000} rows={3} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
             </label>
-            <div>
+            <div className="challenge-route-picker">
               <strong>Voies du challenge</strong>
               <div className="small" style={{ marginTop: 4 }}>Sélectionnez directement une ou plusieurs voies. Les voies choisies sont figées à la création du challenge.</div>
               {routesLoading ? (
@@ -231,13 +231,13 @@ export default function Challenges({ isAdmin = false }) {
               ) : availableRoutes.length === 0 ? (
                 <div className="muted-box" style={{ marginTop: 10 }}>Aucune voie disponible.</div>
               ) : (
-                <div className="stack" style={{ marginTop: 10, maxHeight: 320, overflowY: "auto" }}>
+                <div className="stack challenge-route-list" style={{ marginTop: 10 }}>
                   {availableRoutes.map((route) => {
                     const id = String(route.id);
                     return (
-                      <label className="muted-box" key={id} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                      <label className="muted-box challenge-route-option" key={id}>
                         <input type="checkbox" checked={form.routeIds.includes(id)} onChange={() => toggleRoute(id)} />
-                        <span>{routeLabel(route)}{route.active === false ? " · inactive" : ""}</span>
+                        <span className="challenge-route-label">{routeLabel(route)}{route.active === false ? " · inactive" : ""}</span>
                       </label>
                     );
                   })}
