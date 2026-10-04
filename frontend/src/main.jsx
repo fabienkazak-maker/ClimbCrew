@@ -14,6 +14,7 @@ import "./styles/mobile-bottom-nav.css";
 import "./styles/mobile-session-compact.css";
 import "./styles/user-data-mobile.css";
 import "./styles/ui-density.css";
+import "./styles/challenges.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
