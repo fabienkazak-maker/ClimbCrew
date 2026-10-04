@@ -9,5 +9,12 @@ const [appSource, uiConfigSource] = await Promise.all([
 
 test("l'onglet Scan QR code n'est plus exposé dans la navigation", () => {
   assert.doesNotMatch(uiConfigSource, /scan_qr|Scan QR code/);
-  assert.doesNotMatch(appSource, /<ScanQr|tab === "scan_qr"|useQrRealisationFlow|openScannedRoute/);
+  assert.doesNotMatch(appSource, /<ScanQr|tab === "scan_qr"/);
+});
+
+test("un lien QR ouvre directement le formulaire de réalisation de la voie", () => {
+  assert.match(appSource, /useQrRealisationFlow/);
+  assert.match(appSource, /searchParams\.get\("qrRoute"\)/);
+  assert.match(appSource, /openScannedRoute\(routeId\)/);
+  assert.match(appSource, /searchParams\.delete\("qrRoute"\)/);
 });
