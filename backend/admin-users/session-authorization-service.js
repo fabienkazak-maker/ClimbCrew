@@ -634,7 +634,7 @@ export async function updateSessionWithAuthorization(req, res) {
       );
       sessionRow = result.rows[0];
 
-      if (!existing) {
+      {
         const nextParticipantIds = normalizedRequestedParticipantIds;
         const previousParticipantSet = new Set(previousParticipantIds);
         const nextParticipantSet = new Set(nextParticipantIds);
