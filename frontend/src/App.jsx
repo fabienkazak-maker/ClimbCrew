@@ -415,7 +415,8 @@ function App() {
 
   const myParticipantId = authUser?.participantId ? String(authUser.participantId) : "";
   const myParticipant = participantsById[myParticipantId] || null;
-  const { openScannedRoute, rememberQrBelayer } = useQrRealisationFlow({
+  const { rememberQrBelayer } = useQrRealisationFlow({
+    authUser,
     myParticipantId,
     routesById,
     sessions: state.sessions,
@@ -423,26 +424,6 @@ function App() {
     setRealisationModalRouteId,
     setSyncMessage,
   });
-
-  useEffect(() => {
-    if (!authUser || !myParticipantId) return;
-
-    const url = new URL(window.location.href);
-    const routeId = url.searchParams.get("qrRoute");
-    if (!routeId) return;
-
-    if (!routesById[routeId]) {
-      if (state.routes.length === 0) return;
-      setSyncMessage("Erreur : voie inconnue.");
-      url.searchParams.delete("qrRoute");
-      window.history.replaceState(window.history.state, "", url);
-      return;
-    }
-
-    openScannedRoute(routeId);
-    url.searchParams.delete("qrRoute");
-    window.history.replaceState(window.history.state, "", url);
-  }, [authUser, myParticipantId, openScannedRoute, routesById, setSyncMessage, state.routes.length]);
 
   const {
     addParticipant,
