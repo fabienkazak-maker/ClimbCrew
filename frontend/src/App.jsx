@@ -38,7 +38,6 @@ import {
   gradeToIndex,
   getRouteCardStyle,
   formatDateFr,
-  formatDateShortFr,
   formatPoints,
   nextBusinessDay,
   calculateSimpleCpr,
@@ -70,7 +69,7 @@ import { buildTheCragExport } from "./lib/thecrag.js";
 import { usePlanningSessions } from "./lib/planning-view.js";
 import { useBuddyAvailability } from "./hooks/useBuddyAvailability.js";
 import { useSessionPersistence } from "./hooks/useSessionPersistence.js";
-import { useRealisationPersistence } from "./hooks/useRealisationPersistence.js";
+import { createRealisationPersistenceActions, useRealisationPersistence } from "./hooks/useRealisationPersistence.js";
 import { useQrRealisationFlow } from "./hooks/useQrRealisationFlow.js";
 import { useConfirmationDialog } from "./hooks/useConfirmationDialog.js";
 import {
@@ -751,54 +750,17 @@ function App() {
     setRealisationModalRouteId(null);
   }
 
-async function persistRealisationToApi(realisation) {
-  if (!USE_API) return realisation;
-  if (!authUser) {
-    throw new Error("Connexion requise pour enregistrer une réalisation.");
-  }
-  return await apiFetch("/realisations", {
-    method: "POST",
-    body: JSON.stringify(realisation),
+  const { persistRealisationToApi, deleteRealisation } = createRealisationPersistenceActions({
+    useApi: USE_API,
+    authUser,
+    state,
+    setState,
+    myParticipantId,
+    routesById,
+    requestConfirmation,
+    onSuccess: setConfirmationMessage,
+    onError: setSyncMessage,
   });
-}
-
-async function deleteRealisation(realisation) {
-  if (!realisation?.id) return;
-  if (String(realisation.participantId) !== String(myParticipantId)) {
-    setSyncMessage("Erreur : vous pouvez supprimer uniquement vos propres réalisations.");
-    return;
-  }
-
-  const route = routesById[realisation.voieId];
-  const routeLabel = route ? formatRouteName(route) : "la voie concernée";
-  const dateLabel = realisation.dateRealisation
-    ? formatDateShortFr(realisation.dateRealisation.slice(0, 10))
-    : "date inconnue";
-
-  requestConfirmation({
-    title: "Supprimer la réalisation",
-    message: `Supprimer définitivement la réalisation « ${routeLabel} » du ${dateLabel} ?`,
-    onConfirm: async () => {
-      const previousRealisations = state.realisations;
-      setState((prev) => ({
-        ...prev,
-        realisations: prev.realisations.filter((item) => item.id !== realisation.id),
-      }));
-
-      try {
-        if (USE_API) {
-          await apiFetch(`/realisations/${encodeURIComponent(realisation.id)}`, {
-            method: "DELETE",
-          });
-        }
-        setConfirmationMessage("Réalisation supprimée.");
-      } catch (error) {
-        setState((prev) => ({ ...prev, realisations: previousRealisations }));
-        setSyncMessage(`Erreur : suppression impossible : ${error.message || error}`);
-      }
-    },
-  });
-}
 
   async function addRealisation() {
     if (realisationSaving) return;
