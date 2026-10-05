@@ -1,3 +1,5 @@
+import { getRealisationModeWeight } from "./realisation-mode.js";
+
 export function calculateCpr({
   realisations,
   routesById,
@@ -20,7 +22,13 @@ export function calculateCpr({
       const grade = route.cotationAjustee || route.cotationReference;
       const gradeIndex = gradeToIndex(grade);
       if (gradeIndex < 0) return null;
-      return { id: realisation.id, date: realisation.dateRealisation, grade, weightedIndex: gradeIndex };
+      const modeWeight = getRealisationModeWeight(realisation, route);
+      return {
+        id: realisation.id,
+        date: realisation.dateRealisation,
+        grade,
+        weightedIndex: gradeIndex * modeWeight,
+      };
     })
     .filter(Boolean)
     .sort((a, b) => b.weightedIndex - a.weightedIndex || b.date.localeCompare(a.date))
