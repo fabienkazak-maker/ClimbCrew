@@ -3,8 +3,10 @@ import Button from "./Button.jsx";
 import { formatRouteName, normalizeRopeNumber } from "../lib/domain.js";
 import { qrcode } from "../vendor/qrcode.mjs";
 
-export function routeQrPayload(routeId) {
-  return `climbcrew:voie:${encodeURIComponent(String(routeId || ""))}`;
+export function routeQrPayload(routeId, origin = window.location.origin) {
+  const url = new URL("/", origin);
+  url.searchParams.set("qrRoute", String(routeId || ""));
+  return url.toString();
 }
 
 export function routeQrSvg(routeId) {
@@ -33,7 +35,7 @@ export default function RouteQrCode({ route, onClose }) {
         </div>
         <div className="route-qr-content">
           <img src={imageUrl} alt={`QR code de ${formatRouteName(route)}`} width="260" height="260" />
-          <div className="small">Le QR code est généré directement par ClimbCrew et contient uniquement l’identifiant technique de la voie.</div>
+          <div className="small">Le QR code ouvre ClimbCrew directement sur l’enregistrement de cette voie.</div>
           <a className="qr-download-link" href={imageUrl} download={`climbcrew-voie-${route.id}.svg`}>Télécharger le QR code</a>
         </div>
       </div>
