@@ -23,6 +23,11 @@ export const REALISATION_MODE_LABELS = {
   moulinette: "Moulinette",
 };
 
+export const REALISATION_MODE_WEIGHTS = {
+  en_tete: 1,
+  moulinette: 0.85,
+};
+
 export const REALISATION_CRITERION_LABELS = {
   a_vue: "À vue",
   flash: "Flash",
@@ -72,6 +77,11 @@ export function getRealisationMode(realisation, route = null) {
   return "en_tete";
 }
 
+export function getRealisationModeWeight(realisation, route = null) {
+  const mode = getRealisationMode(realisation, route);
+  return REALISATION_MODE_WEIGHTS[mode] ?? 1;
+}
+
 export function getRealisationCriterion(realisation) {
   return normalizeRealisationCriterion(
     realisation?.styleRealisation ?? realisation?.style_realisation,
@@ -97,7 +107,7 @@ export function isSuccessfulLeadRealisation(realisation, route = null) {
 
 export function getRealisationWeight(realisation, route = null) {
   const mode = getRealisationMode(realisation, route);
-  if (mode === "moulinette") return 0.85;
+  if (mode === "moulinette") return REALISATION_MODE_WEIGHTS.moulinette;
 
   const criterion = getRealisationCriterion(realisation);
   if (criterion) return REALISATION_CRITERION_WEIGHTS[criterion] ?? 1;
