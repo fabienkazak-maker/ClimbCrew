@@ -5,6 +5,7 @@ import ParticipantBadges from "../components/ParticipantBadges.jsx";
 import ProfileGecko from "../components/ProfileGecko.jsx";
 import PhysicalProfileCard from "../components/PhysicalProfileCard.jsx";
 import ProfileRealisationRecorder from "../components/ProfileRealisationRecorder.jsx";
+import ProfileReceivedKudos from "../components/ProfileReceivedKudos.jsx";
 import RouteRealisationStatisticsTable from "../components/RouteRealisationStatisticsTable.jsx";
 import RealisationVideoAnalysis from "../components/RealisationVideoAnalysis.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
@@ -583,6 +584,12 @@ export default function Profil({
                   )}
                 </div>
               )}
+
+              <ProfileReceivedKudos
+                realisations={selectedRealisations}
+                routesById={routesById}
+                participants={participants}
+              />
             </>
           )}
         </>

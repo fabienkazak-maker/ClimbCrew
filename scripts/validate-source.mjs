@@ -6,6 +6,7 @@ function fail(message) {
 }
 
 const app = fs.readFileSync("frontend/src/App.jsx", "utf8");
+const realisationPersistence = fs.readFileSync("frontend/src/hooks/useRealisationPersistence.js", "utf8");
 const planningView = fs.readFileSync("frontend/src/lib/planning-view.js", "utf8");
 const domain = fs.readFileSync("frontend/src/lib/domain.js", "utf8");
 const backendValidation = fs.readFileSync("backend/validation.js", "utf8");
@@ -113,7 +114,12 @@ if (fs.existsSync("backend/server-runtime.js")) fail("server-runtime.js ne doit 
 if (app.includes("multi-signup") || app.includes('name="participantIds"')) fail("la sélection multiple des inscriptions est encore présente");
 if (app.includes("Sans nom") || app.includes("Voie sans nom")) fail("un libellé Sans nom est encore affiché");
 if (!domain.includes("function formatRouteName(route)")) fail("formatage ouvreur puis nom de voie absent");
-if (!app.includes("async function deleteRealisation(realisation)")) fail("suppression de réalisation absente de la progression");
+if (!app.includes("createRealisationPersistenceActions({")
+    || !app.includes("deleteRealisation={deleteRealisation}")
+    || !realisationPersistence.includes("function deleteRealisation(realisation)")
+    || !realisationPersistence.includes('method: "DELETE"')) {
+  fail("suppression de réalisation absente de la progression");
+}
 if (app.includes("l’ocre apparaît sur fond marron") || main.includes("l’ocre apparaît sur fond marron")) {
   fail("mention ocre sur fond marron encore présente dans le frontend");
 }
