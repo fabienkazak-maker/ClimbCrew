@@ -1,6 +1,69 @@
 import { apiFetch } from "../lib/api.js";
+import { formatDateShortFr, formatRouteName } from "../lib/domain.js";
 
 const realisationSyncQueues = new Map();
+
+export function createRealisationPersistenceActions({
+  useApi,
+  authUser,
+  state,
+  setState,
+  myParticipantId,
+  routesById,
+  requestConfirmation,
+  onSuccess,
+  onError,
+  request = apiFetch,
+}) {
+  async function persistRealisationToApi(realisation) {
+    if (!useApi) return realisation;
+    if (!authUser) throw new Error("Connexion requise pour enregistrer une réalisation.");
+    return await request("/realisations", {
+      method: "POST",
+      body: JSON.stringify(realisation),
+    });
+  }
+
+  function deleteRealisation(realisation) {
+    if (!realisation?.id) return;
+    if (String(realisation.participantId) !== String(myParticipantId)) {
+      onError?.("Erreur : vous pouvez supprimer uniquement vos propres réalisations.");
+      return;
+    }
+
+    const route = routesById[realisation.voieId];
+    const routeLabel = route ? formatRouteName(route) : "la voie concernée";
+    const dateLabel = realisation.dateRealisation
+      ? formatDateShortFr(realisation.dateRealisation.slice(0, 10))
+      : "date inconnue";
+
+    requestConfirmation({
+      title: "Supprimer la réalisation",
+      message: `Supprimer définitivement la réalisation « ${routeLabel} » du ${dateLabel} ?`,
+      onConfirm: async () => {
+        const previousRealisations = state.realisations;
+        setState((previous) => ({
+          ...previous,
+          realisations: previous.realisations.filter((item) => item.id !== realisation.id),
+        }));
+
+        try {
+          if (useApi) {
+            await request(`/realisations/${encodeURIComponent(realisation.id)}`, {
+              method: "DELETE",
+            });
+          }
+          onSuccess?.("Réalisation supprimée.");
+        } catch (error) {
+          setState((previous) => ({ ...previous, realisations: previousRealisations }));
+          onError?.(`Erreur : suppression impossible : ${error.message || error}`);
+        }
+      },
+    });
+  }
+
+  return { persistRealisationToApi, deleteRealisation };
+}
 
 export function useRealisationPersistence({
   useApi,
