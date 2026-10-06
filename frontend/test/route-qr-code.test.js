@@ -12,6 +12,11 @@ test("les QR codes sont générés localement sans service externe", () => {
   assert.doesNotMatch(source, /quickchart|googleapis|chart\.google/i);
 });
 
+test("les QR codes contiennent une URL web vers la voie", () => {
+  assert.match(source, /new URL\("\/", origin\)/);
+  assert.match(source, /searchParams\.set\("qrRoute"/);
+  assert.doesNotMatch(source, /climbcrew:voie:/);
+});
 
 test("l'accès aux QR codes de voies est réservé aux administrateurs", () => {
   assert.match(
