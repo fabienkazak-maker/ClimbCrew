@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import Button from "../components/Button.jsx";
 import SaveFeedback from "../components/SaveFeedback.jsx";
+import AdminSection from "../components/AdminSection.jsx";
+import AdminRouteArchiveSection from "../components/AdminRouteArchiveSection.jsx";
 import { apiFetch, downloadFile, USE_API } from "../lib/api.js";
 import { fullName, PASSPORT_OPTIONS } from "../lib/domain.js";
 
@@ -8,20 +10,6 @@ function PassportOptions() {
   return PASSPORT_OPTIONS.map((passport) => (
     <option key={passport.value} value={passport.value}>{passport.label}</option>
   ));
-}
-
-function AdminSection({ title, summary, children }) {
-  return (
-    <details className="card admin-section-details">
-      <summary className="card-header" style={{ cursor: "pointer", userSelect: "none", marginBottom: 0 }}>
-        <div>
-          <h2>{title}</h2>
-          {summary ? <div className="small">{summary}</div> : null}
-        </div>
-      </summary>
-      <div style={{ marginTop: 12 }}>{children}</div>
-    </details>
-  );
 }
 
 export default function Administration({
@@ -304,7 +292,7 @@ export default function Administration({
         </div>
       </AdminSection>
 
-
+      <AdminRouteArchiveSection />
 
       <AdminSection
         title="Export / import des données"
