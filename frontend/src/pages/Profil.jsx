@@ -100,9 +100,11 @@ export default function Profil({
   getPassportDotStyle,
   normalizePassport,
   updateMyProfile,
+  onRecalculateStats,
   exportMyRealisationsCsv,
   onTheCragImported,
   onRealisationsChanged,
+  octoberPumpkinSalt = null,
 }) {
   const [participants, setParticipants] = React.useState(() => myParticipant ? [myParticipant] : []);
   const [selectedParticipantId, setSelectedParticipantId] = React.useState(() => String(myParticipantId || ""));
@@ -119,6 +121,8 @@ export default function Profil({
   const [buddySaveStatus, setBuddySaveStatus] = React.useState("");
   const [pendingConfirmation, setPendingConfirmation] = React.useState(null);
   const [cprDetailsOpen, setCprDetailsOpen] = React.useState(false);
+  const [statsRecalculating, setStatsRecalculating] = React.useState(false);
+  const [statsRecalculateStatus, setStatsRecalculateStatus] = React.useState("");
 
   async function toggleKudo(realisation) {
     if (!myParticipantId || kudosPendingId) return;
@@ -242,6 +246,22 @@ export default function Profil({
     return updateMyProfile({ ...patch, sexe: normalizedSexe });
   }
 
+  async function handleRecalculateOwnStats() {
+    if (!isOwnProfile || statsRecalculating) return;
+    setStatsRecalculating(true);
+    setStatsRecalculateStatus("");
+    setProfileError("");
+    try {
+      await onRecalculateStats();
+      setStatsRecalculateStatus("Vos statistiques et votre CPR ont été recalculés à partir de toutes vos réalisations.");
+    } catch (error) {
+      setProfileError(`Recalcul des statistiques impossible : ${error.message || error}`);
+    } finally {
+      setStatsRecalculating(false);
+      setPendingConfirmation(null);
+    }
+  }
+
   function toggleBuddyPreference(day, slot) {
     const preference = buddyPreferenceKey(day, slot);
     setBuddySaveStatus("");
@@ -293,7 +313,9 @@ export default function Profil({
         open={Boolean(pendingConfirmation)}
         title={pendingConfirmation?.title}
         message={pendingConfirmation?.message}
+        confirmLabel={pendingConfirmation?.confirmLabel}
         onConfirm={() => void pendingConfirmation?.onConfirm?.()}
+        busy={statsRecalculating}
         onCancel={() => setPendingConfirmation(null)}
       />
       <CprDetailsModal
@@ -394,6 +416,7 @@ export default function Profil({
                 grade={cpr.currentGrade || ""}
                 sexe={selectedParticipant.sexe}
                 participant={selectedParticipant}
+                octoberPumpkinSalt={octoberPumpkinSalt}
                 editable={isOwnProfile}
                 onProfileUpdate={isOwnProfile ? handleProfileUpdate : undefined}
               />
@@ -419,11 +442,29 @@ export default function Profil({
                   <div className="stat"><div className="label">Séances</div><div className="value">{participations}</div></div>
                   <div className="stat"><div className="label">Kudos reçus</div><div className="value">{selectedRealisations.reduce((total, item) => total + Number(item.kudosCount || 0), 0)}</div></div>
                 </div>
+                {isOwnProfile && (
+                  <div className="group" style={{ marginTop: 12, alignItems: "center" }}>
+                    <Button
+                      type="button"
+                      variant="primary"
+                      disabled={statsRecalculating}
+                      onClick={() => setPendingConfirmation({
+                        title: "Recalculer mes statistiques et mon CPR",
+                        message: "Toutes vos réalisations déjà enregistrées seront reprises, y compris celles antérieures à une réinitialisation du CPR. Aucune donnée ne sera supprimée.",
+                        confirmLabel: "Recalculer",
+                        onConfirm: handleRecalculateOwnStats,
+                      })}
+                    >
+                      {statsRecalculating ? "Recalcul en cours…" : "Recalculer mes statistiques et mon CPR"}
+                    </Button>
+                    {statsRecalculateStatus && <span className="small" role="status">{statsRecalculateStatus}</span>}
+                  </div>
+                )}
               </div>
 
               <ClimberProfilePanel realisations={selectedRealisations} routesById={routesById} cprGrade={cpr.currentGrade || ""} />
               <ParticipantBadges participant={selectedParticipant} realisations={selectedRealisations} allRealisations={realisations} routesById={routesById} sessions={getParticipantSessions(selectedParticipantId)} />
-              <div className="card"><CprEvolutionChart realisations={selectedRealisations} routesById={routesById} /></div>
+              <div className="card"><CprEvolutionChart realisations={selectedRealisations} routesById={routesById} resetAt={selectedParticipant.cprResetAt} /></div>
 
               {isOwnProfile && (
                 <ProfileRealisationRecorder

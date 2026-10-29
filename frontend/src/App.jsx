@@ -13,6 +13,7 @@ import Inscriptions from "./pages/Inscriptions.jsx";
 import Voies from "./pages/Voies.jsx";
 import Progression from "./pages/Progression.jsx";
 import Profil from "./pages/Profil.jsx";
+import Competences from "./pages/Competences.jsx";
 import Chat from "./pages/Chat.jsx";
 import Parametres from "./pages/Parametres.jsx";
 import Administration from "./pages/Administration.jsx";
@@ -52,6 +53,8 @@ import {
 } from "./lib/domain.js";
 import { USE_API, apiFetch, downloadFile } from "./lib/api.js";
 import { createAuthSessionActions } from "./lib/auth-session-actions.js";
+import { recalculateOwnStatisticsAndCpr } from "./lib/cpr-recalculation.js";
+import { useOctoberPumpkin } from "./hooks/useOctoberPumpkin.js";
 import { normalizeAppData } from "./lib/normalize.js";
 import { APP_VERSION } from "./lib/version.js";
 import { EMPTY_APP_DATA, useAppBusinessState } from "./hooks/useAppBusinessState.js";
@@ -122,6 +125,8 @@ function App() {
     broadcastMessageError, setBroadcastMessageError,
     themePreference, setThemePreference,
   } = useAuthState({ useApi: USE_API, themePreferenceKey: THEME_PREFERENCE_KEY });
+
+  const octoberPumpkinSalt = useOctoberPumpkin(authUser?.id);
 
   const { newParticipant, setNewParticipant } = useParticipantEditorState();
   const {
@@ -337,9 +342,9 @@ function App() {
     return {
       count: selectedParticipantRealisations.length,
       bestAll,
-      cpr: calculateSimpleCpr(selectedParticipantRealisations, routesById),
+      cpr: calculateSimpleCpr(selectedParticipantRealisations, routesById, Date.now(), participantsById[state.selectedParticipantProgress]?.cprResetAt),
     };
-  }, [selectedParticipantRealisations, routesById]);
+  }, [selectedParticipantRealisations, routesById, participantsById, state.selectedParticipantProgress]);
 
   const selectedRouteRealisations = useMemo(() => {
     if (!selectedRouteProgress) return [];
@@ -401,7 +406,9 @@ function App() {
         participant.id,
         calculateSimpleCpr(
           state.realisations.filter((realisation) => String(realisation.participantId) === String(participant.id)),
-          routesById
+          routesById,
+          Date.now(),
+          participant.cprResetAt,
         ),
       ])
     );
@@ -414,6 +421,7 @@ function App() {
 
   const myParticipantId = authUser?.participantId ? String(authUser.participantId) : "";
   const myParticipant = participantsById[myParticipantId] || null;
+
   const { rememberQrBelayer } = useQrRealisationFlow({
     authUser,
     myParticipantId,
@@ -1084,7 +1092,7 @@ async function handleThemePreferenceChange(nextTheme) {
   async function exportAllData() {
     // La version applicative complète la version du format d’export sans la remplacer.
     // Les anciens imports restent ainsi compatibles, tandis qu’un fichier permet
-    // d’identifier immédiatement la version de CristalClimbCrew qui l’a produit.
+    // d’identifier immédiatement la version de CristalClimbClub qui l’a produit.
     const buildVersionedExport = (data) => ({
       ...data,
       exportedAt: data?.exportedAt || new Date().toISOString(),
@@ -1276,13 +1284,13 @@ async function handleThemePreferenceChange(nextTheme) {
         ☰
       </button>
       <div className="brand">
-        <img src="/logo-climbcrew.png" alt="Logo CristalClimbCrew" className="app-logo" />
+        <img src="/logo-climbcrew.png" alt="Logo CristalClimbClub" className="app-logo" />
         <div>
           <div className="brand-title-row">
-            <h1>CristalClimbCrew</h1>
+            <h1>CristalClimbClub</h1>
             <span className="topbar-version" aria-label={`Version ${APP_VERSION}`}>v{APP_VERSION}</span>
           </div>
-          <p>{tab === "parametres" ? "Paramètres" : (visibleTabs.find((item) => item.key === tab)?.label || "CristalClimbCrew")}</p>
+          <p>{tab === "parametres" ? "Paramètres" : (visibleTabs.find((item) => item.key === tab)?.label || "CristalClimbClub")}</p>
         </div>
       </div>
     </div>
@@ -1376,17 +1384,22 @@ async function handleThemePreferenceChange(nextTheme) {
             getPassportDotStyle={getPassportDotStyle}
             normalizePassport={normalizePassport}
             updateMyProfile={updateMyProfile}
+            onRecalculateStats={() => recalculateOwnStatisticsAndCpr({ participantId: myParticipantId, reloadApiState })}
             exportMyRealisationsCsv={exportMyRealisationsCsv}
             onTheCragImported={() => reloadApiState({ isMounted: () => true })}
             onRealisationsChanged={() => reloadApiState({ isMounted: () => true })}
+            octoberPumpkinSalt={octoberPumpkinSalt}
           />
         )}
+
+        {tab === "competences" && <Competences accountId={authUser?.id} />}
 
         {tab === "chat" && (
           <Chat
             myParticipantId={myParticipantId}
             participants={state.participants}
             canPin={authUser?.role === "admin"}
+            octoberPumpkinSalt={octoberPumpkinSalt}
           />
         )}
 

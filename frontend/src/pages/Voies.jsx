@@ -6,12 +6,14 @@ import { API_BASE, apiFetch, apiUploadVideoInChunks } from "../lib/api.js";
 import { REALISATIONS_PAGE_SIZE, fetchPaginatedCollection } from "../lib/bootstrap-data.js";
 import { GRADES, formatRouteName, getRouteCardStyle, normalizeRopeNumber } from "../lib/domain.js";
 import {
+  ROUTE_REALISATION_EXCLUSION_OPTIONS,
   ROUTE_REALISATION_FILTER_OPTIONS,
   filterRouteDisplayGroups,
   formatRouteProgress,
   groupParticipantRealisationsByRoute,
 } from "../lib/route-progress.js";
 import { ROPE_NUMBERS, ROUTE_COLORS, ROUTE_TAGS } from "../lib/ui-config.js";
+import "../styles/route-realisation-filters.css";
 
 function parseVideoUrls(text) {
   return [...new Set(String(text || "").split(/\r?\n/).map((value) => value.trim()).filter(Boolean))];
@@ -75,7 +77,8 @@ export default function Voies({
   const [comparisonOpen, setComparisonOpen] = React.useState(false);
   const [videoDeleteCandidate, setVideoDeleteCandidate] = React.useState(null);
   const [qrRouteId, setQrRouteId] = React.useState("");
-  const [routeRealisationFilter, setRouteRealisationFilter] = React.useState("all");
+  const [routeRealisationFilter, setRouteRealisationFilter] = React.useState([]);
+  const [routeRealisationExclusionFilter, setRouteRealisationExclusionFilter] = React.useState([]);
   const [currentParticipantId, setCurrentParticipantId] = React.useState("");
   const [myRouteRealisations, setMyRouteRealisations] = React.useState([]);
   const [routeProgressError, setRouteProgressError] = React.useState("");
@@ -91,8 +94,10 @@ export default function Voies({
     [myRouteRealisations, currentParticipantId],
   );
   const filteredRouteDisplayGroups = React.useMemo(
-    () => filterRouteDisplayGroups(routeDisplayGroups, realisationsByRoute, routeRealisationFilter),
-    [routeDisplayGroups, realisationsByRoute, routeRealisationFilter],
+    () => filterRouteDisplayGroups(
+      routeDisplayGroups, realisationsByRoute, routeRealisationFilter, routeRealisationExclusionFilter,
+    ),
+    [routeDisplayGroups, realisationsByRoute, routeRealisationFilter, routeRealisationExclusionFilter],
   );
 
   const loadMyRouteRealisations = React.useCallback(async () => {
@@ -133,6 +138,38 @@ export default function Voies({
     setComparisonOpen(false);
     setVideoSaveStatus("");
   }, [videoRouteId]);
+
+  function toggleRouteRealisationType(value) {
+    setRouteRealisationExclusionFilter((selected) => selected.filter((type) => type !== value));
+    setRouteRealisationFilter((selected) => (
+      selected.includes(value)
+        ? selected.filter((type) => type !== value)
+        : [...selected, value]
+    ));
+  }
+
+  function toggleRouteRealisationExclusion(value) {
+    setRouteRealisationFilter((selected) => selected.filter((type) => type !== value));
+    setRouteRealisationExclusionFilter((selected) => (
+      selected.includes(value)
+        ? selected.filter((type) => type !== value)
+        : [...selected, value]
+    ));
+  }
+
+  const selectedRouteFilterLabels = [
+    ...routeRealisationFilter.map((value) => (
+      ROUTE_REALISATION_FILTER_OPTIONS.find((option) => option.value === value)?.label || value
+    )),
+    ...routeRealisationExclusionFilter.map((value) => (
+      ROUTE_REALISATION_EXCLUSION_OPTIONS.find((option) => option.value === value)?.label || value
+    )),
+  ];
+  const selectedRealisationFilterLabel = selectedRouteFilterLabels.length === 0
+    ? "Toutes les voies"
+    : selectedRouteFilterLabels.length === 1
+      ? selectedRouteFilterLabels[0]
+      : `${selectedRouteFilterLabels.length} filtres actifs`;
 
   function toggleRouteDetails(routeId) {
   const key = String(routeId);
@@ -447,10 +484,44 @@ function handleRouteSummaryKeyDown(event, routeId) {
           <div className="group">
             <label htmlFor="route-sort-mode">Trier par</label>
             <select id="route-sort-mode" value={routeSortMode} onChange={(event) => setRouteSortMode(event.target.value)} style={{ width: "auto", minWidth: 130 }}><option value="corde">Corde</option><option value="cotation">Cotation</option></select>
-            <label htmlFor="route-realisation-filter">Réalisation</label>
-            <select id="route-realisation-filter" value={routeRealisationFilter} onChange={(event) => setRouteRealisationFilter(event.target.value)} style={{ width: "auto", minWidth: 150 }}>
-              {ROUTE_REALISATION_FILTER_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
+            <details className="route-realisation-filters">
+              <summary id="route-realisation-filter">Réalisation : {selectedRealisationFilterLabel}</summary>
+              <fieldset className="route-realisation-filter-options">
+                <legend>Inclure : au moins un des types sélectionnés</legend>
+                {ROUTE_REALISATION_FILTER_OPTIONS.filter((option) => option.value !== "all").map((option) => (
+                  <label className="checkbox-field" key={option.value}>
+                    <input
+                      type="checkbox"
+                      checked={routeRealisationFilter.includes(option.value)}
+                      onChange={() => toggleRouteRealisationType(option.value)}
+                    />
+                    <span>{option.label}</span>
+                  </label>
+                ))}
+              </fieldset>
+              <fieldset className="route-realisation-filter-options">
+                <legend>Exclure : aucune réalisation du type sélectionné</legend>
+                {ROUTE_REALISATION_EXCLUSION_OPTIONS.map((option) => (
+                  <label className="checkbox-field" key={option.value}>
+                    <input
+                      type="checkbox"
+                      checked={routeRealisationExclusionFilter.includes(option.value)}
+                      onChange={() => toggleRouteRealisationExclusion(option.value)}
+                    />
+                    <span>{option.label}</span>
+                  </label>
+                ))}
+              </fieldset>
+              <div className="small">« Jamais : En tête » exclut les voies « Moulinette uniquement ».</div>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => { setRouteRealisationFilter([]); setRouteRealisationExclusionFilter([]); }}
+                disabled={routeRealisationFilter.length === 0 && routeRealisationExclusionFilter.length === 0}
+              >
+                Effacer les filtres
+              </button>
+            </details>
           </div>
         </div>
         {routeProgressError && <div className="small" role="status" style={{ marginBottom: 10 }}>{routeProgressError}</div>}
