@@ -207,7 +207,7 @@ jobs:
   deploy:
     name: Déployer la préproduction
     needs: [validate, integration, linux_validate]
-    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && needs.validate.outputs.deploy_branch == 'main' }}
+    if: ${{ github.repository == 'thithipetit-hash/ClimbCrewPPD' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && needs.validate.outputs.deploy_branch == 'main' }}
     runs-on: self-hosted
     timeout-minutes: 35
     env:
@@ -328,7 +328,7 @@ jobs:
             set_env_var SMTP_REQUIRE_TLS true
             set_env_var SMTP_USER "$SMTP_USER"
             set_env_var SMTP_PASSWORD "$SMTP_PASSWORD"
-            set_env_var EMAIL_FROM_NAME ClimbClubCristal
+            set_env_var EMAIL_FROM_NAME CristalClimbClub
             set_env_var EMAIL_FROM_ADDRESS "$SMTP_USER"
           fi
           if [ -n "${BACKUP_EMAIL_ENCRYPTION_KEY:-}" ]; then
