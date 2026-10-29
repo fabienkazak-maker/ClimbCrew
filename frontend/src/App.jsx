@@ -53,6 +53,7 @@ import {
 } from "./lib/domain.js";
 import { USE_API, apiFetch, downloadFile } from "./lib/api.js";
 import { createAuthSessionActions } from "./lib/auth-session-actions.js";
+import { recalculateOwnStatisticsAndCpr } from "./lib/cpr-recalculation.js";
 import { useOctoberPumpkin } from "./hooks/useOctoberPumpkin.js";
 import { normalizeAppData } from "./lib/normalize.js";
 import { APP_VERSION } from "./lib/version.js";
@@ -341,9 +342,9 @@ function App() {
     return {
       count: selectedParticipantRealisations.length,
       bestAll,
-      cpr: calculateSimpleCpr(selectedParticipantRealisations, routesById),
+      cpr: calculateSimpleCpr(selectedParticipantRealisations, routesById, Date.now(), participantsById[state.selectedParticipantProgress]?.cprResetAt),
     };
-  }, [selectedParticipantRealisations, routesById]);
+  }, [selectedParticipantRealisations, routesById, participantsById, state.selectedParticipantProgress]);
 
   const selectedRouteRealisations = useMemo(() => {
     if (!selectedRouteProgress) return [];
@@ -405,7 +406,9 @@ function App() {
         participant.id,
         calculateSimpleCpr(
           state.realisations.filter((realisation) => String(realisation.participantId) === String(participant.id)),
-          routesById
+          routesById,
+          Date.now(),
+          participant.cprResetAt,
         ),
       ])
     );
@@ -418,6 +421,7 @@ function App() {
 
   const myParticipantId = authUser?.participantId ? String(authUser.participantId) : "";
   const myParticipant = participantsById[myParticipantId] || null;
+
   const { rememberQrBelayer } = useQrRealisationFlow({
     authUser,
     myParticipantId,
@@ -1380,6 +1384,7 @@ async function handleThemePreferenceChange(nextTheme) {
             getPassportDotStyle={getPassportDotStyle}
             normalizePassport={normalizePassport}
             updateMyProfile={updateMyProfile}
+            onRecalculateStats={() => recalculateOwnStatisticsAndCpr({ participantId: myParticipantId, reloadApiState })}
             exportMyRealisationsCsv={exportMyRealisationsCsv}
             onTheCragImported={() => reloadApiState({ isMounted: () => true })}
             onRealisationsChanged={() => reloadApiState({ isMounted: () => true })}
