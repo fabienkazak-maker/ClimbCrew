@@ -85,6 +85,7 @@ import {
   resolveSessionIdForRealisation,
 } from "./lib/realisation-workflow.js";
 import { normalizeSessionRoles } from "../../shared/session-rules.js";
+import { filterWallOfFameParticipants } from "./lib/wall-of-fame-filters.js";
 
 const ADMIN_CODE = import.meta.env.VITE_LEGACY_ADMIN_CODE || "";
 
@@ -96,6 +97,7 @@ function App() {
     statsSortField, setStatsSortField,
     statsSortDirection, setStatsSortDirection,
     wallOfFameSexFilter, setWallOfFameSexFilter,
+    wallOfFameAgeFilter, setWallOfFameAgeFilter,
     recentlyAddedParticipantIds, setRecentlyAddedParticipantIds,
     adminInput, setAdminInput,
     adminUnlocked, setAdminUnlocked,
@@ -600,16 +602,17 @@ function App() {
 
   const wallOfFameCategories = useMemo(
     () => calculateWallOfFameCategories({
-      participants: state.participants.filter((participant) => (
-        wallOfFameSexFilter === "all" || participant.sexe === wallOfFameSexFilter
-      )),
+      participants: filterWallOfFameParticipants(state.participants, {
+        sex: wallOfFameSexFilter,
+        ageCategory: wallOfFameAgeFilter,
+      }),
       realisations: state.realisations,
       routesById,
       cprByParticipantId,
       pointsByParticipantId,
       participationCount: sessionStats.participationCount,
     }),
-    [state.participants, state.realisations, routesById, cprByParticipantId, pointsByParticipantId, sessionStats.participationCount, wallOfFameSexFilter],
+    [state.participants, state.realisations, routesById, cprByParticipantId, pointsByParticipantId, sessionStats.participationCount, wallOfFameSexFilter, wallOfFameAgeFilter],
   );
 
   function setSelectedDate(date) {
@@ -730,7 +733,9 @@ function App() {
 
   function openRealisationModal(routeId, requestedParticipantId = "") {
     const route = routesById[routeId];
-    requestedParticipantId = myParticipantId || "";
+    requestedParticipantId = authUser?.role === "admin"
+      ? (requestedParticipantId || myParticipantId || "")
+      : (myParticipantId || "");
     const requestedParticipant = participantsById[requestedParticipantId];
     const latestRegisteredDay = requestedParticipant?.cotisation
       ? getParticipantSessionDays(state.sessions, requestedParticipantId)[0] || ""
@@ -772,7 +777,7 @@ function App() {
 
   async function addRealisation() {
     if (realisationSaving) return;
-    if (!myParticipantId || String(newRealisation.participantId) !== String(myParticipantId)) {
+    if (authUser?.role !== "admin" && (!myParticipantId || String(newRealisation.participantId) !== String(myParticipantId))) {
       setSyncMessage("Erreur : vous pouvez enregistrer uniquement vos propres réalisations.");
       return;
     }
@@ -793,11 +798,14 @@ function App() {
       return;
     }
 
-    const realisation = buildRealisationPayload({
-      draft: newRealisation,
-      sessionId,
-      route: routesById[newRealisation.voieId],
-    });
+    const realisation = {
+      ...buildRealisationPayload({
+        draft: newRealisation,
+        sessionId,
+        route: routesById[newRealisation.voieId],
+      }),
+      participantId: String(newRealisation.participantId),
+    };
 
     setRealisationSaving(true);
     try {
@@ -1269,6 +1277,7 @@ async function handleThemePreferenceChange(nextTheme) {
         onClose={closeRealisationModal}
         onSubmit={addRealisation}
         saving={realisationSaving}
+        isAdmin={authUser?.role === "admin"}
       />
 
       <MobileBottomNav
@@ -1362,6 +1371,7 @@ async function handleThemePreferenceChange(nextTheme) {
             toggleAllProgressRealisations={toggleAllProgressRealisations}
             allRealisations={state.realisations}
             myParticipantId={myParticipantId}
+            isAdmin={authUser?.role === "admin"}
             onKudosChanged={() => reloadApiState({ isMounted: () => true })}
           />
         )}
@@ -1493,6 +1503,8 @@ async function handleThemePreferenceChange(nextTheme) {
             normalizePassport={normalizePassport}
             wallOfFameSexFilter={wallOfFameSexFilter}
             setWallOfFameSexFilter={setWallOfFameSexFilter}
+            wallOfFameAgeFilter={wallOfFameAgeFilter}
+            setWallOfFameAgeFilter={setWallOfFameAgeFilter}
           />
         )}
 
