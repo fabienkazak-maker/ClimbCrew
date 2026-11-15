@@ -55,6 +55,7 @@ export default function Voies({
   setRouteSortMode,
   routeRatingsById,
   routeAggregatesById,
+  allRealisations = [],
   openRealisationModal,
   selectedParticipantProgress,
   editingRouteId,
@@ -532,6 +533,9 @@ function handleRouteSummaryKeyDown(event, routeId) {
               {group.routes.length === 0 ? <div className="small">Aucune voie.</div> : (
                 <div className="stack">
                   {group.routes.map((route) => {
+                    const cprGradeIndex = GRADES.indexOf(route.cotationAjustee || route.cotationReference);
+                    const cprLeadValue = cprGradeIndex >= 0 ? cprGradeIndex.toFixed(2) : "nc";
+                    const cprTopRopeValue = cprGradeIndex >= 0 ? (cprGradeIndex * 0.85).toFixed(2) : "nc";
                     const routeRating = routeRatingsById[route.id] || { average: 0, count: 0 };
                     const videoCount = effectiveVideoUrls(route).length;
                     const videoInputId = `route-video-upload-${route.id}`;
@@ -593,6 +597,7 @@ function handleRouteSummaryKeyDown(event, routeId) {
                         aria-label="Détails complets de la voie"
                         style={{ marginTop: 10, display: "grid", gap: 4 }}
                       >
+                        <div><strong>Valeur CPR :</strong> En tête : {route.moulinetteOnly ? "non autorisée" : cprLeadValue} · Moulinette : {cprTopRopeValue}</div>
                         <div><strong>Nom :</strong> {route.nomVoie || "Sans nom"}</div>
                         <div><strong>Corde :</strong> {normalizeRopeNumber(route.numeroCorde)}</div>
                         <div><strong>Couleur :</strong> {route.couleurPrises || "Sans couleur"}</div>
